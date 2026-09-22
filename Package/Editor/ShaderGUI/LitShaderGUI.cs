@@ -4,14 +4,6 @@ using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle.Editor
 {
-    /// <summary>
-    /// Material inspector for HiddenBull/URP Style/Lit.
-    ///
-    /// The layout follows the order the style is actually authored in (Architecture D10): colour and
-    /// the shape of the light first, optional shading terms second, textures last. Texture slots
-    /// stay hidden until their toggle is on, which keeps the albedo-only default visible for what it
-    /// is — the primary path, not a stripped-down one (D11).
-    /// </summary>
     public sealed class LitShaderGUI : ShaderGUI
     {
         static class Styles
@@ -21,6 +13,39 @@ namespace HiddenBull.UrpStyle.Editor
             public static readonly GUIContent OptionalTerms = new GUIContent("Optional Terms");
             public static readonly GUIContent Textures = new GUIContent("Textures (optional)");
             public static readonly GUIContent Advanced = new GUIContent("Advanced");
+            public static readonly GUIContent Brush = new GUIContent("Brush");
+
+            public static readonly GUIContent BrushSpace = new GUIContent(
+                "Brush Space",
+                "World for static geometry. Object for anything that moves — a world-anchored brush " +
+                "slides across a carried object. Both use the same stroke size, so the two can sit " +
+                "side by side.");
+
+            public static readonly GUIContent BrushRelief = new GUIContent(
+                "Relief",
+                "How far the brush perturbs the shading normal. This is what carries the brush into " +
+                "the ambient, the rim and the specular — without it a face that is entirely lit or " +
+                "entirely shadowed receives nothing but a flat brightness multiply.");
+
+            public static readonly GUIContent BrushWarmth = new GUIContent(
+                "Warmth",
+                "Temperature shift between strokes and the gaps around them. Paint varies in " +
+                "temperature, not just in value; a brightness multiply alone reads as dirt. " +
+                "Negative values make the strokes cooler than the gaps.");
+
+            public static readonly GUIContent BrushShading = new GUIContent(
+                "Brush Shading Break-up",
+                "How far the brush offsets the terminator, breaking the light-to-shadow transition " +
+                "into painted patches.");
+
+            public static readonly GUIContent BrushAlbedo = new GUIContent(
+                "Brush Albedo Variation",
+                "How far the brush varies surface colour. The atlas is centred, so this redistributes " +
+                "brightness rather than darkening or brightening the surface overall.");
+
+            public const string BrushAtlasHint =
+                "The atlas and its scale are set once on the HiddenBull Style renderer feature, not " +
+                "per material — stroke size has to match across the whole project.";
 
             public static readonly GUIContent DiffuseWrap = new GUIContent(
                 "Diffuse Wrap",
@@ -59,7 +84,13 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_Metallic;
         MaterialProperty m_Smoothness;
 
-        MaterialProperty m_VertexColorEnabled;
+
+        MaterialProperty m_BrushEnabled;
+        MaterialProperty m_BrushObjectSpace;
+        MaterialProperty m_BrushRelief;
+        MaterialProperty m_BrushShading;
+        MaterialProperty m_BrushAlbedo;
+        MaterialProperty m_BrushWarmth;
 
         MaterialProperty m_BaseMapEnabled;
         MaterialProperty m_BaseMap;
@@ -105,8 +136,6 @@ namespace HiddenBull.UrpStyle.Editor
                                  material.GetFloat("_ReceiveShadows") >= 0.5f;
             CoreUtils.SetKeyword(material, k_ReceiveShadowsOffKeyword, !receiveShadows);
 
-            // Phase 1 is opaque only. Alpha clipping still moves the material into the alpha-test
-            // queue so it draws after solid geometry and its cut-outs resolve correctly.
             material.SetOverrideTag("RenderType", alphaClip ? "TransparentCutout" : "Opaque");
 
             var queueOffset = material.HasProperty("_QueueOffset") ? (int)material.GetFloat("_QueueOffset") : 0;
@@ -133,7 +162,13 @@ namespace HiddenBull.UrpStyle.Editor
             m_Metallic = FindProperty("_Metallic", properties);
             m_Smoothness = FindProperty("_Smoothness", properties);
 
-            m_VertexColorEnabled = FindProperty("_VertexColorEnabled", properties);
+
+            m_BrushEnabled = FindProperty("_BrushEnabled", properties);
+            m_BrushObjectSpace = FindProperty("_BrushObjectSpace", properties);
+            m_BrushRelief = FindProperty("_BrushRelief", properties);
+            m_BrushShading = FindProperty("_BrushShading", properties);
+            m_BrushAlbedo = FindProperty("_BrushAlbedo", properties);
+            m_BrushWarmth = FindProperty("_BrushWarmth", properties);
 
             m_BaseMapEnabled = FindProperty("_BaseMapEnabled", properties);
             m_BaseMap = FindProperty("_BaseMap", properties);
@@ -193,7 +228,30 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
-            materialEditor.ShaderProperty(m_VertexColorEnabled, m_VertexColorEnabled.displayName);
+            EditorGUILayout.Space();
+
+            DrawBrush(materialEditor);
+        }
+
+        void DrawBrush(MaterialEditor materialEditor)
+        {
+            EditorGUILayout.LabelField(Styles.Brush, EditorStyles.boldLabel);
+            materialEditor.ShaderProperty(m_BrushEnabled, m_BrushEnabled.displayName);
+
+            if (IsEnabled(m_BrushEnabled))
+            {
+                using (new EditorGUI.IndentLevelScope())
+                {
+                    materialEditor.ShaderProperty(m_BrushObjectSpace, Styles.BrushSpace);
+                    materialEditor.ShaderProperty(m_BrushRelief, Styles.BrushRelief);
+                    materialEditor.ShaderProperty(m_BrushShading, Styles.BrushShading);
+                    materialEditor.ShaderProperty(m_BrushAlbedo, Styles.BrushAlbedo);
+                    materialEditor.ShaderProperty(m_BrushWarmth, Styles.BrushWarmth);
+                }
+
+                EditorGUILayout.HelpBox(Styles.BrushAtlasHint, MessageType.None);
+            }
+
             EditorGUILayout.Space();
         }
 

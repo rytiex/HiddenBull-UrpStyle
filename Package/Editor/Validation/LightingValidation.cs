@@ -7,15 +7,6 @@ using UnityEngine.SceneManagement;
 
 namespace HiddenBull.UrpStyle.Editor
 {
-    /// <summary>
-    /// Reports lighting setups the style cannot render correctly (Architecture D16).
-    ///
-    /// The package splits lighting deliberately: direct light and its shadows stay realtime so they
-    /// keep the wrapped diffuse and the stylized penumbra, while indirect light may be baked. Two
-    /// configurations break that split, and both break it *quietly* — the scene simply starts
-    /// looking inconsistent, with no error to trace it back to. This check exists so that failure
-    /// arrives as a sentence instead of a mystery.
-    /// </summary>
     static class LightingValidation
     {
         const string k_MenuPath = "Tools/HiddenBull/URP Style/Validate Scene Lighting";
@@ -23,7 +14,6 @@ namespace HiddenBull.UrpStyle.Editor
         [InitializeOnLoadMethod]
         static void Subscribe()
         {
-            // Silent when the scene is fine, so this never becomes noise to scroll past.
             EditorSceneManager.sceneOpened += (scene, mode) => Validate(scene, logOnlyOnFailure: true);
         }
 

@@ -12,7 +12,7 @@ Unity 6 · URP 17 · Forward+ · PC and console
 "com.hiddenbull.urpstyle": "https://github.com/rytiex/HiddenBull-UrpStyle.git?path=Package"
 ```
 
-Append a tag such as `#v0.4.0` to pin a release.
+Append a tag such as `#v0.5.0` to pin a release.
 
 ## Documentation
 

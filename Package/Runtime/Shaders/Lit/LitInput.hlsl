@@ -4,10 +4,6 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
 #include "../Library/StyleCommon.hlsl"
 
-// Every pass of the shader includes this file, and this is the only place UnityPerMaterial is
-// declared. The SRP Batcher silently drops a shader whose CBUFFER layout differs between passes,
-// and "silently" is the problem — keeping the layout in one shared file makes that impossible.
-
 CBUFFER_START(UnityPerMaterial)
     float4 _BaseMap_ST;
     half4 _BaseColor;
@@ -21,8 +17,11 @@ CBUFFER_START(UnityPerMaterial)
     half _ShadowTerminator;
     half _RimPower;
     half _RimIntensity;
-    // _Cull and the keyword toggles are deliberately absent: they drive render state and keywords
-    // only, are never read from HLSL, and URP's own Lit keeps them out of this CBUFFER too.
+    half _BrushObjectSpace;
+    half _BrushShading;
+    half _BrushAlbedo;
+    half _BrushRelief;
+    half _BrushWarmth;
     half _Surface;
 CBUFFER_END
 
@@ -39,6 +38,11 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _ShadowTerminator)
     UNITY_DOTS_INSTANCED_PROP(float , _RimPower)
     UNITY_DOTS_INSTANCED_PROP(float , _RimIntensity)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushObjectSpace)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushShading)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushAlbedo)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushRelief)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushWarmth)
     UNITY_DOTS_INSTANCED_PROP(float , _Surface)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
@@ -53,16 +57,15 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _ShadowTerminator   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _ShadowTerminator)
 #define _RimPower           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimPower)
 #define _RimIntensity       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimIntensity)
+#define _BrushObjectSpace   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushObjectSpace)
+#define _BrushShading       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushShading)
+#define _BrushAlbedo        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAlbedo)
+#define _BrushRelief        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushRelief)
+#define _BrushWarmth        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushWarmth)
 #define _Surface            UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Surface)
 #endif
 
-/// Builds URP's SurfaceData.
-///
-/// The albedo-only path (Architecture D11) is the fast one: with no keywords enabled this samples
-/// nothing at all. Texture slots exist, but a material that does not use them pays no fetch, no
-/// variant and no register pressure — the inverse of URP's usual arrangement, where the textured
-/// path is the default and flat shading is the degenerate case.
-void InitializeHiddenBullSurfaceData(float2 uv, half4 vertexColor, out SurfaceData outSurfaceData)
+void InitializeHiddenBullSurfaceData(float2 uv, out SurfaceData outSurfaceData)
 {
     outSurfaceData = (SurfaceData)0;
 
@@ -72,16 +75,9 @@ void InitializeHiddenBullSurfaceData(float2 uv, half4 vertexColor, out SurfaceDa
     albedoAlpha *= SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
 #endif
 
-#ifdef _HB_VERTEX_COLOR
-    // In an albedo-only workflow this is how one material covers many variations without extra
-    // draw calls or extra materials.
-    albedoAlpha *= vertexColor;
-#endif
-
     outSurfaceData.alpha = AlphaDiscard(albedoAlpha.a, _Cutoff);
     outSurfaceData.albedo = AlphaModulate(albedoAlpha.rgb, outSurfaceData.alpha);
 
-    // Gated on _NORMALMAP inside SampleNormal, so this costs nothing when the keyword is off.
     outSurfaceData.normalTS = SampleNormal(uv, TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap), _BumpScale);
 
     outSurfaceData.metallic = _Metallic;
@@ -90,7 +86,6 @@ void InitializeHiddenBullSurfaceData(float2 uv, half4 vertexColor, out SurfaceDa
     outSurfaceData.emission = 0.0h;
 }
 
-/// Builds the style parameters that sit alongside SurfaceData.
 HiddenBullStyleData InitializeHiddenBullStyleData()
 {
     HiddenBullStyleData style;
@@ -100,7 +95,12 @@ HiddenBullStyleData InitializeHiddenBullStyleData()
     style.rimColor = _RimColor.rgb;
     style.rimPower = _RimPower;
     style.rimIntensity = _RimIntensity;
+    style.brushObjectSpace = _BrushObjectSpace;
+    style.brushShading = _BrushShading;
+    style.brushAlbedo = _BrushAlbedo;
+    style.brushRelief = _BrushRelief;
+    style.brushWarmth = _BrushWarmth;
     return style;
 }
 
-#endif // HIDDENBULL_URPSTYLE_LIT_INPUT_INCLUDED
+#endif

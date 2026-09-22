@@ -6,13 +6,6 @@ using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle.Tests.Editor
 {
-    /// <summary>
-    /// Guards the properties of the master shader that are expensive to notice by eye.
-    ///
-    /// A broken SRP Batcher layout or a missing DepthNormals pass does not produce an error — the
-    /// frame just gets slower, or a screen-space feature two phases from now quietly has nothing to
-    /// read. Both are caught here instead.
-    /// </summary>
     public class LitShaderTests
     {
         const string k_ShaderName = "HiddenBull/URP Style/Lit";
@@ -61,9 +54,6 @@ namespace HiddenBull.UrpStyle.Tests.Editor
         [Test]
         public void LitShader_IsSRPBatcherCompatible()
         {
-            // Accessed reflectively: the check is an editor utility whose accessibility has moved
-            // between Unity versions, and a compile error here would take the whole test assembly
-            // down with it.
             var method = typeof(UnityEditor.ShaderUtil).GetMethod(
                 "GetSRPBatcherCompatibilityCode",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
@@ -80,16 +70,12 @@ namespace HiddenBull.UrpStyle.Tests.Editor
         }
     }
 
-    /// <summary>
-    /// The ambient fallback is what stands between a missing renderer feature and an all-black
-    /// scene, so it is worth a test of its own.
-    /// </summary>
-    public class AmbientDefaultsTests
+    public class StyleGlobalDefaultsTests
     {
         [Test]
         public void Defaults_ProduceVisibleAmbient()
         {
-            AmbientDefaults.Apply();
+            StyleGlobalDefaults.Apply();
 
             var parameters = Shader.GetGlobalVector("_HB_AmbientParams");
             Assert.Greater(parameters.z, 0f, "Default ambient intensity must be above zero, or an " +
@@ -99,6 +85,17 @@ namespace HiddenBull.UrpStyle.Tests.Editor
             Assert.Greater(parameters.y, 0f, "Ground falloff must be above zero for the same reason.");
             Assert.AreEqual(0f, parameters.w, "Baked ambient must default to off so a project with no " +
                                               "lightmaps is not blended toward black.");
+        }
+
+        [Test]
+        public void Defaults_LeaveTheBrushDisabled()
+        {
+            StyleGlobalDefaults.Apply();
+
+            var brush = Shader.GetGlobalVector("_HB_BrushParams");
+            Assert.AreEqual(0f, brush.w, "With no atlas bound the brush must be gated off, or every " +
+                                         "brushed material multiplies by whatever a default texture " +
+                                         "happens to contain.");
         }
     }
 }

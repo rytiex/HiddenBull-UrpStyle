@@ -52,48 +52,24 @@ porting non-Render-Graph passes afterwards is expensive. There is no fallback pa
 
 ### D4 — One shared resource manager
 
-Depth, normals, the occlusion + bent normal buffer and the shadow mask are consumed by more than
+Depth, normals and the occlusion + bent normal buffer are consumed by more than
 one pass. A single renderer feature owns and declares these resources through Render Graph;
 individual features do not re-derive buffers another feature already produced.
 
 This is the backbone of the package. A feature that cannot express its inputs as a dependency on
 this shared set does not belong as a separate renderer feature.
 
-### D5 — Signature feature: contact-hardening, painterly shadows
+### D5 — Shadows are a signature feature, and their design is open
 
-Shadows should be **crisp where the caster meets the receiver and soften with distance**, with the
-soft end breaking up into brush-like strokes rather than a clean Gaussian falloff.
+Shadows should be crisp where a caster meets its receiver and soften with distance, with the soft
+end breaking up rather than falling off cleanly.
 
-Implementation shape — resolved in screen space, not per material:
+The technique is deliberately not fixed here. A screen-space mask over URP shadow maps was built and
+reverted: it worked, but almost everything that made it hard to author turned out to be baggage of
+shadow mapping rather than anything to do with the style — bias, cascade seams, texel density
+limits, acne. Whatever replaces it is decided before it is built, not during.
 
-```
-DepthNormals prepass
-      ↓
-Blocker search              → penumbra width
-      ↓
-Variable-radius PCF         → raw shadow mask
-      ↓
-Stylize pass                → penumbra width drives brush warp
-      ↓
-Screen-space shadow mask    → sampled by all lit shaders
-```
-
-Why screen space:
-
-- Cost is independent of material complexity and immune to overdraw — the decisive argument given
-  the performance priority.
-- The style lives in exactly one pass, so changing the look is a single-file edit.
-- Can run at reduced resolution, or be switched off entirely, per renderer (see `StyleSettings`).
-
-The brush warp is sampled in **world space**, not screen space, so the strokes stay anchored to
-surfaces instead of swimming when the camera moves.
-
-Known limits, accepted deliberately:
-
-- The mask covers the **main directional light**. A mask per additional light is not affordable;
-  additional lights use standard PCF. They rarely dominate a frame.
-- Transparent surfaces cannot read the mask correctly. They need a fallback path, resolved
-  together with the transparency work in Phase 4.
+Until then the package uses URP shadows unchanged.
 
 ### D6 — Signature feature: directional, coloured occlusion
 
@@ -114,7 +90,7 @@ at half resolution with temporal accumulation.
 *Revised. The original decision gave the package its own four-level tier system in a `StyleProfile`
 asset. That was a mistake and has been removed; the reasoning for the change is below.*
 
-Performance settings live in a `StyleSettings` block serialized directly on
+Performance settings live in a block serialized directly on
 `HiddenBullStyleFeature`. There is one set of settings per renderer, and no tier enum.
 
 Unity already has a quality mechanism, and it works by asset indirection: a Quality Level points at
@@ -137,7 +113,7 @@ new belongs:
 | Home | For |
 |---|---|
 | **Volume** | Artistic settings that blend as the camera moves between areas — `StyleAmbient` |
-| **Renderer feature** | Performance settings, fixed per quality level — `StyleSettings` |
+| **Renderer feature** | Performance settings, fixed per quality level — brush atlas and scale |
 
 Every feature must still be switchable off entirely. A configuration with everything disabled is a
 valid one, and is what a low-end renderer uses.
@@ -237,8 +213,6 @@ nothing when off:
   one most responsible for silhouettes reading against a bright background.
 - **Specular** — URP's PBR specular, enabled per material. Near-absent on the reference's rock and
   terrain, present on characters, so making it optional lets environment materials skip it entirely.
-- **Vertex colour tint** — multiplies albedo. In an albedo-only workflow this is how one material
-  covers many variations without extra draw calls. Effectively free.
 
 **Emission is deferred** to Phase 5, where it arrives alongside bloom. It is additive to the shader
 rather than structural, so postponing it costs nothing.
@@ -253,7 +227,7 @@ The split is therefore fixed:
 
 | | Source | Goes through the style |
 |---|---|---|
-| Direct light and shadows | Always realtime | Yes — wrapped diffuse (D14) and the stylized shadow mask (D5) |
+| Direct light and shadows | Always realtime | Yes — wrapped diffuse (D14) |
 | Indirect light | May be baked | Yes — enters through the ambient slot |
 
 Lights use **Mixed / Baked Indirect**. Direct lighting and shadows stay realtime and keep the
@@ -279,10 +253,6 @@ The style calls for visible brush strokes on surfaces. Two separate layers produ
   any mesh, and a single brush atlas shipped with the package serves the whole project, so the
   albedo-only workflow of D11 is preserved: no per-asset texture authoring.
 
-**The brush source is shared with the shadow mask stylisation of D5.** One source, two consumers —
-which is what guarantees the brush on a surface and the brush on a shadow edge speak the same
-language. Two independent systems could not be kept in agreement.
-
 Anchoring rules, which are not negotiable if the effect is to hold together:
 
 - **Never screen space.** Screen-anchored strokes swim across surfaces as the camera moves.
@@ -297,8 +267,39 @@ behind `shader_feature_local` and a material that wants no brush pays nothing. T
 be mip-mapped and the layer must fade toward flat at distance, or strokes alias into noise — which
 also makes this layer dependent on the temporal stability of D8.
 
-The brush layer ships in **Phase 2**, together with the shadow mask it shares a source with. Phase 1
-establishes the lighting terms it hooks into, and is evaluated without it.
+The brush layer ships in **Phase 2**.
+
+### D18 — The brush atlas is generated offline, not sampled procedurally at runtime
+
+Procedural noise evaluated in the shader was rejected for the brush: noise reads as *noise*, not as
+paint. But synthesising strokes **offline and baking them to a texture** takes the good half of both
+options — real stroke shapes, no runtime synthesis cost, and unlimited variations without waiting
+on an artist. A seed makes any result reproducible.
+
+The package therefore ships a generator (`Tools > HiddenBull > URP Style > Brush Atlas Generator`)
+rather than a fixed texture. Hand-painted input can be added later as a second front-end to the same
+baker; the output format is what matters and it does not change.
+
+**Channel layout.** One texture, one sample, two consumers:
+
+| Channel | Content | Used by |
+|---|---|---|
+| RG | Signed warp vector | Perturbing the shading normal, and whatever draws shadow edges later |
+| B | Stroke coverage | Surface shading — the terminator break-up and the albedo tint |
+
+Two separate textures would cost six triplanar samples instead of three.
+
+**The atlas must tile seamlessly.** It repeats forever across world space (D17), so a visible seam
+ruins everything downstream. Guaranteeing this is the generator's main job and the strongest
+argument for synthesis over hand painting, where seamlessness is painstaking to achieve.
+
+**The stroke channel is centred on 0.5**, by subtracting the generated field's own mean. At runtime
+the tint is read as `(B - 0.5) * 2`, so a centred field leaves average brightness untouched and the
+brush only redistributes it. Without this, raising brush strength would also darken or brighten the
+whole surface, and the two effects would be impossible to tune apart.
+
+**Stored linear and uncompressed-to-high-quality.** RG holds vectors, not colour: sRGB encoding or
+aggressive block compression turns warp artefacts into visible wobble along shadow edges.
 
 ## Non-goals
 

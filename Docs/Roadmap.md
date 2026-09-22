@@ -27,18 +27,36 @@ The shared HLSL library, the first master Lit shader built on it, the three-zone
 model (Architecture D12) and a custom ShaderGUI. Establishes SRP Batcher compliance and the keyword
 budget that everything after this inherits.
 
-The ambient model belongs here rather than in Phase 3 because in this style it *is* the lighting
+The ambient model belongs here rather than in the environment phase because in this style it *is* the lighting
 model (Architecture D10, D13).
 
 **Deliverable:** a single directional light and zero textures are enough to make a rock convincing.
 
-Outstanding before sign-off: verify in the sandbox and fill in the cost table in
-[Features/Lighting.md](Features/Lighting.md).
+Verified in the sandbox. **Cost measurement is deliberately deferred to Phase 2**, where the
+profiling harness is built and both phases are measured together — Phase 1 is a thin per-pixel
+layer, while the screen-space passes of Phase 2 are where the real budget goes.
 
-### Phase 2 — Lighting and shadows
+This is a deferral, not a cancellation. The point of measuring is less to learn the absolute number
+than to have one to compare against: when Phase 5 adds transparency, the only way to notice that
+the albedo-only path quietly grew is to hold it against what it cost before.
 
-The contact-hardening, painterly shadow mask (Architecture D5). Blocker search, variable-radius
-PCF, world-space brush warp, screen-space resolve.
+### Phase 2 — Brush and shadows
+
+Split into three steps, each ending in something that can be looked at before the next begins.
+
+**2a — Brush source and surface layer.** *Implemented.* The brush atlas generator (Architecture
+D18) and the surface layer that consumes it (D17): terminator break-up and albedo variation. Done
+first because the look can be judged immediately and independently — if the brush
+is wrong, it is far cheaper to find out here.
+
+Verify against [TestPlans/Phase2a-Brush.md](TestPlans/Phase2a-Brush.md).
+
+**2b — Shadows.** Not started. A screen-space mask over URP shadow maps was built and reverted;
+see Architecture D5 for what that cost and why the technique is open again.
+
+**2c — Profiling harness.** Carried over from Phase 1: build it under `Package/Samples~/`, then fill
+in the cost tables for both phases. Shipping it as a sample rather than leaving it in the sandbox
+means costs can be re-measured on any consumer's own hardware.
 
 ### Phase 3 — Environment
 

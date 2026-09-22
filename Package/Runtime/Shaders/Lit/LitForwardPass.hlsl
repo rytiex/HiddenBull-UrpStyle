@@ -16,7 +16,6 @@ struct Attributes
     float2 texcoord         : TEXCOORD0;
     float2 staticLightmapUV : TEXCOORD1;
     float2 dynamicLightmapUV : TEXCOORD2;
-    half4 color             : COLOR;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -26,15 +25,15 @@ struct Varyings
     float3 positionWS                  : TEXCOORD1;
 
     #ifdef _NORMALMAP
-        half4 normalWS                 : TEXCOORD2;    // xyz: normal, w: viewDir.x
-        half4 tangentWS                : TEXCOORD3;    // xyz: tangent, w: viewDir.y
-        half4 bitangentWS              : TEXCOORD4;    // xyz: bitangent, w: viewDir.z
+        half4 normalWS                 : TEXCOORD2;
+        half4 tangentWS                : TEXCOORD3;
+        half4 bitangentWS              : TEXCOORD4;
     #else
         half3 normalWS                 : TEXCOORD2;
     #endif
 
     #ifdef _ADDITIONAL_LIGHTS_VERTEX
-        half4 fogFactorAndVertexLight  : TEXCOORD5;    // x: fogFactor, yzw: vertex light
+        half4 fogFactorAndVertexLight  : TEXCOORD5;
     #else
         half fogFactor                 : TEXCOORD5;
     #endif
@@ -51,10 +50,6 @@ struct Varyings
 
     #ifdef USE_APV_PROBE_OCCLUSION
         float4 probeOcclusion          : TEXCOORD9;
-    #endif
-
-    #ifdef _HB_VERTEX_COLOR
-        half4 color                    : TEXCOORD10;
     #endif
 
     float4 positionCS                  : SV_POSITION;
@@ -99,8 +94,6 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
 }
 
-/// Fills the baked GI slot. Whatever lands in inputData.bakedGI is treated as *indirect only*:
-/// direct light and its shadows always stay realtime so they keep the style (Architecture D16).
 void InitializeBakedGIData(Varyings input, inout InputData inputData)
 {
 #if defined(_SCREEN_SPACE_IRRADIANCE)
@@ -152,10 +145,6 @@ Varyings HiddenBullLitVertex(Attributes input)
     output.normalWS = NormalizeNormalPerVertex(normalInput.normalWS);
 #endif
 
-#ifdef _HB_VERTEX_COLOR
-    output.color = input.color;
-#endif
-
     OUTPUT_LIGHTMAP_UV(input.staticLightmapUV, unity_LightmapST, output.staticLightmapUV);
 #ifdef DYNAMICLIGHTMAP_ON
     output.dynamicLightmapUV = input.dynamicLightmapUV.xy * unity_DynamicLightmapST.xy + unity_DynamicLightmapST.zw;
@@ -187,14 +176,8 @@ void HiddenBullLitFragment(
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-#ifdef _HB_VERTEX_COLOR
-    half4 vertexColor = input.color;
-#else
-    half4 vertexColor = half4(1.0h, 1.0h, 1.0h, 1.0h);
-#endif
-
     SurfaceData surfaceData;
-    InitializeHiddenBullSurfaceData(input.uv, vertexColor, surfaceData);
+    InitializeHiddenBullSurfaceData(input.uv, surfaceData);
 
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);
@@ -222,4 +205,4 @@ void HiddenBullLitFragment(
 #endif
 }
 
-#endif // HIDDENBULL_URPSTYLE_LIT_FORWARD_PASS_INCLUDED
+#endif

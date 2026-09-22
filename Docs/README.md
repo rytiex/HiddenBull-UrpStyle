@@ -33,14 +33,13 @@ Pin a release by appending a tag, for example `#v0.1.0`.
 - **[Features](Features/)** — one page per feature: what it does, how it is configured, and what
   it costs.
   - [Lighting and Ambient](Features/Lighting.md)
+  - [Brush Layer](Features/Brush.md)
+- **[Test Plans](TestPlans/)** — per-phase verification checklists.
+  - [Phase 2a — Brush](TestPlans/Phase2a-Brush.md)
 
 ## Status
 
-Phase 1 is implemented: the shader core and the ambient model are in place, and a single
-directional light with no textures is enough to light a scene in the style.
+The shader core, the ambient model and the brush layer are implemented and usable. Shadows are
+still URP's own; the package's own shadow system is not started.
 
-It is not yet signed off. Per the [roadmap](Roadmap.md) a feature is complete only once its cost is
-measured and recorded, and the cost table in
-[Features/Lighting.md](Features/Lighting.md) is still empty.
-
-See the [changelog](../Package/CHANGELOG.md).
+Costs are not yet measured, so no phase is signed off. See the [changelog](../Package/CHANGELOG.md).

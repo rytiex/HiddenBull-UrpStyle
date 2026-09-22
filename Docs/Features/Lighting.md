@@ -53,8 +53,7 @@ comes from the ambient gradient, not from the cosine falloff.
 *Shadow Terminator Fade* fades the shadow map out near the terminator. Shadow maps produce acne
 where a surface is nearly edge-on to the light, and wrapped diffuse makes it worse by lighting
 geometry the shadow map already treats as self-shadowed. Raise it if a ragged band appears along the
-terminator; lower it if shadows leak onto surfaces that should be dark. Phase 2 makes this redundant
-by resolving the terminator properly in the screen-space mask instead of hiding it.
+terminator; lower it if shadows leak onto surfaces that should be dark.
 
 **Optional terms** — each behind a keyword, each free when off ([D15](../Architecture.md)):
 
@@ -64,8 +63,6 @@ by resolving the terminator properly in the screen-space mask instead of hiding 
   spill past the stylized terminator. Environment reflection is sampled from the ambient gradient
   along the reflection vector rather than from a reflection probe, so reflections can never
   disagree with the ambient beside them.
-- *Vertex Color Tint* — multiplies albedo. In an albedo-only workflow this is how one material
-  covers many variations without extra draw calls.
 
 **Textures (optional)** — Base Map and Normal Map, hidden until enabled.
 
@@ -79,15 +76,12 @@ blended in with *Baked Weight* ([D16](../Architecture.md)).
 `Tools > HiddenBull > URP Style > Validate Scene Lighting` reports a scene configured that way, and
 the same check runs automatically when a scene is opened, staying silent when nothing is wrong.
 
-Vertex colour is not applied in the Meta pass, so a material relying on Vertex Color Tint bounces
-light as if untinted. Worth knowing before tinting large static surfaces that contribute much bounce.
-
 ## Keyword budget
 
 Material keywords, all `shader_feature_local` and all off by default — an albedo-only material
 compiles to one variant:
 
-`_HB_BASE_MAP` · `_NORMALMAP` · `_HB_VERTEX_COLOR` · `_HB_SPECULAR` · `_HB_RIM` ·
+`_HB_BASE_MAP` · `_NORMALMAP` · `_HB_BRUSH` · `_HB_SPECULAR` · `_HB_RIM` ·
 `_ALPHATEST_ON` · `_RECEIVE_SHADOWS_OFF`
 
 Two URP keywords that the standard shaders declare are deliberately **not** compiled:
@@ -99,8 +93,12 @@ A known gap, traded for a smaller variant count.
 
 ## Cost
 
-Not yet measured. Per the [roadmap](../Roadmap.md), a feature without a recorded cost is not
-complete — this table is filled in from the sandbox profiling scene before Phase 1 is signed off.
+Not yet measured — deferred to Phase 2, where the profiling harness is built and both phases are
+measured together. See the [roadmap](../Roadmap.md).
+
+Measurements will be recorded as a **delta against the same scene with the feature off**, at a
+stated resolution, overdraw factor and GPU. An absolute millisecond figure means nothing across
+machines; the difference attributable to the feature does.
 
 | Configuration | GPU cost |
 |---|---|
@@ -113,5 +111,5 @@ complete — this table is filled in from the sandbox profiling scene before Pha
 
 - Transparency and blending — Phase 4 ([D9](../Architecture.md)).
 - Emission — Phase 5, alongside bloom.
-- The brush layer — Phase 2, where it shares a source with the shadow mask ([D17](../Architecture.md)).
+- The brush layer — Phase 2 ([D17](../Architecture.md)).
 - Mask and detail texture slots.

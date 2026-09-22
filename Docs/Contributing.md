@@ -5,7 +5,7 @@
 ```
 Package/          the published UPM package — everything shipped lives here
   Runtime/
-    Core/         StyleSettings, shared types
+    Core/         shared settings types
     Rendering/    renderer features and Render Graph passes
     Volume/       custom VolumeComponents
     Shaders/
