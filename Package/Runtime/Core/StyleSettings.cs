@@ -4,15 +4,34 @@ using UnityEngine;
 namespace HiddenBull.UrpStyle
 {
     /// <summary>
-    /// The complete set of style switches for a single <see cref="StyleQualityTier"/>.
+    /// Render resolution a screen-space pass runs at, relative to the camera target.
+    /// </summary>
+    public enum StyleResolutionScale
+    {
+        Full = 0,
+        Half = 1,
+        Quarter = 2
+    }
+
+    /// <summary>
+    /// Performance settings for the style, serialized on <see cref="HiddenBullStyleFeature"/>.
     ///
-    /// Each development phase appends its own block here. Two rules keep this file honest:
-    ///   1. Every feature must be switchable off — a tier that disables everything is a valid tier.
-    ///   2. Nothing lands here speculatively. A field is only added once the feature it drives
-    ///      has an agreed design in Docs/Architecture.md, even if the implementation follows later.
+    /// These live on the renderer feature rather than in an asset of their own because that is where
+    /// Unity already expects per-quality-level rendering settings to be: a Quality Level points at a
+    /// URP Asset, which points at a Renderer, which carries its features' settings. Scaling quality
+    /// therefore means authoring one renderer per quality level — the same way URP handles its own
+    /// shadow resolution and cascade counts — instead of this package inventing a parallel tier
+    /// system beside the one Unity ships (see Architecture D7).
+    ///
+    /// Artistic settings do not belong here. Those go on a Volume, so they blend as the camera moves
+    /// between areas; <see cref="StyleAmbient"/> is the example.
+    ///
+    /// Each development phase appends its own block. A field is only added once the feature it
+    /// drives has an agreed design in Docs/Architecture.md, even if the implementation follows later,
+    /// and every feature must be switchable off — settings with everything disabled are valid.
     /// </summary>
     [Serializable]
-    public class StyleTierSettings
+    public class StyleSettings
     {
         // --- Phase 2: Stylized shadows -------------------------------------------------
         // Contact-hardening shadow mask resolved in screen space, stylized once in a single
@@ -67,44 +86,21 @@ namespace HiddenBull.UrpStyle
             get => m_OcclusionResolution;
             set => m_OcclusionResolution = value;
         }
+    }
 
-        /// <summary>
-        /// Builds the defaults for a tier. Used when a profile is created or when its tier
-        /// list is resized, so a fresh profile is immediately usable.
-        /// </summary>
-        public static StyleTierSettings CreateDefault(StyleQualityTier tier)
+    /// <summary>
+    /// Helpers for <see cref="StyleResolutionScale"/>.
+    /// </summary>
+    public static class StyleResolution
+    {
+        /// <summary>Divisor applied to a render target's dimensions for the given scale.</summary>
+        public static int ToDivisor(this StyleResolutionScale scale)
         {
-            switch (tier)
+            switch (scale)
             {
-                case StyleQualityTier.Low:
-                    return new StyleTierSettings
-                    {
-                        m_StylizedShadowMask = false,
-                        m_ShadowMaskResolution = StyleResolutionScale.Quarter,
-                        m_DirectionalOcclusion = false,
-                        m_OcclusionResolution = StyleResolutionScale.Quarter
-                    };
-
-                case StyleQualityTier.Medium:
-                    return new StyleTierSettings
-                    {
-                        m_StylizedShadowMask = true,
-                        m_ShadowMaskResolution = StyleResolutionScale.Half,
-                        m_DirectionalOcclusion = true,
-                        m_OcclusionResolution = StyleResolutionScale.Quarter
-                    };
-
-                case StyleQualityTier.Ultra:
-                    return new StyleTierSettings
-                    {
-                        m_StylizedShadowMask = true,
-                        m_ShadowMaskResolution = StyleResolutionScale.Full,
-                        m_DirectionalOcclusion = true,
-                        m_OcclusionResolution = StyleResolutionScale.Full
-                    };
-
-                default: // High
-                    return new StyleTierSettings();
+                case StyleResolutionScale.Half: return 2;
+                case StyleResolutionScale.Quarter: return 4;
+                default: return 1;
             }
         }
     }

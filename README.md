@@ -12,7 +12,7 @@ Unity 6 · URP 17 · Forward+ · PC and console
 "com.hiddenbull.urpstyle": "https://github.com/rytiex/HiddenBull-UrpStyle.git?path=Package"
 ```
 
-Append a tag such as `#v0.2.0` to pin a release.
+Append a tag such as `#v0.4.0` to pin a release.
 
 ## Documentation
 
@@ -23,8 +23,9 @@ Append a tag such as `#v0.2.0` to pin a release.
 
 ## Status
 
-Early development. Structure and configuration model in place; rendering features start with
-Phase 1. See the [changelog](Package/CHANGELOG.md).
+Phase 1 implemented — shader core and ambient model. A single directional light and no textures are
+enough to light a scene in the style. Costs are not yet measured, so the phase is not signed off.
+See the [changelog](Package/CHANGELOG.md).
 
 ## License
 

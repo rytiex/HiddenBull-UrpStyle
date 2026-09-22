@@ -7,7 +7,12 @@ first, with the reasoning, before any code moves.
 ## Context
 
 - **Unity 6** (developed and tested against `6000.4.1f1`)
-- **URP 17** (`com.unity.render-pipelines.universal` — minimum `17.0.3`, tested on `17.4.0`)
+- **URP 17.4.0** (`com.unity.render-pipelines.universal`)
+
+  The minimum is pinned to exactly the version the package is developed against. Earlier 17.x
+  releases moved shader keywords and API accessibility between them — `_FORWARD_PLUS` became
+  `_CLUSTER_LIGHT_LOOP`, for one — and a lower floor would mean claiming support for versions
+  nobody has tested. Raising the floor is cheap; a silently broken lighting path is not.
 - **Target platform:** PC and console
 - **Perspective:** 3D first / third person
 - **Priority order:** performance first, then visual style, then authoring convenience
@@ -78,7 +83,7 @@ Why screen space:
 - Cost is independent of material complexity and immune to overdraw — the decisive argument given
   the performance priority.
 - The style lives in exactly one pass, so changing the look is a single-file edit.
-- Can run at reduced resolution and be tiered (see `StyleTierSettings`).
+- Can run at reduced resolution, or be switched off entirely, per renderer (see `StyleSettings`).
 
 The brush warp is sampled in **world space**, not screen space, so the strokes stay anchored to
 surfaces instead of swimming when the camera moves.
@@ -101,17 +106,41 @@ Standard SSAO multiplies ambient by grey, which reads as dead. Instead:
 - **Multi-bounce approximation** tints occlusion by surface albedo, so a corner next to a red wall
   goes red. Nearly free relative to its visual payoff.
 
-Full screen-space GI is out of scope for now. It remains an option for an Ultra tier later,
+Full screen-space GI is out of scope for now. It remains an option for a high-end renderer later,
 at half resolution with temporal accumulation.
 
-### D7 — Quality tiers are a first-class concept
+### D7 — Quality scaling is Unity's, not the package's
 
-`StyleProfile` holds one `StyleTierSettings` per `StyleQualityTier`. Renderer features read the
-active tier rather than caching their own copies, so a tier change reconfigures the whole style
-from one place.
+*Revised. The original decision gave the package its own four-level tier system in a `StyleProfile`
+asset. That was a mistake and has been removed; the reasoning for the change is below.*
 
-Every feature must define behaviour for every tier, **including being switched off entirely**. The
-editor-side variant stripper walks the same data to decide which shader variants can be dropped.
+Performance settings live in a `StyleSettings` block serialized directly on
+`HiddenBullStyleFeature`. There is one set of settings per renderer, and no tier enum.
+
+Unity already has a quality mechanism, and it works by asset indirection: a Quality Level points at
+a URP Asset, which points at a Renderer, which carries its features' settings. URP itself scales
+this way — shadow resolution and cascade counts have no tier enum, there is simply a `URP_Asset_PC`
+and a `URP_Asset_Mobile`. A tier system inside the package would sit *beside* that mechanism rather
+than on top of it, leaving two ways to express the same thing and an obvious question of which one
+wins.
+
+So quality scaling means authoring one renderer per quality level, and switching at runtime means
+`QualitySettings.SetQualityLevel`. Nothing is lost; the responsibility moves to where the engine
+already handles it.
+
+Variant stripping is unaffected: the stripper walks the renderer features of every URP Asset in
+Graphics Settings, which is how URP's own prefiltering works.
+
+The split between the two homes for settings is worth stating, because it decides where anything
+new belongs:
+
+| Home | For |
+|---|---|
+| **Volume** | Artistic settings that blend as the camera moves between areas — `StyleAmbient` |
+| **Renderer feature** | Performance settings, fixed per quality level — `StyleSettings` |
+
+Every feature must still be switchable off entirely. A configuration with everything disabled is a
+valid one, and is what a low-end renderer uses.
 
 ### D8 — Temporal stability is a dependency, not a bonus
 
@@ -214,9 +243,66 @@ nothing when off:
 **Emission is deferred** to Phase 5, where it arrives alongside bloom. It is additive to the shader
 rather than structural, so postponing it costs nothing.
 
+### D16 — Baking policy: direct light stays realtime, indirect may be baked
+
+Baked lighting and a custom BRDF do not mix by default. Unity bakes irradiance using *its* Lambert
+model, so baked light arrives already convolved and the wrapped diffuse of D14 cannot be applied to
+it. A scene mixing baked walls with realtime props would show two different lighting characters.
+
+The split is therefore fixed:
+
+| | Source | Goes through the style |
+|---|---|---|
+| Direct light and shadows | Always realtime | Yes — wrapped diffuse (D14) and the stylized shadow mask (D5) |
+| Indirect light | May be baked | Yes — enters through the ambient slot |
+
+Lights use **Mixed / Baked Indirect**. Direct lighting and shadows stay realtime and keep the
+style; bounced light bakes into lightmaps and probes.
+
+**Ambient is a pluggable slot.** The gradient of D12 is one provider; baked lightmaps and probes
+are another. Both feed the same slot, so the bent-normal colouring of D6 applies identically
+whichever is in use — exteriors can run on the gradient alone, interiors can bake indirect light.
+
+**Shadowmask and Subtractive modes are not supported.** Both bake shadows into lightmaps, and baked
+shadows have none of the stylized penumbra of D5 — the scene would end up speaking two different
+shadow languages. An editor validation check reports lights configured this way rather than letting
+the scene degrade silently.
+
+### D17 — Brush layer: world or object space, never screen space, always one scale
+
+The style calls for visible brush strokes on surfaces. Two separate layers produce it:
+
+- **Shading brush** — the diffuse terminator of D14 is warped and broken up by the brush source,
+  so the light-to-shadow transition reads as painted patches rather than a smooth gradient.
+  Essentially free: it perturbs a term already being computed.
+- **Albedo brush** — a triplanar brush pattern varying surface colour. No UVs required, works on
+  any mesh, and a single brush atlas shipped with the package serves the whole project, so the
+  albedo-only workflow of D11 is preserved: no per-asset texture authoring.
+
+**The brush source is shared with the shadow mask stylisation of D5.** One source, two consumers —
+which is what guarantees the brush on a surface and the brush on a shadow edge speak the same
+language. Two independent systems could not be kept in agreement.
+
+Anchoring rules, which are not negotiable if the effect is to hold together:
+
+- **Never screen space.** Screen-anchored strokes swim across surfaces as the camera moves.
+- **World space** for static geometry, **object space** for anything that moves — a world-anchored
+  brush slides across a carried object.
+- **One scale everywhere.** Stroke size is a fixed world-space measure, not scaled per object and
+  not compensated for camera distance. Object-space mode divides out the object's lossy scale, so a
+  scaled-up mesh does not get stretched strokes and sit oddly next to its neighbours.
+
+Costs and risks, stated up front: triplanar sampling is three texture fetches, so the layer sits
+behind `shader_feature_local` and a material that wants no brush pays nothing. The brush atlas must
+be mip-mapped and the layer must fade toward flat at distance, or strokes alias into noise — which
+also makes this layer dependent on the temporal stability of D8.
+
+The brush layer ships in **Phase 2**, together with the shadow mask it shares a source with. Phase 1
+establishes the lighting terms it hooks into, and is evaluated without it.
+
 ## Non-goals
 
 - Deferred rendering support (see D1).
-- Mobile and WebGL as primary targets. The tier system should degrade gracefully, but no feature
-  is designed around tile-based GPU constraints.
+- Mobile and WebGL as primary targets. Features should degrade gracefully when switched off, but
+  none is designed around tile-based GPU constraints.
 - ShaderGraph as a source of truth (see D2).

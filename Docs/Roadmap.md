@@ -10,7 +10,7 @@ numbered decision, so the reasoning survives the conversation.
 A phase is finished when all of the following are true:
 
 - The feature works in the sandbox project.
-- It has a defined behaviour on every quality tier, including *off*.
+- It can be switched off cleanly, so a low-end renderer can drop it entirely.
 - Its cost is measured and written down in `Docs/Features/`.
 - `Docs/` and `Package/CHANGELOG.md` are updated.
 
@@ -18,10 +18,10 @@ A phase is finished when all of the following are true:
 
 ### Phase 0 — Foundation ✅
 
-Package structure, assembly definitions, `StyleProfile` with quality tiers, sandbox ↔ package
-link, documentation skeleton, versioning discipline. No rendering code.
+Package structure, assembly definitions, settings model, sandbox ↔ package link, documentation
+skeleton, versioning discipline. No rendering code.
 
-### Phase 1 — Shader core and ambient model
+### Phase 1 — Shader core and ambient model — implemented, not signed off
 
 The shared HLSL library, the first master Lit shader built on it, the three-zone gradient ambient
 model (Architecture D12) and a custom ShaderGUI. Establishes SRP Batcher compliance and the keyword
@@ -31,6 +31,9 @@ The ambient model belongs here rather than in Phase 3 because in this style it *
 model (Architecture D10, D13).
 
 **Deliverable:** a single directional light and zero textures are enough to make a rock convincing.
+
+Outstanding before sign-off: verify in the sandbox and fill in the cost table in
+[Features/Lighting.md](Features/Lighting.md).
 
 ### Phase 2 — Lighting and shadows
 
@@ -53,11 +56,11 @@ Volume components for the style's grading and screen-space effects.
 
 ### Phase 6 — Optimisation
 
-Shader variant stripping driven by the tier data, the package's own temporal accumulation layer,
+Shader variant stripping driven by the renderers' settings, the package's own temporal accumulation layer,
 profiling scenes, and a documented cost budget per feature.
 
 ## Measurement
 
 Performance is the first priority, so it is measured rather than assumed. Each feature's page in
-`Docs/Features/` records its GPU cost at a stated resolution and tier, taken in the sandbox
+`Docs/Features/` records its GPU cost at a stated resolution and settings, taken in the sandbox
 profiling scene. A feature without a recorded cost is not considered complete.

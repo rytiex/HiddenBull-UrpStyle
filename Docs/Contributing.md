@@ -5,7 +5,7 @@
 ```
 Package/          the published UPM package — everything shipped lives here
   Runtime/
-    Core/         StyleProfile, quality tiers
+    Core/         StyleSettings, shared types
     Rendering/    renderer features and Render Graph passes
     Volume/       custom VolumeComponents
     Shaders/
@@ -71,5 +71,5 @@ Every change updates `Package/CHANGELOG.md` in the same commit.
 ## Definition of done
 
 See the phase completion criteria in [Roadmap.md](Roadmap.md). In short: it works in the sandbox,
-it behaves on every tier including *off*, its cost is measured and written down, and the docs and
-changelog are updated.
+it can be switched off cleanly, its cost is measured and written down, and the docs and changelog
+are updated.

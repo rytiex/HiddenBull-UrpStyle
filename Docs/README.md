@@ -9,7 +9,7 @@ the first requirement rather than a later pass.
 | | |
 |---|---|
 | Unity | 6000.0 or newer (developed on 6000.4.1f1) |
-| URP | 17.0.3 or newer (tested on 17.4.0) |
+| URP | 17.4.0 or newer |
 | Rendering path | Forward+ |
 | Target | PC and console |
 
@@ -32,8 +32,15 @@ Pin a release by appending a tag, for example `#v0.1.0`.
   versioning.
 - **[Features](Features/)** — one page per feature: what it does, how it is configured, and what
   it costs.
+  - [Lighting and Ambient](Features/Lighting.md)
 
 ## Status
 
-Early development. The package structure and configuration model are in place; rendering features
-begin with Phase 1. See the [changelog](../Package/CHANGELOG.md).
+Phase 1 is implemented: the shader core and the ambient model are in place, and a single
+directional light with no textures is enough to light a scene in the style.
+
+It is not yet signed off. Per the [roadmap](Roadmap.md) a feature is complete only once its cost is
+measured and recorded, and the cost table in
+[Features/Lighting.md](Features/Lighting.md) is still empty.
+
+See the [changelog](../Package/CHANGELOG.md).
