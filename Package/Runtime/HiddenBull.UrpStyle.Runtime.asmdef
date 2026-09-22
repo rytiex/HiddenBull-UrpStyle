@@ -2,6 +2,7 @@
     "name": "HiddenBull.UrpStyle.Runtime",
     "rootNamespace": "HiddenBull.UrpStyle",
     "references": [
+        "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [],

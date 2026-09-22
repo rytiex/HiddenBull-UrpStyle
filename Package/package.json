@@ -1,6 +1,6 @@
 {
     "name": "com.hiddenbull.urpstyle",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "displayName": "HiddenBull URP Style",
     "description": "A shared Universal Render Pipeline visual style toolkit for HiddenBull games — shaders, renderer features and volume components for a consistent look across projects.",
     "unity": "6000.0",
