@@ -1,0 +1,39 @@
+{
+    "name": "com.hiddenbull.urpstyle",
+    "version": "0.1.0",
+    "displayName": "HiddenBull URP Style",
+    "description": "A shared Universal Render Pipeline visual style toolkit for HiddenBull games — shaders, renderer features and volume components for a consistent look across projects.",
+    "unity": "6000.0",
+    "documentationUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/Docs/README.md",
+    "licensesUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/LICENSE",
+    "keywords": [
+        "urp",
+        "shader",
+        "rendering",
+        "unity",
+        "visual-style"
+    ],
+    "author": {
+        "name": "RyTiex",
+        "email": "rytiextr@gmail.com",
+        "url": "https://github.com/rytiex/"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rytiex/HiddenBull-UrpStyle.git"
+    },
+    "bugs": {
+        "url": "https://github.com/rytiex/HiddenBull-UrpStyle/issues"
+    },
+    "category": "Rendering",
+    "dependencies": {
+        "com.unity.render-pipelines.universal": "17.0.3"
+    },
+    "samples": [
+        {
+            "displayName": "Demo Scene",
+            "description": "A sample scene demonstrating the URP style setup (materials, renderer features, volume profile).",
+            "path": "Samples~/DemoScene"
+        }
+    ]
+}

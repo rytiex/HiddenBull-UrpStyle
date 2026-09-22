@@ -1,0 +1,27 @@
+* text=auto eol=lf
+
+*.cs diff=csharp text
+*.cginc text
+*.shader text
+*.hlsl text
+*.compute text
+*.json text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.tiff binary
+*.exr binary
+
+*.mat merge=unityyamlmerge eol=lf
+*.anim merge=unityyamlmerge eol=lf
+*.unity merge=unityyamlmerge eol=lf
+*.prefab merge=unityyamlmerge eol=lf
+*.asset merge=unityyamlmerge eol=lf
+*.meta merge=unityyamlmerge eol=lf
+*.controller merge=unityyamlmerge eol=lf
+*.shadergraph merge=unityyamlmerge eol=lf
+*.shadersubgraph merge=unityyamlmerge eol=lf
