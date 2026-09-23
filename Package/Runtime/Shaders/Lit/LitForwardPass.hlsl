@@ -17,6 +17,9 @@ struct Attributes
     float2 texcoord         : TEXCOORD0;
     float2 staticLightmapUV : TEXCOORD1;
     float2 dynamicLightmapUV : TEXCOORD2;
+#ifdef _HB_BRUSH_ANCHOR
+    float3 brushAnchorOS    : TEXCOORD3;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -51,6 +54,10 @@ struct Varyings
 
     #ifdef USE_APV_PROBE_OCCLUSION
         float4 probeOcclusion          : TEXCOORD9;
+    #endif
+
+    #ifdef _HB_BRUSH_ANCHOR
+        float3 brushAnchor             : TEXCOORD10;
     #endif
 
     float4 positionCS                  : SV_POSITION;
@@ -137,6 +144,10 @@ Varyings HiddenBullLitVertex(Attributes input)
     output.positionWS = vertexInput.positionWS;
     output.positionCS = vertexInput.positionCS;
 
+#ifdef _HB_BRUSH_ANCHOR
+    output.brushAnchor = input.brushAnchorOS;
+#endif
+
 #ifdef _NORMALMAP
     half3 viewDirWS = GetWorldSpaceViewDir(vertexInput.positionWS);
     output.normalWS = half4(normalInput.normalWS, viewDirWS.x);
@@ -194,6 +205,12 @@ void HiddenBullLitFragment(
     InitializeBakedGIData(input, inputData);
 
     HiddenBullStyleData styleData = InitializeHiddenBullStyleData();
+
+#ifdef _HB_BRUSH_ANCHOR
+    styleData.brushAnchor = input.brushAnchor;
+#else
+    styleData.brushAnchor = float3(0.0, 0.0, 0.0);
+#endif
 
     half sunVisibility;
     half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, sunVisibility);

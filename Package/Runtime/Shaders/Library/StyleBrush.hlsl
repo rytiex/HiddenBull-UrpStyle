@@ -8,10 +8,22 @@ SAMPLER(sampler_HB_BrushAtlas);
 
 float4 _HB_BrushParams;
 
+#define HB_BRUSH_TILES_PER_UNIT _HB_BrushParams.x
+#define HB_BRUSH_FADE_START     _HB_BrushParams.y
+#define HB_BRUSH_FADE_RATE      _HB_BrushParams.z
+#define HB_BRUSH_ATLAS_BOUND    _HB_BrushParams.w
+
 struct HiddenBullBrushSample
 {
     half3 warp;
     half coverage;
+};
+
+struct HiddenBullBrushSpace
+{
+    float3 position;
+    half3 normal;
+    half localSpace;
 };
 
 HiddenBullBrushSample HB_NoBrush()
@@ -22,42 +34,67 @@ HiddenBullBrushSample HB_NoBrush()
     return brush;
 }
 
+float3 HB_ObjectScale()
+{
+    float4x4 objectToWorld = GetObjectToWorldMatrix();
+
+    return float3(
+        length(objectToWorld._m00_m10_m20),
+        length(objectToWorld._m01_m11_m21),
+        length(objectToWorld._m02_m12_m22));
+}
+
 float3 HB_ObjectSpacePosition(float3 positionWS)
 {
     float3 positionOS = mul(GetWorldToObjectMatrix(), float4(positionWS, 1.0)).xyz;
 
-    float4x4 objectToWorld = GetObjectToWorldMatrix();
-
-    float3 lossyScale = float3(
-        length(objectToWorld._m00_m10_m20),
-        length(objectToWorld._m01_m11_m21),
-        length(objectToWorld._m02_m12_m22));
-
-    return positionOS * lossyScale;
+    return positionOS * HB_ObjectScale();
 }
 
 half3 HB_ObjectSpaceNormal(half3 normalWS)
 {
-    float4x4 objectToWorld = GetObjectToWorldMatrix();
-    return SafeNormalize(mul(normalWS, (half3x3)objectToWorld));
+    return SafeNormalize(mul(normalWS, (half3x3)GetObjectToWorldMatrix()));
 }
 
-HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half objectSpace)
+HiddenBullBrushSpace HB_ResolveBrushSpace(float3 positionWS, half3 normalWS, half objectSpace,
+                                          float3 anchorOS)
 {
-    HiddenBullBrushSample brush = HB_NoBrush();
+    HiddenBullBrushSpace space;
 
-    if (_HB_BrushParams.w < 0.5h)
-        return brush;
+#ifdef _HB_BRUSH_ANCHOR
+    space.position = anchorOS * HB_ObjectScale();
+    space.normal = HB_ObjectSpaceNormal(normalWS);
+    space.localSpace = 1.0h;
+#else
+    space.position = lerp(positionWS, HB_ObjectSpacePosition(positionWS), objectSpace);
+    space.normal = lerp(normalWS, HB_ObjectSpaceNormal(normalWS), objectSpace);
+    space.localSpace = objectSpace;
+#endif
 
-    float3 position = lerp(positionWS, HB_ObjectSpacePosition(positionWS), objectSpace);
-    half3 normal = lerp(normalWS, HB_ObjectSpaceNormal(normalWS), objectSpace);
+    return space;
+}
 
+half3 HB_TriplanarBlend(half3 normal)
+{
     half3 blend = abs(normal);
     blend *= blend;
     blend *= blend;
-    blend /= max(blend.x + blend.y + blend.z, HB_EPSILON);
 
-    float3 uvw = position * _HB_BrushParams.x;
+    return blend / max(blend.x + blend.y + blend.z, HB_EPSILON);
+}
+
+HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half objectSpace,
+                                     float3 anchorOS)
+{
+    HiddenBullBrushSample brush = HB_NoBrush();
+
+    if (HB_BRUSH_ATLAS_BOUND < 0.5h)
+        return brush;
+
+    HiddenBullBrushSpace space = HB_ResolveBrushSpace(positionWS, normalWS, objectSpace, anchorOS);
+
+    half3 blend = HB_TriplanarBlend(space.normal);
+    float3 uvw = space.position * HB_BRUSH_TILES_PER_UNIT;
 
     half4 planeX = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.zy);
     half4 planeY = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xz);
@@ -71,18 +108,15 @@ HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half obj
                + half3(warpY.x, 0.0h, warpY.y) * blend.y
                + half3(warpZ.x, warpZ.y, 0.0h) * blend.z;
 
-    float4x4 objectToWorld = GetObjectToWorldMatrix();
-    half3 rotated = SafeNormalize(mul((half3x3)objectToWorld, warp)) * length(warp);
-    brush.warp = lerp(warp, rotated, objectSpace);
+    half3 rotated = SafeNormalize(mul((half3x3)GetObjectToWorldMatrix(), warp)) * length(warp);
 
     half coverage = planeX.b * blend.x + planeY.b * blend.y + planeZ.b * blend.z;
-    brush.coverage = coverage * 2.0h - 1.0h;
 
     float distanceToCamera = length(GetCameraPositionWS() - positionWS);
-    half fade = saturate(1.0h - (distanceToCamera - _HB_BrushParams.y) * _HB_BrushParams.z);
+    half fade = saturate(1.0h - (distanceToCamera - HB_BRUSH_FADE_START) * HB_BRUSH_FADE_RATE);
 
-    brush.warp *= fade;
-    brush.coverage *= fade;
+    brush.warp = lerp(warp, rotated, space.localSpace) * fade;
+    brush.coverage = (coverage * 2.0h - 1.0h) * fade;
 
     return brush;
 }

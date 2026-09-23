@@ -22,7 +22,7 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How quickly density drops with altitude. 0 gives uniform fog at every height; " +
                  "higher values keep it in the valleys. It has nothing to act on in a scene where " +
                  "everything sits at the same height.")]
-        public ClampedFloatParameter heightFalloff = new ClampedFloatParameter(0.05f, 0f, 1f);
+        public ClampedFloatParameter heightFalloff = new ClampedFloatParameter(0f, 0f, 1f);
 
         [Tooltip("World height, in metres, at which density is at its full value.")]
         public FloatParameter baseHeight = new FloatParameter(0f);

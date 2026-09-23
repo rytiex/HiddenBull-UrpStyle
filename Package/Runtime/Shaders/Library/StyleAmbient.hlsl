@@ -12,8 +12,9 @@ float4 _HB_AmbientParams;
 #define HB_LUT_SCALE            _HB_AmbientParams.y
 #define HB_LUT_OFFSET           _HB_AmbientParams.z
 
-#define HB_LUT_ROW_AMBIENT 0.25
-#define HB_LUT_ROW_SKY     0.75
+#define HB_LUT_ROW_AMBIENT  0.16667
+#define HB_LUT_ROW_SKY      0.50000
+#define HB_LUT_ROW_SKY_AWAY 0.83333
 
 half3 HB_SampleSkyLut(half up, float row)
 {
@@ -29,7 +30,9 @@ half3 HB_GradientAmbient(half3 directionWS)
 
 half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI)
 {
-    return lerp(HB_GradientAmbient(normalWS), bakedGI, HB_AMBIENT_BAKED_WEIGHT);
+    half weight = HB_AMBIENT_BAKED_WEIGHT * half(_HB_KeyDirection.w);
+
+    return lerp(HB_GradientAmbient(normalWS), bakedGI, weight);
 }
 
 half3 HB_AmbientSkyColor()

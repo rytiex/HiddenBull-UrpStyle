@@ -6,32 +6,12 @@
 #include "StyleAmbient.hlsl"
 #include "StyleBrush.hlsl"
 
-half HB_WrappedDiffuse(half NdotL, half wrap, half softness)
-{
-    half w = saturate(wrap);
-    half invW = rcp(1.0h + w);
-
-    half d = saturate((NdotL + w) * invW);
-
-    half terminator = w * invW;
-
-    half halfBand = 0.5h * max(softness, HB_EPSILON);
-
-    half e0 = max(terminator - halfBand, 0.0h);
-    half e1 = max(min(terminator + halfBand, 1.0h), e0 + HB_EPSILON);
-
-    return smoothstep(e0, e1, d);
-}
-
 half3 HB_LightResponse(Light light, half3 normalWS, HiddenBullStyleData style, half terminatorOffset)
 {
     half NdotL = dot(normalWS, light.direction) + terminatorOffset;
     half shaped = HB_WrappedDiffuse(NdotL, style.diffuseWrap, style.diffuseSoftness);
 
-    half shadowFade = smoothstep(0.0h, max(style.shadowTerminator, HB_EPSILON), NdotL);
-    half shadowAttenuation = lerp(1.0h, light.shadowAttenuation, shadowFade);
-
-    return light.color * (light.distanceAttenuation * shadowAttenuation * shaped);
+    return light.color * (light.distanceAttenuation * light.shadowAttenuation * shaped);
 }
 
 half3 HB_RimLight(half3 normalWS, half3 viewDirectionWS, HiddenBullStyleData style, half occlusion)
@@ -46,7 +26,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 {
 #ifdef _HB_BRUSH
     HiddenBullBrushSample brush = HB_SampleBrush(inputData.positionWS, inputData.normalWS,
-                                                 style.brushObjectSpace);
+                                                 style.brushObjectSpace, style.brushAnchor);
 
     half terminatorOffset = brush.coverage * style.brushShading;
 
@@ -65,6 +45,14 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     uint meshRenderingLayers = GetMeshRenderingLayer();
 
     Light mainLight = GetMainLight(inputData, shadowMask, aoFactor);
+
+    if (dot(_HB_KeyDirection.xyz, _HB_KeyDirection.xyz) > 0.5)
+    {
+        mainLight.direction = half3(_HB_KeyDirection.xyz);
+        mainLight.color = _HB_KeyColor.rgb;
+        mainLight.shadowAttenuation = lerp(1.0h, mainLight.shadowAttenuation, half(_HB_KeyColor.a));
+    }
+
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
 
     sunVisibility = mainLight.shadowAttenuation;

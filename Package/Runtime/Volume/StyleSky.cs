@@ -29,6 +29,13 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Overall brightness of the sky.")]
         public ClampedFloatParameter skyIntensity = new ClampedFloatParameter(1f, 0f, 4f);
 
+        [Tooltip("How far the brush atlas breaks up the sky, so it reads as painted rather than as " +
+                 "a smooth ramp. It both bends the gradient and varies the colour, so strokes stay " +
+                 "visible on a flat zenith as well as across the bands. It fades out toward the " +
+                 "horizon on its own, to keep that line clean. Needs a brush atlas on the renderer " +
+                 "feature.")]
+        public ClampedFloatParameter skyBrush = new ClampedFloatParameter(0.45f, 0f, 1f);
+
         [Header("Ambient")]
         [Tooltip("The light the sky casts, read along the surface normal: left is a surface facing " +
                  "down, right is a surface facing up. Keep it calmer and less saturated than the sky " +
@@ -46,74 +53,51 @@ namespace HiddenBull.UrpStyle
         public ClampedFloatParameter ambientIntensity = new ClampedFloatParameter(1f, 0f, 4f);
 
         [Tooltip("Blends from the gradient toward Unity's baked lightmaps and probes. 0 keeps the " +
-                 "gradient, 1 uses baked indirect light only. Direct light and its shadows always " +
-                 "stay realtime regardless.")]
+                 "gradient, 1 uses baked indirect light only. It is scaled down as the sun sets, " +
+                 "because a lightmap carries the bounce of a sun that is no longer there. Direct " +
+                 "light and its shadows always stay realtime regardless.")]
         public ClampedFloatParameter bakedWeight = new ClampedFloatParameter(0f, 0f, 1f);
 
+        [Tooltip("How much the warm band at sunset is kept to the side the sun is actually on. At 0 " +
+                 "the horizon glows the same all the way around, which is what a gradient read " +
+                 "purely by height has to do. Higher values let the sky opposite the sun run ahead " +
+                 "into the night gradient, so it darkens first while the sunset side stays lit.")]
+        public ClampedFloatParameter sunsetFocus = new ClampedFloatParameter(1f, 0f, 1f);
+
+        [Header("Sky Light")]
+        [Tooltip("The one directional light the scene gets, read by the sun's height: the far left " +
+                 "is the middle of the night with the moon overhead, the middle of the bar is the " +
+                 "horizon, the far right is noon.\n\n" +
+                 "The light swaps to the moon's side once the sun drops below the horizon. It is " +
+                 "faded out and back in across that swap for you, so the middle of the bar can " +
+                 "hold any colour you like without the light appearing to jump sides — which is " +
+                 "also what really happens, since a sun on the horizon puts almost no direct light " +
+                 "on the ground. The warm raking light of a sunset belongs just to the right of " +
+                 "centre, while the sun is still a few degrees up.")]
+        public ElevationGradientParameter skyLight = new ElevationGradientParameter(DefaultSkyLight());
+
+        [Tooltip("Overall strength of that light.")]
+        public ClampedFloatParameter skyLightIntensity = new ClampedFloatParameter(1f, 0f, 4f);
+
+        [Tooltip("The colour of the sun's disc, read by its own height: the far right is noon, the " +
+                 "middle is the horizon. Everything left of centre is below the horizon and never " +
+                 "drawn. How bright and how large it is lives on Style Celestial.")]
+        public ElevationGradientParameter sunDiscColor = new ElevationGradientParameter(DefaultSunDiscColor());
+
+        [Tooltip("The colour of the moon's disc, read by the moon's own height rather than the " +
+                 "sun's — so a moon climbing while the sun sets is not forced to share its colour. " +
+                 "The far right is the moon at its highest, the middle is the horizon.")]
+        public ElevationGradientParameter moonDiscColor = new ElevationGradientParameter(DefaultMoonDiscColor(), true);
+
         [Header("Time of Day")]
-        [Tooltip("Sun elevation, as a sine, above which it is fully day. Dusk occupies everything " +
+        [Tooltip("Sun elevation, in degrees above the horizon, above which it is fully day. Dusk occupies everything " +
                  "between this and Night Elevation. The blend follows the sun on its own — sky, " +
                  "ambient and fog all read these gradients, so the whole scene changes together and " +
                  "nothing needs to be switched or animated.")]
-        public ClampedFloatParameter duskElevation = new ClampedFloatParameter(0.1f, -0.3f, 0.5f);
+        public ClampedFloatParameter duskElevation = new ClampedFloatParameter(30f, 1f, 40f);
 
-        [Tooltip("Sun elevation, as a sine, below which it is fully night.")]
-        public ClampedFloatParameter nightElevation = new ClampedFloatParameter(-0.15f, -0.6f, 0.2f);
-
-        [Header("Sun")]
-        [Tooltip("Tint and brightness of the sun. The main directional light's own colour is " +
-                 "multiplied in. Set the intensity to zero for a sky with no sun in it.")]
-        public ColorParameter sunColor = new ColorParameter(new Color(1f, 0.8973985f, 0.8254717f), true, false, true);
-
-        [Tooltip("The colour it reaches by dusk, on the same curve the sky gradients follow. It " +
-                 "holds this colour once the sun is down rather than returning to the day one.")]
-        public ColorParameter sunDuskColor = new ColorParameter(new Color(1f, 0.4895238f, 0f), true, false, true);
-
-        public ClampedFloatParameter sunIntensity = new ClampedFloatParameter(0.85f, 0f, 20f);
-
-        [Tooltip("The brightness it reaches by dusk. The dusk colour already darkens the disc on " +
-                 "its own, so this starts matching the day value — push it down for a sun you can " +
-                 "look at, or up for one that burns through the haze.")]
-        public ClampedFloatParameter sunDuskIntensity = new ClampedFloatParameter(1.65f, 0f, 20f);
-
-        [Tooltip("Angular radius of the disc, in degrees.")]
-        public ClampedFloatParameter sunSize = new ClampedFloatParameter(0.1f, 0.1f, 30f);
-
-        [Tooltip("The size it reaches by dusk. A low sun reading larger than a high one is most of " +
-                 "what makes a sunset feel like one.")]
-        public ClampedFloatParameter sunDuskSize = new ClampedFloatParameter(2f, 0.1f, 30f);
-
-        [Tooltip("Size and strength of the glow around the disc, on one curve.")]
-        public ClampedFloatParameter sunGlow = new ClampedFloatParameter(0.475f, 0f, 1f);
-
-        [Tooltip("How far the brush atlas breaks up the disc edge, so the sun reads as painted " +
-                 "rather than as a circle. Needs a brush atlas on the renderer feature.")]
-        public ClampedFloatParameter sunBrush = new ClampedFloatParameter(1f, 0f, 1f);
-
-        [Tooltip("Rays radiating from the sun. 0 leaves the glow smooth.")]
-        public ClampedFloatParameter sunRays = new ClampedFloatParameter(0.35f, 0f, 1f);
-
-        [Header("Moon")]
-        [Tooltip("Tint and brightness of the moon. It sits exactly opposite the sun, so it rises as " +
-                 "the sun sets without anything to place or switch on. Set the intensity to zero " +
-                 "for a moonless sky.")]
-        public ColorParameter moonColor = new ColorParameter(new Color(0.8f, 0.85f, 1f), true, false, true);
-
-        public ClampedFloatParameter moonIntensity = new ClampedFloatParameter(1.25f, 0f, 20f);
-
-        [Tooltip("Angular radius of the moon, in degrees.")]
-        public ClampedFloatParameter moonSize = new ClampedFloatParameter(0.125f, 0.1f, 30f);
-
-        [Tooltip("Size and strength of the glow around the moon.")]
-        public ClampedFloatParameter moonGlow = new ClampedFloatParameter(0.305f, 0f, 1f);
-
-        [Header("Stars")]
-        [Tooltip("How many stars there are and how brightly they burn, on one curve. They fade out " +
-                 "on their own as the sun rises.")]
-        public ClampedFloatParameter stars = new ClampedFloatParameter(0.75f, 0f, 1f);
-
-        [Tooltip("How much stars vary in brightness over time.")]
-        public ClampedFloatParameter starTwinkle = new ClampedFloatParameter(0.4f, 0f, 1f);
+        [Tooltip("Sun elevation, in degrees above the horizon, below which it is fully night. Negative means below it.")]
+        public ClampedFloatParameter nightElevation = new ClampedFloatParameter(-8.6f, -30f, -1f);
 
         public static void InvalidateGradients()
         {
@@ -121,8 +105,8 @@ namespace HiddenBull.UrpStyle
         }
 
         public static Gradient DefaultDaySky() => Make(
-            Key(0.0754717f, 0.0754717f, 0.0754717f, 0f),
-            Key(0.4245283f, 0.4245283f, 0.4245283f, 0.45f),
+            Key(0.4433962f, 0.4433962f, 0.4433962f, 0f),
+            Key(0.8584906f, 0.8584906f, 0.8584906f, 0.45f),
             Key(0.95f, 0.96f, 0.98f, 0.50f),
             Key(0.55f, 0.72f, 0.93f, 0.70f),
             Key(0.28f, 0.52f, 0.88f, 1f));
@@ -131,8 +115,8 @@ namespace HiddenBull.UrpStyle
             Key(0.10f, 0.07f, 0.09f, 0f),
             Key(0.22f, 0.13f, 0.16f, 0.44f),
             Key(1.00f, 0.44f, 0.19f, 0.50f),
-            Key(0.85f, 0.35f, 0.30f, 0.58f),
-            Key(0.45f, 0.28f, 0.45f, 0.75f),
+            Key(0.85f, 0.35f, 0.30f, 0.68f),
+            Key(0.3356989f, 0.2784314f, 0.4509804f, 0.85f),
             Key(0.22f, 0.20f, 0.42f, 1f));
 
         public static Gradient DefaultNightSky() => Make(
@@ -142,20 +126,48 @@ namespace HiddenBull.UrpStyle
             Key(0.0020470f, 0.0054112f, 0.0188679f, 1f));
 
         public static Gradient DefaultDayAmbient() => Make(
-            Key(0.4357423f, 0.4357423f, 0.6037736f, 0f),
-            Key(0.5471698f, 0.5471698f, 0.5471698f, 0.50f),
+            Key(0.2735849f, 0.2735849f, 0.2735849f, 0f),
+            Key(0.5606978f, 0.5606978f, 0.6792453f, 0.1147f),
+            Key(0.7436943f, 0.7451354f, 0.8431187f, 0.2294f),
+            Key(0.8155037f, 0.8505028f, 0.9245283f, 0.50f),
             Key(1.0000000f, 0.9519084f, 0.8915094f, 1f));
 
         public static Gradient DefaultDuskAmbient() => Make(
-            Key(0.1132075f, 0.0720897f, 0.0857956f, 0f),
-            Key(0.6980392f, 0.3275012f, 0.2784314f, 0.50f),
-            Key(0.8584906f, 0.6572186f, 0.4170969f, 0.7735f),
-            Key(0.6407530f, 0.6678663f, 0.7264151f, 1f));
+            Key(0.2735849f, 0.1185056f, 0.0916251f, 0f),
+            Key(0.5000000f, 0.3004838f, 0.2004717f, 0.1029f),
+            Key(0.7547170f, 0.4336543f, 0.3666786f, 0.50f),
+            Key(0.8962264f, 0.7226003f, 0.5115255f, 0.7735f),
+            Key(0.9703549f, 0.8426444f, 0.6886137f, 0.8823f),
+            Key(1.0000000f, 1.0000000f, 1.0000000f, 1f));
 
         public static Gradient DefaultNightAmbient() => Make(
-            Key(0.0483721f, 0.0483721f, 0.0800000f, 0f),
-            Key(0.0703448f, 0.0703448f, 0.1200000f, 0.50f),
-            Key(0.1346154f, 0.1480769f, 0.2100000f, 1f));
+            Key(0.0000000f, 0.0000000f, 0.0000000f, 0.0676f),
+            Key(0.0620772f, 0.0620772f, 0.1415094f, 0.1882f),
+            Key(0.1776878f, 0.1776878f, 0.3113208f, 0.4206f),
+            Key(0.1292275f, 0.1454254f, 0.2264151f, 0.6676f),
+            Key(0.4012104f, 0.4223923f, 0.5283019f, 0.8088f),
+            Key(0.7722944f, 0.7869310f, 0.8396226f, 1f));
+
+        public static Gradient DefaultSkyLight() => Make(
+            Key(0.2321000f, 0.2527000f, 0.3133000f, 0f),
+            Key(0.2321000f, 0.2527000f, 0.3133000f, 0.48f),
+            Key(0.4433962f, 0.2087761f, 0.1024831f, 0.50f),
+            Key(1.0000000f, 0.6414817f, 0.1650943f, 0.60f),
+            Key(1.0000000f, 0.7120591f, 0.4481132f, 0.65f),
+            Key(1.0000000f, 1.0000000f, 1.0000000f, 0.7412f),
+            Key(1.0000000f, 1.0000000f, 1.0000000f, 1f));
+
+        public static Gradient DefaultSunDiscColor() => Make(
+            Key(0.0000f, 0.0000f, 0.0000f, 0.49f),
+            Key(1.0000f, 0.7593924f, 0.0000f, 0.50f),
+            Key(1.0000f, 0.9535000f, 0.9190f, 0.65f),
+            Key(1.0000f, 0.9535000f, 0.9190f, 1f));
+
+        public static Gradient DefaultMoonDiscColor() => Make(
+            Key(1.0000f, 0.8500000f, 0.7000000f, 0f),
+            Key(1.0000f, 0.9138691f, 0.8254717f, 0.52f),
+            Key(0.9063f, 0.9309000f, 1.0000000f, 0.65f),
+            Key(0.9063f, 0.9309000f, 1.0000000f, 1f));
 
         static readonly GradientAlphaKey[] s_Opaque =
         {

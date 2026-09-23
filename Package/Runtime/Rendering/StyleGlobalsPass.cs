@@ -21,9 +21,34 @@ namespace HiddenBull.UrpStyle
         static readonly int s_MoonDiscId = Shader.PropertyToID("_HB_MoonDisc");
         static readonly int s_MoonGlowId = Shader.PropertyToID("_HB_MoonGlow");
         static readonly int s_StarParamsId = Shader.PropertyToID("_HB_StarParams");
+        static readonly int s_CloudAtlasId = Shader.PropertyToID("_HB_CloudAtlas");
+        static readonly int s_CloudParamsId = Shader.PropertyToID("_HB_CloudParams");
+        static readonly int s_CloudMotionId = Shader.PropertyToID("_HB_CloudMotion");
+        static readonly int s_CloudLightId = Shader.PropertyToID("_HB_CloudLight");
+        static readonly int s_CloudAwayLightId = Shader.PropertyToID("_HB_CloudAwayLight");
+        static readonly int s_CloudSlabId = Shader.PropertyToID("_HB_CloudSlab");
+        static readonly int s_KeyDirectionId = Shader.PropertyToID("_HB_KeyDirection");
+        static readonly int s_KeyColorId = Shader.PropertyToID("_HB_KeyColor");
+        static readonly int s_CloudTintId = Shader.PropertyToID("_HB_CloudTint");
         static readonly int s_FogParamsId = Shader.PropertyToID("_HB_FogParams");
         static readonly int s_FogScatterId = Shader.PropertyToID("_HB_FogScatter");
         static readonly int s_FogTintId = Shader.PropertyToID("_HB_FogTint");
+
+        static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
+
+        const float HB_Transition = 0.12f;
+        const float HB_CloudElevationLift = 0.09f;
+
+        struct SkyTiming
+        {
+            public float sunTime;
+            public float afterglow;
+            public Color sunDisc;
+            public Color moonDisc;
+            public Color cloudLight;
+            public Color cloudAway;
+            public float cloudFlip;
+        }
 
         class PassData
         {
@@ -40,6 +65,15 @@ namespace HiddenBull.UrpStyle
             public Vector4 moonDisc;
             public Vector4 moonGlow;
             public Vector4 starParams;
+            public Texture cloudAtlas;
+            public Vector4 cloudParams;
+            public Vector4 cloudMotion;
+            public Vector4 cloudLight;
+            public Vector4 cloudAwayLight;
+            public Vector4 cloudSlab;
+            public Vector4 cloudTint;
+            public Vector4 keyDirection;
+            public Vector4 keyColor;
             public Vector4 fogParams;
             public Vector4 fogScatter;
             public Vector4 fogTint;
@@ -48,6 +82,7 @@ namespace HiddenBull.UrpStyle
         readonly SkyLutBaker m_Lut = new SkyLutBaker();
 
         BrushGlobalSettings m_Brush;
+        CloudGlobalSettings m_Clouds;
 
         public StyleGlobalsPass()
         {
@@ -55,19 +90,23 @@ namespace HiddenBull.UrpStyle
             profilingSampler = new ProfilingSampler("HiddenBull Style Globals");
         }
 
-        public void Setup(BrushGlobalSettings brush)
+        public void Setup(BrushGlobalSettings brush, CloudGlobalSettings clouds)
         {
             m_Brush = brush;
+            m_Clouds = clouds;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             var stack = VolumeManager.instance.stack;
             var sky = stack.GetComponent<StyleSky>();
+            var celestial = stack.GetComponent<StyleCelestial>();
+            var clouds = stack.GetComponent<StyleClouds>();
             var fog = stack.GetComponent<StyleFog>();
 
             var sun = ResolveSunLight(frameData);
-            var elevation = SunElevation(sun);
+            var direction = SunDirection(sun);
+            var elevation = direction == Vector3.zero ? 1f : direction.y;
 
             using var builder = renderGraph.AddUnsafePass<PassData>(passName, out var passData);
 
@@ -76,8 +115,11 @@ namespace HiddenBull.UrpStyle
 
             PackBrush(m_Brush, passData);
 
-            var sunVisibility = PackSky(sky, sun, elevation, passData);
-            PackFog(fog, sunVisibility, passData);
+            var timing = PackSky(sky, direction, elevation, passData);
+
+            PackCelestial(celestial, direction, elevation, timing, passData);
+            PackClouds(clouds, m_Clouds, timing, passData);
+            PackFog(fog, timing.afterglow, passData);
 
             builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
             {
@@ -103,15 +145,29 @@ namespace HiddenBull.UrpStyle
                 cmd.SetGlobalVector(s_MoonGlowId, data.moonGlow);
                 cmd.SetGlobalVector(s_StarParamsId, data.starParams);
 
+                if (data.cloudAtlas != null)
+                    cmd.SetGlobalTexture(s_CloudAtlasId, data.cloudAtlas);
+
+                cmd.SetGlobalVector(s_CloudParamsId, data.cloudParams);
+                cmd.SetGlobalVector(s_CloudMotionId, data.cloudMotion);
+                cmd.SetGlobalVector(s_CloudLightId, data.cloudLight);
+                cmd.SetGlobalVector(s_CloudAwayLightId, data.cloudAwayLight);
+                cmd.SetGlobalVector(s_CloudSlabId, data.cloudSlab);
+                cmd.SetGlobalVector(s_KeyDirectionId, data.keyDirection);
+                cmd.SetGlobalVector(s_KeyColorId, data.keyColor);
+                cmd.SetGlobalVector(s_CloudTintId, data.cloudTint);
+
                 cmd.SetGlobalVector(s_FogParamsId, data.fogParams);
                 cmd.SetGlobalVector(s_FogScatterId, data.fogScatter);
                 cmd.SetGlobalVector(s_FogTintId, data.fogTint);
             });
         }
 
-        static float SunElevation(VisibleLight? sun)
+        static Vector3 SunDirection(VisibleLight? sun)
         {
-            return sun.HasValue ? -((Vector3)sun.Value.localToWorldMatrix.GetColumn(2)).y : 1f;
+            return sun.HasValue
+                ? -(Vector3)sun.Value.localToWorldMatrix.GetColumn(2)
+                : Vector3.zero;
         }
 
         static VisibleLight? ResolveSunLight(ContextContainer frameData)
@@ -142,7 +198,7 @@ namespace HiddenBull.UrpStyle
             passData.brushParams = brush.Pack();
         }
 
-        float PackSky(StyleSky sky, VisibleLight? sun, float sunElevation, PassData passData)
+        SkyTiming PackSky(StyleSky sky, Vector3 sunDirection, float sunElevation, PassData passData)
         {
             var scaleOffset = SkyLutBaker.ScaleOffset;
 
@@ -151,68 +207,193 @@ namespace HiddenBull.UrpStyle
                 passData.skyLut = StyleGlobalDefaults.SkyLut;
                 passData.ambientParams = StyleGlobalDefaults.AmbientParams;
                 passData.skyParams = StyleGlobalDefaults.SkyParams;
-                passData.sunDirection = new Vector4(0f, 1f, 0f, 0f);
-                passData.sunColor = Vector4.zero;
-                passData.moonColor = Vector4.zero;
-                passData.starParams = Vector4.zero;
-                return 0f;
+                passData.keyDirection = StyleGlobalDefaults.KeyDirection;
+                passData.keyColor = Vector4.zero;
+                return new SkyTiming
+                {
+                    sunDisc = Color.white,
+                    moonDisc = Color.white,
+                    cloudLight = Color.white,
+                    cloudFlip = 1f
+                };
             }
 
-            var duskLevel = Mathf.Max(sky.duskElevation.value, sky.nightElevation.value + 0.01f);
+            var nightLevel = Mathf.Sin(sky.nightElevation.value * Mathf.Deg2Rad);
+            var duskLevel = Mathf.Max(Mathf.Sin(sky.duskElevation.value * Mathf.Deg2Rad),
+                                      nightLevel + 0.01f);
+
             var time = 1f - Mathf.Clamp01(
-                Mathf.InverseLerp(sky.nightElevation.value, duskLevel, sunElevation));
+                Mathf.InverseLerp(nightLevel, duskLevel, sunElevation));
+
+            var spread = sky.sunsetFocus.value * 4f * time * (1f - time);
+            var away = Mathf.Clamp01(time + spread * 0.45f);
 
             passData.skyLut = m_Lut.Bake(
                 sky.daySky.value, sky.duskSky.value, sky.nightSky.value,
                 sky.dayAmbient.value, sky.duskAmbient.value, sky.nightAmbient.value,
-                time, sky.skyIntensity.value, sky.ambientIntensity.value);
+                time, away, sky.skyIntensity.value, sky.ambientIntensity.value);
 
             passData.ambientParams = new Vector4(
                 sky.bakedWeight.value, scaleOffset.x, scaleOffset.y, 0f);
 
-            passData.skyParams = new Vector4(0.005f, 0.15f, 0f, 0f);
+            passData.skyParams = new Vector4(
+                0.005f, 0.15f, sky.skyBrush.value * 0.15f, sky.skyBrush.value * 0.22f);
 
-            var sunTime = Mathf.Clamp01(time * 2f);
-            var sunDirection = Vector3.up;
-            var lightColor = Color.white;
+            PackKeyLight(sky, sunDirection, sunElevation, passData);
 
-            if (sun.HasValue)
+            var skyLight = sky.skyLight.value ?? StyleSky.DefaultSkyLight();
+            var lifted = sunElevation + HB_CloudElevationLift;
+
+            var reach = sky.skyLightIntensity.value * Handoff(lifted);
+            var drop = spread * 0.35f;
+
+            var cloudLight = EvaluateOverElevation(skyLight, lifted) * reach;
+            var cloudAway = EvaluateOverElevation(skyLight, lifted - drop) * reach;
+
+            var straight = sunElevation >= 0f || lifted < 0f;
+
+            return new SkyTiming
             {
-                sunDirection = -(Vector3)sun.Value.localToWorldMatrix.GetColumn(2);
-                lightColor = sun.Value.light != null ? sun.Value.light.color : Color.white;
+                sunTime = Mathf.Clamp01(time * 2f),
+                afterglow = Mathf.Clamp01(Mathf.InverseLerp(nightLevel, 0f, sunElevation)),
+                sunDisc = EvaluateOverElevation(
+                    sky.sunDiscColor.value ?? StyleSky.DefaultSunDiscColor(), sunElevation),
+                moonDisc = EvaluateOverElevation(
+                    sky.moonDiscColor.value ?? StyleSky.DefaultMoonDiscColor(), -sunElevation),
+                cloudLight = cloudLight,
+                cloudAway = cloudAway,
+                cloudFlip = straight ? 1f : -1f
+            };
+        }
+
+        static void PackKeyLight(StyleSky sky, Vector3 sunDirection, float sunElevation,
+                                 PassData passData)
+        {
+            if (sunDirection == Vector3.zero)
+            {
+                passData.keyDirection = StyleGlobalDefaults.KeyDirection;
+                passData.keyColor = Vector4.zero;
+                return;
             }
 
-            passData.sunDirection = new Vector4(sunDirection.x, sunDirection.y, sunDirection.z, 1f);
+            var gradient = sky.skyLight.value ?? StyleSky.DefaultSkyLight();
 
-            var tintedSun = Color.Lerp(sky.sunColor.value, sky.sunDuskColor.value, sunTime) * lightColor;
-            var sunPower = Mathf.Lerp(sky.sunIntensity.value, sky.sunDuskIntensity.value, sunTime);
+            var key = EvaluateOverElevation(gradient, sunElevation)
+                    * (sky.skyLightIntensity.value * Handoff(sunElevation));
+
+            var direction = sunElevation >= 0f ? sunDirection : -sunDirection;
+            var daylight = Smooth01(sunElevation / HB_Transition);
+
+            passData.keyDirection = new Vector4(direction.x, direction.y, direction.z, daylight);
+            passData.keyColor = new Vector4(key.r, key.g, key.b, daylight);
+        }
+
+        static void PackCelestial(StyleCelestial celestial, Vector3 sunDirection, float sunElevation,
+                                  SkyTiming timing, PassData passData)
+        {
+            passData.sunDirection = sunDirection == Vector3.zero
+                ? new Vector4(0f, 1f, 0f, 0f)
+                : new Vector4(sunDirection.x, sunDirection.y, sunDirection.z, 1f);
+
+            if (celestial == null)
+            {
+                passData.sunColor = Vector4.zero;
+                passData.moonColor = Vector4.zero;
+                passData.starParams = Vector4.zero;
+                return;
+            }
+
+            var sunTime = timing.sunTime;
+            var sun = timing.sunDisc;
+
+            var power = Mathf.Lerp(celestial.sunIntensity.value, celestial.sunDuskIntensity.value, sunTime);
 
             passData.sunColor = new Vector4(
-                tintedSun.r, tintedSun.g, tintedSun.b, sun.HasValue ? sunPower : 0f);
-
-            var afterglow = Mathf.Clamp01(Mathf.InverseLerp(sky.nightElevation.value, 0f, sunElevation));
+                sun.r, sun.g, sun.b, sunDirection == Vector3.zero ? 0f : power);
 
             passData.sunDisc = PackDisc(
-                Mathf.Lerp(sky.sunSize.value, sky.sunDuskSize.value, sunTime), sky.sunBrush.value);
-            passData.sunGlow = PackGlow(sky.sunGlow.value, sky.sunRays.value, afterglow);
+                Mathf.Lerp(celestial.sunSize.value, celestial.sunDuskSize.value, sunTime),
+                celestial.sunBrush.value);
 
-            var moon = sky.moonColor.value;
-            var moonFade = Mathf.Clamp01(Mathf.InverseLerp(0.08f, -0.08f, sunElevation));
+            passData.sunGlow = PackGlow(
+                celestial.sunGlow.value, celestial.sunRays.value, timing.afterglow);
 
-            passData.moonColor = new Vector4(moon.r, moon.g, moon.b, sky.moonIntensity.value * moonFade);
-            passData.moonDisc = PackDisc(sky.moonSize.value, 0.2f);
-            passData.moonGlow = PackGlow(sky.moonGlow.value, 0f);
+            var moon = timing.moonDisc;
+            var moonFade = Smooth01(0.5f - sunElevation / (2f * HB_Transition));
 
-            var amount = sky.stars.value;
+            passData.moonColor = new Vector4(
+                moon.r, moon.g, moon.b, celestial.moonIntensity.value * moonFade);
+
+            passData.moonDisc = PackDisc(celestial.moonSize.value, 0.2f);
+            passData.moonGlow = PackGlow(celestial.moonGlow.value, 0f);
+
+            var amount = celestial.stars.value;
             var fade = 1f - Mathf.Clamp01(Mathf.InverseLerp(-0.2f, 0.15f, sunElevation));
 
             passData.starParams = new Vector4(
                 80f,
                 amount * fade,
-                sky.starTwinkle.value,
+                celestial.starTwinkle.value,
                 Mathf.Lerp(0.97f, 0.88f, amount));
+        }
 
-            return afterglow;
+        static void PackClouds(StyleClouds sky, CloudGlobalSettings settings, SkyTiming timing,
+                               PassData passData)
+        {
+            var atlas = settings != null ? settings.atlas : null;
+
+            if (atlas == null || sky == null)
+            {
+                passData.cloudAtlas = null;
+                passData.cloudParams = Vector4.zero;
+                return;
+            }
+
+            passData.cloudAtlas = atlas;
+
+            var light = timing.cloudLight;
+            var away = timing.cloudAway;
+
+            passData.cloudLight = new Vector4(light.r, light.g, light.b, timing.cloudFlip);
+            passData.cloudAwayLight = new Vector4(away.r, away.g, away.b, 0f);
+
+            passData.cloudParams = new Vector4(
+                sky.coverage.value,
+                sky.scale.value * 0.03f,
+                sky.softness.value * 0.5f,
+                sky.steps.value);
+
+            var wind = sky.wind.value * 0.004f;
+
+            passData.cloudMotion = new Vector4(
+                wind.x, wind.y, sky.brush.value, sky.translucency.value);
+
+            passData.cloudSlab = new Vector4(
+                sky.stepSpacing.value * 0.12f,
+                sky.stepTaper.value * 0.5f,
+                sky.stepShading.value,
+                0f);
+
+            var tint = sky.tint.value;
+            passData.cloudTint = new Vector4(tint.r, tint.g, tint.b, 1f);
+        }
+
+        static float Smooth01(float t)
+        {
+            t = Mathf.Clamp01(t);
+            return t * t * (3f - 2f * t);
+        }
+
+        static float Handoff(float elevation)
+        {
+            return Smooth01(Mathf.Abs(elevation) / HB_Transition);
+        }
+
+        static Color EvaluateOverElevation(Gradient gradient, float sunElevation)
+        {
+            var authored = gradient.Evaluate(sunElevation * 0.5f + 0.5f);
+
+            return s_LinearColorSpace ? authored.linear : authored;
         }
 
         static Vector4 PackDisc(float sizeDegrees, float brush)
@@ -269,6 +450,7 @@ namespace HiddenBull.UrpStyle
     {
         public static readonly Vector4 BrushParams = new Vector4(1f, 15f, 1f / 15f, 0f);
         public static readonly Vector4 SkyParams = new Vector4(0.005f, 0.15f, 0f, 0f);
+        public static readonly Vector4 KeyDirection = new Vector4(0f, 0f, 0f, 1f);
 
         static readonly SkyLutBaker s_Lut = new SkyLutBaker();
 
@@ -286,12 +468,13 @@ namespace HiddenBull.UrpStyle
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Apply()
         {
-            var lut = s_Lut.Bake(null, null, null, null, null, null, 0f, 1f, 1f);
+            var lut = s_Lut.Bake(null, null, null, null, null, null, 0f, 0f, 1f, 1f);
 
             Shader.SetGlobalTexture(Shader.PropertyToID("_HB_SkyLut"), lut);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_AmbientParams"), AmbientParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_BrushParams"), BrushParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_SkyParams"), SkyParams);
+            Shader.SetGlobalVector(Shader.PropertyToID("_HB_KeyDirection"), KeyDirection);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_FogTint"), Vector4.one);
         }
     }

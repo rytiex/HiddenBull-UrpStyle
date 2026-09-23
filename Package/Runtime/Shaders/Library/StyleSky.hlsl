@@ -15,9 +15,45 @@ float4 _HB_MoonDisc;
 float4 _HB_MoonGlow;
 float4 _HB_StarParams;
 
+half HB_SunFacing(half3 direction)
+{
+    float2 azimuth = _HB_SunDirection.xz;
+
+    return saturate(dot(direction.xz, azimuth * rsqrt(max(dot(azimuth, azimuth), 1e-6)))
+                    * 0.5h + 0.5h);
+}
+
+half3 HB_SkySample(half3 direction, half up)
+{
+    return lerp(HB_SampleSkyLut(up, HB_LUT_ROW_SKY_AWAY),
+                HB_SampleSkyLut(up, HB_LUT_ROW_SKY), HB_SunFacing(direction));
+}
+
 half3 HB_SkyGradient(half3 direction)
 {
-    return HB_SampleSkyLut(direction.y, HB_LUT_ROW_SKY);
+    half up = direction.y;
+
+    half warp = half(_HB_SkyParams.z);
+
+    if (warp <= 0.0h || HB_BRUSH_ATLAS_BOUND <= 0.5h)
+        return HB_SkySample(direction, up);
+
+    half mask = smoothstep(0.0h, 0.3h, up) * (1.0h - smoothstep(0.65h, 1.0h, up));
+
+    if (mask <= 0.0h)
+        return HB_SkySample(direction, up);
+
+    float sinTheta = max(length(direction.xz), 1e-4);
+    float theta = acos(clamp(direction.y, -1.0, 1.0));
+
+    half4 atlas = SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas,
+                                       direction.xz * (theta * rcp(sinTheta)) * 3.0, 0);
+
+    half stroke = (atlas.b * 2.0h - 1.0h) * mask;
+
+    half3 colour = HB_SkySample(direction, up + stroke * warp);
+
+    return colour * (1.0h + stroke * half(_HB_SkyParams.w));
 }
 
 float2 HB_CelestialPlane(float3 direction, float3 axis)
@@ -36,7 +72,7 @@ half3 HB_CelestialBody(float3 direction, float3 axis, float4 disc, float4 glow, 
 
     half halo = PositivePow(cosAngle, max(half(glow.x), HB_EPSILON)) * half(glow.y);
 
-    half rayStrength = half(glow.z);
+    half rayStrength = half(glow.z) * bodyMask;
     if (rayStrength > 0.0h)
     {
         float2 rayPlane = HB_CelestialPlane(direction, axis);
@@ -51,7 +87,7 @@ half3 HB_CelestialBody(float3 direction, float3 axis, float4 disc, float4 glow, 
     {
         half edgeOffset = 0.0h;
 
-        if (disc.z > 0.0h && _HB_BrushParams.w > 0.5h)
+        if (disc.z > 0.0h && HB_BRUSH_ATLAS_BOUND > 0.5h)
         {
             float2 plane = HB_CelestialPlane(direction, axis);
 

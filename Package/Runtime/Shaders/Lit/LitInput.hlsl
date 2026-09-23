@@ -14,7 +14,6 @@ CBUFFER_START(UnityPerMaterial)
     half _Smoothness;
     half _DiffuseWrap;
     half _DiffuseSoftness;
-    half _ShadowTerminator;
     half _RimPower;
     half _RimIntensity;
     half _BrushObjectSpace;
@@ -35,7 +34,6 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _Smoothness)
     UNITY_DOTS_INSTANCED_PROP(float , _DiffuseWrap)
     UNITY_DOTS_INSTANCED_PROP(float , _DiffuseSoftness)
-    UNITY_DOTS_INSTANCED_PROP(float , _ShadowTerminator)
     UNITY_DOTS_INSTANCED_PROP(float , _RimPower)
     UNITY_DOTS_INSTANCED_PROP(float , _RimIntensity)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushObjectSpace)
@@ -54,7 +52,6 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _Smoothness         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Smoothness)
 #define _DiffuseWrap        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DiffuseWrap)
 #define _DiffuseSoftness    UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DiffuseSoftness)
-#define _ShadowTerminator   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _ShadowTerminator)
 #define _RimPower           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimPower)
 #define _RimIntensity       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimIntensity)
 #define _BrushObjectSpace   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushObjectSpace)
@@ -91,11 +88,11 @@ HiddenBullStyleData InitializeHiddenBullStyleData()
     HiddenBullStyleData style;
     style.diffuseWrap = _DiffuseWrap;
     style.diffuseSoftness = _DiffuseSoftness;
-    style.shadowTerminator = _ShadowTerminator;
     style.rimColor = _RimColor.rgb;
     style.rimPower = _RimPower;
     style.rimIntensity = _RimIntensity;
     style.brushObjectSpace = _BrushObjectSpace;
+    style.brushAnchor = float3(0.0, 0.0, 0.0);
     style.brushShading = _BrushShading;
     style.brushAlbedo = _BrushAlbedo;
     style.brushRelief = _BrushRelief;

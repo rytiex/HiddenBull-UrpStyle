@@ -17,9 +17,15 @@ namespace HiddenBull.UrpStyle.Editor
 
             public static readonly GUIContent BrushSpace = new GUIContent(
                 "Brush Space",
-                "World for static geometry. Object for anything that moves — a world-anchored brush " +
-                "slides across a carried object. Both use the same stroke size, so the two can sit " +
-                "side by side.");
+                "World for static geometry. Object for anything that moves — a world-anchored " +
+                "brush slides across a carried object. Both use the same stroke size, so the two " +
+                "can sit side by side.\n\n" +
+                "Rest Pose is for skinned meshes: object space is tied to the transform rather " +
+                "than the surface, so skinning drags every point through it and the strokes swim " +
+                "across the character. Rest Pose reads a bind-pose position written into the mesh " +
+                "at import instead, which skinning cannot move. Use it only on skinned meshes — " +
+                "give a shared material its own copy for the character. See Project Settings > " +
+                "HiddenBull URP Style.");
 
             public static readonly GUIContent BrushRelief = new GUIContent(
                 "Relief",
@@ -56,12 +62,6 @@ namespace HiddenBull.UrpStyle.Editor
                 "Width of the light-to-shadow transition. Near zero gives a hard cel-like cut; " +
                 "high values give a smooth gradient.");
 
-            public static readonly GUIContent ShadowTerminator = new GUIContent(
-                "Shadow Terminator Fade",
-                "Fades the shadow map out near the terminator, where it would otherwise produce a " +
-                "ragged band of self-shadowing acne. Raise it if that band is visible; lower it if " +
-                "shadows are leaking onto surfaces that should be dark.");
-
             public const string AlbedoOnlyHint =
                 "This material samples no textures. Gradation comes from the ambient gradient, " +
                 "so a flat colour still reads in three tones.";
@@ -69,11 +69,11 @@ namespace HiddenBull.UrpStyle.Editor
 
         const string k_AlphaTestKeyword = "_ALPHATEST_ON";
         const string k_ReceiveShadowsOffKeyword = "_RECEIVE_SHADOWS_OFF";
+        const string k_BrushAnchorKeyword = "_HB_BRUSH_ANCHOR";
 
         MaterialProperty m_BaseColor;
         MaterialProperty m_DiffuseWrap;
         MaterialProperty m_DiffuseSoftness;
-        MaterialProperty m_ShadowTerminator;
 
         MaterialProperty m_RimEnabled;
         MaterialProperty m_RimColor;
@@ -136,6 +136,11 @@ namespace HiddenBull.UrpStyle.Editor
                                  material.GetFloat("_ReceiveShadows") >= 0.5f;
             CoreUtils.SetKeyword(material, k_ReceiveShadowsOffKeyword, !receiveShadows);
 
+            var restPose = material.HasProperty("_BrushObjectSpace") &&
+                           material.GetFloat("_BrushObjectSpace") >= 1.5f;
+            CoreUtils.SetKeyword(material, k_BrushAnchorKeyword, restPose);
+
+
             material.SetOverrideTag("RenderType", alphaClip ? "TransparentCutout" : "Opaque");
 
             var queueOffset = material.HasProperty("_QueueOffset") ? (int)material.GetFloat("_QueueOffset") : 0;
@@ -151,7 +156,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_BaseColor = FindProperty("_BaseColor", properties);
             m_DiffuseWrap = FindProperty("_DiffuseWrap", properties);
             m_DiffuseSoftness = FindProperty("_DiffuseSoftness", properties);
-            m_ShadowTerminator = FindProperty("_ShadowTerminator", properties);
 
             m_RimEnabled = FindProperty("_RimEnabled", properties);
             m_RimColor = FindProperty("_RimColor", properties);
@@ -199,7 +203,6 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.LabelField(Styles.Shading, EditorStyles.boldLabel);
             materialEditor.ShaderProperty(m_DiffuseWrap, Styles.DiffuseWrap);
             materialEditor.ShaderProperty(m_DiffuseSoftness, Styles.DiffuseSoftness);
-            materialEditor.ShaderProperty(m_ShadowTerminator, Styles.ShadowTerminator);
             EditorGUILayout.Space();
         }
 

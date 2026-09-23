@@ -10,6 +10,7 @@ namespace HiddenBull.UrpStyle
 
         const int AmbientRow = 0;
         const int SkyRow = 1;
+        const int SkyAwayRow = 2;
 
         static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
@@ -22,11 +23,12 @@ namespace HiddenBull.UrpStyle
         static readonly Gradient s_FallbackDuskAmbient = StyleSky.DefaultDuskAmbient();
         static readonly Gradient s_FallbackNightAmbient = StyleSky.DefaultNightAmbient();
 
-        readonly Color[] m_Pixels = new Color[Width * 2];
+        readonly Color[] m_Pixels = new Color[Width * 3];
         readonly Gradient[] m_Sources = new Gradient[6];
 
         Texture2D m_Texture;
         float m_Blend = float.NaN;
+        float m_Away = float.NaN;
         float m_SkyIntensity = float.NaN;
         float m_AmbientIntensity = float.NaN;
         int m_Revision = -1;
@@ -43,7 +45,7 @@ namespace HiddenBull.UrpStyle
         public Texture2D Bake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
-            float blend, float skyIntensity, float ambientIntensity)
+            float blend, float away, float skyIntensity, float ambientIntensity)
         {
             daySky ??= s_FallbackDaySky;
             duskSky ??= s_FallbackDuskSky;
@@ -53,12 +55,12 @@ namespace HiddenBull.UrpStyle
             nightAmbient ??= s_FallbackNightAmbient;
 
             if (!NeedsBake(daySky, duskSky, nightSky, dayAmbient, duskAmbient, nightAmbient,
-                           blend, skyIntensity, ambientIntensity))
+                           blend, away, skyIntensity, ambientIntensity))
                 return m_Texture;
 
             if (m_Texture == null)
             {
-                m_Texture = new Texture2D(Width, 2, TextureFormat.RGBAHalf, false, true)
+                m_Texture = new Texture2D(Width, 3, TextureFormat.RGBAHalf, false, true)
                 {
                     name = "HB Sky LUT",
                     filterMode = FilterMode.Bilinear,
@@ -77,6 +79,9 @@ namespace HiddenBull.UrpStyle
 
                 m_Pixels[SkyRow * Width + i] = Resolve(
                     daySky, duskSky, nightSky, position, blend, skyIntensity);
+
+                m_Pixels[SkyAwayRow * Width + i] = Resolve(
+                    daySky, duskSky, nightSky, position, away, skyIntensity);
             }
 
             m_Texture.SetPixels(m_Pixels);
@@ -88,11 +93,12 @@ namespace HiddenBull.UrpStyle
         bool NeedsBake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
-            float blend, float skyIntensity, float ambientIntensity)
+            float blend, float away, float skyIntensity, float ambientIntensity)
         {
             var stale = m_Texture == null
                         || s_Revision != m_Revision
                         || blend != m_Blend
+                        || away != m_Away
                         || skyIntensity != m_SkyIntensity
                         || ambientIntensity != m_AmbientIntensity
                         || !ReferenceEquals(daySky, m_Sources[0])
@@ -104,6 +110,7 @@ namespace HiddenBull.UrpStyle
 
             m_Revision = s_Revision;
             m_Blend = blend;
+            m_Away = away;
             m_SkyIntensity = skyIntensity;
             m_AmbientIntensity = ambientIntensity;
             m_Sources[0] = daySky;

@@ -23,7 +23,7 @@ Shader "Skybox/HiddenBull/URP Style/Gradient"
             #pragma fragment Fragment
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/StyleFog.hlsl"
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/StyleClouds.hlsl"
 
             struct Attributes
             {
@@ -57,7 +57,7 @@ Shader "Skybox/HiddenBull/URP Style/Gradient"
 
                 half3 direction = half3(SafeNormalize(input.direction));
 
-                return half4(HB_SkyWithFog(direction), 1.0h);
+                return half4(HB_SkyWithClouds(direction), 1.0h);
             }
             ENDHLSL
         }
