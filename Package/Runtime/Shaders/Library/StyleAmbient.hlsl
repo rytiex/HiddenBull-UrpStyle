@@ -8,10 +8,9 @@ SAMPLER(sampler_HB_SkyLut);
 
 float4 _HB_AmbientParams;
 
-#define HB_AMBIENT_BAKED_WEIGHT _HB_AmbientParams.x
+#define HB_AMBIENT_LIGHT_BIAS   _HB_AmbientParams.x
 #define HB_LUT_SCALE            _HB_AmbientParams.y
 #define HB_LUT_OFFSET           _HB_AmbientParams.z
-#define HB_AMBIENT_LIGHT_BIAS   _HB_AmbientParams.w
 
 #define HB_LUT_ROW_AMBIENT  0.125
 #define HB_LUT_ROW_SKY      0.375
@@ -30,7 +29,7 @@ half3 HB_GradientAmbient(half3 directionWS)
     return HB_SampleSkyLut(directionWS.y, HB_LUT_ROW_AMBIENT);
 }
 
-half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush)
+half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bakedVisibility)
 {
     half3 gradient = HB_SampleSkyLut(normalWS.y + brush, HB_LUT_ROW_AMBIENT);
 
@@ -49,12 +48,14 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush)
     }
 
 #ifdef LIGHTMAP_ON
-    half weight = HB_AMBIENT_BAKED_WEIGHT * half(_HB_KeyColor.a);
-#else
-    half weight = 0.0h;
-#endif
+    bakedVisibility = saturate(Luminance(bakedGI) / max(Luminance(gradient), HB_EPSILON));
 
-    return lerp(gradient, bakedGI, weight);
+    return lerp(gradient, bakedGI, half(_HB_KeyColor.a));
+#else
+    bakedVisibility = 1.0h;
+
+    return gradient;
+#endif
 }
 
 half3 HB_AmbientSkyColor()

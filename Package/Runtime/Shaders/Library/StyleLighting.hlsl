@@ -69,11 +69,13 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
 
-    sunVisibility = mainLight.shadowAttenuation;
-
     half occlusion = surfaceData.occlusion * aoFactor.indirectAmbientOcclusion;
 
-    half3 ambient = HB_ResolveAmbient(formNormal, inputData.bakedGI, ambientOffset) * occlusion;
+    half bakedVisibility;
+    half3 ambient = HB_ResolveAmbient(formNormal, inputData.bakedGI, ambientOffset,
+                                      bakedVisibility) * occlusion;
+
+    sunVisibility = mainLight.shadowAttenuation * bakedVisibility;
 
 #ifdef _HB_SPECULAR
     BRDFData brdfData;
