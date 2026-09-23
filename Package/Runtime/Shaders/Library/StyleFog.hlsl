@@ -6,7 +6,6 @@
 
 float4 _HB_FogParams;
 float4 _HB_FogScatter;
-float4 _HB_FogTint;
 
 half HB_FogAmount(float3 positionWS, float3 cameraPositionWS)
 {
@@ -42,7 +41,7 @@ half HB_FogAmount(float3 positionWS, float3 cameraPositionWS)
 
 half3 HB_FogColour(half3 direction, half sunVisibility)
 {
-    half3 colour = HB_GradientAmbient(direction) * _HB_FogTint.rgb;
+    half3 colour = HB_SampleSkyLut(direction.y, HB_LUT_ROW_FOG);
 
     half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunVisibility;
     if (amount > 0.0h && _HB_SunDirection.w > 0.5)

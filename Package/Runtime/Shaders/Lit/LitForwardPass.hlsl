@@ -188,8 +188,32 @@ void HiddenBullLitFragment(
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
+    HiddenBullStyleData styleData = InitializeHiddenBullStyleData();
+
+#ifdef _HB_BRUSH_ANCHOR
+    styleData.brushAnchor = input.brushAnchor;
+#else
+    styleData.brushAnchor = float3(0.0, 0.0, 0.0);
+#endif
+
+    HiddenBullBrushSample brush = HB_NoBrush();
+    float2 uv = input.uv;
+
+#ifdef _HB_BRUSH
+    #ifdef _NORMALMAP
+        half3 geometryNormalWS = NormalizeNormalPerPixel(input.normalWS.xyz);
+    #else
+        half3 geometryNormalWS = NormalizeNormalPerPixel(input.normalWS);
+    #endif
+
+    brush = HB_SampleBrush(input.positionWS, geometryNormalWS, styleData.brushObjectSpace,
+                           styleData.brushAnchor, HB_SampleBrushMask(input.uv));
+
+    uv += brush.warp.xy * styleData.brushUvWarp;
+#endif
+
     SurfaceData surfaceData;
-    InitializeHiddenBullSurfaceData(input.uv, surfaceData);
+    InitializeHiddenBullSurfaceData(uv, surfaceData);
 
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);
@@ -204,16 +228,8 @@ void HiddenBullLitFragment(
 
     InitializeBakedGIData(input, inputData);
 
-    HiddenBullStyleData styleData = InitializeHiddenBullStyleData();
-
-#ifdef _HB_BRUSH_ANCHOR
-    styleData.brushAnchor = input.brushAnchor;
-#else
-    styleData.brushAnchor = float3(0.0, 0.0, 0.0);
-#endif
-
     half sunVisibility;
-    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, sunVisibility);
+    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush, sunVisibility);
     color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility);
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 

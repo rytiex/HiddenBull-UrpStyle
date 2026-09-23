@@ -31,15 +31,38 @@ namespace HiddenBull.UrpStyle
                  "still reads as shape rather than dissolving into flat sky.")]
         public ClampedFloatParameter maxOpacity = new ClampedFloatParameter(1f, 0f, 1f);
 
-        [Tooltip("Tint on the ambient colour the fog fades toward. White leaves distant geometry " +
-                 "exactly the colour the sky is lighting it with, which is what removes the seam " +
-                 "at the horizon.")]
-        public ColorParameter tint = new ColorParameter(Color.white, true, false, true);
-
         [Tooltip("How much the fog takes on the sun's colour when looking toward it. Real air " +
                  "scatters light forward, and this is most of what makes a hazy sunset read as " +
                  "depth rather than as a grey wash. It fades out as the sun sets, and drops away " +
                  "where the sun is blocked, so air in a mountain's shadow stops glowing.")]
         public ClampedFloatParameter sunScattering = new ClampedFloatParameter(1f, 0f, 1f);
+
+        [Header("Colour")]
+        [Tooltip("The colour the fog fades toward, read along the view direction: left is looking " +
+                 "straight down, the middle of the bar is the horizon, right is straight up. It " +
+                 "shares its axis and its day/dusk/night blend with the sky gradients, so match " +
+                 "the middle of this bar to the middle of Day Sky and the horizon stays seamless.")]
+        public GradientParameter dayFog = new GradientParameter(DefaultDayFog());
+
+        [Tooltip("The fog while the sun is at the horizon.")]
+        public GradientParameter duskFog = new GradientParameter(DefaultDuskFog());
+
+        [Tooltip("The fog after dark. This is the one worth spending time on: the ambient gradient " +
+                 "the fog used to borrow has to keep its zenith bright to light upward-facing " +
+                 "surfaces at night, which left distant air looking washed out. Here you can pull " +
+                 "the right-hand end down as far as you like without touching how anything is lit.")]
+        public GradientParameter nightFog = new GradientParameter(DefaultNightFog());
+
+        public static Gradient DefaultDayFog() => StyleSky.DefaultDayAmbient();
+
+        public static Gradient DefaultDuskFog() => StyleSky.DefaultDuskAmbient();
+
+        public static Gradient DefaultNightFog() => StyleSky.Make(
+            StyleSky.Key(0.0000000f, 0.0000000f, 0.0000000f, 0.0676f),
+            StyleSky.Key(0.0788092f, 0.0788092f, 0.1037736f, 0.1882f),
+            StyleSky.Key(0.1513884f, 0.1513884f, 0.1698113f, 0.4206f),
+            StyleSky.Key(0.1668298f, 0.1748540f, 0.2169811f, 0.6676f),
+            StyleSky.Key(0.1392399f, 0.1457814f, 0.1981132f, 0.8088f),
+            StyleSky.Key(0.0943396f, 0.0943396f, 0.0943396f, 1f));
     }
 }

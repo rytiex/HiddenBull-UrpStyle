@@ -11,6 +11,8 @@ namespace HiddenBull.UrpStyle
         const int AmbientRow = 0;
         const int SkyRow = 1;
         const int SkyAwayRow = 2;
+        const int FogRow = 3;
+        const int Rows = 4;
 
         static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
@@ -22,9 +24,12 @@ namespace HiddenBull.UrpStyle
         static readonly Gradient s_FallbackDayAmbient = StyleSky.DefaultDayAmbient();
         static readonly Gradient s_FallbackDuskAmbient = StyleSky.DefaultDuskAmbient();
         static readonly Gradient s_FallbackNightAmbient = StyleSky.DefaultNightAmbient();
+        static readonly Gradient s_FallbackDayFog = StyleFog.DefaultDayFog();
+        static readonly Gradient s_FallbackDuskFog = StyleFog.DefaultDuskFog();
+        static readonly Gradient s_FallbackNightFog = StyleFog.DefaultNightFog();
 
-        readonly Color[] m_Pixels = new Color[Width * 3];
-        readonly Gradient[] m_Sources = new Gradient[6];
+        readonly Color[] m_Pixels = new Color[Width * Rows];
+        readonly Gradient[] m_Sources = new Gradient[9];
 
         Texture2D m_Texture;
         float m_Blend = float.NaN;
@@ -45,6 +50,7 @@ namespace HiddenBull.UrpStyle
         public Texture2D Bake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
+            Gradient dayFog, Gradient duskFog, Gradient nightFog,
             float blend, float away, float skyIntensity, float ambientIntensity)
         {
             daySky ??= s_FallbackDaySky;
@@ -53,14 +59,18 @@ namespace HiddenBull.UrpStyle
             dayAmbient ??= s_FallbackDayAmbient;
             duskAmbient ??= s_FallbackDuskAmbient;
             nightAmbient ??= s_FallbackNightAmbient;
+            dayFog ??= s_FallbackDayFog;
+            duskFog ??= s_FallbackDuskFog;
+            nightFog ??= s_FallbackNightFog;
 
             if (!NeedsBake(daySky, duskSky, nightSky, dayAmbient, duskAmbient, nightAmbient,
+                           dayFog, duskFog, nightFog,
                            blend, away, skyIntensity, ambientIntensity))
                 return m_Texture;
 
             if (m_Texture == null)
             {
-                m_Texture = new Texture2D(Width, 3, TextureFormat.RGBAHalf, false, true)
+                m_Texture = new Texture2D(Width, Rows, TextureFormat.RGBAHalf, false, true)
                 {
                     name = "HB Sky LUT",
                     filterMode = FilterMode.Bilinear,
@@ -82,6 +92,9 @@ namespace HiddenBull.UrpStyle
 
                 m_Pixels[SkyAwayRow * Width + i] = Resolve(
                     daySky, duskSky, nightSky, position, away, skyIntensity);
+
+                m_Pixels[FogRow * Width + i] = Resolve(
+                    dayFog, duskFog, nightFog, position, blend, 1f);
             }
 
             m_Texture.SetPixels(m_Pixels);
@@ -93,6 +106,7 @@ namespace HiddenBull.UrpStyle
         bool NeedsBake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
+            Gradient dayFog, Gradient duskFog, Gradient nightFog,
             float blend, float away, float skyIntensity, float ambientIntensity)
         {
             var stale = m_Texture == null
@@ -106,7 +120,10 @@ namespace HiddenBull.UrpStyle
                         || !ReferenceEquals(nightSky, m_Sources[2])
                         || !ReferenceEquals(dayAmbient, m_Sources[3])
                         || !ReferenceEquals(duskAmbient, m_Sources[4])
-                        || !ReferenceEquals(nightAmbient, m_Sources[5]);
+                        || !ReferenceEquals(nightAmbient, m_Sources[5])
+                        || !ReferenceEquals(dayFog, m_Sources[6])
+                        || !ReferenceEquals(duskFog, m_Sources[7])
+                        || !ReferenceEquals(nightFog, m_Sources[8]);
 
             m_Revision = s_Revision;
             m_Blend = blend;
@@ -119,6 +136,9 @@ namespace HiddenBull.UrpStyle
             m_Sources[3] = dayAmbient;
             m_Sources[4] = duskAmbient;
             m_Sources[5] = nightAmbient;
+            m_Sources[6] = dayFog;
+            m_Sources[7] = duskFog;
+            m_Sources[8] = nightFog;
 
             return stale || Application.isEditor;
         }

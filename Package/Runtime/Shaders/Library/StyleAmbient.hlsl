@@ -11,10 +11,12 @@ float4 _HB_AmbientParams;
 #define HB_AMBIENT_BAKED_WEIGHT _HB_AmbientParams.x
 #define HB_LUT_SCALE            _HB_AmbientParams.y
 #define HB_LUT_OFFSET           _HB_AmbientParams.z
+#define HB_AMBIENT_LIGHT_BIAS   _HB_AmbientParams.w
 
-#define HB_LUT_ROW_AMBIENT  0.16667
-#define HB_LUT_ROW_SKY      0.50000
-#define HB_LUT_ROW_SKY_AWAY 0.83333
+#define HB_LUT_ROW_AMBIENT  0.125
+#define HB_LUT_ROW_SKY      0.375
+#define HB_LUT_ROW_SKY_AWAY 0.625
+#define HB_LUT_ROW_FOG      0.875
 
 half3 HB_SampleSkyLut(half up, float row)
 {
@@ -28,11 +30,27 @@ half3 HB_GradientAmbient(half3 directionWS)
     return HB_SampleSkyLut(directionWS.y, HB_LUT_ROW_AMBIENT);
 }
 
-half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI)
+half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush)
 {
-    half weight = HB_AMBIENT_BAKED_WEIGHT * half(_HB_KeyDirection.w);
+    half3 gradient = HB_SampleSkyLut(normalWS.y + brush, HB_LUT_ROW_AMBIENT);
 
-    return lerp(HB_GradientAmbient(normalWS), bakedGI, weight);
+    half3 light = half3(_HB_KeyDirection.xyz);
+
+    half bias = half(HB_AMBIENT_LIGHT_BIAS)
+              * step(0.5h, dot(light, light))
+              * half(_HB_KeyDirection.w);
+
+    if (bias > 0.0h)
+    {
+        half3 alongLight = HB_SampleSkyLut(dot(normalWS, light) + brush, HB_LUT_ROW_AMBIENT)
+                         - HB_SampleSkyLut(-1.0h, HB_LUT_ROW_AMBIENT);
+
+        gradient += alongLight * bias;
+    }
+
+    half weight = HB_AMBIENT_BAKED_WEIGHT * half(_HB_KeyColor.a);
+
+    return lerp(gradient, bakedGI, weight);
 }
 
 half3 HB_AmbientSkyColor()

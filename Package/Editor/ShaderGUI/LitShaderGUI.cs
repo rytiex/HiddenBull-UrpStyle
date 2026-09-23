@@ -33,11 +33,24 @@ namespace HiddenBull.UrpStyle.Editor
                 "the ambient, the rim and the specular — without it a face that is entirely lit or " +
                 "entirely shadowed receives nothing but a flat brightness multiply.");
 
-            public static readonly GUIContent BrushWarmth = new GUIContent(
-                "Warmth",
-                "Temperature shift between strokes and the gaps around them. Paint varies in " +
-                "temperature, not just in value; a brightness multiply alone reads as dirt. " +
-                "Negative values make the strokes cooler than the gaps.");
+            public static readonly GUIContent BrushUvWarp = new GUIContent(
+                "Texture Warp",
+                "How far the brush drags the texture coordinates before the base and normal maps " +
+                "are read. The map itself bends along the strokes rather than being tinted by " +
+                "them, so a photographic texture reads as something that was painted. Does " +
+                "nothing on a material with no maps.");
+
+            public static readonly GUIContent BrushMask = new GUIContent(
+                "Mask",
+                "Red channel gates the whole brush — relief, break-up, albedo and texture warp all " +
+                "fall silent where it is black. Leave it off and the brush covers everything.");
+
+            public static readonly GUIContent BrushAmbient = new GUIContent(
+                "Ambient Break-up",
+                "How far the brush shifts what the ambient gradient reads. This is the only brush " +
+                "term that still acts where the direct light has saturated — Relief and Shading " +
+                "Break-up both work on the terminator, so they fall silent on a face that is " +
+                "entirely lit or entirely in shadow.");
 
             public static readonly GUIContent BrushShading = new GUIContent(
                 "Brush Shading Break-up",
@@ -46,8 +59,9 @@ namespace HiddenBull.UrpStyle.Editor
 
             public static readonly GUIContent BrushAlbedo = new GUIContent(
                 "Brush Albedo Variation",
-                "How far the brush varies surface colour. The atlas is centred, so this redistributes " +
-                "brightness rather than darkening or brightening the surface overall.");
+                "How far the gaps between strokes darken the surface. Only the gaps act, so the " +
+                "brush reads as bare patches in the paint rather than as pale strokes laid over " +
+                "the top — which is what made it look like scribble.");
 
             public const string BrushAtlasHint =
                 "The atlas and its scale are set once on the HiddenBull Style renderer feature, not " +
@@ -89,8 +103,11 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BrushObjectSpace;
         MaterialProperty m_BrushRelief;
         MaterialProperty m_BrushShading;
+        MaterialProperty m_BrushAmbient;
+        MaterialProperty m_BrushUvWarp;
+        MaterialProperty m_BrushMaskEnabled;
+        MaterialProperty m_BrushMask;
         MaterialProperty m_BrushAlbedo;
-        MaterialProperty m_BrushWarmth;
 
         MaterialProperty m_BaseMapEnabled;
         MaterialProperty m_BaseMap;
@@ -171,8 +188,11 @@ namespace HiddenBull.UrpStyle.Editor
             m_BrushObjectSpace = FindProperty("_BrushObjectSpace", properties);
             m_BrushRelief = FindProperty("_BrushRelief", properties);
             m_BrushShading = FindProperty("_BrushShading", properties);
+            m_BrushAmbient = FindProperty("_BrushAmbient", properties);
+            m_BrushUvWarp = FindProperty("_BrushUvWarp", properties);
+            m_BrushMaskEnabled = FindProperty("_BrushMaskEnabled", properties);
+            m_BrushMask = FindProperty("_BrushMask", properties);
             m_BrushAlbedo = FindProperty("_BrushAlbedo", properties);
-            m_BrushWarmth = FindProperty("_BrushWarmth", properties);
 
             m_BaseMapEnabled = FindProperty("_BaseMapEnabled", properties);
             m_BaseMap = FindProperty("_BaseMap", properties);
@@ -248,8 +268,17 @@ namespace HiddenBull.UrpStyle.Editor
                     materialEditor.ShaderProperty(m_BrushObjectSpace, Styles.BrushSpace);
                     materialEditor.ShaderProperty(m_BrushRelief, Styles.BrushRelief);
                     materialEditor.ShaderProperty(m_BrushShading, Styles.BrushShading);
+                    materialEditor.ShaderProperty(m_BrushAmbient, Styles.BrushAmbient);
+                    materialEditor.ShaderProperty(m_BrushUvWarp, Styles.BrushUvWarp);
                     materialEditor.ShaderProperty(m_BrushAlbedo, Styles.BrushAlbedo);
-                    materialEditor.ShaderProperty(m_BrushWarmth, Styles.BrushWarmth);
+
+                    materialEditor.ShaderProperty(m_BrushMaskEnabled, m_BrushMaskEnabled.displayName);
+
+                    if (IsEnabled(m_BrushMaskEnabled))
+                    {
+                        using (new EditorGUI.IndentLevelScope())
+                            materialEditor.TexturePropertySingleLine(Styles.BrushMask, m_BrushMask);
+                    }
                 }
 
                 EditorGUILayout.HelpBox(Styles.BrushAtlasHint, MessageType.None);

@@ -8,10 +8,12 @@ SAMPLER(sampler_HB_BrushAtlas);
 
 float4 _HB_BrushParams;
 
-#define HB_BRUSH_TILES_PER_UNIT _HB_BrushParams.x
-#define HB_BRUSH_FADE_START     _HB_BrushParams.y
-#define HB_BRUSH_FADE_RATE      _HB_BrushParams.z
-#define HB_BRUSH_ATLAS_BOUND    _HB_BrushParams.w
+#define HB_BRUSH_TILES_PER_UNIT  _HB_BrushParams.x
+#define HB_BRUSH_FADE_START      _HB_BrushParams.y
+#define HB_BRUSH_FADE_RATE       _HB_BrushParams.z
+#define HB_BRUSH_ATLAS_BOUND     _HB_BrushParams.w
+
+#define HB_BRUSH_DIRECTION_SCALE 3.0
 
 struct HiddenBullBrushSample
 {
@@ -32,6 +34,14 @@ HiddenBullBrushSample HB_NoBrush()
     brush.warp = half3(0.0h, 0.0h, 0.0h);
     brush.coverage = 0.0h;
     return brush;
+}
+
+float2 HB_BrushDirectionUV(half3 direction, float scale)
+{
+    float sinTheta = max(length(direction.xz), 1e-4);
+    float theta = acos(clamp(direction.y, -1.0, 1.0));
+
+    return direction.xz * (theta * rcp(sinTheta)) * scale;
 }
 
 float3 HB_ObjectScale()
@@ -84,39 +94,46 @@ half3 HB_TriplanarBlend(half3 normal)
 }
 
 HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half objectSpace,
-                                     float3 anchorOS)
+                                     float3 anchorOS, half mask)
 {
     HiddenBullBrushSample brush = HB_NoBrush();
 
-    if (HB_BRUSH_ATLAS_BOUND < 0.5h)
+    if (HB_BRUSH_ATLAS_BOUND < 0.5h || mask <= 0.0h)
         return brush;
 
-    HiddenBullBrushSpace space = HB_ResolveBrushSpace(positionWS, normalWS, objectSpace, anchorOS);
+    float3 toSurface = positionWS - GetCameraPositionWS();
+    half fade = saturate(1.0h - (length(toSurface) - HB_BRUSH_FADE_START) * HB_BRUSH_FADE_RATE);
 
-    half3 blend = HB_TriplanarBlend(space.normal);
-    float3 uvw = space.position * HB_BRUSH_TILES_PER_UNIT;
+    if (fade > 0.0h)
+    {
+        HiddenBullBrushSpace space = HB_ResolveBrushSpace(positionWS, normalWS, objectSpace, anchorOS);
 
-    half4 planeX = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.zy);
-    half4 planeY = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xz);
-    half4 planeZ = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xy);
+        half3 blend = HB_TriplanarBlend(space.normal);
+        float3 uvw = space.position * HB_BRUSH_TILES_PER_UNIT;
 
-    half2 warpX = planeX.rg * 2.0h - 1.0h;
-    half2 warpY = planeY.rg * 2.0h - 1.0h;
-    half2 warpZ = planeZ.rg * 2.0h - 1.0h;
+        half4 planeX = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.zy);
+        half4 planeY = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xz);
+        half4 planeZ = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xy);
 
-    half3 warp = half3(0.0h, warpX.y, warpX.x) * blend.x
-               + half3(warpY.x, 0.0h, warpY.y) * blend.y
-               + half3(warpZ.x, warpZ.y, 0.0h) * blend.z;
+        half2 warpX = planeX.rg * 2.0h - 1.0h;
+        half2 warpY = planeY.rg * 2.0h - 1.0h;
+        half2 warpZ = planeZ.rg * 2.0h - 1.0h;
 
-    half3 rotated = SafeNormalize(mul((half3x3)GetObjectToWorldMatrix(), warp)) * length(warp);
+        half3 warp = half3(0.0h, warpX.y, warpX.x) * blend.x
+                   + half3(warpY.x, 0.0h, warpY.y) * blend.y
+                   + half3(warpZ.x, warpZ.y, 0.0h) * blend.z;
 
-    half coverage = planeX.b * blend.x + planeY.b * blend.y + planeZ.b * blend.z;
+        half3 rotated = SafeNormalize(mul((half3x3)GetObjectToWorldMatrix(), warp)) * length(warp);
 
-    float distanceToCamera = length(GetCameraPositionWS() - positionWS);
-    half fade = saturate(1.0h - (distanceToCamera - HB_BRUSH_FADE_START) * HB_BRUSH_FADE_RATE);
+        half coverage = planeX.b * blend.x + planeY.b * blend.y + planeZ.b * blend.z;
 
-    brush.warp = lerp(warp, rotated, space.localSpace) * fade;
-    brush.coverage = (coverage * 2.0h - 1.0h) * fade;
+        brush.warp = lerp(warp, rotated, space.localSpace) * fade;
+        brush.coverage = (coverage * 2.0h - 1.0h) * fade;
+    }
+
+
+    brush.warp *= mask;
+    brush.coverage *= mask;
 
     return brush;
 }

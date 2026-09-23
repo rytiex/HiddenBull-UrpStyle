@@ -52,6 +52,14 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Overall strength of the ambient term.")]
         public ClampedFloatParameter ambientIntensity = new ClampedFloatParameter(1f, 0f, 4f);
 
+        [Tooltip("How far the ambient leans toward the sun instead of straight up. At 0 it is read " +
+                 "purely by height, so a surface reads the same whichever way it faces the sun. " +
+                 "Higher values swing the gradient onto the light, which gives form a lit and a " +
+                 "shaded side even where the direct light has saturated.\n\n" +
+                 "It does nothing at noon, because a sun overhead and a gradient read by height " +
+                 "are the same axis. Its whole range lives in a low sun.")]
+        public ClampedFloatParameter ambientLightBias = new ClampedFloatParameter(0.85f, 0f, 1f);
+
         [Tooltip("Blends from the gradient toward Unity's baked lightmaps and probes. 0 keeps the " +
                  "gradient, 1 uses baked indirect light only. It is scaled down as the sun sets, " +
                  "because a lightmap carries the bounce of a sun that is no longer there. Direct " +
@@ -175,12 +183,12 @@ namespace HiddenBull.UrpStyle
             new GradientAlphaKey(1f, 1f)
         };
 
-        static GradientColorKey Key(float r, float g, float b, float position)
+        internal static GradientColorKey Key(float r, float g, float b, float position)
         {
             return new GradientColorKey(new Color(r, g, b), position);
         }
 
-        static Gradient Make(params GradientColorKey[] keys)
+        internal static Gradient Make(params GradientColorKey[] keys)
         {
             var gradient = new Gradient();
             gradient.SetKeys(keys, s_Opaque);

@@ -12,6 +12,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_AmbientParamsId = Shader.PropertyToID("_HB_AmbientParams");
         static readonly int s_BrushAtlasId = Shader.PropertyToID("_HB_BrushAtlas");
         static readonly int s_BrushParamsId = Shader.PropertyToID("_HB_BrushParams");
+        static readonly int s_BrushDistortionId = Shader.PropertyToID("_HB_BrushDistortion");
         static readonly int s_SkyParamsId = Shader.PropertyToID("_HB_SkyParams");
         static readonly int s_SunDirectionId = Shader.PropertyToID("_HB_SunDirection");
         static readonly int s_SunColorId = Shader.PropertyToID("_HB_SunColor");
@@ -32,7 +33,6 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CloudTintId = Shader.PropertyToID("_HB_CloudTint");
         static readonly int s_FogParamsId = Shader.PropertyToID("_HB_FogParams");
         static readonly int s_FogScatterId = Shader.PropertyToID("_HB_FogScatter");
-        static readonly int s_FogTintId = Shader.PropertyToID("_HB_FogTint");
 
         static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
@@ -56,6 +56,7 @@ namespace HiddenBull.UrpStyle
             public Vector4 ambientParams;
             public Texture brushAtlas;
             public Vector4 brushParams;
+            public Vector4 brushDistortion;
             public Vector4 skyParams;
             public Vector4 sunDirection;
             public Vector4 sunColor;
@@ -76,7 +77,6 @@ namespace HiddenBull.UrpStyle
             public Vector4 keyColor;
             public Vector4 fogParams;
             public Vector4 fogScatter;
-            public Vector4 fogTint;
         }
 
         readonly SkyLutBaker m_Lut = new SkyLutBaker();
@@ -115,7 +115,7 @@ namespace HiddenBull.UrpStyle
 
             PackBrush(m_Brush, passData);
 
-            var timing = PackSky(sky, direction, elevation, passData);
+            var timing = PackSky(sky, fog, direction, elevation, passData);
 
             PackCelestial(celestial, direction, elevation, timing, passData);
             PackClouds(clouds, m_Clouds, timing, passData);
@@ -134,6 +134,7 @@ namespace HiddenBull.UrpStyle
                     cmd.SetGlobalTexture(s_BrushAtlasId, data.brushAtlas);
 
                 cmd.SetGlobalVector(s_BrushParamsId, data.brushParams);
+                cmd.SetGlobalVector(s_BrushDistortionId, data.brushDistortion);
 
                 cmd.SetGlobalVector(s_SkyParamsId, data.skyParams);
                 cmd.SetGlobalVector(s_SunDirectionId, data.sunDirection);
@@ -159,7 +160,6 @@ namespace HiddenBull.UrpStyle
 
                 cmd.SetGlobalVector(s_FogParamsId, data.fogParams);
                 cmd.SetGlobalVector(s_FogScatterId, data.fogScatter);
-                cmd.SetGlobalVector(s_FogTintId, data.fogTint);
             });
         }
 
@@ -191,14 +191,17 @@ namespace HiddenBull.UrpStyle
             {
                 passData.brushAtlas = null;
                 passData.brushParams = StyleGlobalDefaults.BrushParams;
+                passData.brushDistortion = Vector4.zero;
                 return;
             }
 
             passData.brushAtlas = brush.atlas;
             passData.brushParams = brush.Pack();
+            passData.brushDistortion = brush.PackDistortion();
         }
 
-        SkyTiming PackSky(StyleSky sky, Vector3 sunDirection, float sunElevation, PassData passData)
+        SkyTiming PackSky(StyleSky sky, StyleFog fog, Vector3 sunDirection, float sunElevation,
+                          PassData passData)
         {
             var scaleOffset = SkyLutBaker.ScaleOffset;
 
@@ -208,7 +211,7 @@ namespace HiddenBull.UrpStyle
                 passData.ambientParams = StyleGlobalDefaults.AmbientParams;
                 passData.skyParams = StyleGlobalDefaults.SkyParams;
                 passData.keyDirection = StyleGlobalDefaults.KeyDirection;
-                passData.keyColor = Vector4.zero;
+                passData.keyColor = new Vector4(0f, 0f, 0f, 1f);
                 return new SkyTiming
                 {
                     sunDisc = Color.white,
@@ -231,10 +234,11 @@ namespace HiddenBull.UrpStyle
             passData.skyLut = m_Lut.Bake(
                 sky.daySky.value, sky.duskSky.value, sky.nightSky.value,
                 sky.dayAmbient.value, sky.duskAmbient.value, sky.nightAmbient.value,
+                fog?.dayFog.value, fog?.duskFog.value, fog?.nightFog.value,
                 time, away, sky.skyIntensity.value, sky.ambientIntensity.value);
 
             passData.ambientParams = new Vector4(
-                sky.bakedWeight.value, scaleOffset.x, scaleOffset.y, 0f);
+                sky.bakedWeight.value, scaleOffset.x, scaleOffset.y, sky.ambientLightBias.value);
 
             passData.skyParams = new Vector4(
                 0.005f, 0.15f, sky.skyBrush.value * 0.15f, sky.skyBrush.value * 0.22f);
@@ -272,7 +276,7 @@ namespace HiddenBull.UrpStyle
             if (sunDirection == Vector3.zero)
             {
                 passData.keyDirection = StyleGlobalDefaults.KeyDirection;
-                passData.keyColor = Vector4.zero;
+                passData.keyColor = new Vector4(0f, 0f, 0f, 1f);
                 return;
             }
 
@@ -284,7 +288,9 @@ namespace HiddenBull.UrpStyle
             var direction = sunElevation >= 0f ? sunDirection : -sunDirection;
             var daylight = Smooth01(sunElevation / HB_Transition);
 
-            passData.keyDirection = new Vector4(direction.x, direction.y, direction.z, daylight);
+            passData.keyDirection = new Vector4(
+                direction.x, direction.y, direction.z, Handoff(sunElevation));
+
             passData.keyColor = new Vector4(key.r, key.g, key.b, daylight);
         }
 
@@ -418,8 +424,6 @@ namespace HiddenBull.UrpStyle
 
         static void PackFog(StyleFog fog, float sunVisibility, PassData passData)
         {
-            passData.fogTint = Vector4.one;
-
             if (fog == null)
             {
                 passData.fogParams = Vector4.zero;
@@ -435,9 +439,6 @@ namespace HiddenBull.UrpStyle
                 density, fog.heightFalloff.value, fog.baseHeight.value, fog.maxOpacity.value);
 
             passData.fogScatter = new Vector4(fog.sunScattering.value, 8f, start, sunVisibility);
-
-            var tint = fog.tint.value;
-            passData.fogTint = new Vector4(tint.r, tint.g, tint.b, 1f);
         }
 
         public void Dispose()
@@ -468,14 +469,14 @@ namespace HiddenBull.UrpStyle
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Apply()
         {
-            var lut = s_Lut.Bake(null, null, null, null, null, null, 0f, 0f, 1f, 1f);
+            var lut = s_Lut.Bake(null, null, null, null, null, null, null, null, null,
+                                 0f, 0f, 1f, 1f);
 
             Shader.SetGlobalTexture(Shader.PropertyToID("_HB_SkyLut"), lut);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_AmbientParams"), AmbientParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_BrushParams"), BrushParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_SkyParams"), SkyParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_KeyDirection"), KeyDirection);
-            Shader.SetGlobalVector(Shader.PropertyToID("_HB_FogTint"), Vector4.one);
         }
     }
 }

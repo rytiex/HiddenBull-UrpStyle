@@ -20,9 +20,13 @@ Shader "HiddenBull/URP Style/Lit"
         [Toggle(_HB_BRUSH)] _BrushEnabled("Enable Brush", Float) = 1.0
         [Enum(World, 0, Object, 1, Rest Pose, 2)] _BrushObjectSpace("Brush Space", Float) = 1.0
         _BrushRelief("Brush Relief", Range(0.0, 1.0)) = 0.1
-        _BrushShading("Brush Shading Break-up", Range(0.0, 0.5)) = 0.225
+        _BrushShading("Brush Shading Break-up", Range(0.0, 0.5)) = 0.15
+        _BrushAmbient("Brush Ambient Break-up", Range(0.0, 0.5)) = 0.085
+        _BrushUvWarp("Brush Texture Warp", Range(0.0, 0.2)) = 0.0
+
+        [Toggle(_HB_BRUSH_MASK)] _BrushMaskEnabled("Use Brush Mask", Float) = 0.0
+        _BrushMask("Brush Mask", 2D) = "white" {}
         _BrushAlbedo("Brush Albedo Variation", Range(0.0, 1.0)) = 0.125
-        _BrushWarmth("Brush Warmth", Range(-1.0, 1.0)) = 0.0
 
         [Toggle(_HB_BASE_MAP)] _BaseMapEnabled("Use Base Map", Float) = 0.0
         [MainTexture] _BaseMap("Base Map", 2D) = "white" {}
@@ -72,6 +76,7 @@ Shader "HiddenBull/URP Style/Lit"
             #pragma shader_feature_local _NORMALMAP
             #pragma shader_feature_local_fragment _HB_BRUSH
             #pragma shader_feature_local _HB_BRUSH_ANCHOR
+            #pragma shader_feature_local_fragment _HB_BRUSH_MASK
             #pragma shader_feature_local_fragment _HB_SPECULAR
             #pragma shader_feature_local_fragment _HB_RIM
             #pragma shader_feature_local_fragment _ALPHATEST_ON

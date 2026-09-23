@@ -43,11 +43,8 @@ half3 HB_SkyGradient(half3 direction)
     if (mask <= 0.0h)
         return HB_SkySample(direction, up);
 
-    float sinTheta = max(length(direction.xz), 1e-4);
-    float theta = acos(clamp(direction.y, -1.0, 1.0));
-
     half4 atlas = SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas,
-                                       direction.xz * (theta * rcp(sinTheta)) * 3.0, 0);
+                                       HB_BrushDirectionUV(direction, HB_BRUSH_DIRECTION_SCALE), 0);
 
     half stroke = (atlas.b * 2.0h - 1.0h) * mask;
 

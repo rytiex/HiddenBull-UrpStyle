@@ -2,6 +2,7 @@
 #define HIDDENBULL_URPSTYLE_COMMON_INCLUDED
 
 #define HB_EPSILON 1e-4h
+#define HB_BRUSH_FORM_RELIEF 0.55h
 
 float4 _HB_KeyDirection;
 float4 _HB_KeyColor;
@@ -31,11 +32,12 @@ struct HiddenBullStyleData
     half rimPower;
     half rimIntensity;
     half brushObjectSpace;
+    half brushAmbient;
+    half brushUvWarp;
     float3 brushAnchor;
     half brushShading;
     half brushAlbedo;
     half brushRelief;
-    half brushWarmth;
 };
 
 #endif

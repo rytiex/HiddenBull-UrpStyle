@@ -7,6 +7,7 @@ namespace HiddenBull.UrpStyle.Editor
         public static readonly string[] Names =
         {
             "Preset…",
+            "Developer Best",
             "Dry Brush",
             "Loaded Brush",
             "Fine Hatch",
@@ -21,6 +22,28 @@ namespace HiddenBull.UrpStyle.Editor
             switch (index)
             {
                 case 1:
+                    settings.strokeCount = 800;
+                    settings.lengthRange = new Vector2(0.1f, 0.26f);
+                    settings.widthRange = new Vector2(0.006f, 0.016f);
+                    settings.angle = 35f;
+                    settings.angleJitter = 18f;
+                    settings.taper = 0.584f;
+                    settings.edgeSoftness = 0.25f;
+                    settings.opacityVariation = 0.55f;
+                    settings.bristleAmount = 0.75f;
+                    settings.bristleDensity = 16f;
+                    settings.edgeBreakup = 0.5f;
+                    settings.edgeBreakupScale = 9f;
+                    settings.pigmentAmount = 0.35f;
+                    settings.pigmentScale = 5;
+                    settings.canvasAmount = 0.35f;
+                    settings.canvasScale = 80;
+                    settings.contrast = 1.63f;
+                    settings.warpSpread = 0.01f;
+                    settings.seed = -1351948961;
+                    break;
+
+                case 2:
                     settings.strokeCount = 220;
                     settings.lengthRange = new Vector2(0.1f, 0.26f);
                     settings.widthRange = new Vector2(0.006f, 0.016f);
@@ -40,7 +63,7 @@ namespace HiddenBull.UrpStyle.Editor
                     settings.warpSpread = 0.010f;
                     break;
 
-                case 2:
+                case 3:
                     settings.strokeCount = 150;
                     settings.lengthRange = new Vector2(0.12f, 0.3f);
                     settings.widthRange = new Vector2(0.016f, 0.038f);
@@ -60,7 +83,7 @@ namespace HiddenBull.UrpStyle.Editor
                     settings.warpSpread = 0.018f;
                     break;
 
-                case 3:
+                case 4:
                     settings.strokeCount = 420;
                     settings.lengthRange = new Vector2(0.06f, 0.14f);
                     settings.widthRange = new Vector2(0.003f, 0.008f);
@@ -80,7 +103,7 @@ namespace HiddenBull.UrpStyle.Editor
                     settings.warpSpread = 0.006f;
                     break;
 
-                case 4:
+                case 5:
                     settings.strokeCount = 90;
                     settings.lengthRange = new Vector2(0.14f, 0.34f);
                     settings.widthRange = new Vector2(0.03f, 0.07f);

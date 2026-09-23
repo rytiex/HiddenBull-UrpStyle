@@ -22,22 +22,22 @@ half3 HB_RimLight(half3 normalWS, half3 viewDirectionWS, HiddenBullStyleData sty
 }
 
 half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, HiddenBullStyleData style,
-                            out half sunVisibility)
+                            HiddenBullBrushSample brush, out half sunVisibility)
 {
 #ifdef _HB_BRUSH
-    HiddenBullBrushSample brush = HB_SampleBrush(inputData.positionWS, inputData.normalWS,
-                                                 style.brushObjectSpace, style.brushAnchor);
-
     half terminatorOffset = brush.coverage * style.brushShading;
+    half ambientOffset = brush.coverage * style.brushAmbient;
+
+    half3 formNormal = SafeNormalize(
+        inputData.normalWS + brush.warp * (style.brushRelief * HB_BRUSH_FORM_RELIEF));
 
     inputData.normalWS = SafeNormalize(inputData.normalWS + brush.warp * style.brushRelief);
 
-    half warmth = brush.coverage * style.brushWarmth * 0.25h;
-
-    surfaceData.albedo *= saturate(1.0h + brush.coverage * style.brushAlbedo)
-                        * half3(1.0h + warmth, 1.0h, 1.0h - warmth);
+    surfaceData.albedo *= saturate(1.0h + min(brush.coverage, 0.0h) * style.brushAlbedo);
 #else
     half terminatorOffset = 0.0h;
+    half ambientOffset = 0.0h;
+    half3 formNormal = inputData.normalWS;
 #endif
 
     half4 shadowMask = CalculateShadowMask(inputData);
@@ -59,13 +59,13 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 
     half occlusion = surfaceData.occlusion * aoFactor.indirectAmbientOcclusion;
 
-    half3 ambient = HB_ResolveAmbient(inputData.normalWS, inputData.bakedGI) * occlusion;
+    half3 ambient = HB_ResolveAmbient(formNormal, inputData.bakedGI, ambientOffset) * occlusion;
 
 #ifdef _HB_SPECULAR
     BRDFData brdfData;
     InitializeBRDFData(surfaceData, brdfData);
 
-    half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
+    half3 reflectVector = reflect(-inputData.viewDirectionWS, formNormal);
     half3 environmentSpecular = HB_GradientAmbient(reflectVector) * occlusion;
     half fresnelTerm = Pow4(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS)));
 
