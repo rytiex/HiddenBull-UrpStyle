@@ -3,6 +3,7 @@
 
 #include "LitInput.hlsl"
 #include "../Library/StyleLighting.hlsl"
+#include "../Library/StyleFog.hlsl"
 
 #if defined(LOD_FADE_CROSSFADE)
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
@@ -194,8 +195,9 @@ void HiddenBullLitFragment(
 
     HiddenBullStyleData styleData = InitializeHiddenBullStyleData();
 
-    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData);
-    color.rgb = MixFog(color.rgb, inputData.fogCoord);
+    half sunVisibility;
+    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, sunVisibility);
+    color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility);
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
     outColor = color;

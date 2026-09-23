@@ -41,7 +41,8 @@ half3 HB_RimLight(half3 normalWS, half3 viewDirectionWS, HiddenBullStyleData sty
     return rim * style.rimIntensity * style.rimColor * HB_AmbientSkyColor() * occlusion;
 }
 
-half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, HiddenBullStyleData style)
+half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, HiddenBullStyleData style,
+                            out half sunVisibility)
 {
 #ifdef _HB_BRUSH
     HiddenBullBrushSample brush = HB_SampleBrush(inputData.positionWS, inputData.normalWS,
@@ -65,6 +66,8 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 
     Light mainLight = GetMainLight(inputData, shadowMask, aoFactor);
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
+
+    sunVisibility = mainLight.shadowAttenuation;
 
     half occlusion = surfaceData.occlusion * aoFactor.indirectAmbientOcclusion;
 

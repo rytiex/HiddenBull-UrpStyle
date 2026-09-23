@@ -26,5 +26,11 @@ namespace HiddenBull.UrpStyle
             m_GlobalsPass.Setup(m_Brush);
             renderer.EnqueuePass(m_GlobalsPass);
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            m_GlobalsPass?.Dispose();
+            m_GlobalsPass = null;
+        }
     }
 }
