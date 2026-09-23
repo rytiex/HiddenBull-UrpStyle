@@ -5,6 +5,7 @@
 #include "StyleCommon.hlsl"
 #include "StyleAmbient.hlsl"
 #include "StyleBrush.hlsl"
+#include "StyleShadow.hlsl"
 
 half3 HB_LightResponse(Light light, half3 normalWS, HiddenBullStyleData style, half terminatorOffset)
 {
@@ -44,7 +45,12 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     AmbientOcclusionFactor aoFactor = CreateAmbientOcclusionFactor(inputData, surfaceData);
     uint meshRenderingLayers = GetMeshRenderingLayer();
 
-    Light mainLight = GetMainLight(inputData, shadowMask, aoFactor);
+    HB_BrushShadowCoord(inputData.shadowCoord, inputData.positionWS, inputData.normalWS);
+
+    Light mainLight = GetMainLight();
+
+    mainLight.shadowAttenuation = HB_MainLightShadow(
+        inputData.shadowCoord, inputData.positionWS, shadowMask, inputData.normalizedScreenSpaceUV);
 
     if (dot(_HB_KeyDirection.xyz, _HB_KeyDirection.xyz) > 0.5)
     {
@@ -52,6 +58,14 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
         mainLight.color = _HB_KeyColor.rgb;
         mainLight.shadowAttenuation = lerp(1.0h, mainLight.shadowAttenuation, half(_HB_KeyColor.a));
     }
+
+#ifdef _LIGHT_COOKIES
+    mainLight.color *= SampleMainLightCookie(inputData.positionWS);
+#endif
+
+#if defined(_SCREEN_SPACE_OCCLUSION) && !defined(_SURFACE_TYPE_TRANSPARENT)
+    mainLight.color *= aoFactor.directAmbientOcclusion;
+#endif
 
     MixRealtimeAndBakedGI(mainLight, inputData.normalWS, inputData.bakedGI);
 
@@ -95,7 +109,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     {
         CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
 
-        Light light = GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
+        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
     #ifdef _LIGHT_LAYERS
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
     #endif
@@ -112,7 +126,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     #endif
 
     LIGHT_LOOP_BEGIN(pixelLightCount)
-        Light light = GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
+        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
     #ifdef _LIGHT_LAYERS
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
     #endif

@@ -37,6 +37,14 @@ namespace HiddenBull.UrpStyle
                  "where the sun is blocked, so air in a mountain's shadow stops glowing.")]
         public ClampedFloatParameter sunScattering = new ClampedFloatParameter(1f, 0f, 1f);
 
+        [Tooltip("How far fog darkens where the light does not reach. Fog colour is read from a " +
+                 "gradient by view direction, which assumes open sky — so a valley in shadow, or " +
+                 "anything indoors, glows as though it were lit. This slides the reading down the " +
+                 "same gradient in proportion to how blocked the light is, so shadowed air takes " +
+                 "the colour of the ground rather than of the sky.\n\n" +
+                 "It follows the main light's shadow, which means baked shadows count too.")]
+        public ClampedFloatParameter shade = new ClampedFloatParameter(0.5f, 0f, 2f);
+
         [Header("Colour")]
         [Tooltip("The colour the fog fades toward, read along the view direction: left is looking " +
                  "straight down, the middle of the bar is the horizon, right is straight up. It " +

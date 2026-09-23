@@ -60,11 +60,15 @@ namespace HiddenBull.UrpStyle
                  "are the same axis. Its whole range lives in a low sun.")]
         public ClampedFloatParameter ambientLightBias = new ClampedFloatParameter(0.85f, 0f, 1f);
 
-        [Tooltip("Blends from the gradient toward Unity's baked lightmaps and probes. 0 keeps the " +
-                 "gradient, 1 uses baked indirect light only. It is scaled down as the sun sets, " +
-                 "because a lightmap carries the bounce of a sun that is no longer there. Direct " +
-                 "light and its shadows always stay realtime regardless.")]
-        public ClampedFloatParameter bakedWeight = new ClampedFloatParameter(0f, 0f, 1f);
+        [Tooltip("How far a lightmapped object leans on its lightmap instead of the gradient. 1 uses " +
+                 "the baked indirect light, 0 ignores it.\n\n" +
+                 "It only applies where there is a lightmap to use. Anything dynamic keeps the " +
+                 "gradient whatever this says, so you are not trading one for the other across the " +
+                 "whole scene — a baked building and the character walking past it can each have " +
+                 "the right answer. It is still scaled down as the sun sets, because a lightmap " +
+                 "carries the bounce of a sun that is no longer there. Direct light and its shadows " +
+                 "stay realtime regardless.")]
+        public ClampedFloatParameter bakedWeight = new ClampedFloatParameter(1f, 0f, 1f);
 
         [Tooltip("How much the warm band at sunset is kept to the side the sun is actually on. At 0 " +
                  "the horizon glows the same all the way around, which is what a gradient read " +

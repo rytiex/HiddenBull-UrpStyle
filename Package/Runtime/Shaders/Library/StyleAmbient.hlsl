@@ -48,7 +48,11 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush)
         gradient += alongLight * bias;
     }
 
+#ifdef LIGHTMAP_ON
     half weight = HB_AMBIENT_BAKED_WEIGHT * half(_HB_KeyColor.a);
+#else
+    half weight = 0.0h;
+#endif
 
     return lerp(gradient, bakedGI, weight);
 }

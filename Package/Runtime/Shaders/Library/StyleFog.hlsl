@@ -39,15 +39,19 @@ half HB_FogAmount(float3 positionWS, float3 cameraPositionWS)
     return half(saturate(1.0 - exp(-max(integrated, 0.0))) * _HB_FogParams.w);
 }
 
+#define HB_FOG_SCATTER_POWER 8.0h
+
 half3 HB_FogColour(half3 direction, half sunVisibility)
 {
-    half3 colour = HB_SampleSkyLut(direction.y, HB_LUT_ROW_FOG);
+    half shade = half(_HB_FogScatter.y) * (1.0h - sunVisibility);
+
+    half3 colour = HB_SampleSkyLut(direction.y - shade, HB_LUT_ROW_FOG);
 
     half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunVisibility;
     if (amount > 0.0h && _HB_SunDirection.w > 0.5)
     {
         half towardSun = half(saturate(dot(direction, _HB_SunDirection.xyz)));
-        half scatter = PositivePow(towardSun, max(half(_HB_FogScatter.y), HB_EPSILON));
+        half scatter = PositivePow(towardSun, HB_FOG_SCATTER_POWER);
 
         colour = lerp(colour, _HB_SunColor.rgb, saturate(scatter * amount));
     }

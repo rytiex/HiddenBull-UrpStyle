@@ -33,6 +33,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CloudTintId = Shader.PropertyToID("_HB_CloudTint");
         static readonly int s_FogParamsId = Shader.PropertyToID("_HB_FogParams");
         static readonly int s_FogScatterId = Shader.PropertyToID("_HB_FogScatter");
+        static readonly int s_ShadowBrushId = Shader.PropertyToID("_HB_ShadowBrush");
+        static readonly int s_ShadowFilterId = Shader.PropertyToID("_HB_ShadowFilter");
 
         static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
@@ -77,12 +79,15 @@ namespace HiddenBull.UrpStyle
             public Vector4 keyColor;
             public Vector4 fogParams;
             public Vector4 fogScatter;
+            public Vector4 shadowBrush;
+            public Vector4 shadowFilter;
         }
 
         readonly SkyLutBaker m_Lut = new SkyLutBaker();
 
         BrushGlobalSettings m_Brush;
         CloudGlobalSettings m_Clouds;
+        ShadowQualitySettings m_Shadows;
 
         public StyleGlobalsPass()
         {
@@ -90,10 +95,12 @@ namespace HiddenBull.UrpStyle
             profilingSampler = new ProfilingSampler("HiddenBull Style Globals");
         }
 
-        public void Setup(BrushGlobalSettings brush, CloudGlobalSettings clouds)
+        public void Setup(BrushGlobalSettings brush, CloudGlobalSettings clouds,
+                          ShadowQualitySettings shadows)
         {
             m_Brush = brush;
             m_Clouds = clouds;
+            m_Shadows = shadows;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -114,6 +121,14 @@ namespace HiddenBull.UrpStyle
             builder.AllowGlobalStateModification(true);
 
             PackBrush(m_Brush, passData);
+
+            passData.shadowBrush = m_Shadows == null
+                ? Vector4.zero
+                : m_Shadows.PackBrush(passData.brushAtlas != null);
+
+            passData.shadowFilter = m_Shadows == null
+                ? StyleGlobalDefaults.ShadowFilter
+                : m_Shadows.PackFilter();
 
             var timing = PackSky(sky, fog, direction, elevation, passData);
 
@@ -160,6 +175,8 @@ namespace HiddenBull.UrpStyle
 
                 cmd.SetGlobalVector(s_FogParamsId, data.fogParams);
                 cmd.SetGlobalVector(s_FogScatterId, data.fogScatter);
+                cmd.SetGlobalVector(s_ShadowBrushId, data.shadowBrush);
+                cmd.SetGlobalVector(s_ShadowFilterId, data.shadowFilter);
             });
         }
 
@@ -438,7 +455,8 @@ namespace HiddenBull.UrpStyle
             passData.fogParams = new Vector4(
                 density, fog.heightFalloff.value, fog.baseHeight.value, fog.maxOpacity.value);
 
-            passData.fogScatter = new Vector4(fog.sunScattering.value, 8f, start, sunVisibility);
+            passData.fogScatter = new Vector4(
+                fog.sunScattering.value, fog.shade.value, start, sunVisibility);
         }
 
         public void Dispose()
@@ -450,6 +468,7 @@ namespace HiddenBull.UrpStyle
     public static class StyleGlobalDefaults
     {
         public static readonly Vector4 BrushParams = new Vector4(1f, 15f, 1f / 15f, 0f);
+        public static readonly Vector4 ShadowFilter = new Vector4(0.225f, 4.5f, 12f, 0f);
         public static readonly Vector4 SkyParams = new Vector4(0.005f, 0.15f, 0f, 0f);
         public static readonly Vector4 KeyDirection = new Vector4(0f, 0f, 0f, 1f);
 
@@ -460,7 +479,7 @@ namespace HiddenBull.UrpStyle
             get
             {
                 var scaleOffset = SkyLutBaker.ScaleOffset;
-                return new Vector4(0f, scaleOffset.x, scaleOffset.y, 0f);
+                return new Vector4(1f, scaleOffset.x, scaleOffset.y, 0f);
             }
         }
 
@@ -477,6 +496,8 @@ namespace HiddenBull.UrpStyle
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_BrushParams"), BrushParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_SkyParams"), SkyParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_KeyDirection"), KeyDirection);
+            Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowBrush"), Vector4.zero);
+            Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowFilter"), ShadowFilter);
         }
     }
 }

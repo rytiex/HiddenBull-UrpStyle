@@ -13,6 +13,9 @@ namespace HiddenBull.UrpStyle
         CloudGlobalSettings m_Clouds = new CloudGlobalSettings();
 
         [SerializeField]
+        ShadowQualitySettings m_Shadows = new ShadowQualitySettings();
+
+        [SerializeField]
         [HideInInspector]
         Shader m_BrushDistortionShader;
 
@@ -24,21 +27,26 @@ namespace HiddenBull.UrpStyle
 
         public CloudGlobalSettings clouds => m_Clouds;
 
+        public ShadowQualitySettings shadows => m_Shadows;
+
         public override void Create()
         {
             m_Brush ??= new BrushGlobalSettings();
             m_Clouds ??= new CloudGlobalSettings();
+            m_Shadows ??= new ShadowQualitySettings();
             m_GlobalsPass = new StyleGlobalsPass();
             m_DistortionPass = new BrushDistortionPass();
 
             ResolveShaders();
+
+            m_Shadows.Apply();
 
             StyleGlobalDefaults.Apply();
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            m_GlobalsPass.Setup(m_Brush, m_Clouds);
+            m_GlobalsPass.Setup(m_Brush, m_Clouds, m_Shadows);
             renderer.EnqueuePass(m_GlobalsPass);
 
             var cameraType = renderingData.cameraData.cameraType;
