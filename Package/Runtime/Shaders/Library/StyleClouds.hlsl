@@ -126,7 +126,7 @@ half3 HB_SkyWithClouds(half3 direction)
     float3 positionWS = cameraPositionWS + float3(direction) * (travel * HB_CLOUD_DISTANCE_SCALE);
 
     half fogged = HB_FogAmount(positionWS, cameraPositionWS);
-    colour = lerp(colour, HB_FogColour(direction, 1.0h) * alpha, fogged);
+    colour = lerp(colour, HB_FogColour(direction, 1.0h, 1.0h) * alpha, fogged);
 
     return colour + sky * (1.0h - alpha);
 }

@@ -228,9 +228,11 @@ void HiddenBullLitFragment(
 
     InitializeBakedGIData(input, inputData);
 
-    half sunVisibility;
-    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush, sunVisibility);
-    color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility);
+    half sunVisibility, lightReach;
+    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush,
+                                        sunVisibility, lightReach);
+    color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility, lightReach,
+                            inputData.normalizedScreenSpaceUV);
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
     outColor = color;

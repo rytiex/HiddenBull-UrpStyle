@@ -303,7 +303,9 @@ namespace HiddenBull.UrpStyle
                 scaleOffset.x, scaleOffset.y,
                 SkyLutBaker.TimeCoordinate(time), SkyLutBaker.TimeCoordinate(away));
 
-            passData.ambientFloor = m_Lut.GroundAmbient(time, sky.ambientIntensity.value);
+            passData.ambientFloor = PackAmbientFloor(
+                m_Lut.GroundAmbient(time, sky.ambientIntensity.value),
+                m_Lut.HorizonAmbient(time, sky.ambientIntensity.value));
 
             passData.skyParams = new Vector4(
                 sky.skyBrushScale.value, sky.sunsetFocus.value,
@@ -472,6 +474,19 @@ namespace HiddenBull.UrpStyle
                 0f);
         }
 
+        static bool ProbeVolumesBaked()
+        {
+            var probes = ProbeReferenceVolume.instance;
+
+            return probes != null && probes.isInitialized && probes.DataHasBeenLoaded();
+        }
+
+        internal static Vector4 PackAmbientFloor(Color ground, Color horizon)
+        {
+            return new Vector4(ground.r, ground.g, ground.b,
+                horizon.r * 0.2126f + horizon.g * 0.7152f + horizon.b * 0.0722f);
+        }
+
         static void PackFog(StyleFog fog, float sunVisibility, PassData passData)
         {
             if (fog == null || StyleBakeState.baking)
@@ -489,7 +504,9 @@ namespace HiddenBull.UrpStyle
                 density, fog.heightFalloff.value, fog.baseHeight.value, fog.maxOpacity.value);
 
             passData.fogScatter = new Vector4(
-                fog.sunScattering.value, fog.shade.value, start, sunVisibility);
+                fog.sunScattering.value,
+                ProbeVolumesBaked() ? Mathf.Clamp01(fog.shade.value) : 0f,
+                start, sunVisibility);
         }
 
         public void Dispose()
@@ -524,7 +541,8 @@ namespace HiddenBull.UrpStyle
 
         public static Texture SkyLut => s_Lut.texture;
 
-        public static Vector4 AmbientFloor => s_Lut.GroundAmbient(0f, 1f);
+        public static Vector4 AmbientFloor => StyleGlobalsPass.PackAmbientFloor(
+            s_Lut.GroundAmbient(0f, 1f), s_Lut.HorizonAmbient(0f, 1f));
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Apply()

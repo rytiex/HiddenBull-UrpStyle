@@ -23,7 +23,7 @@ half3 HB_RimLight(half3 normalWS, half3 viewDirectionWS, HiddenBullStyleData sty
 }
 
 half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, HiddenBullStyleData style,
-                            HiddenBullBrushSample brush, out half sunVisibility)
+                            HiddenBullBrushSample brush, out half sunVisibility, out half lightReach)
 {
 #ifdef _HB_BRUSH
     half terminatorOffset = brush.coverage * style.brushShading;
@@ -67,6 +67,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
                        inputData.normalizedScreenSpaceUV, mainLight.shadowAttenuation, debugColor);
 
         sunVisibility = mainLight.shadowAttenuation;
+        lightReach = 1.0h;
 
         return half4(debugColor, 1.0h);
     }
@@ -83,11 +84,10 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 
     half occlusion = surfaceData.occlusion * aoFactor.indirectAmbientOcclusion;
 
-    half bakedVisibility;
     half3 ambient = HB_ResolveAmbient(formNormal, inputData.bakedGI, ambientOffset,
-                                      bakedVisibility) * occlusion;
+                                      lightReach) * occlusion;
 
-    sunVisibility = mainLight.shadowAttenuation * bakedVisibility;
+    sunVisibility = mainLight.shadowAttenuation;
 
 #ifdef _HB_SPECULAR
     BRDFData brdfData;

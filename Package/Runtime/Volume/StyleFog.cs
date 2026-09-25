@@ -37,13 +37,31 @@ namespace HiddenBull.UrpStyle
                  "where the sun is blocked, so air in a mountain's shadow stops glowing.")]
         public ClampedFloatParameter sunScattering = new ClampedFloatParameter(1f, 0f, 1f);
 
-        [Tooltip("How far fog darkens where the light does not reach. Fog colour is read from a " +
-                 "gradient by view direction, which assumes open sky — so a valley in shadow, or " +
-                 "anything indoors, glows as though it were lit. This slides the reading down the " +
-                 "same gradient in proportion to how blocked the light is, so shadowed air takes " +
-                 "the colour of the ground rather than of the sky.\n\n" +
-                 "It follows the main light's shadow, which means baked shadows count too.")]
-        public ClampedFloatParameter shade = new ClampedFloatParameter(0.5f, 0f, 2f);
+        [Tooltip("How far the fog obeys the light that actually reaches it. Fog colour is read from " +
+                 "a gradient by view direction, which assumes open sky — so without this, a valley " +
+                 "in shadow and a sealed room both glow as though the sky were overhead.\n\n" +
+                 "Two things are read separately, because they are not the same. Where the sun is " +
+                 "blocked the reading slides down the gradient, so shadowed air takes the colour of " +
+                 "the ground instead of the sky but stays lit — which is what really happens, since " +
+                 "a shadow outdoors is still under an open sky. Where the baked lighting says there " +
+                 "is no light at all, the fog is darkened toward black instead, so an unlit interior " +
+                 "no longer has bright air in it.\n\n" +
+                 "That reading is taken from the air the fog actually sits in rather than from " +
+                 "whatever the view lands on, so standing outside and looking into an unlit room " +
+                 "leaves the fog at arm's length bright. It needs Adaptive Probe Volumes, which is " +
+                 "the only thing that knows how much light reaches a point that is not a surface.\n\n" +
+                 "Without them the fog falls back to reading the surface it lands on, which is " +
+                 "cruder: a dark room at the end of the view drags down the fog in front of you as " +
+                 "well.\n\n" +
+                 "At 1 the fog follows the scene completely and needs no attention. Lower values " +
+                 "hold it up artificially, which is worth it only when a scene has no baked lighting " +
+                 "to read.\n\n" +
+                 "The slider does nothing at all until Adaptive Probe Volumes are enabled and baked, " +
+                 "because there is nothing to read the air from. It is not held back to be strict: " +
+                 "a half-working version of this reads the surface at the end of the view instead, " +
+                 "which drags a distant dark room onto the fog at your feet.")]
+        [DisplayInfo(name = "Shade (Only APV Bake)")]
+        public ClampedFloatParameter shade = new ClampedFloatParameter(1f, 0f, 1f);
 
         [Header("Colour")]
         [Tooltip("The colour the fog fades toward, read along the view direction: left is looking " +

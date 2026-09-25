@@ -36,6 +36,7 @@ namespace HiddenBull.UrpStyle
         readonly Color[] m_Slice = new Color[Width * Rows];
         readonly Gradient[] m_Sources = new Gradient[9];
         readonly Color[] m_Ground = new Color[Rows];
+        readonly Color[] m_Horizon = new Color[Rows];
 
         Texture2DArray m_Texture;
         int m_Revision = -1;
@@ -61,6 +62,15 @@ namespace HiddenBull.UrpStyle
             var upper = Mathf.Min(lower + 1, Rows - 1);
 
             return Color.Lerp(m_Ground[lower], m_Ground[upper], scaled - lower) * intensity;
+        }
+
+        public Color HorizonAmbient(float blend, float intensity)
+        {
+            var scaled = Mathf.Clamp01(blend) * (Rows - 1);
+            var lower = Mathf.FloorToInt(scaled);
+            var upper = Mathf.Min(lower + 1, Rows - 1);
+
+            return Color.Lerp(m_Horizon[lower], m_Horizon[upper], scaled - lower) * intensity;
         }
 
         public Texture2DArray Bake(
@@ -101,6 +111,10 @@ namespace HiddenBull.UrpStyle
             m_Ground[DayRow] = Convert(dayAmbient.Evaluate(0f));
             m_Ground[DuskRow] = Convert(duskAmbient.Evaluate(0f));
             m_Ground[NightRow] = Convert(nightAmbient.Evaluate(0f));
+
+            m_Horizon[DayRow] = Convert(dayAmbient.Evaluate(0.5f));
+            m_Horizon[DuskRow] = Convert(duskAmbient.Evaluate(0.5f));
+            m_Horizon[NightRow] = Convert(nightAmbient.Evaluate(0.5f));
 
             m_Texture.Apply(false, false);
 

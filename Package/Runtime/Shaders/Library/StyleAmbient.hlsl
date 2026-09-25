@@ -14,6 +14,8 @@ float4 _HB_AmbientFloor;
 #define HB_AMBIENT_INTENSITY  _HB_AmbientParams.y
 #define HB_SKY_INTENSITY      _HB_AmbientParams.z
 
+#define HB_AMBIENT_OPEN       _HB_AmbientFloor.w
+
 #define HB_LUT_SCALE          _HB_SkyLutRemap.x
 #define HB_LUT_OFFSET         _HB_SkyLutRemap.y
 #define HB_LUT_TIME           _HB_SkyLutRemap.z
