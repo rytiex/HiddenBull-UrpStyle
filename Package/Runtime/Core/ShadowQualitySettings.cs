@@ -13,6 +13,17 @@ namespace HiddenBull.UrpStyle
         Ultra
     }
 
+    public enum StyleShadowDebug
+    {
+        Off,
+        Attenuation,
+        UnfilteredShadow,
+        BlockerCount,
+        CascadeIndex,
+        FilterValues,
+        SearchRadius
+    }
+
     [Serializable]
     public class ShadowQualitySettings
     {
@@ -66,8 +77,19 @@ namespace HiddenBull.UrpStyle
         [Min(0.05f)]
         float m_BrushSize = 0.5f;
 
+        [SerializeField]
+        [Tooltip("Replaces the lit colour with one term of the shadow calculation, so a shadow that " +
+                 "looks wrong can be traced to the step that made it wrong instead of guessed at.\n\n" +
+                 "Filter Values is the one to reach for first: it draws the three numbers this block " +
+                 "sends to the shader. Black there means the settings never arrived, which looks " +
+                 "exactly like a broken shadow but is not one.")]
+        StyleShadowDebug m_Debug = StyleShadowDebug.Off;
+
         [NonSerialized]
         int m_Applied = -1;
+
+        [NonSerialized]
+        bool m_Pending;
 
         public static Vector2 DistanceRange(StyleShadowQuality quality)
         {
@@ -164,9 +186,20 @@ namespace HiddenBull.UrpStyle
             };
         }
 
+        public StyleShadowDebug debug
+        {
+            get => m_Debug;
+            set => m_Debug = value;
+        }
+
         public Vector4 PackFilter()
         {
             return new Vector4(m_Softness, m_Contact, Taps(m_Quality), 0f);
+        }
+
+        public Vector4 PackDebug()
+        {
+            return new Vector4((int)m_Debug, 0f, 0f, 0f);
         }
 
         public Vector4 PackBrush(bool atlasBound)
@@ -178,6 +211,29 @@ namespace HiddenBull.UrpStyle
                 1f / Mathf.Max(0.05f, m_BrushSize),
                 tile.x,
                 tile.y);
+        }
+
+        public void ApplyDeferred()
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                if (m_Pending)
+                    return;
+
+                m_Pending = true;
+
+                UnityEditor.EditorApplication.delayCall += () =>
+                {
+                    m_Pending = false;
+                    Apply();
+                };
+
+                return;
+            }
+#endif
+
+            Apply();
         }
 
         public void Apply()
@@ -193,17 +249,40 @@ namespace HiddenBull.UrpStyle
             if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset asset)
                 return;
 
-            asset.shadowDistance = m_Distance;
-            asset.shadowCascadeCount = Cascades(m_Quality);
-            asset.mainLightShadowmapResolution = Resolution(m_Quality);
-            asset.shadowDepthBias = 1f;
-            asset.shadowNormalBias = 1f;
-            asset.cascadeBorder = Border(m_Quality);
+            var cascades = Cascades(m_Quality);
+            var resolution = Resolution(m_Quality);
+            var border = Border(m_Quality);
+
+            if (!Mathf.Approximately(asset.shadowDistance, m_Distance))
+                asset.shadowDistance = m_Distance;
+
+            if (asset.shadowCascadeCount != cascades)
+                asset.shadowCascadeCount = cascades;
+
+            if (asset.mainLightShadowmapResolution != resolution)
+                asset.mainLightShadowmapResolution = resolution;
+
+            if (!Mathf.Approximately(asset.shadowDepthBias, 1f))
+                asset.shadowDepthBias = 1f;
+
+            if (!Mathf.Approximately(asset.shadowNormalBias, 1f))
+                asset.shadowNormalBias = 1f;
+
+            if (!Mathf.Approximately(asset.cascadeBorder, border))
+                asset.cascadeBorder = border;
 
             if (m_Quality == StyleShadowQuality.Medium)
-                asset.cascade2Split = 0.2f;
-            else if (Cascades(m_Quality) == 4)
-                asset.cascade4Split = Splits(m_Quality);
+            {
+                if (!Mathf.Approximately(asset.cascade2Split, 0.2f))
+                    asset.cascade2Split = 0.2f;
+            }
+            else if (cascades == 4)
+            {
+                var splits = Splits(m_Quality);
+
+                if (asset.cascade4Split != splits)
+                    asset.cascade4Split = splits;
+            }
 
 #if UNITY_EDITOR
             Write(asset);
@@ -245,33 +324,43 @@ namespace HiddenBull.UrpStyle
         {
             var target = new UnityEditor.SerializedObject(asset);
 
-            Set(target, "m_MainLightShadowsSupported", true);
-            Set(target, "m_SoftShadowsSupported", m_Quality != StyleShadowQuality.Low);
+            var changed = Set(target, "m_MainLightShadowsSupported", true);
 
-            Set(target, "m_SoftShadowQuality", m_Quality switch
+            changed |= Set(target, "m_SoftShadowsSupported", m_Quality != StyleShadowQuality.Low);
+
+            changed |= Set(target, "m_SoftShadowQuality", m_Quality switch
             {
                 StyleShadowQuality.High => 2,
                 StyleShadowQuality.Ultra => 3,
                 _ => 1
             });
 
-            target.ApplyModifiedProperties();
+            if (changed)
+                target.ApplyModifiedProperties();
         }
 
-        static void Set(UnityEditor.SerializedObject target, string path, bool value)
+        static bool Set(UnityEditor.SerializedObject target, string path, bool value)
         {
             var property = target.FindProperty(path);
 
-            if (property != null && property.boolValue != value)
-                property.boolValue = value;
+            if (property == null || property.boolValue == value)
+                return false;
+
+            property.boolValue = value;
+
+            return true;
         }
 
-        static void Set(UnityEditor.SerializedObject target, string path, int value)
+        static bool Set(UnityEditor.SerializedObject target, string path, int value)
         {
             var property = target.FindProperty(path);
 
-            if (property != null && property.intValue != value)
-                property.intValue = value;
+            if (property == null || property.intValue == value)
+                return false;
+
+            property.intValue = value;
+
+            return true;
         }
 #endif
     }

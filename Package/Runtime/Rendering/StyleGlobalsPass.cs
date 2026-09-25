@@ -36,6 +36,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_FogScatterId = Shader.PropertyToID("_HB_FogScatter");
         static readonly int s_ShadowBrushId = Shader.PropertyToID("_HB_ShadowBrush");
         static readonly int s_ShadowFilterId = Shader.PropertyToID("_HB_ShadowFilter");
+        static readonly int s_ShadowDebugId = Shader.PropertyToID("_HB_ShadowDebug");
 
         const float HB_CloudElevationLift = 0.09f;
 
@@ -80,6 +81,7 @@ namespace HiddenBull.UrpStyle
             public Vector4 fogScatter;
             public Vector4 shadowBrush;
             public Vector4 shadowFilter;
+            public Vector4 shadowDebug;
         }
 
         readonly SkyLutBaker m_Lut = new SkyLutBaker();
@@ -130,6 +132,10 @@ namespace HiddenBull.UrpStyle
                 ? StyleGlobalDefaults.ShadowFilter
                 : m_Shadows.PackFilter();
 
+            passData.shadowDebug = m_Shadows == null
+                ? StyleGlobalDefaults.ShadowDebug
+                : m_Shadows.PackDebug();
+
             var timing = PackSky(sky, fog, direction, elevation, realtimeSun, passData);
 
             PackCelestial(celestial, direction, elevation, timing, passData);
@@ -178,6 +184,7 @@ namespace HiddenBull.UrpStyle
                 cmd.SetGlobalVector(s_FogScatterId, data.fogScatter);
                 cmd.SetGlobalVector(s_ShadowBrushId, data.shadowBrush);
                 cmd.SetGlobalVector(s_ShadowFilterId, data.shadowFilter);
+                cmd.SetGlobalVector(s_ShadowDebugId, data.shadowDebug);
             });
         }
 
@@ -496,6 +503,7 @@ namespace HiddenBull.UrpStyle
         public static readonly Vector4 BrushParams = new Vector4(1f, 15f, 1f / 15f, 0f);
         public static readonly Vector4 ShadowFilter = new Vector4(0.225f, 4.5f, 12f, 0f);
         public static readonly Vector4 ShadowBrush = new Vector4(0f, 1f, 1f, 1f);
+        public static readonly Vector4 ShadowDebug = new Vector4(0f, 1f, 1f, 1f);
         public static readonly Vector4 SkyParams = new Vector4(3f, 0f, 0f, 0f);
         public static readonly Vector4 KeyDirection = new Vector4(0f, 0f, 0f, 1f);
 
@@ -532,6 +540,7 @@ namespace HiddenBull.UrpStyle
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_KeyDirection"), KeyDirection);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowBrush"), ShadowBrush);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowFilter"), ShadowFilter);
+            Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowDebug"), ShadowDebug);
         }
     }
 }

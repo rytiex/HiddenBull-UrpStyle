@@ -8,7 +8,7 @@ namespace HiddenBull.UrpStyle.Editor
     {
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
-            var lines = property.isExpanded ? 7 : 1;
+            var lines = property.isExpanded ? 8 : 1;
 
             return lines * EditorGUIUtility.singleLineHeight
                    + (lines - 1) * EditorGUIUtility.standardVerticalSpacing;
@@ -63,6 +63,9 @@ namespace HiddenBull.UrpStyle.Editor
 
                 line.y += step;
                 EditorGUI.PropertyField(line, property.FindPropertyRelative("m_BrushSize"));
+
+                line.y += step;
+                EditorGUI.PropertyField(line, property.FindPropertyRelative("m_Debug"));
             }
         }
     }

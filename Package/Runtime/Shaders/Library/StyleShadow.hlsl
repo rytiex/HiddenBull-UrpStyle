@@ -6,6 +6,13 @@
 
 float4 _HB_ShadowBrush;
 float4 _HB_ShadowFilter;
+float4 _HB_ShadowDebug;
+
+#define HB_SHADOW_DEBUG    _HB_ShadowDebug.x
+
+#define HB_SHADOW_MAX_SOFTNESS 0.225
+#define HB_SHADOW_MAX_CONTACT  4.5
+#define HB_SHADOW_MAX_TAPS     16.0
 
 #define HB_SHADOW_BRUSH    _HB_ShadowBrush.x
 #define HB_SHADOW_TILES    _HB_ShadowBrush.y
@@ -71,11 +78,16 @@ void HB_ShadowScale(float3 positionWS, out float perMetre, out float depthPerMet
     depthPerMetre = max(length(float3(toShadow._m20, toShadow._m21, toShadow._m22)), 1e-6);
 }
 
-half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
+half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV, out half3 probe)
 {
+    probe = half3(0.0h, 0.0h, 0.0h);
+
     float softness = HB_SHADOW_SOFTNESS;
 
     if (softness <= 0.0)
+        return MainLightRealtimeShadow(shadowCoord);
+
+    if (_MainLightShadowmapSize.z < 2.0)
         return MainLightRealtimeShadow(shadowCoord);
 
     float perMetre, depthPerMetre;
@@ -85,12 +97,14 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
     float rotation = InterleavedGradientNoise(screenUV * _ScreenSize.xy, 0) * TWO_PI;
 
     float2 tile = max(HB_SHADOW_ATLAS, 1e-3);
-    float2 margin = _MainLightShadowmapSize.xy * 1.5;
+    float2 margin = min(_MainLightShadowmapSize.xy * 1.5, tile * 0.25);
     float2 lowest = floor(shadowCoord.xy / tile) * tile + margin;
     float2 highest = lowest + tile - margin * 2.0;
 
     float search = softness * perMetre;
     float ignore = depthPerMetre * (0.03 + softness * 0.1);
+
+    probe.y = half(saturate(search / max(_MainLightShadowmapSize.x, 1e-9) * (1.0 / 16.0)));
 
     float blockerSum = 0.0;
     float blockerCount = 0.0;
@@ -105,14 +119,18 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
                                            tap, 0).r;
 
     #if UNITY_REVERSED_Z
-        float blocked = depth > shadowCoord.z + ignore ? 1.0 : 0.0;
+        float carries = depth < 0.9999 ? 1.0 : 0.0;
+        float blocked = depth > shadowCoord.z + ignore ? carries : 0.0;
     #else
-        float blocked = depth < shadowCoord.z - ignore ? 1.0 : 0.0;
+        float carries = depth > 0.0001 ? 1.0 : 0.0;
+        float blocked = depth < shadowCoord.z - ignore ? carries : 0.0;
     #endif
 
         blockerSum += depth * blocked;
         blockerCount += blocked;
     }
+
+    probe.x = half(blockerCount / count);
 
     if (blockerCount < 0.5)
         return 1.0h;
@@ -123,6 +141,8 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
     float gap = abs(blockerSum / blockerCount - shadowCoord.z) / depthPerMetre;
 
     float reach = HB_SHADOW_CONTACT > 0.0 ? saturate(gap / HB_SHADOW_CONTACT) : 1.0;
+
+    probe.z = half(reach);
 
     float radius = max(softness * reach * perMetre, perMetre * 0.002);
 
@@ -146,9 +166,11 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
 half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask, float2 screenUV)
 {
 #if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    half3 probe;
+
     half realtime = BEYOND_SHADOW_FAR(shadowCoord)
         ? 1.0h
-        : HB_ContactShadow(shadowCoord, positionWS, screenUV);
+        : HB_ContactShadow(shadowCoord, positionWS, screenUV, probe);
 #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
     half realtime = MainLightRealtimeShadow(shadowCoord);
 #else
@@ -170,6 +192,63 @@ half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask,
 #endif
 
     return MixRealtimeAndBakedShadows(realtime, baked, fade);
+}
+
+bool HB_ShadowDebug(float4 shadowCoord, float3 positionWS, float2 screenUV, half attenuation,
+                    out half3 color)
+{
+    int mode = (int)HB_SHADOW_DEBUG;
+
+    color = half3(attenuation, attenuation, attenuation);
+
+    if (mode == 0)
+        return false;
+
+    if (mode == 5)
+    {
+        color = half3(HB_SHADOW_SOFTNESS / HB_SHADOW_MAX_SOFTNESS,
+                      HB_SHADOW_CONTACT / HB_SHADOW_MAX_CONTACT,
+                      HB_SHADOW_TAPS / HB_SHADOW_MAX_TAPS);
+
+        return true;
+    }
+
+#if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    if (mode == 2)
+    {
+        half raw = half(MainLightRealtimeShadow(shadowCoord));
+        color = half3(raw, raw, raw);
+    }
+    else if (mode == 3)
+    {
+        half3 probe;
+        HB_ContactShadow(shadowCoord, positionWS, screenUV, probe);
+
+        color = half3(probe.x, probe.z, 0.0h);
+    }
+    else if (mode == 6)
+    {
+        half3 probe;
+        HB_ContactShadow(shadowCoord, positionWS, screenUV, probe);
+
+        color = half3(probe.y, probe.y * probe.y, 0.0h);
+    }
+    else if (mode == 4)
+    {
+    #if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+        int cascade = (int)ComputeCascadeIndex(positionWS);
+    #else
+        int cascade = 0;
+    #endif
+
+        color = cascade == 0 ? half3(0.8h, 0.2h, 0.2h)
+              : cascade == 1 ? half3(0.2h, 0.8h, 0.2h)
+              : cascade == 2 ? half3(0.2h, 0.4h, 0.9h)
+                             : half3(0.9h, 0.8h, 0.2h);
+    }
+#endif
+
+    return true;
 }
 
 Light HB_GetAdditionalLight(uint index, InputData inputData, half4 shadowMask,

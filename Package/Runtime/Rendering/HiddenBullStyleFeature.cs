@@ -30,7 +30,7 @@ namespace HiddenBull.UrpStyle
             m_Shadows ??= new ShadowQualitySettings();
             m_GlobalsPass = new StyleGlobalsPass();
 
-            m_Shadows.Apply();
+            m_Shadows.ApplyDeferred();
 
             StyleGlobalDefaults.Apply();
         }

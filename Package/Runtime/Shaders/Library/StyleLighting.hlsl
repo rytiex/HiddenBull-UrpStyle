@@ -59,6 +59,18 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
         mainLight.shadowAttenuation = lerp(1.0h, mainLight.shadowAttenuation, half(_HB_KeyColor.a));
     }
 
+    if (HB_SHADOW_DEBUG > 0.5)
+    {
+        half3 debugColor;
+
+        HB_ShadowDebug(inputData.shadowCoord, inputData.positionWS,
+                       inputData.normalizedScreenSpaceUV, mainLight.shadowAttenuation, debugColor);
+
+        sunVisibility = mainLight.shadowAttenuation;
+
+        return half4(debugColor, 1.0h);
+    }
+
 #ifdef _LIGHT_COOKIES
     mainLight.color *= SampleMainLightCookie(inputData.positionWS);
 #endif
