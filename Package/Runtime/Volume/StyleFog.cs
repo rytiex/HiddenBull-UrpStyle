@@ -53,9 +53,11 @@ namespace HiddenBull.UrpStyle
                  "Without them the fog falls back to reading the surface it lands on, which is " +
                  "cruder: a dark room at the end of the view drags down the fog in front of you as " +
                  "well.\n\n" +
-                 "At 1 the fog follows the scene completely and needs no attention. Lower values " +
-                 "hold it up artificially, which is worth it only when a scene has no baked lighting " +
-                 "to read.\n\n" +
+                 "At 1 the fog follows the measured light literally. Lower values lift the middle of " +
+                 "that range without touching either end, so a doorway in shade keeps its fog while " +
+                 "a room with no light in it still goes black. Reach for this when Sky Occlusion is " +
+                 "baked, since sky visibility falls away sharply under even a small overhang and a " +
+                 "literal reading of it darkens more than the eye expects.\n\n" +
                  "The slider does nothing at all until Adaptive Probe Volumes are enabled and baked, " +
                  "because there is nothing to read the air from. It is not held back to be strict: " +
                  "a half-working version of this reads the surface at the end of the view instead, " +

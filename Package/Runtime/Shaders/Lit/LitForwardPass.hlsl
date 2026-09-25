@@ -231,8 +231,10 @@ void HiddenBullLitFragment(
     half sunVisibility, lightReach;
     half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush,
                                         sunVisibility, lightReach);
+#ifdef _SURFACE_TYPE_TRANSPARENT
     color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility, lightReach,
                             inputData.normalizedScreenSpaceUV);
+#endif
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
     outColor = color;

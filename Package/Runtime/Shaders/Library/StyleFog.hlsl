@@ -52,7 +52,7 @@ half3 HB_FogColour(half3 direction, half sunlit, half reach)
     half3 colour = HB_SampleSkyLut(direction.y - shade * (1.0h - sunlit),
                                    HB_LUT_TIME, HB_LUT_FOG);
 
-    half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunlit;
+    half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunlit * reach;
     if (amount > 0.0h && _HB_SunDirection.w > 0.5)
     {
         half towardSun = half(saturate(dot(direction, _HB_SunDirection.xyz)));
@@ -61,7 +61,7 @@ half3 HB_FogColour(half3 direction, half sunlit, half reach)
         colour = lerp(colour, _HB_SunColor.rgb, saturate(scatter * amount));
     }
 
-    return colour * lerp(1.0h, reach, shade);
+    return colour * PositivePow(reach, shade);
 }
 
 half HB_SkyHaze(half3 direction)
@@ -90,11 +90,12 @@ half3 HB_SkyWithFog(half3 direction)
 #define HB_FOG_STEPS  4
 #define HB_FOG_SPREAD 0.75
 #define HB_FOG_BLUR   0.5
+#define HB_FOG_BIAS   0.25
 #define HB_FOG_GOLDEN 2.39996323
 
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
 
-bool HB_AirLight(float3 positionWS, float3 bias, out float3 light)
+bool HB_AirLight(float3 positionWS, float3 bias, float open, out float light)
 {
     APVResources resources = FillAPVResources();
 
@@ -106,9 +107,29 @@ bool HB_AirLight(float3 positionWS, float3 bias, out float3 light)
         return false;
     }
 
-    WarpUVWLeakReduction(resources, 0xFFFFFFFF, uvw);
+    float3 stored;
 
-    light = SAMPLE_TEXTURE3D_LOD(resources.L0_L1Rx, s_linear_clamp_sampler, uvw, 0).rgb;
+    UNITY_BRANCH
+    if (_APVLeakReductionMode == APVLEAKREDUCTIONMODE_QUALITY)
+    {
+        APVSample probe = QualityLeakReduction(resources, 0xFFFFFFFF, uvw);
+
+        stored = probe.L0;
+    }
+    else
+    {
+        WarpUVWLeakReduction(resources, 0xFFFFFFFF, uvw);
+
+        stored = SAMPLE_TEXTURE3D_LOD(resources.L0_L1Rx, s_linear_clamp_sampler, uvw, 0).rgb;
+    }
+
+    light = Luminance(stored) / open;
+
+    if (_APVSkyOcclusionWeight > 0)
+    {
+        light += kSHBasis0 * SAMPLE_TEXTURE3D_LOD(resources.SkyOcclusionL0L1,
+                                                  s_linear_clamp_sampler, uvw, 0).x;
+    }
 
     return true;
 }
@@ -120,15 +141,18 @@ half HB_FogAirReach(half reach, float3 cameraPositionWS, half3 direction, float 
 {
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
     float density = max(_HB_FogParams.x, 1e-4);
-    float span = min(rayLength - _HB_FogScatter.z, 3.0 / density);
+    float start = min(_HB_FogScatter.z, rayLength * 0.5);
+    float span = min(rayLength - start, 3.0 / density);
 
     if (span <= 0.0)
         return reach;
 
+    span = max(span - HB_FOG_BIAS, span * 0.5);
+
     float opacity = 1.0 - exp(-density * span);
     float rcpDensity = 1.0 / density;
 
-    float3 origin = cameraPositionWS + float3(direction) * _HB_FogScatter.z;
+    float3 origin = cameraPositionWS + float3(direction) * start;
     float2 pixel = screenUV * _ScreenSize.xy;
     float open = max(HB_AMBIENT_OPEN, HB_EPSILON);
 
@@ -143,26 +167,36 @@ half HB_FogAirReach(half reach, float3 cameraPositionWS, half3 direction, float 
 
     float lit = 0.0;
     float peak = -1.0;
+    float found = 0.0;
 
     UNITY_UNROLL
     for (int i = 0; i < HB_FOG_STEPS; i++)
     {
-        float slice = (i + jitter) * (1.0 / HB_FOG_STEPS);
+        float slice = (i + 0.5) * (1.0 / HB_FOG_STEPS);
         float depth = -log(max(1.0 - slice * opacity, 1e-6)) * rcpDensity;
 
         float angle = (jitter + i) * HB_FOG_GOLDEN;
-        float3 spread = (right * cos(angle) + up * sin(angle)) * radius;
+        float3 spread = (right * cos(angle) + up * sin(angle)) * (radius * (1.0 - slice));
 
-        float3 air;
-        float light = HB_AirLight(origin + forward * depth + spread, -forward, air)
-            ? saturate(Luminance(air) / open)
-            : 1.0;
+        float air;
 
-        lit += light;
-        peak = max(peak, light);
+        if (HB_AirLight(origin + forward * depth + spread, -forward, open, air))
+        {
+            float light = saturate(air);
+
+            lit += light;
+            peak = max(peak, light);
+            found += 1.0;
+        }
     }
 
-    return half((lit - peak) * (1.0 / (HB_FOG_STEPS - 1)));
+    if (found < 0.5)
+        return reach;
+
+    if (found < 1.5)
+        return half(lit);
+
+    return half((lit - peak) / (found - 1.0));
 #else
     return reach;
 #endif
