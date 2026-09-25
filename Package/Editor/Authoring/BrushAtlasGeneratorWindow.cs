@@ -60,8 +60,11 @@ namespace HiddenBull.UrpStyle.Editor
 
         Texture2D m_Preview;
         string m_PreviewSignature;
+        string m_Pending;
         float m_Coverage;
         Vector2 m_Scroll;
+
+        System.Threading.Tasks.Task<BrushAtlasResult> m_Bake;
 
         [MenuItem("Tools/HiddenBull/URP Style/Brush Atlas Generator")]
         static void Open()
@@ -166,7 +169,7 @@ namespace HiddenBull.UrpStyle.Editor
             strokeCount.intValue = EditorGUILayout.IntSlider(Styles.StrokeCount, strokeCount.intValue, 10, 800);
 
             DrawRange(Find(nameof(BrushAtlasSettings.lengthRange)), Styles.LengthRange, 0.01f, 0.6f);
-            DrawRange(Find(nameof(BrushAtlasSettings.widthRange)), Styles.WidthRange, 0.002f, 0.1f);
+            DrawRange(Find(nameof(BrushAtlasSettings.widthRange)), Styles.WidthRange, 0.002f, 0.25f);
 
             var angle = Find(nameof(BrushAtlasSettings.angle));
             angle.floatValue = EditorGUILayout.Slider(Styles.Angle, angle.floatValue, -180f, 180f);
@@ -178,8 +181,12 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("Taper"));
             EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.edgeSoftness)),
                 new GUIContent("Edge Softness"));
+            EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.curvature)),
+                new GUIContent("Curvature"));
             EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.opacityVariation)),
                 new GUIContent("Opacity Variation"));
+            EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.toneVariation)),
+                new GUIContent("Tone Variation"));
         }
 
         void DrawDetail()
@@ -187,6 +194,9 @@ namespace HiddenBull.UrpStyle.Editor
             DrawLayer("Bristles",
                 Find(nameof(BrushAtlasSettings.bristleAmount)),
                 Find(nameof(BrushAtlasSettings.bristleDensity)), "Density");
+
+            EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.bristleBreakup)),
+                new GUIContent("Bristle Break-up"));
 
             DrawLayer("Edge Break-up",
                 Find(nameof(BrushAtlasSettings.edgeBreakup)),
@@ -319,11 +329,42 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var signature = JsonUtility.ToJson(m_Settings);
 
-            if (m_Preview != null && signature == m_PreviewSignature)
+            if (signature != m_PreviewSignature)
+            {
+                m_PreviewSignature = signature;
+                m_Pending = signature;
+            }
+
+            if (m_Pending != null && m_Bake == null)
+            {
+                var snapshot = JsonUtility.FromJson<BrushAtlasSettings>(m_Pending);
+
+                m_Pending = null;
+
+                m_Bake = System.Threading.Tasks.Task.Run(
+                    () => BrushAtlasBaker.BakeResult(snapshot, k_PreviewResolution));
+            }
+
+            if (m_Bake == null)
                 return;
 
-            var pixels = BrushAtlasBaker.Bake(m_Settings, k_PreviewResolution, out var stats);
-            m_Coverage = stats.coverage;
+            if (!m_Bake.IsCompleted)
+            {
+                Repaint();
+                return;
+            }
+
+            var completed = m_Bake;
+            m_Bake = null;
+
+            if (completed.IsFaulted)
+            {
+                Debug.LogException(completed.Exception);
+                return;
+            }
+
+            var pixels = completed.Result.pixels;
+            m_Coverage = completed.Result.stats.coverage;
 
             if (m_Preview == null)
             {
@@ -338,8 +379,6 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_Preview.SetPixels(BrushAtlasBaker.ExtractCoveragePreview(pixels));
             m_Preview.Apply();
-
-            m_PreviewSignature = signature;
         }
 
         void GenerateAndSave()

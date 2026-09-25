@@ -19,8 +19,6 @@ float4 _HB_CloudTint;
 #define HB_CLOUD_RELIEF_UP      0.45h
 #define HB_CLOUD_COVERAGE_FLOOR 0.25h
 #define HB_CLOUD_SHADE_FLOOR    0.85h
-#define HB_CLOUD_BRUSH_EDGE     0.12h
-#define HB_CLOUD_BRUSH_ALPHA    0.6h
 #define HB_CLOUD_SILVER_GAIN    2.0h
 #define HB_CLOUD_RIM_FOCUS      12.0h
 #define HB_CLOUD_BODY_FOCUS     40.0h
@@ -66,17 +64,7 @@ half3 HB_SkyWithClouds(half3 direction)
     half middle = (steps - 1) * 0.5h;
     half taper = half(_HB_CloudSlab.y) * rcp(max(middle, 1.0h));
 
-    half stroke = 0.0h;
-    half brush = half(_HB_CloudMotion.z);
-
-    if (brush > 0.0h && HB_BRUSH_ATLAS_BOUND > 0.5h)
-    {
-        half4 painted = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, reference * 1.5);
-        stroke = (painted.b * 2.0h - 1.0h) * brush;
-    }
-
-    half threshold = lerp(1.0h, HB_CLOUD_COVERAGE_FLOOR, half(_HB_CloudParams.x))
-                   + stroke * HB_CLOUD_BRUSH_EDGE;
+    half threshold = lerp(1.0h, HB_CLOUD_COVERAGE_FLOOR, half(_HB_CloudParams.x));
 
     half shellSoft = max(soft + taper * 0.6h, HB_EPSILON);
 
@@ -93,8 +81,7 @@ half3 HB_SkyWithClouds(half3 direction)
 
         half cutoff = threshold + abs((half)i - middle) * taper;
 
-        half shell = saturate(smoothstep(cutoff - shellSoft, cutoff + shellSoft, atlas.a)
-                              * (1.0h + stroke * HB_CLOUD_BRUSH_ALPHA));
+        half shell = smoothstep(cutoff - shellSoft, cutoff + shellSoft, atlas.a);
 
         if (shell > 0.0h)
         {

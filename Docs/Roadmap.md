@@ -63,6 +63,21 @@ means costs can be re-measured on any consumer's own hardware.
 Height fog and aerial perspective, plus directional coloured occlusion (Architecture D6) — GTAO
 with bent normals feeding the ambient term established in Phase 1.
 
+### Phase 3b — Baked lighting
+
+Making the style behave under baked and mixed lighting rather than assuming a realtime sun.
+
+Done: the sun is resolved even when the light is Baked and therefore absent from the visible light
+list; lightmapped objects take their lightmap and dynamic ones keep the gradient, decided by the
+`LIGHTMAP_ON` keyword rather than by a slider; fog shade reads baked occlusion; the bake itself is
+made reproducible by an editor hook that turns fog off and lends the sun the style's own colour for
+the duration.
+
+Open: light probes. A Baked setup lights dynamic objects through probes, and the ambient model
+currently ignores them — so a scene lit entirely by a baked sun leaves everything that moves on the
+gradient alone. Honouring probes the way lightmaps are honoured would make Baked a complete
+setup rather than a static-only one.
+
 ### Phase 4 — Transparency and sorting
 
 The layered strategy from Architecture D9: dithered alpha, weighted blended OIT, transparent depth

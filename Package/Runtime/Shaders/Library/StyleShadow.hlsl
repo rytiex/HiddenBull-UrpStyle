@@ -84,7 +84,7 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
     float count = HB_SHADOW_TAPS;
     float rotation = InterleavedGradientNoise(screenUV * _ScreenSize.xy, 0) * TWO_PI;
 
-    float2 tile = HB_SHADOW_ATLAS;
+    float2 tile = max(HB_SHADOW_ATLAS, 1e-3);
     float2 margin = _MainLightShadowmapSize.xy * 1.5;
     float2 lowest = floor(shadowCoord.xy / tile) * tile + margin;
     float2 highest = lowest + tile - margin * 2.0;
@@ -116,6 +116,9 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV)
 
     if (blockerCount < 0.5)
         return 1.0h;
+
+    if (blockerCount >= count)
+        return 0.0h;
 
     float gap = abs(blockerSum / blockerCount - shadowCoord.z) / depthPerMetre;
 
@@ -186,8 +189,9 @@ Light HB_GetAdditionalLight(uint index, InputData inputData, half4 shadowMask,
     half4 occlusionProbeChannels = _AdditionalLightsOcclusionProbes[lightIndex];
 #endif
 
-    float3 shadowPosition = HB_BrushShadowPosition(inputData.positionWS, inputData.normalWS,
-                                                   light.direction);
+    float3 shadowPosition = GetAdditionalLightShadowParams(lightIndex).w >= 0.0h
+        ? HB_BrushShadowPosition(inputData.positionWS, inputData.normalWS, light.direction)
+        : inputData.positionWS;
 
     light.shadowAttenuation = AdditionalLightShadow(lightIndex, shadowPosition, light.direction,
                                                     shadowMask, occlusionProbeChannels);

@@ -6,7 +6,13 @@ namespace HiddenBull.UrpStyle.Editor
     {
         public static Color[] Bake(CloudAtlasSettings settings, int resolution)
         {
-            var density = BuildDensity(settings, resolution);
+            return Bake(settings, resolution, null, 0);
+        }
+
+        public static Color[] Bake(CloudAtlasSettings settings, int resolution,
+                                   float[] brush, int brushResolution)
+        {
+            var density = BuildDensity(settings, resolution, brush, brushResolution);
             var height = Blur(density, resolution, SmoothingRadius(settings, resolution));
 
             var pixels = new Color[resolution * resolution];
@@ -72,7 +78,8 @@ namespace HiddenBull.UrpStyle.Editor
             return pixels;
         }
 
-        static float[] BuildDensity(CloudAtlasSettings settings, int resolution)
+        static float[] BuildDensity(CloudAtlasSettings settings, int resolution,
+                                    float[] brush, int brushResolution)
         {
             var density = new float[resolution * resolution];
 
@@ -80,16 +87,26 @@ namespace HiddenBull.UrpStyle.Editor
             var shapeScale = Mathf.Max(1, settings.shapeScale);
             var erosionScale = Mathf.Max(2, settings.erosionScale);
 
-            var minimum = float.MaxValue;
-            var maximum = float.MinValue;
+            var bend = settings.warp * 0.5f;
+            var warpScale = Mathf.Max(1, settings.warpScale);
 
-            for (var y = 0; y < resolution; y++)
+            System.Threading.Tasks.Parallel.For(0, resolution, y =>
             {
-                var v = (y + 0.5f) / resolution;
+                var row = (y + 0.5f) / resolution;
 
                 for (var x = 0; x < resolution; x++)
                 {
                     var u = (x + 0.5f) / resolution;
+                    var v = row;
+
+                    if (settings.warp > 0f)
+                    {
+                        var du = Fbm(u, v, warpScale, 2, settings.seed + 7717) - 0.5f;
+                        var dv = Fbm(u, v, warpScale, 2, settings.seed + 3313) - 0.5f;
+
+                        u += du * bend;
+                        v += dv * bend;
+                    }
 
                     var billow = 1f - Worley(u, v, puffScale, settings.seed);
                     var drift = Fbm(u, v, shapeScale, settings.octaves, settings.seed + 5501);
@@ -102,11 +119,21 @@ namespace HiddenBull.UrpStyle.Editor
                         value -= detail * settings.erosion;
                     }
 
-                    density[y * resolution + x] = value;
+                    if (brush != null && settings.brushAmount > 0f)
+                        value += (SampleBrush(brush, brushResolution, u, v, settings.brushScale) - 0.5f)
+                               * settings.brushAmount;
 
-                    minimum = Mathf.Min(minimum, value);
-                    maximum = Mathf.Max(maximum, value);
+                    density[y * resolution + x] = value;
                 }
+            });
+
+            var minimum = float.MaxValue;
+            var maximum = float.MinValue;
+
+            for (var i = 0; i < density.Length; i++)
+            {
+                minimum = Mathf.Min(minimum, density[i]);
+                maximum = Mathf.Max(maximum, density[i]);
             }
 
             var span = Mathf.Max(maximum - minimum, 1e-4f);
@@ -118,6 +145,14 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             return density;
+        }
+
+        static float SampleBrush(float[] brush, int resolution, float u, float v, float scale)
+        {
+            var x = Wrap(Mathf.FloorToInt(u * scale * resolution), resolution);
+            var y = Wrap(Mathf.FloorToInt(v * scale * resolution), resolution);
+
+            return brush[y * resolution + x];
         }
 
         static int SmoothingRadius(CloudAtlasSettings settings, int resolution)

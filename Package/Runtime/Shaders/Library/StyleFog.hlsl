@@ -45,7 +45,7 @@ half3 HB_FogColour(half3 direction, half sunVisibility)
 {
     half shade = half(_HB_FogScatter.y) * (1.0h - sunVisibility);
 
-    half3 colour = HB_SampleSkyLut(direction.y - shade, HB_LUT_ROW_FOG);
+    half3 colour = HB_SampleSkyLut(direction.y - shade, HB_LUT_TIME, HB_LUT_FOG);
 
     half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunVisibility;
     if (amount > 0.0h && _HB_SunDirection.w > 0.5)

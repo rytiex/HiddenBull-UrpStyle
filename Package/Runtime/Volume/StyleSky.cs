@@ -34,7 +34,21 @@ namespace HiddenBull.UrpStyle
                  "visible on a flat zenith as well as across the bands. It fades out toward the " +
                  "horizon on its own, to keep that line clean. Needs a brush atlas on the renderer " +
                  "feature.")]
-        public ClampedFloatParameter skyBrush = new ClampedFloatParameter(0.45f, 0f, 1f);
+        public ClampedFloatParameter skyBrush = new ClampedFloatParameter(0.25f, 0f, 1f);
+
+        [Tooltip("Size of those strokes, as how many times the atlas wraps around the sky. Low " +
+                 "values give broad sweeps across the whole dome, high values a finer tooth.\n\n" +
+                 "It is counted in turns around the sky rather than in metres, because there is no " +
+                 "surface up there to measure against — the same reason the sky's strokes are " +
+                 "anchored to the view direction rather than to the world.")]
+        public ClampedFloatParameter skyBrushScale = new ClampedFloatParameter(1f, 0.5f, 12f);
+
+        [Tooltip("How soft those strokes are. At 0 the atlas is read at full detail and every " +
+                 "bristle line shows, which on a sky reads as texture rather than as paint. " +
+                 "Raising it reads from the blurred copies of the atlas instead, so the marks keep " +
+                 "their shape but lose the tooth — closer to paint laid on wet.\n\n" +
+                 "It is free: the atlas already carries the blurred copies.")]
+        public ClampedFloatParameter skyBrushSmoothness = new ClampedFloatParameter(0.35f, 0f, 1f);
 
         [Header("Ambient")]
         [Tooltip("The light the sky casts, read along the surface normal: left is a surface facing " +
@@ -60,10 +74,12 @@ namespace HiddenBull.UrpStyle
                  "are the same axis. Its whole range lives in a low sun.")]
         public ClampedFloatParameter ambientLightBias = new ClampedFloatParameter(0.85f, 0f, 1f);
 
-        [Tooltip("How much the warm band at sunset is kept to the side the sun is actually on. At 0 " +
-                 "the horizon glows the same all the way around, which is what a gradient read " +
-                 "purely by height has to do. Higher values let the sky opposite the sun run ahead " +
-                 "into the night gradient, so it darkens first while the sunset side stays lit.")]
+        [Tooltip("How tightly night arrives across the sky. Darkness does not fall everywhere at " +
+                 "once: it starts on the side the moon is rising from and sweeps toward the sun, " +
+                 "and this is the width of that front.\n\n" +
+                 "At 0 the front is so wide it covers the whole dome, which is the same as the sky " +
+                 "simply dimming everywhere. Raising it narrows the front until there is a clear " +
+                 "boundary travelling across, with the sunset still burning on one side of it.")]
         public ClampedFloatParameter sunsetFocus = new ClampedFloatParameter(1f, 0f, 1f);
 
         [Header("Sky Light")]

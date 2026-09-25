@@ -66,8 +66,7 @@ namespace HiddenBull.UrpStyle
         [Min(0.05f)]
         float m_BrushSize = 0.5f;
 
-        [SerializeField]
-        [HideInInspector]
+        [NonSerialized]
         int m_Applied = -1;
 
         public static Vector2 DistanceRange(StyleShadowQuality quality)
@@ -99,6 +98,8 @@ namespace HiddenBull.UrpStyle
             {
                 m_Quality = value;
                 m_Distance = DefaultDistance(value);
+
+                Apply();
             }
         }
 
@@ -109,6 +110,8 @@ namespace HiddenBull.UrpStyle
             {
                 var range = DistanceRange(m_Quality);
                 m_Distance = Mathf.Clamp(value, range.x, range.y);
+
+                Apply();
             }
         }
 
@@ -179,7 +182,6 @@ namespace HiddenBull.UrpStyle
 
         public void Apply()
         {
-#if UNITY_EDITOR
             var limits = DistanceRange(m_Quality);
             m_Distance = Mathf.Clamp(m_Distance, limits.x, limits.y);
 
@@ -191,10 +193,51 @@ namespace HiddenBull.UrpStyle
             if (GraphicsSettings.currentRenderPipeline is not UniversalRenderPipelineAsset asset)
                 return;
 
+            asset.shadowDistance = m_Distance;
+            asset.shadowCascadeCount = Cascades(m_Quality);
+            asset.mainLightShadowmapResolution = Resolution(m_Quality);
+            asset.shadowDepthBias = 1f;
+            asset.shadowNormalBias = 1f;
+            asset.cascadeBorder = Border(m_Quality);
+
+            if (m_Quality == StyleShadowQuality.Medium)
+                asset.cascade2Split = 0.2f;
+            else if (Cascades(m_Quality) == 4)
+                asset.cascade4Split = Splits(m_Quality);
+
+#if UNITY_EDITOR
             Write(asset);
+#endif
 
             m_Applied = signature;
-#endif
+        }
+
+        public static int Resolution(StyleShadowQuality quality)
+        {
+            return quality switch
+            {
+                StyleShadowQuality.Low => 1024,
+                StyleShadowQuality.Ultra => 4096,
+                _ => 2048
+            };
+        }
+
+        public static float Border(StyleShadowQuality quality)
+        {
+            return quality switch
+            {
+                StyleShadowQuality.Low => 0.25f,
+                StyleShadowQuality.Medium => 0.25f,
+                StyleShadowQuality.High => 0.3f,
+                _ => 0.35f
+            };
+        }
+
+        public static Vector3 Splits(StyleShadowQuality quality)
+        {
+            return quality == StyleShadowQuality.Ultra
+                ? new Vector3(0.04f, 0.11f, 0.28f)
+                : new Vector3(0.05f, 0.14f, 0.34f);
         }
 
 #if UNITY_EDITOR
@@ -203,44 +246,14 @@ namespace HiddenBull.UrpStyle
             var target = new UnityEditor.SerializedObject(asset);
 
             Set(target, "m_MainLightShadowsSupported", true);
-            Set(target, "m_ShadowDistance", m_Distance);
-            Set(target, "m_ShadowDepthBias", 1f);
-            Set(target, "m_ShadowNormalBias", 1f);
-            Set(target, "m_ShadowCascadeCount", Cascades(m_Quality));
+            Set(target, "m_SoftShadowsSupported", m_Quality != StyleShadowQuality.Low);
 
-            switch (m_Quality)
+            Set(target, "m_SoftShadowQuality", m_Quality switch
             {
-                case StyleShadowQuality.Low:
-                    Set(target, "m_MainLightShadowmapResolution", 1024);
-                    Set(target, "m_CascadeBorder", 0.25f);
-                    Set(target, "m_SoftShadowsSupported", false);
-                    Set(target, "m_SoftShadowQuality", 1);
-                    break;
-
-                case StyleShadowQuality.Medium:
-                    Set(target, "m_MainLightShadowmapResolution", 2048);
-                    Set(target, "m_Cascade2Split", 0.2f);
-                    Set(target, "m_CascadeBorder", 0.25f);
-                    Set(target, "m_SoftShadowsSupported", true);
-                    Set(target, "m_SoftShadowQuality", 1);
-                    break;
-
-                case StyleShadowQuality.High:
-                    Set(target, "m_MainLightShadowmapResolution", 2048);
-                    Set(target, "m_Cascade4Split", new Vector3(0.05f, 0.14f, 0.34f));
-                    Set(target, "m_CascadeBorder", 0.3f);
-                    Set(target, "m_SoftShadowsSupported", true);
-                    Set(target, "m_SoftShadowQuality", 2);
-                    break;
-
-                case StyleShadowQuality.Ultra:
-                    Set(target, "m_MainLightShadowmapResolution", 4096);
-                    Set(target, "m_Cascade4Split", new Vector3(0.04f, 0.11f, 0.28f));
-                    Set(target, "m_CascadeBorder", 0.35f);
-                    Set(target, "m_SoftShadowsSupported", true);
-                    Set(target, "m_SoftShadowQuality", 3);
-                    break;
-            }
+                StyleShadowQuality.High => 2,
+                StyleShadowQuality.Ultra => 3,
+                _ => 1
+            });
 
             target.ApplyModifiedProperties();
         }
@@ -249,7 +262,7 @@ namespace HiddenBull.UrpStyle
         {
             var property = target.FindProperty(path);
 
-            if (property != null)
+            if (property != null && property.boolValue != value)
                 property.boolValue = value;
         }
 
@@ -257,24 +270,8 @@ namespace HiddenBull.UrpStyle
         {
             var property = target.FindProperty(path);
 
-            if (property != null)
+            if (property != null && property.intValue != value)
                 property.intValue = value;
-        }
-
-        static void Set(UnityEditor.SerializedObject target, string path, float value)
-        {
-            var property = target.FindProperty(path);
-
-            if (property != null)
-                property.floatValue = value;
-        }
-
-        static void Set(UnityEditor.SerializedObject target, string path, Vector3 value)
-        {
-            var property = target.FindProperty(path);
-
-            if (property != null)
-                property.vector3Value = value;
         }
 #endif
     }

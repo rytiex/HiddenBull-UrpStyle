@@ -53,14 +53,9 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How much the shells shrink away from the middle one. Each shell is cut at a " +
                  "higher density as it gets further from the centre, so the stack closes into a " +
                  "rounded body instead of standing like a pile of identical cut-outs.")]
-        public ClampedFloatParameter stepTaper = new ClampedFloatParameter(0.245f, 0f, 1f);
+        public ClampedFloatParameter stepTaper = new ClampedFloatParameter(0.325f, 0f, 1f);
 
         [Header("Detail")]
-        [Tooltip("How far the brush atlas works into the cloud. It cuts at the silhouette and " +
-                 "varies how solid the cloud is, so the strokes show as shape and thickness rather " +
-                 "than as paint laid over the top. Needs a brush atlas on the renderer feature.")]
-        public ClampedFloatParameter brush = new ClampedFloatParameter(0.525f, 0f, 1f);
-
         [Tooltip("How much light bleeds through where the cloud thins out. It sits in the band " +
                  "where the edge dissolves into sky, not across the body, and it only lifts the " +
                  "shadowed side. Near the sun it also lights the body of whichever cloud the sun " +

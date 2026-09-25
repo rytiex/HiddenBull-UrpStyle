@@ -3,35 +3,50 @@
 
 #include "StyleCommon.hlsl"
 
-TEXTURE2D(_HB_SkyLut);
+TEXTURE2D_ARRAY(_HB_SkyLut);
 SAMPLER(sampler_HB_SkyLut);
 
 float4 _HB_AmbientParams;
+float4 _HB_SkyLutRemap;
+float4 _HB_AmbientFloor;
 
-#define HB_AMBIENT_LIGHT_BIAS   _HB_AmbientParams.x
-#define HB_LUT_SCALE            _HB_AmbientParams.y
-#define HB_LUT_OFFSET           _HB_AmbientParams.z
+#define HB_AMBIENT_LIGHT_BIAS _HB_AmbientParams.x
+#define HB_AMBIENT_INTENSITY  _HB_AmbientParams.y
+#define HB_SKY_INTENSITY      _HB_AmbientParams.z
 
-#define HB_LUT_ROW_AMBIENT  0.125
-#define HB_LUT_ROW_SKY      0.375
-#define HB_LUT_ROW_SKY_AWAY 0.625
-#define HB_LUT_ROW_FOG      0.875
+#define HB_LUT_SCALE          _HB_SkyLutRemap.x
+#define HB_LUT_OFFSET         _HB_SkyLutRemap.y
+#define HB_LUT_TIME           _HB_SkyLutRemap.z
+#define HB_LUT_AWAY           _HB_SkyLutRemap.w
 
-half3 HB_SampleSkyLut(half up, float row)
+#define HB_LUT_ROWS    3.0
+#define HB_SKY_TIME    ((HB_LUT_TIME * HB_LUT_ROWS - 0.5) / (HB_LUT_ROWS - 1.0))
+
+#define HB_LUT_AMBIENT 0.0
+#define HB_LUT_SKY     1.0
+#define HB_LUT_FOG     2.0
+
+half3 HB_SampleSkyLut(half up, float time, float slice)
 {
     float u = saturate(up * 0.5h + 0.5h) * HB_LUT_SCALE + HB_LUT_OFFSET;
 
-    return SAMPLE_TEXTURE2D_LOD(_HB_SkyLut, sampler_HB_SkyLut, float2(u, row), 0).rgb;
+    return SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_SkyLut, sampler_HB_SkyLut,
+                                      float2(u, time), slice, 0).rgb;
+}
+
+half3 HB_SampleAmbientLut(half up)
+{
+    return HB_SampleSkyLut(up, HB_LUT_TIME, HB_LUT_AMBIENT) * half(HB_AMBIENT_INTENSITY);
 }
 
 half3 HB_GradientAmbient(half3 directionWS)
 {
-    return HB_SampleSkyLut(directionWS.y, HB_LUT_ROW_AMBIENT);
+    return HB_SampleAmbientLut(directionWS.y);
 }
 
 half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bakedVisibility)
 {
-    half3 gradient = HB_SampleSkyLut(normalWS.y + brush, HB_LUT_ROW_AMBIENT);
+    half3 gradient = HB_SampleAmbientLut(normalWS.y + brush);
 
     half3 light = half3(_HB_KeyDirection.xyz);
 
@@ -41,8 +56,8 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bake
 
     if (bias > 0.0h)
     {
-        half3 alongLight = HB_SampleSkyLut(dot(normalWS, light) + brush, HB_LUT_ROW_AMBIENT)
-                         - HB_SampleSkyLut(-1.0h, HB_LUT_ROW_AMBIENT);
+        half3 alongLight = HB_SampleAmbientLut(dot(normalWS, light) + brush)
+                         - half3(_HB_AmbientFloor.rgb);
 
         gradient += alongLight * bias;
     }
@@ -60,7 +75,7 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bake
 
 half3 HB_AmbientSkyColor()
 {
-    return HB_SampleSkyLut(1.0h, HB_LUT_ROW_AMBIENT);
+    return HB_SampleAmbientLut(1.0h);
 }
 
 #endif

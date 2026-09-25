@@ -19,9 +19,9 @@ Shader "HiddenBull/URP Style/Lit"
 
         [Toggle(_HB_BRUSH)] _BrushEnabled("Enable Brush", Float) = 1.0
         [Enum(World, 0, Object, 1, Rest Pose, 2)] _BrushObjectSpace("Brush Space", Float) = 1.0
-        _BrushRelief("Brush Relief", Range(0.0, 1.0)) = 0.1
-        _BrushShading("Brush Shading Break-up", Range(0.0, 0.5)) = 0.15
-        _BrushAmbient("Brush Ambient Break-up", Range(0.0, 0.5)) = 0.085
+        _BrushRelief("Brush Relief", Range(0.0, 1.0)) = 0.235
+        _BrushShading("Brush Shading Break-up", Range(0.0, 0.5)) = 0.5
+        _BrushAmbient("Brush Ambient Break-up", Range(0.0, 0.5)) = 0.125
         _BrushUvWarp("Brush Texture Warp", Range(0.0, 0.2)) = 0.0
 
         [Toggle(_HB_BRUSH_MASK)] _BrushMaskEnabled("Use Brush Mask", Float) = 0.0

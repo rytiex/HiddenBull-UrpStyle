@@ -13,8 +13,6 @@ float4 _HB_BrushParams;
 #define HB_BRUSH_FADE_RATE       _HB_BrushParams.z
 #define HB_BRUSH_ATLAS_BOUND     _HB_BrushParams.w
 
-#define HB_BRUSH_DIRECTION_SCALE 3.0
-
 struct HiddenBullBrushSample
 {
     half3 warp;
@@ -34,14 +32,6 @@ HiddenBullBrushSample HB_NoBrush()
     brush.warp = half3(0.0h, 0.0h, 0.0h);
     brush.coverage = 0.0h;
     return brush;
-}
-
-float2 HB_BrushDirectionUV(half3 direction, float scale)
-{
-    float sinTheta = max(length(direction.xz), 1e-4);
-    float theta = acos(clamp(direction.y, -1.0, 1.0));
-
-    return direction.xz * (theta * rcp(sinTheta)) * scale;
 }
 
 float3 HB_ObjectScale()
@@ -130,7 +120,6 @@ HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half obj
         brush.warp = lerp(warp, rotated, space.localSpace) * fade;
         brush.coverage = (coverage * 2.0h - 1.0h) * fade;
     }
-
 
     brush.warp *= mask;
     brush.coverage *= mask;

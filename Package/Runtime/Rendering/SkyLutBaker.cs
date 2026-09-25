@@ -8,11 +8,16 @@ namespace HiddenBull.UrpStyle
     {
         public const int Width = 256;
 
-        const int AmbientRow = 0;
-        const int SkyRow = 1;
-        const int SkyAwayRow = 2;
-        const int FogRow = 3;
-        const int Rows = 4;
+        const int Rows = 3;
+        const int Slices = 3;
+
+        const int AmbientSlice = 0;
+        const int SkySlice = 1;
+        const int FogSlice = 2;
+
+        const int DayRow = 0;
+        const int DuskRow = 1;
+        const int NightRow = 2;
 
         static readonly bool s_LinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear;
 
@@ -28,14 +33,11 @@ namespace HiddenBull.UrpStyle
         static readonly Gradient s_FallbackDuskFog = StyleFog.DefaultDuskFog();
         static readonly Gradient s_FallbackNightFog = StyleFog.DefaultNightFog();
 
-        readonly Color[] m_Pixels = new Color[Width * Rows];
+        readonly Color[] m_Slice = new Color[Width * Rows];
         readonly Gradient[] m_Sources = new Gradient[9];
+        readonly Color[] m_Ground = new Color[Rows];
 
-        Texture2D m_Texture;
-        float m_Blend = float.NaN;
-        float m_Away = float.NaN;
-        float m_SkyIntensity = float.NaN;
-        float m_AmbientIntensity = float.NaN;
+        Texture2DArray m_Texture;
         int m_Revision = -1;
 
         public static void Invalidate()
@@ -43,15 +45,28 @@ namespace HiddenBull.UrpStyle
             s_Revision++;
         }
 
-        public Texture2D texture => m_Texture;
+        public Texture2DArray texture => m_Texture;
 
         public static Vector2 ScaleOffset => new Vector2((Width - 1f) / Width, 0.5f / Width);
 
-        public Texture2D Bake(
+        public static float TimeCoordinate(float blend)
+        {
+            return (Mathf.Clamp01(blend) * (Rows - 1) + 0.5f) / Rows;
+        }
+
+        public Color GroundAmbient(float blend, float intensity)
+        {
+            var scaled = Mathf.Clamp01(blend) * (Rows - 1);
+            var lower = Mathf.FloorToInt(scaled);
+            var upper = Mathf.Min(lower + 1, Rows - 1);
+
+            return Color.Lerp(m_Ground[lower], m_Ground[upper], scaled - lower) * intensity;
+        }
+
+        public Texture2DArray Bake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
-            Gradient dayFog, Gradient duskFog, Gradient nightFog,
-            float blend, float away, float skyIntensity, float ambientIntensity)
+            Gradient dayFog, Gradient duskFog, Gradient nightFog)
         {
             daySky ??= s_FallbackDaySky;
             duskSky ??= s_FallbackDuskSky;
@@ -64,13 +79,12 @@ namespace HiddenBull.UrpStyle
             nightFog ??= s_FallbackNightFog;
 
             if (!NeedsBake(daySky, duskSky, nightSky, dayAmbient, duskAmbient, nightAmbient,
-                           dayFog, duskFog, nightFog,
-                           blend, away, skyIntensity, ambientIntensity))
+                           dayFog, duskFog, nightFog))
                 return m_Texture;
 
             if (m_Texture == null)
             {
-                m_Texture = new Texture2D(Width, Rows, TextureFormat.RGBAHalf, false, true)
+                m_Texture = new Texture2DArray(Width, Rows, Slices, TextureFormat.RGBAHalf, false, true)
                 {
                     name = "HB Sky LUT",
                     filterMode = FilterMode.Bilinear,
@@ -80,41 +94,40 @@ namespace HiddenBull.UrpStyle
                 };
             }
 
-            for (var i = 0; i < Width; i++)
-            {
-                var position = i / (Width - 1f);
+            WriteSlice(AmbientSlice, dayAmbient, duskAmbient, nightAmbient);
+            WriteSlice(SkySlice, daySky, duskSky, nightSky);
+            WriteSlice(FogSlice, dayFog, duskFog, nightFog);
 
-                m_Pixels[AmbientRow * Width + i] = Resolve(
-                    dayAmbient, duskAmbient, nightAmbient, position, blend, ambientIntensity);
+            m_Ground[DayRow] = Convert(dayAmbient.Evaluate(0f));
+            m_Ground[DuskRow] = Convert(duskAmbient.Evaluate(0f));
+            m_Ground[NightRow] = Convert(nightAmbient.Evaluate(0f));
 
-                m_Pixels[SkyRow * Width + i] = Resolve(
-                    daySky, duskSky, nightSky, position, blend, skyIntensity);
-
-                m_Pixels[SkyAwayRow * Width + i] = Resolve(
-                    daySky, duskSky, nightSky, position, away, skyIntensity);
-
-                m_Pixels[FogRow * Width + i] = Resolve(
-                    dayFog, duskFog, nightFog, position, blend, 1f);
-            }
-
-            m_Texture.SetPixels(m_Pixels);
             m_Texture.Apply(false, false);
 
             return m_Texture;
         }
 
+        void WriteSlice(int slice, Gradient day, Gradient dusk, Gradient night)
+        {
+            for (var i = 0; i < Width; i++)
+            {
+                var position = i / (Width - 1f);
+
+                m_Slice[DayRow * Width + i] = Convert(day.Evaluate(position));
+                m_Slice[DuskRow * Width + i] = Convert(dusk.Evaluate(position));
+                m_Slice[NightRow * Width + i] = Convert(night.Evaluate(position));
+            }
+
+            m_Texture.SetPixels(m_Slice, slice);
+        }
+
         bool NeedsBake(
             Gradient daySky, Gradient duskSky, Gradient nightSky,
             Gradient dayAmbient, Gradient duskAmbient, Gradient nightAmbient,
-            Gradient dayFog, Gradient duskFog, Gradient nightFog,
-            float blend, float away, float skyIntensity, float ambientIntensity)
+            Gradient dayFog, Gradient duskFog, Gradient nightFog)
         {
             var stale = m_Texture == null
                         || s_Revision != m_Revision
-                        || blend != m_Blend
-                        || away != m_Away
-                        || skyIntensity != m_SkyIntensity
-                        || ambientIntensity != m_AmbientIntensity
                         || !ReferenceEquals(daySky, m_Sources[0])
                         || !ReferenceEquals(duskSky, m_Sources[1])
                         || !ReferenceEquals(nightSky, m_Sources[2])
@@ -126,10 +139,6 @@ namespace HiddenBull.UrpStyle
                         || !ReferenceEquals(nightFog, m_Sources[8]);
 
             m_Revision = s_Revision;
-            m_Blend = blend;
-            m_Away = away;
-            m_SkyIntensity = skyIntensity;
-            m_AmbientIntensity = ambientIntensity;
             m_Sources[0] = daySky;
             m_Sources[1] = duskSky;
             m_Sources[2] = nightSky;
@@ -140,26 +149,20 @@ namespace HiddenBull.UrpStyle
             m_Sources[7] = duskFog;
             m_Sources[8] = nightFog;
 
-            return stale || Application.isEditor;
+            return stale || (Application.isEditor && !Application.isPlaying);
         }
 
-        static Color Resolve(Gradient day, Gradient dusk, Gradient night,
-                             float position, float blend, float intensity)
+        static Color Convert(Color authored)
         {
-            var authored = blend < 0.5f
-                ? Color.Lerp(day.Evaluate(position), dusk.Evaluate(position), blend * 2f)
-                : Color.Lerp(dusk.Evaluate(position), night.Evaluate(position), (blend - 0.5f) * 2f);
-
             var color = s_LinearColorSpace ? authored.linear : authored;
 
-            return new Color(color.r * intensity, color.g * intensity, color.b * intensity, 1f);
+            return new Color(color.r, color.g, color.b, 1f);
         }
 
         public void Dispose()
         {
             CoreUtils.Destroy(m_Texture);
             m_Texture = null;
-            m_Blend = float.NaN;
             Array.Clear(m_Sources, 0, m_Sources.Length);
         }
     }

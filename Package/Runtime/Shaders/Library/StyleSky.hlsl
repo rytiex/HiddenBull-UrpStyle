@@ -6,6 +6,17 @@
 #include "StyleBrush.hlsl"
 
 float4 _HB_SkyParams;
+
+#define HB_SKY_BODY_MASK  0.005h
+#define HB_SKY_GLOW_MASK  0.15h
+
+#define HB_SKY_BRUSH_SCALE   _HB_SkyParams.x
+#define HB_SKY_SUNSET_FOCUS  _HB_SkyParams.y
+#define HB_SKY_BRUSH         _HB_SkyParams.z
+#define HB_SKY_BRUSH_SMOOTH  _HB_SkyParams.w
+
+#define HB_SKY_SUNSET_DELAY  0.35h
+
 float4 _HB_SunDirection;
 float4 _HB_SunColor;
 float4 _HB_SunDisc;
@@ -19,38 +30,58 @@ half HB_SunFacing(half3 direction)
 {
     float2 azimuth = _HB_SunDirection.xz;
 
-    return saturate(dot(direction.xz, azimuth * rsqrt(max(dot(azimuth, azimuth), 1e-6)))
-                    * 0.5h + 0.5h);
+    half toward = half(dot(direction.xz, azimuth * rsqrt(max(dot(azimuth, azimuth), 1e-6))));
+
+    half swept = saturate((half(HB_SKY_TIME) - HB_SKY_SUNSET_DELAY)
+                          * rcp(1.0h - HB_SKY_SUNSET_DELAY));
+
+    half front = lerp(-1.0h, 1.0h, swept);
+    half width = lerp(2.2h, 0.85h, half(HB_SKY_SUNSET_FOCUS));
+
+    half t = saturate((toward - front + width) * rcp(2.0h * width));
+
+    return t * t * t * (t * (t * 6.0h - 15.0h) + 10.0h);
 }
 
 half3 HB_SkySample(half3 direction, half up)
 {
-    return lerp(HB_SampleSkyLut(up, HB_LUT_ROW_SKY_AWAY),
-                HB_SampleSkyLut(up, HB_LUT_ROW_SKY), HB_SunFacing(direction));
+    half3 toward = HB_SampleSkyLut(up, HB_LUT_TIME, HB_LUT_SKY);
+    half3 away = HB_SampleSkyLut(up, HB_LUT_AWAY, HB_LUT_SKY);
+
+    return lerp(away, toward, HB_SunFacing(direction)) * half(HB_SKY_INTENSITY);
+}
+
+float2 HB_SkyBrushUV(half3 direction, float scale)
+{
+    float turns = max(round(scale * 4.0), 1.0);
+    float azimuth = atan2(direction.z, direction.x) * (0.5 / PI);
+
+    return float2(azimuth * turns, direction.y * scale);
 }
 
 half3 HB_SkyGradient(half3 direction)
 {
     half up = direction.y;
 
-    half warp = half(_HB_SkyParams.z);
+    half brush = half(HB_SKY_BRUSH);
 
-    if (warp <= 0.0h || HB_BRUSH_ATLAS_BOUND <= 0.5h)
+    if (brush <= 0.0h || HB_BRUSH_ATLAS_BOUND <= 0.5h)
         return HB_SkySample(direction, up);
 
-    half mask = smoothstep(0.0h, 0.3h, up) * (1.0h - smoothstep(0.65h, 1.0h, up));
+    half mask = smoothstep(0.0h, 0.2h, up) * (1.0h - smoothstep(0.85h, 1.0h, up));
 
     if (mask <= 0.0h)
         return HB_SkySample(direction, up);
 
     half4 atlas = SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas,
-                                       HB_BrushDirectionUV(direction, HB_BRUSH_DIRECTION_SCALE), 0);
+                                       HB_SkyBrushUV(direction, HB_SKY_BRUSH_SCALE),
+                                       HB_SKY_BRUSH_SMOOTH * 4.0);
 
     half stroke = (atlas.b * 2.0h - 1.0h) * mask;
 
-    half3 colour = HB_SkySample(direction, up + stroke * warp);
+    half3 colour = HB_SkySample(direction, up + stroke * brush * 0.32h);
 
-    return colour * (1.0h + stroke * half(_HB_SkyParams.w));
+    return colour * (1.0h + stroke * brush * 0.5h);
 }
 
 float2 HB_CelestialPlane(float3 direction, float3 axis)
@@ -141,11 +172,11 @@ half3 HB_SkyColour(half3 direction)
 {
     half3 sky = HB_SkyGradient(direction);
 
-    half glowMask = smoothstep(-half(_HB_SkyParams.y), 0.0h, direction.y);
+    half glowMask = smoothstep(-HB_SKY_GLOW_MASK, 0.0h, direction.y);
     if (glowMask <= 0.0h)
         return sky;
 
-    half bodyMask = smoothstep(-half(_HB_SkyParams.x), half(_HB_SkyParams.x), direction.y);
+    half bodyMask = smoothstep(-HB_SKY_BODY_MASK, HB_SKY_BODY_MASK, direction.y);
 
     half3 celestial = HB_Stars(direction) * bodyMask;
 

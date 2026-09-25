@@ -8,8 +8,21 @@ namespace HiddenBull.UrpStyle.Editor
         public float coverage;
     }
 
+    public struct BrushAtlasResult
+    {
+        public Color[] pixels;
+        public BrushAtlasStats stats;
+    }
+
     public static class BrushAtlasBaker
     {
+        public static BrushAtlasResult BakeResult(BrushAtlasSettings settings, int resolution)
+        {
+            var pixels = Bake(settings, resolution, out var stats);
+
+            return new BrushAtlasResult { pixels = pixels, stats = stats };
+        }
+
         public static Color[] Bake(BrushAtlasSettings settings, int resolution, out BrushAtlasStats stats)
         {
             if (settings == null)
@@ -20,7 +33,7 @@ namespace HiddenBull.UrpStyle.Editor
             var coverage = BuildCoverage(settings, resolution);
             ApplyCanvasGrain(coverage, settings, resolution);
 
-            stats = new BrushAtlasStats { coverage = Mean(coverage) };
+            stats = new BrushAtlasStats { coverage = Painted(coverage) };
 
             CentreAndContrast(coverage, settings.contrast);
 
@@ -35,16 +48,36 @@ namespace HiddenBull.UrpStyle.Editor
             return Bake(settings, resolution, out _);
         }
 
+        const float Ground = 0.5f;
+
+        struct Stroke
+        {
+            public Vector2 start;
+            public Vector2 control;
+            public Vector2 end;
+            public float width;
+            public float alpha;
+            public float tone;
+            public int seed;
+            public int segments;
+        }
+
         static float[] BuildCoverage(BrushAtlasSettings settings, int resolution)
         {
             var coverage = new float[resolution * resolution];
             var random = new System.Random(settings.seed);
+
+            for (var i = 0; i < coverage.Length; i++)
+                coverage[i] = Ground;
 
             var strokeCount = Mathf.Max(1, settings.strokeCount);
             var minLength = Mathf.Min(settings.lengthRange.x, settings.lengthRange.y);
             var maxLength = Mathf.Max(settings.lengthRange.x, settings.lengthRange.y);
             var minWidth = Mathf.Min(settings.widthRange.x, settings.widthRange.y);
             var maxWidth = Mathf.Max(settings.widthRange.x, settings.widthRange.y);
+
+            var strokes = new Stroke[strokeCount];
+            var segments = 1 + Mathf.RoundToInt(settings.curvature * 7f);
 
             for (var s = 0; s < strokeCount; s++)
             {
@@ -55,58 +88,140 @@ namespace HiddenBull.UrpStyle.Editor
                 var direction = new Vector2(Mathf.Cos(angleRadians), Mathf.Sin(angleRadians));
 
                 var halfLength = Mathf.Lerp(minLength, maxLength, NextFloat(random)) * resolution * 0.5f;
-                var width = Mathf.Max(1f, Mathf.Lerp(minWidth, maxWidth, NextFloat(random)) * resolution);
-                var opacity = Mathf.Lerp(1f - settings.opacityVariation, 1f, NextFloat(random));
 
-                DrawStroke(coverage, resolution, settings,
-                    centre - direction * halfLength,
-                    centre + direction * halfLength,
-                    width, opacity, random.Next());
+                var start = centre - direction * halfLength;
+                var end = centre + direction * halfLength;
+
+                var perpendicular = new Vector2(-direction.y, direction.x);
+                var bend = (NextFloat(random) * 2f - 1f) * settings.curvature * halfLength;
+
+                strokes[s] = new Stroke
+                {
+                    start = start,
+                    control = centre + perpendicular * bend,
+                    end = end,
+                    width = Mathf.Max(1f, Mathf.Lerp(minWidth, maxWidth, NextFloat(random)) * resolution),
+                    alpha = Mathf.Lerp(1f - settings.opacityVariation, 1f, NextFloat(random)),
+                    tone = Ground + (NextFloat(random) * 2f - 1f) * settings.toneVariation * Ground,
+                    seed = random.Next(),
+                    segments = segments
+                };
             }
+
+            var pigment = BuildPigment(settings, resolution);
+            var bands = Mathf.Clamp(Environment.ProcessorCount, 1, 16);
+            var rowsPerBand = Mathf.CeilToInt(resolution / (float)bands);
+
+            System.Threading.Tasks.Parallel.For(0, bands, band =>
+            {
+                var from = band * rowsPerBand;
+                var to = Mathf.Min(from + rowsPerBand, resolution);
+                var points = new Vector2[segments + 1];
+
+                for (var s = 0; s < strokes.Length; s++)
+                    DrawStroke(coverage, pigment, resolution, settings, strokes[s], from, to, points);
+            });
 
             return coverage;
         }
 
-        static void DrawStroke(float[] coverage, int resolution, BrushAtlasSettings settings,
-                               Vector2 a, Vector2 b, float width, float opacity, int strokeSeed)
+        static float[] BuildPigment(BrushAtlasSettings settings, int resolution)
         {
-            var ab = b - a;
-            var length = ab.magnitude;
-            if (length < 1e-3f)
-                return;
+            if (settings.pigmentAmount <= 0f)
+                return null;
 
-            var direction = ab / length;
-            var perpendicular = new Vector2(-direction.y, direction.x);
+            var pigment = new float[resolution * resolution];
+
+            System.Threading.Tasks.Parallel.For(0, resolution, y =>
+            {
+                for (var x = 0; x < resolution; x++)
+                {
+                    pigment[y * resolution + x] = TileableNoise(x, y, resolution,
+                        settings.pigmentScale, settings.seed ^ 0x27d4eb2d);
+                }
+            });
+
+            return pigment;
+        }
+
+        static void DrawStroke(float[] coverage, float[] pigment, int resolution,
+                               BrushAtlasSettings settings, Stroke stroke, int fromRow, int toRow,
+                               Vector2[] points)
+        {
+            var width = stroke.width;
+            var strokeSeed = stroke.seed;
+            var segments = Mathf.Min(Mathf.Max(stroke.segments, 1), points.Length - 1);
+
+            for (var i = 0; i <= segments; i++)
+                points[i] = Quadratic(stroke.start, stroke.control, stroke.end, i / (float)segments);
 
             var maxWidth = width * (1f + settings.edgeBreakup * 0.5f);
 
-            var minX = Mathf.FloorToInt(Mathf.Min(a.x, b.x) - maxWidth) - 1;
-            var maxX = Mathf.CeilToInt(Mathf.Max(a.x, b.x) + maxWidth) + 1;
-            var minY = Mathf.FloorToInt(Mathf.Min(a.y, b.y) - maxWidth) - 1;
-            var maxY = Mathf.CeilToInt(Mathf.Max(a.y, b.y) + maxWidth) + 1;
+            var lowest = points[0];
+            var highest = points[0];
+
+            for (var i = 1; i <= segments; i++)
+            {
+                lowest = Vector2.Min(lowest, points[i]);
+                highest = Vector2.Max(highest, points[i]);
+            }
+
+            var minX = Mathf.FloorToInt(lowest.x - maxWidth) - 1;
+            var maxX = Mathf.CeilToInt(highest.x + maxWidth) + 1;
+            var minY = Mathf.FloorToInt(lowest.y - maxWidth) - 1;
+            var maxY = Mathf.CeilToInt(highest.y + maxWidth) + 1;
 
             for (var y = minY; y <= maxY; y++)
             {
+                var wrappedY = Wrap(y, resolution);
+
+                if (wrappedY < fromRow || wrappedY >= toRow)
+                    continue;
+
                 for (var x = minX; x <= maxX; x++)
                 {
                     var point = new Vector2(x + 0.5f, y + 0.5f);
-                    var offset = point - a;
 
-                    var along = Mathf.Clamp(Vector2.Dot(offset, direction), 0f, length);
-                    var distance = Vector2.Distance(point, a + direction * along);
+                    var distance = float.MaxValue;
+                    var along = 0f;
+                    var across = 0f;
+
+                    for (var i = 0; i < segments; i++)
+                    {
+                        var segment = points[i + 1] - points[i];
+                        var segmentLength = segment.magnitude;
+
+                        if (segmentLength < 1e-4f)
+                            continue;
+
+                        var tangent = segment / segmentLength;
+                        var offset = point - points[i];
+                        var local = Mathf.Clamp(Vector2.Dot(offset, tangent), 0f, segmentLength);
+                        var candidate = Vector2.Distance(point, points[i] + tangent * local);
+
+                        if (candidate >= distance)
+                            continue;
+
+                        distance = candidate;
+                        along = (i + local / segmentLength) / segments;
+                        across = offset.x * -tangent.y + offset.y * tangent.x;
+                    }
+
+                    if (distance == float.MaxValue)
+                        continue;
 
                     var localWidth = width;
 
                     if (settings.taper > 0f)
                     {
-                        var fromEnd = Mathf.Min(along, length - along) / (length * 0.5f);
+                        var fromEnd = Mathf.Min(along, 1f - along) * 2f;
                         var shape = SmoothStep01(0f, Mathf.Max(settings.taper, 1e-3f), fromEnd);
                         localWidth *= Mathf.Lerp(1f - settings.taper, 1f, shape);
                     }
 
                     if (settings.edgeBreakup > 0f)
                     {
-                        var wander = Noise1D(along / length * settings.edgeBreakupScale, strokeSeed) * 2f - 1f;
+                        var wander = Noise1D(along * settings.edgeBreakupScale, strokeSeed) * 2f - 1f;
                         localWidth *= 1f + wander * settings.edgeBreakup * 0.5f;
                     }
 
@@ -114,32 +229,53 @@ namespace HiddenBull.UrpStyle.Editor
                         continue;
 
                     var inner = Mathf.Min(localWidth * (1f - settings.edgeSoftness), localWidth - 1f);
-                    var value = 1f - SmoothStep01(inner, localWidth, distance);
-                    if (value <= 0f)
+                    var alpha = 1f - SmoothStep01(inner, localWidth, distance);
+                    if (alpha <= 0f)
                         continue;
 
                     if (settings.bristleAmount > 0f)
                     {
-                        var across = Vector2.Dot(offset, perpendicular);
                         var bristle = Noise1D(across * settings.bristleDensity / (2f * width),
                                               strokeSeed ^ 0x5bf03635);
-                        value *= Mathf.Lerp(1f, bristle, settings.bristleAmount);
+
+                        if (settings.bristleBreakup > 0f)
+                        {
+                            var lift = Noise1D(along * settings.bristleDensity * 0.75f,
+                                               strokeSeed ^ 0x1b873593);
+                            bristle = Mathf.Lerp(bristle, bristle * lift, settings.bristleBreakup);
+                        }
+
+                        alpha *= Mathf.Lerp(1f, bristle, settings.bristleAmount);
                     }
 
-                    var wrappedX = Wrap(x, resolution);
-                    var wrappedY = Wrap(y, resolution);
+                    var index = wrappedY * resolution + Wrap(x, resolution);
 
-                    if (settings.pigmentAmount > 0f)
-                    {
-                        var pigment = TileableNoise(wrappedX, wrappedY, resolution,
-                                                    settings.pigmentScale, settings.seed ^ 0x27d4eb2d);
-                        value *= Mathf.Lerp(1f, pigment, settings.pigmentAmount);
-                    }
+                    if (pigment != null)
+                        alpha *= Mathf.Lerp(1f, pigment[index], settings.pigmentAmount);
 
-                    var index = wrappedY * resolution + wrappedX;
-                    coverage[index] = Mathf.Max(coverage[index], value * opacity);
+                    coverage[index] = Mathf.Lerp(coverage[index], stroke.tone, alpha * stroke.alpha);
                 }
             }
+        }
+
+        static Vector2 Quadratic(Vector2 a, Vector2 control, Vector2 b, float t)
+        {
+            var inverse = 1f - t;
+
+            return inverse * inverse * a + 2f * inverse * t * control + t * t * b;
+        }
+
+        static float Painted(float[] coverage)
+        {
+            var painted = 0;
+
+            for (var i = 0; i < coverage.Length; i++)
+            {
+                if (Mathf.Abs(coverage[i] - Ground) > 0.02f)
+                    painted++;
+            }
+
+            return painted / (float)coverage.Length;
         }
 
         static void ApplyCanvasGrain(float[] coverage, BrushAtlasSettings settings, int resolution)
