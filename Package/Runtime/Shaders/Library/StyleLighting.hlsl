@@ -40,18 +40,25 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
 
     inputData.normalWS = SafeNormalize(inputData.normalWS - brush.spine * style.brushRelief);
 
+    half3 toneNormal = SafeNormalize(inputData.normalWS + brush.normalShift);
+
     surfaceData.albedo *= saturate(1.0h + min(brush.coverage, 0.0h) * style.brushAlbedo);
 #else
     half terminatorOffset = 0.0h;
     half ambientOffset = 0.0h;
     half3 formNormal = inputData.normalWS;
+    half3 toneNormal = inputData.normalWS;
 #endif
 
     half4 shadowMask = CalculateShadowMask(inputData);
     AmbientOcclusionFactor aoFactor = CreateAmbientOcclusionFactor(inputData, surfaceData);
     uint meshRenderingLayers = GetMeshRenderingLayer();
 
+#ifdef _HB_BRUSH
+    HB_StrokeShadowCoord(inputData.shadowCoord, inputData.positionWS + brush.offset);
+#else
     HB_BrushShadowCoord(inputData.shadowCoord, inputData.positionWS, inputData.normalWS);
+#endif
 
     Light mainLight = GetMainLight();
 
@@ -113,7 +120,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     if (IsMatchingLightLayer(mainLight.layerMask, meshRenderingLayers))
 #endif
     {
-        half3 radiance = HB_LightResponse(mainLight, inputData.normalWS, style, terminatorOffset);
+        half3 radiance = HB_LightResponse(mainLight, toneNormal, style, terminatorOffset);
 
         color += radiance * surfaceData.albedo;
 #ifdef _HB_SPECULAR
@@ -130,12 +137,12 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     {
         CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
 
-        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
+        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor, brush.offset);
     #ifdef _LIGHT_LAYERS
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
     #endif
         {
-            half3 radiance = HB_LightResponse(light, inputData.normalWS, style, terminatorOffset);
+            half3 radiance = HB_LightResponse(light, toneNormal, style, terminatorOffset);
 
             color += radiance * surfaceData.albedo;
     #ifdef _HB_SPECULAR
@@ -147,12 +154,12 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     #endif
 
     LIGHT_LOOP_BEGIN(pixelLightCount)
-        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor);
+        Light light = HB_GetAdditionalLight(lightIndex, inputData, shadowMask, aoFactor, brush.offset);
     #ifdef _LIGHT_LAYERS
         if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
     #endif
         {
-            half3 radiance = HB_LightResponse(light, inputData.normalWS, style, terminatorOffset);
+            half3 radiance = HB_LightResponse(light, toneNormal, style, terminatorOffset);
 
             color += radiance * surfaceData.albedo;
     #ifdef _HB_SPECULAR

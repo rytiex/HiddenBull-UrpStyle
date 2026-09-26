@@ -25,6 +25,8 @@ Shader "HiddenBull/URP Style/Lit"
         _BrushScale("Brush Size", Range(0.25, 4.0)) = 1.0
         _BrushPaint("Brush Paint", Range(0.0, 1.0)) = 1.0
         _BrushEdgeKeep("Brush Edge Keep", Range(0.0, 1.0)) = 1.0
+        _ToneStrokes("Tone Strokes", Range(0.0, 2.0)) = 1.0
+        _BakedStrokes("Baked Strokes", Range(0.0, 1.0)) = 1.0
         _BrushRelief("Brush Relief", Range(0.0, 1.0)) = 0.235
         _BrushShading("Brush Shading Break-up", Range(0.0, 0.5)) = 0.5
         _BrushAmbient("Brush Ambient Break-up", Range(0.0, 0.5)) = 0.125

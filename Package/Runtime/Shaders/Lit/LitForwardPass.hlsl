@@ -96,13 +96,13 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
 }
 
-void InitializeBakedGIData(Varyings input, inout InputData inputData)
+void InitializeBakedGIData(Varyings input, float2 lightmapShift, inout InputData inputData)
 {
 #if defined(_SCREEN_SPACE_IRRADIANCE)
     inputData.bakedGI = SAMPLE_GI(_ScreenSpaceIrradiance, input.positionCS.xy);
 #elif defined(DYNAMICLIGHTMAP_ON)
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.dynamicLightmapUV, input.vertexSH, inputData.normalWS);
-    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
+    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV + lightmapShift, input.dynamicLightmapUV, input.vertexSH, inputData.normalWS);
+    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV + lightmapShift);
 #elif !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
     inputData.bakedGI = SAMPLE_GI(input.vertexSH,
         GetAbsolutePositionWS(inputData.positionWS),
@@ -112,8 +112,8 @@ void InitializeBakedGIData(Varyings input, inout InputData inputData)
         input.probeOcclusion,
         inputData.shadowMask);
 #else
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV, input.vertexSH, inputData.normalWS);
-    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV);
+    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV + lightmapShift, input.vertexSH, inputData.normalWS);
+    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV + lightmapShift);
 #endif
 }
 
@@ -182,6 +182,7 @@ void HiddenBullLitFragment(
     HiddenBullBrushSample brush = HB_NoBrush();
 
     float2 shift = float2(0.0, 0.0);
+    float2 lightmapShift = float2(0.0, 0.0);
     float2 uvDdx = ddx(input.uv);
     float2 uvDdy = ddy(input.uv);
 
@@ -197,8 +198,22 @@ void HiddenBullLitFragment(
     brush = HB_SampleBrush(input.positionWS, geometryNormalWS, styleData.brushObjectSpace,
                            styleData.brushAnchor, scale, HB_SampleBrushMask(input.uv));
 
-    shift = HB_BrushPaintOffset(brush.spine, input.positionWS, input.uv, geometryNormalWS, scale)
-          * _BrushPaint;
+    float3 strokeOffset = HB_BrushStrokeOffset(brush.spine, geometryNormalWS, scale);
+    float2 strokeScreen = HB_BrushScreenOffset(strokeOffset, input.positionWS, geometryNormalWS);
+
+    shift = HB_BrushUvShift(strokeScreen, uvDdx, uvDdy, HB_BRUSH_SEAM_FOOTPRINT) * _BrushPaint;
+
+    half toneStrokes = half(_ToneStrokes);
+
+    brush.offset = strokeOffset * toneStrokes;
+    brush.normalShift = half3(strokeScreen.x * ddx(geometryNormalWS)
+                            + strokeScreen.y * ddy(geometryNormalWS)) * toneStrokes;
+
+    #ifdef LIGHTMAP_ON
+        lightmapShift = HB_BrushUvShift(strokeScreen, ddx(input.staticLightmapUV),
+                                        ddy(input.staticLightmapUV), HB_BRUSH_LIGHTMAP_SEAM)
+                      * (toneStrokes * half(_BakedStrokes));
+    #endif
 #endif
 
     SurfaceData surfaceData;
@@ -215,7 +230,7 @@ void HiddenBullLitFragment(
     ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
 #endif
 
-    InitializeBakedGIData(input, inputData);
+    InitializeBakedGIData(input, lightmapShift, inputData);
 
     half sunVisibility, lightReach;
     half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush,

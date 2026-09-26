@@ -24,6 +24,8 @@ CBUFFER_START(UnityPerMaterial)
     half _BrushScale;
     half _BrushPaint;
     half _BrushEdgeKeep;
+    half _ToneStrokes;
+    half _BakedStrokes;
     half _BrushShading;
     half _BrushAmbient;
     half _BrushAlbedo;
@@ -50,6 +52,8 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushScale)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushPaint)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushEdgeKeep)
+    UNITY_DOTS_INSTANCED_PROP(float , _ToneStrokes)
+    UNITY_DOTS_INSTANCED_PROP(float , _BakedStrokes)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushShading)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAmbient)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAlbedo)
@@ -73,6 +77,8 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _BrushObjectSpace   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushObjectSpace)
 #define _BrushScale         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushScale)
 #define _BrushEdgeKeep      UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushEdgeKeep)
+#define _ToneStrokes        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _ToneStrokes)
+#define _BakedStrokes       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BakedStrokes)
 #define _BrushPaint         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushPaint)
 #define _BrushShading       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushShading)
 #define _BrushAmbient       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAmbient)

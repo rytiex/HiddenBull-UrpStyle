@@ -15,11 +15,14 @@ float4 _HB_BrushParams;
 
 #define HB_BRUSH_SPINE_RANGE     0.0625
 #define HB_BRUSH_SEAM_FOOTPRINT  0.25
+#define HB_BRUSH_LIGHTMAP_SEAM   0.02
 
 struct HiddenBullBrushSample
 {
     half3 spine;
     half coverage;
+    float3 offset;
+    half3 normalShift;
 };
 
 struct HiddenBullBrushSpace
@@ -34,6 +37,8 @@ HiddenBullBrushSample HB_NoBrush()
     HiddenBullBrushSample brush;
     brush.spine = half3(0.0h, 0.0h, 0.0h);
     brush.coverage = 0.0h;
+    brush.offset = float3(0.0, 0.0, 0.0);
+    brush.normalShift = half3(0.0h, 0.0h, 0.0h);
     return brush;
 }
 
@@ -127,29 +132,38 @@ HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half obj
     return brush;
 }
 
-float2 HB_BrushPaintOffset(half3 spine, float3 positionWS, float2 uv, half3 normalWS, half scale)
+float3 HB_BrushStrokeOffset(half3 spine, half3 normalWS, half scale)
+{
+    float3 normal = float3(normalWS);
+    float3 offset = float3(spine) * (HB_BRUSH_SPINE_RANGE * scale / max(HB_BRUSH_TILES_PER_UNIT, 1e-4));
+
+    return offset - normal * dot(offset, normal);
+}
+
+float2 HB_BrushScreenOffset(float3 offset, float3 positionWS, half3 normalWS)
 {
     float3 dpdx = ddx(positionWS);
     float3 dpdy = ddy(positionWS);
-    float2 duvdx = ddx(uv);
-    float2 duvdy = ddy(uv);
-
-    float2 footprint = max(abs(duvdx), abs(duvdy));
 
     float3 edgeY = cross(dpdy, float3(normalWS));
     float3 edgeX = cross(float3(normalWS), dpdx);
 
     float determinant = dot(dpdx, edgeY);
 
-    if (abs(determinant) < 1e-18 || max(footprint.x, footprint.y) > HB_BRUSH_SEAM_FOOTPRINT)
+    if (abs(determinant) < 1e-18)
         return float2(0.0, 0.0);
 
-    float3 gradientU = edgeY * duvdx.x + edgeX * duvdy.x;
-    float3 gradientV = edgeY * duvdx.y + edgeX * duvdy.y;
+    return float2(dot(offset, edgeY), dot(offset, edgeX)) / determinant;
+}
 
-    float3 offset = float3(spine) * (HB_BRUSH_SPINE_RANGE * scale / max(HB_BRUSH_TILES_PER_UNIT, 1e-4));
+float2 HB_BrushUvShift(float2 screen, float2 uvDdx, float2 uvDdy, float seam)
+{
+    float2 footprint = max(abs(uvDdx), abs(uvDdy));
 
-    return float2(dot(gradientU, offset), dot(gradientV, offset)) / determinant;
+    if (max(footprint.x, footprint.y) > seam)
+        return float2(0.0, 0.0);
+
+    return screen.x * uvDdx + screen.y * uvDdy;
 }
 
 #endif

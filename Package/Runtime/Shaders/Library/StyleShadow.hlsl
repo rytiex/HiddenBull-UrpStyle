@@ -47,6 +47,13 @@ float3 HB_BrushShadowPosition(float3 positionWS, half3 normalWS, half3 direction
     return positionWS + (offset - normalWS * dot(offset, normalWS));
 }
 
+void HB_StrokeShadowCoord(inout float4 shadowCoord, float3 positionWS)
+{
+#if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    shadowCoord = TransformWorldToShadowCoord(positionWS);
+#endif
+}
+
 void HB_BrushShadowCoord(inout float4 shadowCoord, float3 positionWS, half3 normalWS)
 {
 #if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
@@ -250,7 +257,7 @@ bool HB_ShadowDebug(float4 shadowCoord, float3 positionWS, float2 screenUV, half
 }
 
 Light HB_GetAdditionalLight(uint index, InputData inputData, half4 shadowMask,
-                            AmbientOcclusionFactor aoFactor)
+                            AmbientOcclusionFactor aoFactor, float3 strokeOffset)
 {
 #if USE_CLUSTER_LIGHT_LOOP
     int lightIndex = index;
@@ -266,9 +273,13 @@ Light HB_GetAdditionalLight(uint index, InputData inputData, half4 shadowMask,
     half4 occlusionProbeChannels = _AdditionalLightsOcclusionProbes[lightIndex];
 #endif
 
+#ifdef _HB_BRUSH
+    float3 shadowPosition = inputData.positionWS + strokeOffset;
+#else
     float3 shadowPosition = GetAdditionalLightShadowParams(lightIndex).w >= 0.0h
         ? HB_BrushShadowPosition(inputData.positionWS, inputData.normalWS, light.direction)
         : inputData.positionWS;
+#endif
 
     light.shadowAttenuation = AdditionalLightShadow(lightIndex, shadowPosition, light.direction,
                                                     shadowMask, occlusionProbeChannels);

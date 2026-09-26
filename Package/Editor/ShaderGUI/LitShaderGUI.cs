@@ -44,6 +44,23 @@ namespace HiddenBull.UrpStyle.Editor
                 "neighbouring UV island packed close by. If lowering this lets a foreign colour " +
                 "creep in somewhere, that is the island showing through.");
 
+            public static readonly GUIContent ToneStrokes = new GUIContent(
+                "Tone Strokes",
+                "How far light and shade are decided stroke by stroke. Light is read at the middle " +
+                "of each stroke instead of at every point, so a whole stroke falls in the light, " +
+                "the half tone or the shadow together — the edge between them becomes a run of " +
+                "strokes rather than a line, the way a painter lays it. It moves the edge of the " +
+                "object's own shadow side and of every shadow cast onto it, along the same strokes " +
+                "that repaint the texture.\n\n" +
+                "Above 1 a stroke reaches past its own middle and the edge breaks up further. On a " +
+                "brushed material this replaces the renderer feature's shadow brush.");
+
+            public static readonly GUIContent BakedStrokes = new GUIContent(
+                "Baked Strokes (Bake Only)",
+                "The same for lightmapped light: the lightmap is read at the middle of each stroke, " +
+                "so the steps of Baked Tones break along strokes too. Turn it down if a lightmap " +
+                "chart edge shows through as a stray line.");
+
             public static readonly GUIContent BrushPaint = new GUIContent(
                 "Paint",
                 "How far the texture is repainted by the strokes. Each point reads its colour from " +
@@ -158,6 +175,8 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BrushScale;
         MaterialProperty m_BrushPaint;
         MaterialProperty m_BrushEdgeKeep;
+        MaterialProperty m_ToneStrokes;
+        MaterialProperty m_BakedStrokes;
         MaterialProperty m_BrushRelief;
         MaterialProperty m_BrushShading;
         MaterialProperty m_BrushAmbient;
@@ -247,6 +266,8 @@ namespace HiddenBull.UrpStyle.Editor
             m_BrushScale = FindProperty("_BrushScale", properties);
             m_BrushPaint = FindProperty("_BrushPaint", properties);
             m_BrushEdgeKeep = FindProperty("_BrushEdgeKeep", properties);
+            m_ToneStrokes = FindProperty("_ToneStrokes", properties);
+            m_BakedStrokes = FindProperty("_BakedStrokes", properties);
             m_BrushRelief = FindProperty("_BrushRelief", properties);
             m_BrushShading = FindProperty("_BrushShading", properties);
             m_BrushAmbient = FindProperty("_BrushAmbient", properties);
@@ -342,6 +363,14 @@ namespace HiddenBull.UrpStyle.Editor
                     {
                         using (new EditorGUI.IndentLevelScope())
                             materialEditor.ShaderProperty(m_BrushEdgeKeep, Styles.BrushEdgeKeep);
+                    }
+
+                    materialEditor.ShaderProperty(m_ToneStrokes, Styles.ToneStrokes);
+
+                    if (m_ToneStrokes.floatValue > 0f)
+                    {
+                        using (new EditorGUI.IndentLevelScope())
+                            materialEditor.ShaderProperty(m_BakedStrokes, Styles.BakedStrokes);
                     }
                     materialEditor.ShaderProperty(m_BrushRelief, Styles.BrushRelief);
                     materialEditor.ShaderProperty(m_BrushShading, Styles.BrushShading);
