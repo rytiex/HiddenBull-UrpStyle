@@ -97,8 +97,35 @@ namespace HiddenBull.UrpStyle.Editor
 
             public static readonly GUIContent DiffuseSoftness = new GUIContent(
                 "Diffuse Softness",
-                "Width of the light-to-shadow transition. Near zero gives a hard cel-like cut; " +
-                "high values give a smooth gradient.");
+                "Width of each step between the tones of a realtime light. Near zero gives a hard " +
+                "cel-like cut; high values blend the tones into a smooth gradient. Lightmapped " +
+                "light has its own softness under Baked Tones.");
+
+            public static readonly GUIContent HalfTone = new GUIContent(
+                "Half Tone (Realtime Only)",
+                "Width of the middle tone between light and shadow. A painter lays the lit side, " +
+                "a half tone and the shadow as flat values rather than as a gradient, and this is " +
+                "that half tone. 0 leaves two tones.\n\n" +
+                "Cast shadows land on the same tones as the form's own shadow side, since a painter " +
+                "does not tell them apart: the soft edge of a shadow becomes the half tone band, " +
+                "narrow where the caster touches the ground and wide where it lifts away.\n\n" +
+                "It follows realtime light — Realtime and Mixed — whether the object is static or " +
+                "not. A fully Baked light puts no realtime light on anything, so it does nothing " +
+                "there; Baked Tones covers that case.");
+
+            public static readonly GUIContent BakedTones = new GUIContent(
+                "Baked Tones (Bake Only)",
+                "How far lightmapped light is stepped into tones as well. A fully Baked light lives " +
+                "inside the lightmap, so without this its light and shadow are Unity's smooth " +
+                "falloff and none of the tones above apply.\n\n" +
+                "The steps are a stop apart — each tone half as bright as the one above — so a " +
+                "dark interior stays dark rather than being lifted onto a step. 0 leaves the " +
+                "lightmap as it was baked.");
+
+            public static readonly GUIContent BakedSoftness = new GUIContent(
+                "Softness",
+                "Width of each step between lightmapped tones. Near zero gives crisp flat steps; " +
+                "1 blends them back into the lightmap's own falloff.");
 
             public const string AlbedoOnlyHint =
                 "This material samples no textures. Gradation comes from the ambient gradient, " +
@@ -112,6 +139,9 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BaseColor;
         MaterialProperty m_DiffuseWrap;
         MaterialProperty m_DiffuseSoftness;
+        MaterialProperty m_HalfTone;
+        MaterialProperty m_BakedTones;
+        MaterialProperty m_BakedSoftness;
 
         MaterialProperty m_RimEnabled;
         MaterialProperty m_RimColor;
@@ -198,6 +228,9 @@ namespace HiddenBull.UrpStyle.Editor
             m_BaseColor = FindProperty("_BaseColor", properties);
             m_DiffuseWrap = FindProperty("_DiffuseWrap", properties);
             m_DiffuseSoftness = FindProperty("_DiffuseSoftness", properties);
+            m_HalfTone = FindProperty("_HalfTone", properties);
+            m_BakedTones = FindProperty("_BakedTones", properties);
+            m_BakedSoftness = FindProperty("_BakedSoftness", properties);
 
             m_RimEnabled = FindProperty("_RimEnabled", properties);
             m_RimColor = FindProperty("_RimColor", properties);
@@ -250,6 +283,15 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.LabelField(Styles.Shading, EditorStyles.boldLabel);
             materialEditor.ShaderProperty(m_DiffuseWrap, Styles.DiffuseWrap);
             materialEditor.ShaderProperty(m_DiffuseSoftness, Styles.DiffuseSoftness);
+            materialEditor.ShaderProperty(m_HalfTone, Styles.HalfTone);
+            materialEditor.ShaderProperty(m_BakedTones, Styles.BakedTones);
+
+            if (m_BakedTones.floatValue > 0f)
+            {
+                using (new EditorGUI.IndentLevelScope())
+                    materialEditor.ShaderProperty(m_BakedSoftness, Styles.BakedSoftness);
+            }
+
             EditorGUILayout.Space();
         }
 

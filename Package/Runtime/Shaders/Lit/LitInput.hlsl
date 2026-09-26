@@ -15,6 +15,9 @@ CBUFFER_START(UnityPerMaterial)
     half _Smoothness;
     half _DiffuseWrap;
     half _DiffuseSoftness;
+    half _HalfTone;
+    half _BakedTones;
+    half _BakedSoftness;
     half _RimPower;
     half _RimIntensity;
     half _BrushObjectSpace;
@@ -38,6 +41,9 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _Smoothness)
     UNITY_DOTS_INSTANCED_PROP(float , _DiffuseWrap)
     UNITY_DOTS_INSTANCED_PROP(float , _DiffuseSoftness)
+    UNITY_DOTS_INSTANCED_PROP(float , _HalfTone)
+    UNITY_DOTS_INSTANCED_PROP(float , _BakedTones)
+    UNITY_DOTS_INSTANCED_PROP(float , _BakedSoftness)
     UNITY_DOTS_INSTANCED_PROP(float , _RimPower)
     UNITY_DOTS_INSTANCED_PROP(float , _RimIntensity)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushObjectSpace)
@@ -59,6 +65,9 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _Smoothness         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Smoothness)
 #define _DiffuseWrap        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DiffuseWrap)
 #define _DiffuseSoftness    UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DiffuseSoftness)
+#define _HalfTone           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HalfTone)
+#define _BakedTones         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BakedTones)
+#define _BakedSoftness      UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BakedSoftness)
 #define _RimPower           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimPower)
 #define _RimIntensity       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimIntensity)
 #define _BrushObjectSpace   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushObjectSpace)
@@ -138,6 +147,9 @@ HiddenBullStyleData InitializeHiddenBullStyleData()
     HiddenBullStyleData style;
     style.diffuseWrap = _DiffuseWrap;
     style.diffuseSoftness = _DiffuseSoftness;
+    style.halfTone = _HalfTone;
+    style.bakedTones = _BakedTones;
+    style.bakedSoftness = _BakedSoftness;
     style.rimColor = _RimColor.rgb;
     style.rimPower = _RimPower;
     style.rimIntensity = _RimIntensity;

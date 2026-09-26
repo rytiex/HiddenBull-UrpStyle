@@ -46,7 +46,8 @@ half3 HB_GradientAmbient(half3 directionWS)
     return HB_SampleAmbientLut(directionWS.y);
 }
 
-half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bakedVisibility)
+half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, half bakedTones, half softness,
+                        out half bakedVisibility)
 {
     half3 gradient = HB_SampleAmbientLut(normalWS.y + brush);
 
@@ -65,9 +66,14 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, out half bake
     }
 
 #ifdef LIGHTMAP_ON
-    bakedVisibility = saturate(Luminance(bakedGI) / max(Luminance(gradient), HB_EPSILON));
+    half ratio = Luminance(bakedGI) / max(Luminance(gradient), HB_EPSILON);
 
-    return lerp(gradient, bakedGI, half(_HB_KeyColor.a));
+    bakedVisibility = saturate(ratio);
+
+    half banded = HB_BakedToneBands(ratio, softness) / max(ratio, HB_EPSILON);
+    half3 toned = bakedGI * lerp(1.0h, banded, saturate(bakedTones));
+
+    return lerp(gradient, toned, half(_HB_KeyColor.a));
 #else
     bakedVisibility = 1.0h;
 

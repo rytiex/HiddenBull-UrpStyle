@@ -9,10 +9,16 @@
 
 half3 HB_LightResponse(Light light, half3 normalWS, HiddenBullStyleData style, half terminatorOffset)
 {
-    half NdotL = dot(normalWS, light.direction) + terminatorOffset;
-    half shaped = HB_WrappedDiffuse(NdotL, style.diffuseWrap, style.diffuseSoftness);
+    half wrap = saturate(style.diffuseWrap);
+    half inverseWrap = rcp(1.0h + wrap);
 
-    return light.color * (light.distanceAttenuation * light.shadowAttenuation * shaped);
+    half NdotL = dot(normalWS, light.direction) + terminatorOffset;
+    half lambert = saturate((NdotL + wrap) * inverseWrap);
+
+    half tone = HB_ToneBands(lambert * light.shadowAttenuation, wrap * inverseWrap,
+                             style.halfTone, style.diffuseSoftness);
+
+    return light.color * (light.distanceAttenuation * tone);
 }
 
 half3 HB_RimLight(half3 normalWS, half3 viewDirectionWS, HiddenBullStyleData style, half occlusion)
@@ -85,6 +91,7 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     half occlusion = surfaceData.occlusion * aoFactor.indirectAmbientOcclusion;
 
     half3 ambient = HB_ResolveAmbient(formNormal, inputData.bakedGI, ambientOffset,
+                                      style.bakedTones, style.bakedSoftness,
                                       lightReach) * occlusion;
 
     sunVisibility = mainLight.shadowAttenuation;

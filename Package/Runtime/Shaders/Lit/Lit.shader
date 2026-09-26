@@ -6,6 +6,9 @@ Shader "HiddenBull/URP Style/Lit"
 
         _DiffuseWrap("Diffuse Wrap", Range(0.0, 1.0)) = 0.265
         _DiffuseSoftness("Diffuse Softness", Range(0.0, 2.0)) = 0.75
+        _HalfTone("Half Tone", Range(0.0, 1.0)) = 0.35
+        _BakedTones("Baked Tones", Range(0.0, 1.0)) = 1.0
+        _BakedSoftness("Baked Softness", Range(0.0, 1.0)) = 0.375
 
         [Toggle(_HB_RIM)] _RimEnabled("Enable Rim Light", Float) = 0.0
         _RimColor("Rim Color", Color) = (1.0, 1.0, 1.0, 1.0)
