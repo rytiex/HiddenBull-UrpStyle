@@ -303,7 +303,7 @@ namespace HiddenBull.UrpStyle
                 sky.ambientLightBias.value,
                 sky.ambientIntensity.value,
                 sky.skyIntensity.value,
-                0f);
+                ProbeLighting());
 
             passData.skyLutRemap = new Vector4(
                 scaleOffset.x, scaleOffset.y,
@@ -487,6 +487,38 @@ namespace HiddenBull.UrpStyle
             var probes = ProbeReferenceVolume.instance;
 
             return probes != null && probes.isInitialized && probes.DataHasBeenLoaded();
+        }
+
+        static bool ProbeLightingBaked()
+        {
+            var volumes = ProbeReferenceVolume.instance;
+
+            if (volumes != null && volumes.isInitialized)
+                return volumes.DataHasBeenLoaded();
+
+            var probes = LightmapSettings.lightProbes;
+
+            return probes != null && probes.count > 0;
+        }
+
+        float ProbeLighting()
+        {
+            if (!ProbeLightingBaked())
+                return 0f;
+
+            var sun = ScenesSun();
+
+            return sun != null && !SunInProbes(sun.bakingOutput) ? 2f : 1f;
+        }
+
+        static bool SunInProbes(LightBakingOutput baking)
+        {
+            if (!baking.isBaked)
+                return false;
+
+            return baking.lightmapBakeType == LightmapBakeType.Baked
+                || (baking.lightmapBakeType == LightmapBakeType.Mixed
+                    && baking.mixedLightingMode == MixedLightingMode.Subtractive);
         }
 
         internal static Vector4 PackAmbientFloor(Color ground, Color horizon)

@@ -52,6 +52,8 @@ Shader "Hidden/HiddenBull/Style Fog"
             #pragma fragment FragReach
             #pragma target 3.5
 
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
             half FragReach(Varyings input) : SV_Target
@@ -131,7 +133,6 @@ Shader "Hidden/HiddenBull/Style Fog"
             }
 
             #define HB_FOG_SILHOUETTE_TILES 8.0
-
             half4 HB_FogStrokePlanes(float3 position, half3 blend, float lod)
             {
                 half4 sum = half4(0.0h, 0.0h, 0.0h, 0.0h);
@@ -230,7 +231,6 @@ Shader "Hidden/HiddenBull/Style Fog"
                     half paintedAmount = paintedSurface
                         ? HB_FogAmount(paintedWS, cameraPositionWS)
                         : HB_SkyHaze(paintedDirection);
-
                     if (paintedAmount > amount)
                     {
                         amount = paintedAmount;

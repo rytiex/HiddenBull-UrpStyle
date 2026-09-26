@@ -40,12 +40,11 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How far the fog obeys the light that actually reaches it. Fog colour is read from " +
                  "a gradient by view direction, which assumes open sky — so without this, a valley " +
                  "in shadow and a sealed room both glow as though the sky were overhead.\n\n" +
-                 "Two things are read separately, because they are not the same. Where the sun is " +
-                 "blocked the reading slides down the gradient, so shadowed air takes the colour of " +
-                 "the ground instead of the sky but stays lit — which is what really happens, since " +
-                 "a shadow outdoors is still under an open sky. Where the baked lighting says there " +
-                 "is no light at all, the fog is darkened toward black instead, so an unlit interior " +
-                 "no longer has bright air in it.\n\n" +
+                 "A shadow outdoors is still under an open sky, so shadowed air stays lit. Only where " +
+                 "the lighting says there is no light at all is the fog darkened toward black, so an " +
+                 "unlit interior no longer has bright air in it. With a Mixed or Realtime sun the " +
+                 "baked lighting leaves the sun out, so the sun's shadow map is read alongside it and " +
+                 "sunlit air counts as open in every light mode.\n\n" +
                  "That reading is taken from the air the fog actually sits in rather than from " +
                  "whatever the view lands on, so standing outside and looking into an unlit room " +
                  "leaves the fog at arm's length bright. It needs Adaptive Probe Volumes, which is " +

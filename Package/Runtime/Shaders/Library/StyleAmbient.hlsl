@@ -1,6 +1,7 @@
 #ifndef HIDDENBULL_URPSTYLE_AMBIENT_INCLUDED
 #define HIDDENBULL_URPSTYLE_AMBIENT_INCLUDED
 
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 #include "StyleCommon.hlsl"
 
 TEXTURE2D_ARRAY(_HB_SkyLut);
@@ -13,6 +14,7 @@ float4 _HB_AmbientFloor;
 #define HB_AMBIENT_LIGHT_BIAS _HB_AmbientParams.x
 #define HB_AMBIENT_INTENSITY  _HB_AmbientParams.y
 #define HB_SKY_INTENSITY      _HB_AmbientParams.z
+#define HB_AMBIENT_PROBES     _HB_AmbientParams.w
 
 #define HB_AMBIENT_OPEN       _HB_AmbientFloor.w
 
@@ -65,7 +67,13 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, half bakedTon
         gradient += alongLight * bias;
     }
 
-#ifdef LIGHTMAP_ON
+    bakedVisibility = 1.0h;
+
+#ifndef LIGHTMAP_ON
+    if (HB_AMBIENT_PROBES < 0.5)
+        return gradient;
+#endif
+
     half ratio = Luminance(bakedGI) / max(Luminance(gradient), HB_EPSILON);
 
     bakedVisibility = saturate(ratio);
@@ -74,11 +82,6 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, half bakedTon
     half3 toned = bakedGI * lerp(1.0h, banded, saturate(bakedTones));
 
     return lerp(gradient, toned, half(_HB_KeyColor.a));
-#else
-    bakedVisibility = 1.0h;
-
-    return gradient;
-#endif
 }
 
 half3 HB_AmbientSkyColor()

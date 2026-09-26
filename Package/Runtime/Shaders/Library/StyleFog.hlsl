@@ -60,7 +60,7 @@ half3 HB_FogColourPainted(half3 direction, half4 atlas, half paint, half sunlit,
     half shade = 0.0h;
 #endif
 
-    half up = direction.y - shade * (1.0h - sunlit);
+    half up = direction.y;
     half tone = 1.0h;
 
     if (paint > 0.0h)
@@ -134,6 +134,17 @@ half3 HB_SkyWithFog(half3 direction)
 
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
 
+float HB_AirSun(float3 positionWS)
+{
+#if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    float4 coord = TransformWorldToShadowCoord(positionWS);
+
+    return BEYOND_SHADOW_FAR(coord) ? 1.0 : MainLightRealtimeShadow(coord);
+#else
+    return 0.0;
+#endif
+}
+
 bool HB_AirLight(float3 positionWS, float3 bias, float open, out float light)
 {
     APVResources resources = FillAPVResources();
@@ -169,6 +180,9 @@ bool HB_AirLight(float3 positionWS, float3 bias, float open, out float light)
         light += kSHBasis0 * SAMPLE_TEXTURE3D_LOD(resources.SkyOcclusionL0L1,
                                                   s_linear_clamp_sampler, uvw, 0).x;
     }
+
+    if (HB_AMBIENT_PROBES > 1.5)
+        light += HB_AirSun(positionWS) * _HB_KeyColor.a;
 
     return true;
 }
