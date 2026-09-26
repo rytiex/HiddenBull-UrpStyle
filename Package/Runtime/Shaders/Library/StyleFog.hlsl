@@ -258,7 +258,82 @@ half HB_FogAirReach(half reach, float3 cameraPositionWS, half3 direction, float 
 #endif
 }
 
-half3 HB_ApplyFog(half3 colour, float3 positionWS, half sunlit, half reach, float2 screenUV)
+half4 HB_FogStrokePlanes(float3 position, half3 blend, float lod)
+{
+    half4 sum = half4(0.0h, 0.0h, 0.0h, 0.0h);
+    half total = 0.0h;
+
+    UNITY_BRANCH
+    if (blend.x > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.zy, lod) * blend.x;
+        total += blend.x;
+    }
+
+    UNITY_BRANCH
+    if (blend.y > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xz, lod) * blend.y;
+        total += blend.y;
+    }
+
+    UNITY_BRANCH
+    if (blend.z > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xy, lod) * blend.z;
+        total += blend.z;
+    }
+
+    return sum * rcp(max(total, HB_EPSILON));
+}
+
+half4 HB_FogWorldStroke(float3 positionWS, half3 blend, float tile, float lod)
+{
+    float level = log2(max(tile, 1e-3));
+    float base = floor(level);
+    float density = exp2(-base);
+
+    half4 fine = HB_FogStrokePlanes(positionWS * density, blend, lod);
+    half4 coarse = HB_FogStrokePlanes(positionWS * (density * 0.5), blend, lod);
+
+    return lerp(fine, coarse, half(level - base));
+}
+
+float HB_FogTileAngle()
+{
+    return TWO_PI / HB_SkyBrushTurns(max(HB_SKY_BRUSH_SCALE, 1e-3));
+}
+
+half HB_FogPaintStroke(float3 anchorWS, half3 blend, half3 direction, float span, half amount,
+                       out half4 atlas)
+{
+    atlas = half4(0.5h, 0.5h, 0.5h, 1.0h);
+
+    if (HB_BRUSH_ATLAS_BOUND <= 0.5h || HB_FOG_PAINT <= 0.0)
+        return 0.0h;
+
+    half paint = half(HB_FOG_PAINT);
+    atlas = HB_FogWorldStroke(anchorWS, blend, span, HB_SKY_BRUSH_SMOOTH * 4.0);
+
+    half far = smoothstep(0.5h, 1.0h, amount * rcp(max(half(_HB_FogParams.w), HB_EPSILON)));
+
+    if (far > 0.0h)
+    {
+        half domePaint = HB_FogDomePaint(direction);
+
+        if (domePaint > 0.0h)
+            atlas = lerp(atlas, HB_SkyStroke(direction), far);
+
+        paint = lerp(paint, domePaint, far);
+    }
+
+    return paint;
+}
+
+TEXTURE2D(_HB_FogReach);
+float4 _HB_FogReachSize;
+
+half3 HB_ApplyFog(half3 colour, float3 positionWS, half3 normalWS, half sunlit, float2 screenUV)
 {
     float3 cameraPositionWS = GetCameraPositionWS();
 
@@ -267,12 +342,19 @@ half3 HB_ApplyFog(half3 colour, float3 positionWS, half sunlit, half reach, floa
         return colour;
 
     float3 ray = positionWS - cameraPositionWS;
-    float rayLength = length(ray);
+    float rayLength = max(length(ray), 1e-4);
     half3 direction = half3(ray / rayLength);
 
-    reach = HB_FogAirReach(reach, cameraPositionWS, direction, rayLength, screenUV);
+    half reach = 1.0h;
 
-    return lerp(colour, HB_FogColour(direction, sunlit, reach), amount);
+    if (_HB_FogReachSize.z > 0.5)
+        reach = SAMPLE_TEXTURE2D_LOD(_HB_FogReach, sampler_LinearClamp, screenUV, 0).r;
+
+    half4 atlas;
+    half paint = HB_FogPaintStroke(positionWS, HB_TriplanarBlend(normalWS), direction,
+                                   rayLength * HB_FogTileAngle(), amount, atlas);
+
+    return lerp(colour, HB_FogColourPainted(direction, atlas, paint, sunlit, reach), amount);
 }
 
 #endif

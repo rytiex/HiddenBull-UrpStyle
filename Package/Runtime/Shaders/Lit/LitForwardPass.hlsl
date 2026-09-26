@@ -162,16 +162,10 @@ Varyings HiddenBullLitVertex(Attributes input)
     return output;
 }
 
-void HiddenBullLitFragment(
-    Varyings input
-    , out half4 outColor : SV_Target0
-#ifdef _WRITE_RENDERING_LAYERS
-    , out uint outRenderingLayers : SV_Target1
-#endif
-)
+half4 HB_LitColour(Varyings input, bool frontFace, out InputData inputData, out half sunVisibility)
 {
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+    if (!frontFace)
+        input.normalWS.xyz = -input.normalWS.xyz;
 
     HiddenBullStyleData styleData = InitializeHiddenBullStyleData();
 
@@ -223,7 +217,6 @@ void HiddenBullLitFragment(
     LODFadeCrossFade(input.positionCS);
 #endif
 
-    InputData inputData;
     InitializeInputData(input, surfaceData.normalTS, inputData);
 
 #if defined(_DBUFFER)
@@ -232,16 +225,28 @@ void HiddenBullLitFragment(
 
     InitializeBakedGIData(input, lightmapShift, inputData);
 
-    half sunVisibility, lightReach;
-    half4 color = HiddenBullFragmentLit(inputData, surfaceData, styleData, brush,
-                                        sunVisibility, lightReach);
-#ifdef _SURFACE_TYPE_TRANSPARENT
-    color.rgb = HB_ApplyFog(color.rgb, inputData.positionWS, sunVisibility, lightReach,
-                            inputData.normalizedScreenSpaceUV);
-#endif
-    color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
+    half lightReach;
 
-    outColor = color;
+    return HiddenBullFragmentLit(inputData, surfaceData, styleData, brush, sunVisibility, lightReach);
+}
+
+void HiddenBullLitFragment(
+    Varyings input
+    , FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC
+    , out half4 outColor : SV_Target0
+#ifdef _WRITE_RENDERING_LAYERS
+    , out uint outRenderingLayers : SV_Target1
+#endif
+)
+{
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+    InputData inputData;
+    half sunVisibility;
+
+    outColor = half4(HB_LitColour(input, IS_FRONT_VFACE(frontFace, true, false),
+                                  inputData, sunVisibility).rgb, 1.0h);
 
 #ifdef _WRITE_RENDERING_LAYERS
     outRenderingLayers = EncodeMeshRenderingLayer();

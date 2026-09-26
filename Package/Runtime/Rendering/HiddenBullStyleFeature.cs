@@ -20,6 +20,10 @@ namespace HiddenBull.UrpStyle
         Shader m_FogShader;
 
         [SerializeField]
+        [HideInInspector]
+        Shader m_TransparencyShader;
+
+        [SerializeField]
         [Tooltip("Replaces the image with one term of the fog calculation, so a fog artefact can be " +
                  "traced to the step that made it instead of guessed at.\n\n" +
                  "Reach is the light the air receives, gathered and upsampled. Reach Raw is the same " +
@@ -30,6 +34,7 @@ namespace HiddenBull.UrpStyle
 
         StyleGlobalsPass m_GlobalsPass;
         StyleFogPass m_FogPass;
+        StyleTransparencyPass m_TransparencyPass;
 
         public BrushGlobalSettings brush => m_Brush;
 
@@ -44,10 +49,14 @@ namespace HiddenBull.UrpStyle
             m_Shadows ??= new ShadowQualitySettings();
             m_GlobalsPass = new StyleGlobalsPass();
             m_FogPass = new StyleFogPass();
+            m_TransparencyPass = new StyleTransparencyPass();
 
 #if UNITY_EDITOR
             if (m_FogShader == null)
                 m_FogShader = Shader.Find(StyleFogPass.ShaderName);
+
+            if (m_TransparencyShader == null)
+                m_TransparencyShader = Shader.Find(StyleTransparencyPass.ShaderName);
 #endif
 
             m_Shadows.ApplyDeferred();
@@ -64,6 +73,11 @@ namespace HiddenBull.UrpStyle
 
             if (m_FogPass.isReady)
                 renderer.EnqueuePass(m_FogPass);
+
+            m_TransparencyPass.Setup(m_TransparencyShader);
+
+            if (m_TransparencyPass.isReady)
+                renderer.EnqueuePass(m_TransparencyPass);
         }
 
         protected override void Dispose(bool disposing)
@@ -73,6 +87,9 @@ namespace HiddenBull.UrpStyle
 
             m_FogPass?.Dispose();
             m_FogPass = null;
+
+            m_TransparencyPass?.Dispose();
+            m_TransparencyPass = null;
         }
     }
 }

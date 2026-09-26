@@ -30,7 +30,6 @@ CBUFFER_START(UnityPerMaterial)
     half _BrushAmbient;
     half _BrushAlbedo;
     half _BrushRelief;
-    half _Surface;
 CBUFFER_END
 
 #ifdef UNITY_DOTS_INSTANCING_ENABLED
@@ -58,7 +57,6 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAmbient)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAlbedo)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushRelief)
-    UNITY_DOTS_INSTANCED_PROP(float , _Surface)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 #define _BaseColor          UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _BaseColor)
@@ -84,11 +82,21 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _BrushAmbient       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAmbient)
 #define _BrushAlbedo        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAlbedo)
 #define _BrushRelief        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushRelief)
-#define _Surface            UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Surface)
 #endif
 
 TEXTURE2D(_BrushMask);
 SAMPLER(sampler_BrushMask);
+
+half HB_SurfaceAlpha(float2 uv)
+{
+    half alpha = _BaseColor.a;
+
+#ifdef _HB_BASE_MAP
+    alpha *= SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv).a;
+#endif
+
+    return AlphaDiscard(alpha, _Cutoff);
+}
 
 half HB_SampleBrushMask(float2 uv)
 {
@@ -129,6 +137,10 @@ void InitializeHiddenBullSurfaceData(float2 uv, float2 shift, float2 uvDdx, floa
 
     outSurfaceData.alpha = AlphaDiscard(albedoAlpha.a, _Cutoff);
     outSurfaceData.albedo = AlphaModulate(albedoAlpha.rgb, outSurfaceData.alpha);
+
+#ifdef _HB_PREMULTIPLY
+    outSurfaceData.albedo *= outSurfaceData.alpha;
+#endif
 
 #ifdef _NORMALMAP
     outSurfaceData.normalTS = UnpackNormalScale(

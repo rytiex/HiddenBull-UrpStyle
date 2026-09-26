@@ -94,9 +94,6 @@ Shader "Hidden/HiddenBull/Style Fog"
 
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
-            TEXTURE2D(_HB_FogReach);
-            float4 _HB_FogReachSize;
-
             void HB_AccumulateReach(float2 uv, float eye, inout float sum, inout float total)
             {
                 float tap = LinearEyeDepth(HB_SceneDepth(uv), _ZBufferParams);
@@ -133,46 +130,6 @@ Shader "Hidden/HiddenBull/Style Fog"
             }
 
             #define HB_FOG_SILHOUETTE_TILES 8.0
-            half4 HB_FogStrokePlanes(float3 position, half3 blend, float lod)
-            {
-                half4 sum = half4(0.0h, 0.0h, 0.0h, 0.0h);
-                half total = 0.0h;
-
-                UNITY_BRANCH
-                if (blend.x > 0.02h)
-                {
-                    sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.zy, lod) * blend.x;
-                    total += blend.x;
-                }
-
-                UNITY_BRANCH
-                if (blend.y > 0.02h)
-                {
-                    sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xz, lod) * blend.y;
-                    total += blend.y;
-                }
-
-                UNITY_BRANCH
-                if (blend.z > 0.02h)
-                {
-                    sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xy, lod) * blend.z;
-                    total += blend.z;
-                }
-
-                return sum * rcp(max(total, HB_EPSILON));
-            }
-
-            half4 HB_FogWorldStroke(float3 positionWS, half3 blend, float tile, float lod)
-            {
-                float level = log2(max(tile, 1e-3));
-                float base = floor(level);
-                float density = exp2(-base);
-
-                half4 fine = HB_FogStrokePlanes(positionWS * density, blend, lod);
-                half4 coarse = HB_FogStrokePlanes(positionWS * (density * 0.5), blend, lod);
-
-                return lerp(fine, coarse, half(level - base));
-            }
 
             float _HB_FogDebug;
 
@@ -202,7 +159,7 @@ Shader "Hidden/HiddenBull/Style Fog"
 
                 bool brush = HB_BRUSH_ATLAS_BOUND > 0.5h;
                 half3 blend = HB_TriplanarBlend(half3(SafeNormalize(facing)));
-                float tileAngle = TWO_PI / HB_SkyBrushTurns(max(HB_SKY_BRUSH_SCALE, 1e-3));
+                float tileAngle = HB_FogTileAngle();
                 float span = rayLength * tileAngle;
 
                 half silhouette = half(HB_FOG_SILHOUETTE);
@@ -278,27 +235,8 @@ Shader "Hidden/HiddenBull/Style Fog"
                     return half4(value, value, value, 1.0h);
                 }
 
-                half paint = 0.0h;
-                half4 atlas = half4(0.5h, 0.5h, 0.5h, 1.0h);
-
-                UNITY_BRANCH
-                if (brush && HB_FOG_PAINT > 0.0)
-                {
-                    paint = half(HB_FOG_PAINT);
-                    atlas = HB_FogWorldStroke(anchorWS, blend, span, HB_SKY_BRUSH_SMOOTH * 4.0);
-
-                    half far = smoothstep(0.5h, 1.0h, amount * rcp(max(half(_HB_FogParams.w), HB_EPSILON)));
-
-                    if (far > 0.0h)
-                    {
-                        half domePaint = HB_FogDomePaint(direction);
-
-                        if (domePaint > 0.0h)
-                            atlas = lerp(atlas, HB_SkyStroke(direction), far);
-
-                        paint = lerp(paint, domePaint, far);
-                    }
-                }
+                half4 atlas;
+                half paint = HB_FogPaintStroke(anchorWS, blend, direction, span, amount, atlas);
 
                 return half4(HB_FogColourPainted(direction, atlas, paint, sunlit, reach), amount);
             }

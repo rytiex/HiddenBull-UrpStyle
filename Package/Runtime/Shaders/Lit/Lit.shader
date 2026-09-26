@@ -45,9 +45,10 @@ Shader "HiddenBull/URP Style/Lit"
         [ToggleUI] _AlphaClipEnabled("Alpha Clip", Float) = 0.0
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0
-        [Enum(UnityEngine.Rendering.CullMode)] _Cull("Cull", Float) = 2.0
+        [Enum(Front, 2, Back, 1, Both, 0)] _Cull("Render Face", Float) = 2.0
 
         [HideInInspector] _Surface("__surface", Float) = 0.0
+        [HideInInspector] _Blend("__blend", Float) = 0.0
         [HideInInspector] _QueueOffset("Queue offset", Float) = 0.0
     }
 
@@ -117,6 +118,92 @@ Shader "HiddenBull/URP Style/Lit"
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitForwardPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "OITMoments"
+            Tags
+            {
+                "LightMode" = "HiddenBullOITMoments"
+            }
+
+            Blend One One
+            ZWrite Off
+            ZTest LEqual
+            Cull [_Cull]
+
+            HLSLPROGRAM
+            #pragma target 3.5
+
+            #pragma vertex HiddenBullOITMomentsVertex
+            #pragma fragment HiddenBullOITMomentsFragment
+
+            #pragma shader_feature_local _HB_BASE_MAP
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #define HB_OIT_MOMENTS
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitTransparencyPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "OITColor"
+            Tags
+            {
+                "LightMode" = "HiddenBullOITColor"
+            }
+
+            Blend One One
+            ZWrite Off
+            ZTest LEqual
+            Cull [_Cull]
+
+            HLSLPROGRAM
+            #pragma target 3.5
+
+            #pragma vertex HiddenBullLitVertex
+            #pragma fragment HiddenBullOITColorFragment
+
+            #pragma shader_feature_local _HB_BASE_MAP
+            #pragma shader_feature_local _NORMALMAP
+            #pragma shader_feature_local_fragment _HB_BRUSH
+            #pragma shader_feature_local _HB_BRUSH_ANCHOR
+            #pragma shader_feature_local_fragment _HB_BRUSH_MASK
+            #pragma shader_feature_local_fragment _HB_SPECULAR
+            #pragma shader_feature_local_fragment _HB_RIM
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _HB_PREMULTIPLY
+            #pragma shader_feature_local _RECEIVE_SHADOWS_OFF
+
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
+            #pragma multi_compile _ _LIGHT_LAYERS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _LIGHT_COOKIES
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+
+            #pragma multi_compile _ DIRLIGHTMAP_COMBINED
+            #pragma multi_compile _ LIGHTMAP_ON
+            #pragma multi_compile_fragment _ LIGHTMAP_BICUBIC_SAMPLING
+            #pragma multi_compile _ DYNAMICLIGHTMAP_ON
+            #pragma multi_compile _ USE_LEGACY_LIGHTMAPS
+
+            #pragma multi_compile_instancing
+            #pragma instancing_options renderinglayer
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #define _SURFACE_TYPE_TRANSPARENT
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitTransparencyPass.hlsl"
             ENDHLSL
         }
 

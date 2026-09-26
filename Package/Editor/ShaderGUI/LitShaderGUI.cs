@@ -144,6 +144,22 @@ namespace HiddenBull.UrpStyle.Editor
                 "Width of each step between lightmapped tones. Near zero gives crisp flat steps; " +
                 "1 blends them back into the lightmap's own falloff.");
 
+            public static readonly GUIContent SurfaceType = new GUIContent(
+                "Surface Type",
+                "Transparent surfaces are blended without sorting: every layer lands in the right " +
+                "order whatever the draw order, so hair, foliage, glass and liquid can overlap and " +
+                "intersect without popping. They receive light, shadow, brush and fog like any " +
+                "other surface, but do not write depth or cast shadows unless Alpha Clip is on.");
+
+            public static readonly GUIContent BlendMode = new GUIContent(
+                "Blend Mode",
+                "Alpha fades the whole surface, highlights included — for hair, cloth, leaves and " +
+                "smoke. Premultiply fades only the colour and keeps highlights at full strength, so " +
+                "clear glass or water still shows a bright reflection where it is almost invisible.");
+
+            public static readonly string[] SurfaceTypeNames = { "Opaque", "Transparent" };
+            public static readonly string[] BlendModeNames = { "Alpha", "Premultiply" };
+
             public const string AlbedoOnlyHint =
                 "This material samples no textures. Gradation comes from the ambient gradient, " +
                 "so a flat colour still reads in three tones.";
@@ -152,7 +168,10 @@ namespace HiddenBull.UrpStyle.Editor
         const string k_AlphaTestKeyword = "_ALPHATEST_ON";
         const string k_ReceiveShadowsOffKeyword = "_RECEIVE_SHADOWS_OFF";
         const string k_BrushAnchorKeyword = "_HB_BRUSH_ANCHOR";
+        const string k_PremultiplyKeyword = "_HB_PREMULTIPLY";
 
+        MaterialProperty m_SurfaceType;
+        MaterialProperty m_BlendMode;
         MaterialProperty m_BaseColor;
         MaterialProperty m_DiffuseWrap;
         MaterialProperty m_DiffuseSoftness;
@@ -232,18 +251,31 @@ namespace HiddenBull.UrpStyle.Editor
                            material.GetFloat("_BrushObjectSpace") >= 1.5f;
             CoreUtils.SetKeyword(material, k_BrushAnchorKeyword, restPose);
 
-            material.SetOverrideTag("RenderType", alphaClip ? "TransparentCutout" : "Opaque");
+            var transparent = material.HasProperty("_Surface") && material.GetFloat("_Surface") >= 0.5f;
+            var premultiply = transparent && material.HasProperty("_Blend") && material.GetFloat("_Blend") >= 0.5f;
+            CoreUtils.SetKeyword(material, k_PremultiplyKeyword, premultiply);
+
+            material.SetShaderPassEnabled("UniversalForward", !transparent);
+            material.SetShaderPassEnabled("DepthOnly", !transparent);
+            material.SetShaderPassEnabled("DepthNormals", !transparent);
+            material.SetShaderPassEnabled("ShadowCaster", !transparent || alphaClip);
+            material.SetShaderPassEnabled("HiddenBullOITMoments", transparent);
+            material.SetShaderPassEnabled("HiddenBullOITColor", transparent);
+
+            material.SetOverrideTag("RenderType",
+                transparent ? "Transparent" : alphaClip ? "TransparentCutout" : "Opaque");
 
             var queueOffset = material.HasProperty("_QueueOffset") ? (int)material.GetFloat("_QueueOffset") : 0;
-            var baseQueue = alphaClip ? (int)RenderQueue.AlphaTest : (int)RenderQueue.Geometry;
+            var baseQueue = transparent ? (int)RenderQueue.Transparent
+                          : alphaClip ? (int)RenderQueue.AlphaTest
+                          : (int)RenderQueue.Geometry;
             material.renderQueue = baseQueue + queueOffset;
-
-            if (material.HasProperty("_Surface"))
-                material.SetFloat("_Surface", 0f);
         }
 
         void FindProperties(MaterialProperty[] properties)
         {
+            m_SurfaceType = FindProperty("_Surface", properties);
+            m_BlendMode = FindProperty("_Blend", properties);
             m_BaseColor = FindProperty("_BaseColor", properties);
             m_DiffuseWrap = FindProperty("_DiffuseWrap", properties);
             m_DiffuseSoftness = FindProperty("_DiffuseSoftness", properties);
@@ -291,6 +323,14 @@ namespace HiddenBull.UrpStyle.Editor
         void DrawSurface(MaterialEditor materialEditor)
         {
             EditorGUILayout.LabelField(Styles.Surface, EditorStyles.boldLabel);
+            DrawPopup(materialEditor, m_SurfaceType, Styles.SurfaceType, Styles.SurfaceTypeNames);
+
+            if (IsEnabled(m_SurfaceType))
+            {
+                using (new EditorGUI.IndentLevelScope())
+                    DrawPopup(materialEditor, m_BlendMode, Styles.BlendMode, Styles.BlendModeNames);
+            }
+
             materialEditor.ShaderProperty(m_BaseColor, m_BaseColor.displayName);
 
             if (!IsEnabled(m_BaseMapEnabled) && !IsEnabled(m_NormalMapEnabled))
@@ -439,5 +479,27 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         static bool IsEnabled(MaterialProperty property) => property.floatValue >= 0.5f;
+
+        static void DrawPopup(MaterialEditor materialEditor, MaterialProperty property, GUIContent label,
+                              string[] options)
+        {
+            var rect = EditorGUILayout.GetControlRect();
+
+            MaterialEditor.BeginProperty(rect, property);
+            EditorGUI.showMixedValue = property.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+
+            var value = EditorGUI.Popup(rect, label, Mathf.RoundToInt(property.floatValue),
+                                        EditorGUIUtility.TrTempContent(options));
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                materialEditor.RegisterPropertyChangeUndo(label.text);
+                property.floatValue = value;
+            }
+
+            EditorGUI.showMixedValue = false;
+            MaterialEditor.EndProperty();
+        }
     }
 }
