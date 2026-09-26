@@ -41,7 +41,18 @@ half HB_FogAmount(float3 positionWS, float3 cameraPositionWS)
 
 #define HB_FOG_SCATTER_POWER 8.0h
 
-half3 HB_FogColour(half3 direction, half sunlit, half reach)
+#define HB_FOG_PAINT      _HB_SkyPaint.y
+#define HB_FOG_SILHOUETTE _HB_SkyPaint.z
+
+half HB_FogDomePaint(half3 direction)
+{
+    if (HB_BRUSH_ATLAS_BOUND <= 0.5h)
+        return 0.0h;
+
+    return half(HB_FOG_PAINT) * (1.0h - smoothstep(0.85h, 1.0h, abs(direction.y)));
+}
+
+half3 HB_FogColourPainted(half3 direction, half4 atlas, half paint, half sunlit, half reach)
 {
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
     half shade = half(_HB_FogScatter.y);
@@ -49,8 +60,21 @@ half3 HB_FogColour(half3 direction, half sunlit, half reach)
     half shade = 0.0h;
 #endif
 
-    half3 colour = HB_SampleSkyLut(direction.y - shade * (1.0h - sunlit),
-                                   HB_LUT_TIME, HB_LUT_FOG);
+    half up = direction.y - shade * (1.0h - sunlit);
+    half tone = 1.0h;
+
+    if (paint > 0.0h)
+    {
+        half stroke = (atlas.b * 2.0h - 1.0h) * half(HB_SKY_BRUSH) * paint;
+
+        half lift;
+        direction = HB_SkyPaintDirection(direction, atlas, half(HB_SKY_PAINT) * paint, lift);
+
+        up += lift + stroke * 0.32h;
+        tone += stroke * 0.5h;
+    }
+
+    half3 colour = HB_SampleSkyLut(up, HB_LUT_TIME, HB_LUT_FOG);
 
     half amount = half(_HB_FogScatter.x) * half(_HB_FogScatter.w) * sunlit * reach;
     if (amount > 0.0h && _HB_SunDirection.w > 0.5)
@@ -61,7 +85,18 @@ half3 HB_FogColour(half3 direction, half sunlit, half reach)
         colour = lerp(colour, _HB_SunColor.rgb, saturate(scatter * amount));
     }
 
-    return colour * PositivePow(reach, shade);
+    return colour * (tone * PositivePow(reach, shade));
+}
+
+half3 HB_FogColour(half3 direction, half sunlit, half reach)
+{
+    half paint = HB_FogDomePaint(direction);
+    half4 atlas = half4(0.5h, 0.5h, 0.5h, 1.0h);
+
+    if (paint > 0.0h)
+        atlas = HB_SkyStroke(direction);
+
+    return HB_FogColourPainted(direction, atlas, paint, sunlit, reach);
 }
 
 half HB_SkyHaze(half3 direction)
@@ -84,6 +119,9 @@ half3 HB_SkyWithFog(half3 direction)
     half3 sky = HB_SkyColour(direction);
     half haze = HB_SkyHaze(direction);
 
+    if (haze <= 0.0h)
+        return sky;
+
     return lerp(sky, HB_FogColour(direction, 1.0h, 1.0h), haze);
 }
 
@@ -92,6 +130,7 @@ half3 HB_SkyWithFog(half3 direction)
 #define HB_FOG_BLUR   0.5
 #define HB_FOG_BIAS   0.25
 #define HB_FOG_GOLDEN 2.39996323
+#define HB_FOG_GOLDEN_FRACTION 0.61803399
 
 #if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
 
@@ -165,6 +204,8 @@ half HB_FogAirReach(half reach, float3 cameraPositionWS, half3 direction, float 
 
     float radius = min(span * (HB_FOG_SPREAD / HB_FOG_STEPS), HB_FOG_BLUR);
 
+    float3 shaft = _HB_SunDirection.w > 0.5 ? -_HB_SunDirection.xyz * _APVMinBrickSize : float3(0.0, 0.0, 0.0);
+
     float lit = 0.0;
     float peak = -1.0;
     float found = 0.0;
@@ -176,7 +217,8 @@ half HB_FogAirReach(half reach, float3 cameraPositionWS, half3 direction, float 
         float depth = -log(max(1.0 - slice * opacity, 1e-6)) * rcpDensity;
 
         float angle = (jitter + i) * HB_FOG_GOLDEN;
-        float3 spread = (right * cos(angle) + up * sin(angle)) * (radius * (1.0 - slice));
+        float3 spread = (right * cos(angle) + up * sin(angle)) * (radius * (1.0 - slice))
+                      + shaft * frac(jitter + i * HB_FOG_GOLDEN_FRACTION);
 
         float air;
 

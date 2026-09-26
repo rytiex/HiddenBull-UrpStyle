@@ -459,7 +459,7 @@ namespace HiddenBull.UrpStyle
                 0f);
 
             var tint = sky.tint.value;
-            passData.cloudTint = new Vector4(tint.r, tint.g, tint.b, 1f);
+            passData.cloudTint = new Vector4(tint.r, tint.g, tint.b, sky.tintShade.value);
         }
 
         static Vector4 PackDisc(float sizeDegrees, float brush)
@@ -482,7 +482,7 @@ namespace HiddenBull.UrpStyle
                 0f);
         }
 
-        static bool ProbeVolumesBaked()
+        internal static bool ProbeVolumesBaked()
         {
             var probes = ProbeReferenceVolume.instance;
 
@@ -501,8 +501,13 @@ namespace HiddenBull.UrpStyle
             {
                 passData.fogParams = Vector4.zero;
                 passData.fogScatter = Vector4.zero;
+                passData.skyPaint.y = 0f;
+                passData.skyPaint.z = 0f;
                 return;
             }
+
+            passData.skyPaint.y = fog.paint.value;
+            passData.skyPaint.z = fog.silhouette.value;
 
             var start = Mathf.Max(fog.startDistance.value, 0f);
             var range = Mathf.Max(fog.endDistance.value - start, 0f);

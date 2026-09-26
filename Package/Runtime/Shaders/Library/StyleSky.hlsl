@@ -66,6 +66,28 @@ float2 HB_SkyBrushUV(half3 direction, float scale)
     return float2(azimuth * HB_SkyBrushTurns(scale), direction.y * scale);
 }
 
+half4 HB_SkyStroke(half3 direction)
+{
+    return SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas,
+                                HB_SkyBrushUV(direction, max(HB_SKY_BRUSH_SCALE, 1e-3)),
+                                HB_SKY_BRUSH_SMOOTH * 4.0);
+}
+
+half3 HB_SkyPaintDirection(half3 direction, half4 stroke, half reach, out half lift)
+{
+    float scale = max(HB_SKY_BRUSH_SCALE, 1e-3);
+    float2 spine = float2(stroke.rg * 2.0h - 1.0h) * (HB_BRUSH_SPINE_RANGE * reach);
+
+    float sine, cosine;
+    sincos(spine.x * (TWO_PI / HB_SkyBrushTurns(scale)), sine, cosine);
+
+    lift = half(spine.y / scale);
+
+    return half3(direction.x * cosine - direction.z * sine,
+                 direction.y,
+                 direction.x * sine + direction.z * cosine);
+}
+
 half3 HB_SkyGradient(half3 direction)
 {
     half up = direction.y;
@@ -81,27 +103,13 @@ half3 HB_SkyGradient(half3 direction)
     if (mask <= 0.0h)
         return HB_SkySample(direction, up);
 
-    float scale = max(HB_SKY_BRUSH_SCALE, 1e-3);
-
-    half4 atlas = SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas,
-                                       HB_SkyBrushUV(direction, scale),
-                                       HB_SKY_BRUSH_SMOOTH * 4.0);
-
+    half4 atlas = HB_SkyStroke(direction);
     half stroke = (atlas.b * 2.0h - 1.0h) * mask;
 
-    float2 spine = float2(atlas.rg * 2.0h - 1.0h) * (HB_BRUSH_SPINE_RANGE * paint * mask);
+    half lift;
+    half3 painted = HB_SkyPaintDirection(direction, atlas, paint * mask, lift);
 
-    float angle = spine.x * (TWO_PI / HB_SkyBrushTurns(scale));
-    float sine, cosine;
-    sincos(angle, sine, cosine);
-
-    half3 painted = half3(direction.x * cosine - direction.z * sine,
-                          direction.y,
-                          direction.x * sine + direction.z * cosine);
-
-    half shift = half(spine.y / scale);
-
-    half3 colour = HB_SkySample(painted, up + shift + stroke * brush * 0.32h);
+    half3 colour = HB_SkySample(painted, up + lift + stroke * brush * 0.32h);
 
     return colour * (1.0h + stroke * brush * 0.5h);
 }

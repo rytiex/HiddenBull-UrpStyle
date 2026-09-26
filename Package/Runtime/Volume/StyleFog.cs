@@ -65,6 +65,21 @@ namespace HiddenBull.UrpStyle
         [DisplayInfo(name = "Shade (Only APV Bake)")]
         public ClampedFloatParameter shade = new ClampedFloatParameter(1f, 0f, 1f);
 
+        [Header("Brush")]
+        [Tooltip("How far the fog colour is broken up by brush strokes, using the sky's Sky Paint and " +
+                 "Sky Brush amounts. Over geometry the strokes are laid on the surfaces behind the fog " +
+                 "and sized by distance, so they stay put as you walk or turn instead of sliding across " +
+                 "the view. Where the fog swallows the scene completely they hand over to the sky's own " +
+                 "strokes, so the horizon still meets the sky without a seam. 0 leaves the fog a smooth " +
+                 "gradient.")]
+        public ClampedFloatParameter paint = new ClampedFloatParameter(1f, 0f, 1f);
+
+        [Tooltip("How far outlines dissolve into the fog behind them. Each stroke takes its fog from " +
+                 "the centre of the stroke, so where a stroke straddles an edge the more distant, " +
+                 "foggier side is carried across it and the outline breaks up into brush marks instead " +
+                 "of a clean cut. It only ever adds fog, so nearby surfaces are never cleared.")]
+        public ClampedFloatParameter silhouette = new ClampedFloatParameter(1f, 0f, 2f);
+
         [Header("Colour")]
         [Tooltip("The colour the fog fades toward, read along the view direction: left is looking " +
                  "straight down, the middle of the bar is the horizon, right is straight up. It " +

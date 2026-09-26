@@ -21,6 +21,12 @@ namespace HiddenBull.UrpStyle
                  "pushes them a little warmer or cooler than the sky would make them on its own.")]
         public ColorParameter tint = new ColorParameter(Color.white, true, false, true);
 
+        [Tooltip("How far the tint gathers in the shaded parts of the cloud. 0 tints the whole cloud " +
+                 "evenly; at 1 the dark bases and undersides take the full tint while the sunlit tops " +
+                 "keep the colour the light gives them. It follows Step Shading, so with no shading " +
+                 "there is nothing to tell the parts apart and the tint falls back to even.")]
+        public ClampedFloatParameter tintShade = new ClampedFloatParameter(1f, 0f, 1f);
+
         [Tooltip("Size of the cloud forms. Lower is bigger and closer. Pushing this up packs more " +
                  "tiles into the sky, and the atlas starts to repeat visibly near the horizon " +
                  "where the dome compresses hardest.")]

@@ -75,7 +75,7 @@ namespace HiddenBull.UrpStyle
             var stack = VolumeManager.instance.stack;
             var fog = stack.GetComponent<StyleFog>();
 
-            if (fog == null || fog.endDistance.value <= fog.startDistance.value)
+            if (fog == null || fog.endDistance.value <= fog.startDistance.value || fog.maxOpacity.value <= 0f)
                 return;
 
             var resourceData = frameData.Get<UniversalResourceData>();
@@ -90,12 +90,17 @@ namespace HiddenBull.UrpStyle
                 ? GraphicsFormat.R8_UNorm
                 : GraphicsFormat.B8G8R8A8_UNorm;
 
-            var reach = UniversalRenderer.CreateRenderGraphTexture(
-                renderGraph, descriptor, "_HB_FogReach", false, FilterMode.Bilinear);
+            var probes = StyleGlobalsPass.ProbeVolumesBaked();
+            var reach = TextureHandle.nullHandle;
 
-            using (var builder = renderGraph.AddRasterRenderPass<PassData>(
-                       "HiddenBull Style Fog Reach", out var passData, profilingSampler))
+            if (probes)
             {
+                reach = UniversalRenderer.CreateRenderGraphTexture(
+                    renderGraph, descriptor, "_HB_FogReach", false, FilterMode.Bilinear);
+
+                using var builder = renderGraph.AddRasterRenderPass<PassData>(
+                    "HiddenBull Style Fog Reach", out var passData, profilingSampler);
+
                 passData.material = m_Material;
 
                 builder.SetRenderAttachment(reach, 0, AccessFlags.WriteAll);
@@ -114,11 +119,14 @@ namespace HiddenBull.UrpStyle
             {
                 passData.material = m_Material;
                 passData.reachSize = new Vector4(
-                    1f / descriptor.width, 1f / descriptor.height, descriptor.width, descriptor.height);
+                    1f / descriptor.width, 1f / descriptor.height, probes ? 1f : 0f, 0f);
                 passData.debug = (int)m_Debug;
 
                 builder.SetRenderAttachment(resourceData.activeColorTexture, 0, AccessFlags.ReadWrite);
-                builder.UseTexture(reach, AccessFlags.Read);
+
+                if (probes)
+                    builder.UseTexture(reach, AccessFlags.Read);
+
                 builder.UseTexture(resourceData.cameraDepthTexture, AccessFlags.Read);
                 builder.AllowGlobalStateModification(true);
 

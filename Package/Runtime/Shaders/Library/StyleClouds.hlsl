@@ -31,12 +31,10 @@ float HB_CloudTravel(float up, float layerHeight)
 
 half3 HB_SkyWithClouds(half3 direction)
 {
-    half3 sky = HB_SkyWithFog(direction);
-
     half horizon = smoothstep(0.0h, 0.03h, direction.y);
 
     if (_HB_CloudParams.x <= 0.0 || horizon <= 0.0h)
-        return sky;
+        return HB_SkyWithFog(direction);
 
     float scale = _HB_CloudParams.y;
     float2 drift = _HB_CloudMotion.xy * _Time.y;
@@ -103,12 +101,13 @@ half3 HB_SkyWithClouds(half3 direction)
     }
 
     if (alpha <= 0.0h)
-        return sky;
+        return HB_SkyWithFog(direction);
+
+    half litAverage = litAccum * rcp(alpha);
 
     if (translucency > 0.0h)
     {
         half edge = alpha * (1.0h - alpha) * 4.0h;
-        half litAverage = litAccum * rcp(alpha);
 
         half rim = edge * PositivePow(towardSun, HB_CLOUD_RIM_FOCUS);
         half body = PositivePow(towardSun, HB_CLOUD_BODY_FOCUS);
@@ -119,7 +118,10 @@ half3 HB_SkyWithClouds(half3 direction)
         colour = lerp(colour, max(colour, lightColour * alpha), saturate(silver));
     }
 
-    colour *= horizon * _HB_CloudTint.rgb;
+    half darkness = saturate((1.0h - litAverage) * rcp(max(shading, HB_EPSILON)));
+    half weight = lerp(1.0h, darkness, half(_HB_CloudTint.a) * saturate(shading * 8.0h));
+
+    colour *= horizon * lerp(half3(1.0h, 1.0h, 1.0h), half3(_HB_CloudTint.rgb), weight);
     alpha *= horizon;
 
     float3 cameraPositionWS = GetCameraPositionWS();
@@ -128,7 +130,10 @@ half3 HB_SkyWithClouds(half3 direction)
     half fogged = HB_FogAmount(positionWS, cameraPositionWS);
     colour = lerp(colour, HB_FogColour(direction, 1.0h, 1.0h) * alpha, fogged);
 
-    return colour + sky * (1.0h - alpha);
+    if (alpha >= 1.0h)
+        return colour;
+
+    return colour + HB_SkyWithFog(direction) * (1.0h - alpha);
 }
 
 #endif
