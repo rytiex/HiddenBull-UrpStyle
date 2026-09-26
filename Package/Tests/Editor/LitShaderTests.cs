@@ -15,8 +15,8 @@ namespace HiddenBull.UrpStyle.Tests.Editor
             "UniversalForward",
             "ShadowCaster",
             "DepthOnly",
-            "DepthNormals",  // The shared resource set of Architecture D4 is built on this.
-            "Meta"           // Required for the baked indirect light of Architecture D16.
+            "DepthNormals",
+            "Meta"
         };
 
         Shader m_Shader;
@@ -78,13 +78,12 @@ namespace HiddenBull.UrpStyle.Tests.Editor
             StyleGlobalDefaults.Apply();
 
             var parameters = Shader.GetGlobalVector("_HB_AmbientParams");
-            Assert.Greater(parameters.z, 0f, "Default ambient intensity must be above zero, or an " +
+            Assert.Greater(parameters.y, 0f, "Default ambient intensity must be above zero, or an " +
                                              "unconfigured project renders black.");
-            Assert.Greater(parameters.x, 0f, "Sky falloff must be above zero to avoid a divide guard " +
-                                             "collapsing the gradient.");
-            Assert.Greater(parameters.y, 0f, "Ground falloff must be above zero for the same reason.");
-            Assert.AreEqual(0f, parameters.w, "Baked ambient must default to off so a project with no " +
-                                              "lightmaps is not blended toward black.");
+            Assert.Greater(parameters.z, 0f, "Default sky intensity must be above zero, or an " +
+                                             "unconfigured project draws a black sky.");
+            Assert.That(parameters.x, Is.InRange(0f, 1f), "Ambient light bias is a blend weight and " +
+                                                          "must stay within zero and one.");
         }
 
         [Test]

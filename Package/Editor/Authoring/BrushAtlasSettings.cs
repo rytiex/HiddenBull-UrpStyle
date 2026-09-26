@@ -108,14 +108,6 @@ namespace HiddenBull.UrpStyle.Editor
         [Tooltip("Contrast applied to the finished stroke field.")]
         public float contrast = 1.65f;
 
-        [Range(0f, 0.05f)]
-        [Tooltip("How far the warp vectors spread out from stroke edges, as a fraction of the " +
-                 "texture. The warp exists to displace stylized shadow edges, and a field that " +
-                 "only has values in a two-pixel band along each edge cannot push anything — it " +
-                 "behaves like edge detection. Widening it is what lets the shadow edge actually " +
-                 "break into strokes. Does not affect the stroke channel.")]
-        public float warpSpread = 0.05f;
-
         [Tooltip("Random seed. The same seed always produces the same atlas.")]
         public int seed = 1;
     }

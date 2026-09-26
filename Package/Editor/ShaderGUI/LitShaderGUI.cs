@@ -27,23 +27,47 @@ namespace HiddenBull.UrpStyle.Editor
                 "give a shared material its own copy for the character. See Project Settings > " +
                 "HiddenBull URP Style.");
 
+            public static readonly GUIContent BrushSize = new GUIContent(
+                "Size",
+                "Stroke size relative to the project's, which is set once on the renderer feature. " +
+                "1 matches every other material; 2 paints this one with strokes twice as large. " +
+                "Keep it close to 1 on surfaces that sit next to each other, or the seam between " +
+                "them reads as two different brushes.");
+
+            public static readonly GUIContent BrushEdgeKeep = new GUIContent(
+                "Edge Keep",
+                "How firmly Paint stops at hard edges in the texture. At 1 a stroke that would drag " +
+                "in a colour very unlike the one underneath is held back, so regions are painted " +
+                "from the inside and a logo, a seam line or a stripe stays crisp. At 0 strokes run " +
+                "straight across them and break them up like everything else.\n\n" +
+                "Colour is all the shader can go on, so it cannot tell a logo's edge from a " +
+                "neighbouring UV island packed close by. If lowering this lets a foreign colour " +
+                "creep in somewhere, that is the island showing through.");
+
+            public static readonly GUIContent BrushPaint = new GUIContent(
+                "Paint",
+                "How far the texture is repainted by the strokes. Each point reads its colour from " +
+                "the middle of the stroke it sits under, so a stroke carries one colour across its " +
+                "width and drags it along its length, the way a loaded brush does. Nothing slides: " +
+                "the texture is resampled, not moved.\n\n" +
+                "Strokes keep the same size in the world whatever the UV layout — a densely " +
+                "unwrapped face and a stretched one paint with the same brush.\n\n" +
+                "0 leaves the texture as it is. Does nothing on a material with no maps, or on " +
+                "faces whose UVs were collapsed onto a palette swatch; the relief and break-up " +
+                "still act there.");
+
             public static readonly GUIContent BrushRelief = new GUIContent(
                 "Relief",
-                "How far the brush perturbs the shading normal. This is what carries the brush into " +
-                "the ambient, the rim and the specular — without it a face that is entirely lit or " +
-                "entirely shadowed receives nothing but a flat brightness multiply.");
+                "How far each stroke raises the surface along its middle, the way thick paint " +
+                "stands proud of the canvas. This is what carries the brush into the ambient, the " +
+                "rim and the specular — without it a face that is entirely lit or entirely " +
+                "shadowed receives nothing but a flat brightness multiply.");
 
-            public static readonly GUIContent BrushUvWarp = new GUIContent(
-                "Texture Warp",
-                "How far the brush drags the texture coordinates before the base and normal maps " +
-                "are read. The map itself bends along the strokes rather than being tinted by " +
-                "them, so a photographic texture reads as something that was painted. Does " +
-                "nothing on a material with no maps.");
 
             public static readonly GUIContent BrushMask = new GUIContent(
                 "Mask",
-                "Red channel gates the whole brush — relief, break-up, albedo and texture warp all " +
-                "fall silent where it is black. Leave it off and the brush covers everything.");
+                "Red channel gates the whole brush — paint, relief, break-up and albedo all fall " +
+                "silent where it is black. Leave it off and the brush covers everything.");
 
             public static readonly GUIContent BrushAmbient = new GUIContent(
                 "Ambient Break-up",
@@ -101,10 +125,12 @@ namespace HiddenBull.UrpStyle.Editor
 
         MaterialProperty m_BrushEnabled;
         MaterialProperty m_BrushObjectSpace;
+        MaterialProperty m_BrushScale;
+        MaterialProperty m_BrushPaint;
+        MaterialProperty m_BrushEdgeKeep;
         MaterialProperty m_BrushRelief;
         MaterialProperty m_BrushShading;
         MaterialProperty m_BrushAmbient;
-        MaterialProperty m_BrushUvWarp;
         MaterialProperty m_BrushMaskEnabled;
         MaterialProperty m_BrushMask;
         MaterialProperty m_BrushAlbedo;
@@ -157,7 +183,6 @@ namespace HiddenBull.UrpStyle.Editor
                            material.GetFloat("_BrushObjectSpace") >= 1.5f;
             CoreUtils.SetKeyword(material, k_BrushAnchorKeyword, restPose);
 
-
             material.SetOverrideTag("RenderType", alphaClip ? "TransparentCutout" : "Opaque");
 
             var queueOffset = material.HasProperty("_QueueOffset") ? (int)material.GetFloat("_QueueOffset") : 0;
@@ -186,10 +211,12 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_BrushEnabled = FindProperty("_BrushEnabled", properties);
             m_BrushObjectSpace = FindProperty("_BrushObjectSpace", properties);
+            m_BrushScale = FindProperty("_BrushScale", properties);
+            m_BrushPaint = FindProperty("_BrushPaint", properties);
+            m_BrushEdgeKeep = FindProperty("_BrushEdgeKeep", properties);
             m_BrushRelief = FindProperty("_BrushRelief", properties);
             m_BrushShading = FindProperty("_BrushShading", properties);
             m_BrushAmbient = FindProperty("_BrushAmbient", properties);
-            m_BrushUvWarp = FindProperty("_BrushUvWarp", properties);
             m_BrushMaskEnabled = FindProperty("_BrushMaskEnabled", properties);
             m_BrushMask = FindProperty("_BrushMask", properties);
             m_BrushAlbedo = FindProperty("_BrushAlbedo", properties);
@@ -266,10 +293,17 @@ namespace HiddenBull.UrpStyle.Editor
                 using (new EditorGUI.IndentLevelScope())
                 {
                     materialEditor.ShaderProperty(m_BrushObjectSpace, Styles.BrushSpace);
+                    materialEditor.ShaderProperty(m_BrushScale, Styles.BrushSize);
+                    materialEditor.ShaderProperty(m_BrushPaint, Styles.BrushPaint);
+
+                    if (m_BrushPaint.floatValue > 0f)
+                    {
+                        using (new EditorGUI.IndentLevelScope())
+                            materialEditor.ShaderProperty(m_BrushEdgeKeep, Styles.BrushEdgeKeep);
+                    }
                     materialEditor.ShaderProperty(m_BrushRelief, Styles.BrushRelief);
                     materialEditor.ShaderProperty(m_BrushShading, Styles.BrushShading);
                     materialEditor.ShaderProperty(m_BrushAmbient, Styles.BrushAmbient);
-                    materialEditor.ShaderProperty(m_BrushUvWarp, Styles.BrushUvWarp);
                     materialEditor.ShaderProperty(m_BrushAlbedo, Styles.BrushAlbedo);
 
                     materialEditor.ShaderProperty(m_BrushMaskEnabled, m_BrushMaskEnabled.displayName);

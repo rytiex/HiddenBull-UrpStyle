@@ -119,11 +119,9 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV, ou
                                            tap, 0).r;
 
     #if UNITY_REVERSED_Z
-        float carries = depth < 0.9999 ? 1.0 : 0.0;
-        float blocked = depth > shadowCoord.z + ignore ? carries : 0.0;
+        float blocked = depth > shadowCoord.z + ignore ? 1.0 : 0.0;
     #else
-        float carries = depth > 0.0001 ? 1.0 : 0.0;
-        float blocked = depth < shadowCoord.z - ignore ? carries : 0.0;
+        float blocked = depth < shadowCoord.z - ignore ? 1.0 : 0.0;
     #endif
 
         blockerSum += depth * blocked;

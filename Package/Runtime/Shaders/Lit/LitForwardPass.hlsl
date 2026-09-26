@@ -37,9 +37,7 @@ struct Varyings
     #endif
 
     #ifdef _ADDITIONAL_LIGHTS_VERTEX
-        half4 fogFactorAndVertexLight  : TEXCOORD5;
-    #else
-        half fogFactor                 : TEXCOORD5;
+        half3 vertexLight              : TEXCOORD5;
     #endif
 
     #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
@@ -92,11 +90,7 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
     #endif
 
     #ifdef _ADDITIONAL_LIGHTS_VERTEX
-        inputData.fogCoord = InitializeInputDataFog(float4(inputData.positionWS, 1.0), input.fogFactorAndVertexLight.x);
-        inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
-    #else
-        inputData.fogCoord = InitializeInputDataFog(float4(inputData.positionWS, 1.0), input.fogFactor);
-        inputData.vertexLighting = half3(0, 0, 0);
+        inputData.vertexLighting = input.vertexLight;
     #endif
 
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
@@ -134,12 +128,6 @@ Varyings HiddenBullLitVertex(Attributes input)
     VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
     VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);
 
-#if defined(_FOG_FRAGMENT)
-    half fogFactor = 0;
-#else
-    half fogFactor = ComputeFogFactor(vertexInput.positionCS.z);
-#endif
-
     output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
     output.positionWS = vertexInput.positionWS;
     output.positionCS = vertexInput.positionCS;
@@ -164,10 +152,7 @@ Varyings HiddenBullLitVertex(Attributes input)
     OUTPUT_SH4(vertexInput.positionWS, output.normalWS.xyz, GetWorldSpaceNormalizeViewDir(vertexInput.positionWS), output.vertexSH, output.probeOcclusion);
 
 #ifdef _ADDITIONAL_LIGHTS_VERTEX
-    half3 vertexLight = VertexLighting(vertexInput.positionWS, normalInput.normalWS);
-    output.fogFactorAndVertexLight = half4(fogFactor, vertexLight);
-#else
-    output.fogFactor = fogFactor;
+    output.vertexLight = VertexLighting(vertexInput.positionWS, normalInput.normalWS);
 #endif
 
 #if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
@@ -192,12 +177,13 @@ void HiddenBullLitFragment(
 
 #ifdef _HB_BRUSH_ANCHOR
     styleData.brushAnchor = input.brushAnchor;
-#else
-    styleData.brushAnchor = float3(0.0, 0.0, 0.0);
 #endif
 
     HiddenBullBrushSample brush = HB_NoBrush();
-    float2 uv = input.uv;
+
+    float2 shift = float2(0.0, 0.0);
+    float2 uvDdx = ddx(input.uv);
+    float2 uvDdy = ddy(input.uv);
 
 #ifdef _HB_BRUSH
     #ifdef _NORMALMAP
@@ -206,14 +192,17 @@ void HiddenBullLitFragment(
         half3 geometryNormalWS = NormalizeNormalPerPixel(input.normalWS);
     #endif
 
-    brush = HB_SampleBrush(input.positionWS, geometryNormalWS, styleData.brushObjectSpace,
-                           styleData.brushAnchor, HB_SampleBrushMask(input.uv));
+    half scale = max(half(_BrushScale), HB_EPSILON);
 
-    uv += brush.warp.xy * styleData.brushUvWarp;
+    brush = HB_SampleBrush(input.positionWS, geometryNormalWS, styleData.brushObjectSpace,
+                           styleData.brushAnchor, scale, HB_SampleBrushMask(input.uv));
+
+    shift = HB_BrushPaintOffset(brush.spine, input.positionWS, input.uv, geometryNormalWS, scale)
+          * _BrushPaint;
 #endif
 
     SurfaceData surfaceData;
-    InitializeHiddenBullSurfaceData(uv, surfaceData);
+    InitializeHiddenBullSurfaceData(input.uv, shift, uvDdx, uvDdy, surfaceData);
 
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);

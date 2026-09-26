@@ -30,9 +30,9 @@ half4 HiddenBullFragmentLit(InputData inputData, SurfaceData surfaceData, Hidden
     half ambientOffset = brush.coverage * style.brushAmbient;
 
     half3 formNormal = SafeNormalize(
-        inputData.normalWS + brush.warp * (style.brushRelief * HB_BRUSH_FORM_RELIEF));
+        inputData.normalWS - brush.spine * (style.brushRelief * HB_BRUSH_FORM_RELIEF));
 
-    inputData.normalWS = SafeNormalize(inputData.normalWS + brush.warp * style.brushRelief);
+    inputData.normalWS = SafeNormalize(inputData.normalWS - brush.spine * style.brushRelief);
 
     surfaceData.albedo *= saturate(1.0h + min(brush.coverage, 0.0h) * style.brushAlbedo);
 #else

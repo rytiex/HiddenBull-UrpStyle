@@ -34,21 +34,33 @@ namespace HiddenBull.UrpStyle
                  "visible on a flat zenith as well as across the bands. It fades out toward the " +
                  "horizon on its own, to keep that line clean. Needs a brush atlas on the renderer " +
                  "feature.")]
-        public ClampedFloatParameter skyBrush = new ClampedFloatParameter(0.25f, 0f, 1f);
+        public ClampedFloatParameter skyBrush = new ClampedFloatParameter(0.225f, 0f, 1f);
+
+        [Tooltip("How far the strokes repaint the sky. At 1 each point reads its colour from the " +
+                 "middle of the stroke it sits under, so a stroke carries one colour across its " +
+                 "width. Above 1 a stroke reaches past its own middle and pulls colour from further " +
+                 "up and down the sky, so neighbouring strokes carry clearly different colours and " +
+                 "the ramp breaks between them — a sky is a smooth gradient, and a stroke that only " +
+                 "reaches its own width barely changes it. It follows the sunset front as well, so " +
+                 "the edge of dusk is painted too.\n\n" +
+                 "It works alongside Sky Brush rather than replacing it: Paint moves colour, Sky " +
+                 "Brush varies its value. For broader strokes lower Sky Brush Scale. It costs " +
+                 "nothing extra — the stroke atlas is already read for Sky Brush.")]
+        public ClampedFloatParameter skyPaint = new ClampedFloatParameter(2.15f, 0f, 3f);
 
         [Tooltip("Size of those strokes, as how many times the atlas wraps around the sky. Low " +
                  "values give broad sweeps across the whole dome, high values a finer tooth.\n\n" +
                  "It is counted in turns around the sky rather than in metres, because there is no " +
                  "surface up there to measure against — the same reason the sky's strokes are " +
                  "anchored to the view direction rather than to the world.")]
-        public ClampedFloatParameter skyBrushScale = new ClampedFloatParameter(1f, 0.5f, 12f);
+        public ClampedFloatParameter skyBrushScale = new ClampedFloatParameter(0.5f, 0.5f, 12f);
 
         [Tooltip("How soft those strokes are. At 0 the atlas is read at full detail and every " +
                  "bristle line shows, which on a sky reads as texture rather than as paint. " +
                  "Raising it reads from the blurred copies of the atlas instead, so the marks keep " +
                  "their shape but lose the tooth — closer to paint laid on wet.\n\n" +
                  "It is free: the atlas already carries the blurred copies.")]
-        public ClampedFloatParameter skyBrushSmoothness = new ClampedFloatParameter(0.35f, 0f, 1f);
+        public ClampedFloatParameter skyBrushSmoothness = new ClampedFloatParameter(0.125f, 0f, 1f);
 
         [Header("Ambient")]
         [Tooltip("The light the sky casts, read along the surface normal: left is a surface facing " +

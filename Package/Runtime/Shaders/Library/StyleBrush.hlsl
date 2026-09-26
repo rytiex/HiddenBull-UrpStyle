@@ -13,9 +13,12 @@ float4 _HB_BrushParams;
 #define HB_BRUSH_FADE_RATE       _HB_BrushParams.z
 #define HB_BRUSH_ATLAS_BOUND     _HB_BrushParams.w
 
+#define HB_BRUSH_SPINE_RANGE     0.0625
+#define HB_BRUSH_SEAM_FOOTPRINT  0.25
+
 struct HiddenBullBrushSample
 {
-    half3 warp;
+    half3 spine;
     half coverage;
 };
 
@@ -29,7 +32,7 @@ struct HiddenBullBrushSpace
 HiddenBullBrushSample HB_NoBrush()
 {
     HiddenBullBrushSample brush;
-    brush.warp = half3(0.0h, 0.0h, 0.0h);
+    brush.spine = half3(0.0h, 0.0h, 0.0h);
     brush.coverage = 0.0h;
     return brush;
 }
@@ -84,47 +87,69 @@ half3 HB_TriplanarBlend(half3 normal)
 }
 
 HiddenBullBrushSample HB_SampleBrush(float3 positionWS, half3 normalWS, half objectSpace,
-                                     float3 anchorOS, half mask)
+                                     float3 anchorOS, half scale, half mask)
 {
     HiddenBullBrushSample brush = HB_NoBrush();
 
-    if (HB_BRUSH_ATLAS_BOUND < 0.5h || mask <= 0.0h)
+    if (HB_BRUSH_ATLAS_BOUND < 0.5 || mask <= 0.0h)
         return brush;
 
-    float3 toSurface = positionWS - GetCameraPositionWS();
-    half fade = saturate(1.0h - (length(toSurface) - HB_BRUSH_FADE_START) * HB_BRUSH_FADE_RATE);
+    float distanceToCamera = distance(positionWS, GetCameraPositionWS());
+    half fade = half(saturate(1.0 - (distanceToCamera - HB_BRUSH_FADE_START) * HB_BRUSH_FADE_RATE));
 
     if (fade > 0.0h)
     {
         HiddenBullBrushSpace space = HB_ResolveBrushSpace(positionWS, normalWS, objectSpace, anchorOS);
 
         half3 blend = HB_TriplanarBlend(space.normal);
-        float3 uvw = space.position * HB_BRUSH_TILES_PER_UNIT;
+        float3 uvw = space.position * (HB_BRUSH_TILES_PER_UNIT / scale);
 
         half4 planeX = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.zy);
         half4 planeY = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xz);
         half4 planeZ = SAMPLE_TEXTURE2D(_HB_BrushAtlas, sampler_HB_BrushAtlas, uvw.xy);
 
-        half2 warpX = planeX.rg * 2.0h - 1.0h;
-        half2 warpY = planeY.rg * 2.0h - 1.0h;
-        half2 warpZ = planeZ.rg * 2.0h - 1.0h;
+        half2 spineX = planeX.rg * 2.0h - 1.0h;
+        half2 spineY = planeY.rg * 2.0h - 1.0h;
+        half2 spineZ = planeZ.rg * 2.0h - 1.0h;
 
-        half3 warp = half3(0.0h, warpX.y, warpX.x) * blend.x
-                   + half3(warpY.x, 0.0h, warpY.y) * blend.y
-                   + half3(warpZ.x, warpZ.y, 0.0h) * blend.z;
+        half3 spine = half3(0.0h, spineX.y, spineX.x) * blend.x
+                    + half3(spineY.x, 0.0h, spineY.y) * blend.y
+                    + half3(spineZ.x, spineZ.y, 0.0h) * blend.z;
 
-        half3 rotated = SafeNormalize(mul((half3x3)GetObjectToWorldMatrix(), warp)) * length(warp);
+        half3 rotated = SafeNormalize(mul((half3x3)GetObjectToWorldMatrix(), spine)) * length(spine);
 
         half coverage = planeX.b * blend.x + planeY.b * blend.y + planeZ.b * blend.z;
 
-        brush.warp = lerp(warp, rotated, space.localSpace) * fade;
-        brush.coverage = (coverage * 2.0h - 1.0h) * fade;
+        brush.spine = lerp(spine, rotated, space.localSpace) * (fade * mask);
+        brush.coverage = (coverage * 2.0h - 1.0h) * (fade * mask);
     }
 
-    brush.warp *= mask;
-    brush.coverage *= mask;
-
     return brush;
+}
+
+float2 HB_BrushPaintOffset(half3 spine, float3 positionWS, float2 uv, half3 normalWS, half scale)
+{
+    float3 dpdx = ddx(positionWS);
+    float3 dpdy = ddy(positionWS);
+    float2 duvdx = ddx(uv);
+    float2 duvdy = ddy(uv);
+
+    float2 footprint = max(abs(duvdx), abs(duvdy));
+
+    float3 edgeY = cross(dpdy, float3(normalWS));
+    float3 edgeX = cross(float3(normalWS), dpdx);
+
+    float determinant = dot(dpdx, edgeY);
+
+    if (abs(determinant) < 1e-18 || max(footprint.x, footprint.y) > HB_BRUSH_SEAM_FOOTPRINT)
+        return float2(0.0, 0.0);
+
+    float3 gradientU = edgeY * duvdx.x + edgeX * duvdy.x;
+    float3 gradientV = edgeY * duvdx.y + edgeX * duvdy.y;
+
+    float3 offset = float3(spine) * (HB_BRUSH_SPINE_RANGE * scale / max(HB_BRUSH_TILES_PER_UNIT, 1e-4));
+
+    return float2(dot(gradientU, offset), dot(gradientV, offset)) / determinant;
 }
 
 #endif

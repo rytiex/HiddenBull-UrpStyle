@@ -12,6 +12,7 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly int[] k_Resolutions = { 256, 512, 1024, 2048 };
         static readonly string[] k_ResolutionLabels = { "256", "512", "1024", "2048" };
         static readonly string[] k_TileLabels = { "1 × 1", "2 × 2", "3 × 3", "4 × 4" };
+        static readonly string[] k_ChannelLabels = { "Tone", "Paint" };
 
         static class Styles
         {
@@ -44,13 +45,22 @@ namespace HiddenBull.UrpStyle.Editor
                 "Repeats the preview so the tile boundary can be inspected. A seam visible here " +
                 "will be visible in the scene.");
 
+            public static readonly GUIContent Channel = new GUIContent("View",
+                "Tone is the stroke brightness that breaks up light and shade. Paint is the field " +
+                "that repaints textures: every texel points at the middle of the stroke above it. " +
+                "Grey means no stroke; each stroke should read as a smooth colour ramp across its " +
+                "width, flipping at its centre line.");
+
             public const string ChannelHint =
-                "RG store the warp vector that breaks up shadow edges; B stores stroke coverage, " +
-                "centred so brush strength redistributes brightness rather than darkening the surface.";
+                "RG point every texel at the middle of the stroke above it — materials read their " +
+                "texture from there, and the same field raises the paint and breaks shadow edges. " +
+                "B stores stroke tone, centred so brush strength redistributes brightness rather " +
+                "than darkening the surface.";
         }
 
         [SerializeField] BrushAtlasSettings m_Settings = new BrushAtlasSettings();
         [SerializeField] int m_PreviewTiles = 2;
+        [SerializeField] int m_PreviewChannel;
         [SerializeField] bool m_StrokesExpanded = true;
         [SerializeField] bool m_DetailExpanded = true;
         [SerializeField] bool m_OutputExpanded;
@@ -59,6 +69,7 @@ namespace HiddenBull.UrpStyle.Editor
         SerializedProperty m_SettingsProperty;
 
         Texture2D m_Preview;
+        Color[] m_PreviewPixels;
         string m_PreviewSignature;
         string m_Pending;
         float m_Coverage;
@@ -209,10 +220,6 @@ namespace HiddenBull.UrpStyle.Editor
             DrawLayer("Canvas Grain",
                 Find(nameof(BrushAtlasSettings.canvasAmount)),
                 Find(nameof(BrushAtlasSettings.canvasScale)), "Scale");
-
-            EditorGUILayout.Space(2f);
-            EditorGUILayout.PropertyField(Find(nameof(BrushAtlasSettings.warpSpread)),
-                new GUIContent("Warp Spread"));
         }
 
         static void DrawLayer(string title, SerializedProperty amount, SerializedProperty scale,
@@ -278,6 +285,14 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.LabelField("Preview", EditorStyles.boldLabel, GUILayout.Width(60f));
                 GUILayout.FlexibleSpace();
 
+                EditorGUIUtility.labelWidth = 36f;
+
+                EditorGUI.BeginChangeCheck();
+                m_PreviewChannel = EditorGUILayout.Popup(Styles.Channel, m_PreviewChannel,
+                    k_ChannelLabels, GUILayout.Width(110f));
+                if (EditorGUI.EndChangeCheck())
+                    UploadPreview();
+
                 EditorGUIUtility.labelWidth = 48f;
                 m_PreviewTiles = EditorGUILayout.Popup(Styles.Tiling, m_PreviewTiles - 1,
                     k_TileLabels, GUILayout.Width(120f)) + 1;
@@ -297,10 +312,12 @@ namespace HiddenBull.UrpStyle.Editor
             GUI.DrawTextureWithTexCoords(rect, m_Preview,
                 new Rect(0f, 0f, m_PreviewTiles, m_PreviewTiles));
 
+            var subject = m_PreviewChannel == 1 ? "Paint field" : "Stroke tone";
+
             EditorGUILayout.LabelField(
                 m_PreviewTiles > 1
-                    ? $"Stroke coverage, {m_PreviewTiles} × {m_PreviewTiles} tiles — no seam should be visible."
-                    : "Stroke coverage, a single tile.",
+                    ? $"{subject}, {m_PreviewTiles} × {m_PreviewTiles} tiles — no seam should be visible."
+                    : $"{subject}, a single tile.",
                 EditorStyles.miniLabel);
         }
 
@@ -348,7 +365,7 @@ namespace HiddenBull.UrpStyle.Editor
             if (m_Bake == null)
                 return;
 
-            if (!m_Bake.IsCompleted)
+            if (!m_Bake.IsCompleted || Event.current.type != EventType.Layout)
             {
                 Repaint();
                 return;
@@ -363,8 +380,16 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
             }
 
-            var pixels = completed.Result.pixels;
+            m_PreviewPixels = completed.Result.pixels;
             m_Coverage = completed.Result.stats.coverage;
+
+            UploadPreview();
+        }
+
+        void UploadPreview()
+        {
+            if (m_PreviewPixels == null)
+                return;
 
             if (m_Preview == null)
             {
@@ -377,7 +402,9 @@ namespace HiddenBull.UrpStyle.Editor
                 };
             }
 
-            m_Preview.SetPixels(BrushAtlasBaker.ExtractCoveragePreview(pixels));
+            m_Preview.SetPixels(m_PreviewChannel == 1
+                ? BrushAtlasBaker.ExtractSpinePreview(m_PreviewPixels)
+                : BrushAtlasBaker.ExtractCoveragePreview(m_PreviewPixels));
             m_Preview.Apply();
         }
 

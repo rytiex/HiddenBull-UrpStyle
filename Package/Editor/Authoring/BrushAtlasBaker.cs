@@ -30,17 +30,14 @@ namespace HiddenBull.UrpStyle.Editor
 
             resolution = Mathf.Max(8, resolution);
 
-            var coverage = BuildCoverage(settings, resolution);
+            var coverage = BuildCoverage(settings, resolution, out var spine);
             ApplyCanvasGrain(coverage, settings, resolution);
 
             stats = new BrushAtlasStats { coverage = Painted(coverage) };
 
             CentreAndContrast(coverage, settings.contrast);
 
-            var warpRadius = Mathf.RoundToInt(settings.warpSpread * resolution);
-            var smoothed = warpRadius > 0 ? BoxBlur(coverage, resolution, warpRadius) : coverage;
-
-            return Encode(coverage, smoothed, resolution);
+            return Encode(coverage, spine, resolution);
         }
 
         public static Color[] Bake(BrushAtlasSettings settings, int resolution)
@@ -49,6 +46,8 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         const float Ground = 0.5f;
+
+        public const float SpineRange = 0.0625f;
 
         struct Stroke
         {
@@ -62,9 +61,10 @@ namespace HiddenBull.UrpStyle.Editor
             public int segments;
         }
 
-        static float[] BuildCoverage(BrushAtlasSettings settings, int resolution)
+        static float[] BuildCoverage(BrushAtlasSettings settings, int resolution, out Vector2[] spine)
         {
             var coverage = new float[resolution * resolution];
+            var field = new Vector2[resolution * resolution];
             var random = new System.Random(settings.seed);
 
             for (var i = 0; i < coverage.Length; i++)
@@ -119,8 +119,10 @@ namespace HiddenBull.UrpStyle.Editor
                 var points = new Vector2[segments + 1];
 
                 for (var s = 0; s < strokes.Length; s++)
-                    DrawStroke(coverage, pigment, resolution, settings, strokes[s], from, to, points);
+                    DrawStroke(coverage, field, pigment, resolution, settings, strokes[s], from, to, points);
             });
+
+            spine = field;
 
             return coverage;
         }
@@ -144,7 +146,7 @@ namespace HiddenBull.UrpStyle.Editor
             return pigment;
         }
 
-        static void DrawStroke(float[] coverage, float[] pigment, int resolution,
+        static void DrawStroke(float[] coverage, Vector2[] field, float[] pigment, int resolution,
                                BrushAtlasSettings settings, Stroke stroke, int fromRow, int toRow,
                                Vector2[] points)
         {
@@ -185,6 +187,7 @@ namespace HiddenBull.UrpStyle.Editor
                     var distance = float.MaxValue;
                     var along = 0f;
                     var across = 0f;
+                    var nearest = point;
 
                     for (var i = 0; i < segments; i++)
                     {
@@ -197,12 +200,14 @@ namespace HiddenBull.UrpStyle.Editor
                         var tangent = segment / segmentLength;
                         var offset = point - points[i];
                         var local = Mathf.Clamp(Vector2.Dot(offset, tangent), 0f, segmentLength);
-                        var candidate = Vector2.Distance(point, points[i] + tangent * local);
+                        var onSpine = points[i] + tangent * local;
+                        var candidate = Vector2.Distance(point, onSpine);
 
                         if (candidate >= distance)
                             continue;
 
                         distance = candidate;
+                        nearest = onSpine;
                         along = (i + local / segmentLength) / segments;
                         across = offset.x * -tangent.y + offset.y * tangent.x;
                     }
@@ -233,6 +238,8 @@ namespace HiddenBull.UrpStyle.Editor
                     if (alpha <= 0f)
                         continue;
 
+                    var body = alpha;
+
                     if (settings.bristleAmount > 0f)
                     {
                         var bristle = Noise1D(across * settings.bristleDensity / (2f * width),
@@ -254,6 +261,7 @@ namespace HiddenBull.UrpStyle.Editor
                         alpha *= Mathf.Lerp(1f, pigment[index], settings.pigmentAmount);
 
                     coverage[index] = Mathf.Lerp(coverage[index], stroke.tone, alpha * stroke.alpha);
+                    field[index] = Vector2.Lerp(field[index], nearest - point, body);
                 }
             }
         }
@@ -295,15 +303,6 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
-        static float Mean(float[] values)
-        {
-            var total = 0.0;
-            for (var i = 0; i < values.Length; i++)
-                total += values[i];
-
-            return (float)(total / values.Length);
-        }
-
         static void CentreAndContrast(float[] coverage, float contrast)
         {
             var total = 0.0;
@@ -332,85 +331,31 @@ namespace HiddenBull.UrpStyle.Editor
                 coverage[i] *= scale;
         }
 
-        static float[] BoxBlur(float[] source, int resolution, int radius)
-        {
-            radius = Mathf.Clamp(radius, 1, resolution / 2 - 1);
-
-            var window = radius * 2 + 1;
-            var inverseWindow = 1f / window;
-
-            var horizontal = new float[source.Length];
-            var result = new float[source.Length];
-
-            for (var y = 0; y < resolution; y++)
-            {
-                var row = y * resolution;
-                var sum = 0f;
-
-                for (var k = -radius; k <= radius; k++)
-                    sum += source[row + Wrap(k, resolution)];
-
-                for (var x = 0; x < resolution; x++)
-                {
-                    horizontal[row + x] = sum * inverseWindow;
-                    sum += source[row + Wrap(x + radius + 1, resolution)]
-                         - source[row + Wrap(x - radius, resolution)];
-                }
-            }
-
-            for (var x = 0; x < resolution; x++)
-            {
-                var sum = 0f;
-
-                for (var k = -radius; k <= radius; k++)
-                    sum += horizontal[Wrap(k, resolution) * resolution + x];
-
-                for (var y = 0; y < resolution; y++)
-                {
-                    result[y * resolution + x] = sum * inverseWindow;
-                    sum += horizontal[Wrap(y + radius + 1, resolution) * resolution + x]
-                         - horizontal[Wrap(y - radius, resolution) * resolution + x];
-                }
-            }
-
-            return result;
-        }
-
-        static Color[] Encode(float[] coverage, float[] smoothed, int resolution)
+        static Color[] Encode(float[] coverage, Vector2[] spine, int resolution)
         {
             var pixels = new Color[coverage.Length];
-            var gradients = new Vector2[coverage.Length];
-            var maxMagnitude = 0f;
-
-            for (var y = 0; y < resolution; y++)
-            {
-                for (var x = 0; x < resolution; x++)
-                {
-                    var left = smoothed[y * resolution + Wrap(x - 1, resolution)];
-                    var right = smoothed[y * resolution + Wrap(x + 1, resolution)];
-                    var down = smoothed[Wrap(y - 1, resolution) * resolution + x];
-                    var up = smoothed[Wrap(y + 1, resolution) * resolution + x];
-
-                    var gradient = new Vector2(right - left, up - down) * 0.5f;
-                    gradients[y * resolution + x] = gradient;
-                    maxMagnitude = Mathf.Max(maxMagnitude, gradient.magnitude);
-                }
-            }
-
-            var normalise = maxMagnitude > 1e-5f ? 1f / maxMagnitude : 0f;
+            var scale = 0.5f / (SpineRange * resolution);
 
             for (var i = 0; i < pixels.Length; i++)
             {
-                var gradient = gradients[i] * normalise;
-
                 pixels[i] = new Color(
-                    gradient.x * 0.5f + 0.5f,
-                    gradient.y * 0.5f + 0.5f,
+                    Mathf.Clamp01(0.5f + spine[i].x * scale),
+                    Mathf.Clamp01(0.5f + spine[i].y * scale),
                     Mathf.Clamp01(coverage[i] + 0.5f),
                     1f);
             }
 
             return pixels;
+        }
+
+        public static Color[] ExtractSpinePreview(Color[] pixels)
+        {
+            var preview = new Color[pixels.Length];
+
+            for (var i = 0; i < pixels.Length; i++)
+                preview[i] = new Color(pixels[i].r, pixels[i].g, 0.5f, 1f);
+
+            return preview;
         }
 
         public static Color[] ExtractCoveragePreview(Color[] pixels)

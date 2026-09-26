@@ -69,13 +69,13 @@ namespace HiddenBull.UrpStyle
                  "the effect vanish exactly where it is looked at most.\n\n" +
                  "Needs a brush atlas on the Brush block.")]
         [Range(0f, 1f)]
-        float m_Brush = 0.1f;
+        float m_Brush = 0.25f;
 
         [SerializeField]
         [Tooltip("World size of one stroke, in metres, measured on the plane facing the light. Small " +
                  "values give a fine tooth along the edge, large ones a broad sweep.")]
         [Min(0.05f)]
-        float m_BrushSize = 0.5f;
+        float m_BrushSize = 0.75f;
 
         [SerializeField]
         [Tooltip("Replaces the lit colour with one term of the shadow calculation, so a shadow that " +
@@ -165,11 +165,11 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public static Vector2 AtlasTile(StyleShadowQuality quality)
+        public static Vector2 AtlasTile(int cascades)
         {
-            return Cascades(quality) switch
+            return cascades switch
             {
-                1 => new Vector2(1f, 1f),
+                <= 1 => new Vector2(1f, 1f),
                 2 => new Vector2(0.5f, 1f),
                 _ => new Vector2(0.5f, 0.5f)
             };
@@ -202,9 +202,9 @@ namespace HiddenBull.UrpStyle
             return new Vector4((int)m_Debug, 0f, 0f, 0f);
         }
 
-        public Vector4 PackBrush(bool atlasBound)
+        public Vector4 PackBrush(bool atlasBound, int cascades)
         {
-            var tile = AtlasTile(m_Quality);
+            var tile = AtlasTile(cascades);
 
             return new Vector4(
                 atlasBound ? m_Brush : 0f,

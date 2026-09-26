@@ -17,15 +17,18 @@ namespace HiddenBull.UrpStyle.Editor
             settings.puffiness = 1f;
             settings.shapeScale = 1;
             settings.octaves = 2;
-            settings.erosion = 1f;
-            settings.erosionScale = 12;
-            settings.contrast = 1.86f;
-            settings.warp = 0.5f;
-            settings.warpScale = 2;
-            settings.brushAmount = 0.55f;
-            settings.brushScale = 0.95f;
-            settings.reliefStrength = 0.5f;
-            settings.reliefSmoothing = 0.645f;
+            settings.erosion = 0.325f;
+            settings.erosionScale = 8;
+            settings.contrast = 4f;
+            settings.warp = 0.325f;
+            settings.warpScale = 1;
+            settings.brushAmount = 0.225f;
+            settings.paint = 2.25f;
+            settings.brushScale = 0.65f;
+            settings.reliefStrength = 1f;
+            settings.reliefSmoothing = 1f;
+            settings.resolution = 512;
+            settings.seed = 1;
         }
     }
 }

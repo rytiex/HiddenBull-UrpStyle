@@ -17,7 +17,6 @@ float4 _HB_CloudTint;
 #define HB_CLOUD_LAYER_HEIGHT   20.0
 #define HB_CLOUD_DISTANCE_SCALE 100.0
 #define HB_CLOUD_RELIEF_UP      0.45h
-#define HB_CLOUD_COVERAGE_FLOOR 0.25h
 #define HB_CLOUD_SHADE_FLOOR    0.85h
 #define HB_CLOUD_SILVER_GAIN    2.0h
 #define HB_CLOUD_RIM_FOCUS      12.0h
@@ -64,9 +63,10 @@ half3 HB_SkyWithClouds(half3 direction)
     half middle = (steps - 1) * 0.5h;
     half taper = half(_HB_CloudSlab.y) * rcp(max(middle, 1.0h));
 
-    half threshold = lerp(1.0h, HB_CLOUD_COVERAGE_FLOOR, half(_HB_CloudParams.x));
-
     half shellSoft = max(soft + taper * 0.6h, HB_EPSILON);
+
+    half coverage = half(_HB_CloudParams.x);
+    half threshold = (1.0h - coverage) - coverage * (shellSoft + taper * middle);
 
     half3 colour = half3(0.0h, 0.0h, 0.0h);
     half alpha = 0.0h;

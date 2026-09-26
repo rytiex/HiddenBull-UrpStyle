@@ -28,12 +28,5 @@
     "category": "Rendering",
     "dependencies": {
         "com.unity.render-pipelines.universal": "17.4.0"
-    },
-    "samples": [
-        {
-            "displayName": "Demo Scene",
-            "description": "A sample scene demonstrating the URP style setup (materials, renderer features, volume profile).",
-            "path": "Samples~/DemoScene"
-        }
-    ]
+    }
 }

@@ -15,6 +15,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_BrushAtlasId = Shader.PropertyToID("_HB_BrushAtlas");
         static readonly int s_BrushParamsId = Shader.PropertyToID("_HB_BrushParams");
         static readonly int s_SkyParamsId = Shader.PropertyToID("_HB_SkyParams");
+        static readonly int s_SkyPaintId = Shader.PropertyToID("_HB_SkyPaint");
         static readonly int s_SunDirectionId = Shader.PropertyToID("_HB_SunDirection");
         static readonly int s_SunColorId = Shader.PropertyToID("_HB_SunColor");
         static readonly int s_SunDiscId = Shader.PropertyToID("_HB_SunDisc");
@@ -60,6 +61,7 @@ namespace HiddenBull.UrpStyle
             public Texture brushAtlas;
             public Vector4 brushParams;
             public Vector4 skyParams;
+            public Vector4 skyPaint;
             public Vector4 sunDirection;
             public Vector4 sunColor;
             public Vector4 sunDisc;
@@ -124,9 +126,11 @@ namespace HiddenBull.UrpStyle
 
             PackBrush(m_Brush, passData);
 
+            var cascades = frameData.Get<UniversalShadowData>().mainLightShadowCascadesCount;
+
             passData.shadowBrush = m_Shadows == null
                 ? StyleGlobalDefaults.ShadowBrush
-                : m_Shadows.PackBrush(passData.brushAtlas != null);
+                : m_Shadows.PackBrush(passData.brushAtlas != null, cascades);
 
             passData.shadowFilter = m_Shadows == null
                 ? StyleGlobalDefaults.ShadowFilter
@@ -159,6 +163,7 @@ namespace HiddenBull.UrpStyle
                 cmd.SetGlobalVector(s_BrushParamsId, data.brushParams);
 
                 cmd.SetGlobalVector(s_SkyParamsId, data.skyParams);
+                cmd.SetGlobalVector(s_SkyPaintId, data.skyPaint);
                 cmd.SetGlobalVector(s_SunDirectionId, data.sunDirection);
                 cmd.SetGlobalVector(s_SunColorId, data.sunColor);
                 cmd.SetGlobalVector(s_SunDiscId, data.sunDisc);
@@ -265,6 +270,7 @@ namespace HiddenBull.UrpStyle
                 passData.skyLutRemap = StyleGlobalDefaults.SkyLutRemap;
                 passData.ambientFloor = StyleGlobalDefaults.AmbientFloor;
                 passData.skyParams = StyleGlobalDefaults.SkyParams;
+                passData.skyPaint = StyleGlobalDefaults.SkyPaint;
                 passData.keyDirection = StyleGlobalDefaults.KeyDirection;
                 passData.keyColor = new Vector4(0f, 0f, 0f, 1f);
                 return new SkyTiming
@@ -310,6 +316,8 @@ namespace HiddenBull.UrpStyle
             passData.skyParams = new Vector4(
                 sky.skyBrushScale.value, sky.sunsetFocus.value,
                 sky.skyBrush.value, sky.skyBrushSmoothness.value);
+
+            passData.skyPaint = new Vector4(sky.skyPaint.value, 0f, 0f, 0f);
 
             PackKeyLight(sky, sunDirection, sunElevation, realtimeSun, passData);
 
@@ -522,6 +530,7 @@ namespace HiddenBull.UrpStyle
         public static readonly Vector4 ShadowBrush = new Vector4(0f, 1f, 1f, 1f);
         public static readonly Vector4 ShadowDebug = new Vector4(0f, 1f, 1f, 1f);
         public static readonly Vector4 SkyParams = new Vector4(3f, 0f, 0f, 0f);
+        public static readonly Vector4 SkyPaint = Vector4.zero;
         public static readonly Vector4 KeyDirection = new Vector4(0f, 0f, 0f, 1f);
 
         static readonly SkyLutBaker s_Lut = new SkyLutBaker();
@@ -555,6 +564,7 @@ namespace HiddenBull.UrpStyle
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_AmbientFloor"), AmbientFloor);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_BrushParams"), BrushParams);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_SkyParams"), SkyParams);
+            Shader.SetGlobalVector(Shader.PropertyToID("_HB_SkyPaint"), SkyPaint);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_KeyDirection"), KeyDirection);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowBrush"), ShadowBrush);
             Shader.SetGlobalVector(Shader.PropertyToID("_HB_ShadowFilter"), ShadowFilter);

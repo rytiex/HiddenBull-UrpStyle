@@ -10,7 +10,7 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         public static Color[] Bake(CloudAtlasSettings settings, int resolution,
-                                   float[] brush, int brushResolution)
+                                   Color[] brush, int brushResolution)
         {
             var density = BuildDensity(settings, resolution, brush, brushResolution);
             var height = Blur(density, resolution, SmoothingRadius(settings, resolution));
@@ -41,7 +41,56 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
+            if (brush != null && settings.paint > 0f)
+                pixels = Paint(pixels, resolution, brush, brushResolution, settings);
+
             return pixels;
+        }
+
+        static Color[] Paint(Color[] source, int resolution, Color[] brush, int brushResolution,
+                             CloudAtlasSettings settings)
+        {
+            var painted = new Color[source.Length];
+            var reach = BrushAtlasBaker.SpineRange * settings.paint / Mathf.Max(settings.brushScale, 1e-3f);
+
+            System.Threading.Tasks.Parallel.For(0, resolution, y =>
+            {
+                var v = (y + 0.5f) / resolution;
+
+                for (var x = 0; x < resolution; x++)
+                {
+                    var u = (x + 0.5f) / resolution;
+                    var stroke = SampleBrush(brush, brushResolution, u, v, settings.brushScale);
+
+                    painted[y * resolution + x] = Bilinear(source, resolution,
+                        u + (stroke.r * 2f - 1f) * reach,
+                        v + (stroke.g * 2f - 1f) * reach);
+                }
+            });
+
+            return painted;
+        }
+
+        static Color Bilinear(Color[] pixels, int resolution, float u, float v)
+        {
+            var x = u * resolution - 0.5f;
+            var y = v * resolution - 0.5f;
+
+            var x0 = Mathf.FloorToInt(x);
+            var y0 = Mathf.FloorToInt(y);
+
+            var fx = x - x0;
+            var fy = y - y0;
+
+            var left = Wrap(x0, resolution);
+            var right = Wrap(x0 + 1, resolution);
+            var bottom = Wrap(y0, resolution) * resolution;
+            var top = Wrap(y0 + 1, resolution) * resolution;
+
+            return Color.Lerp(
+                Color.Lerp(pixels[bottom + left], pixels[bottom + right], fx),
+                Color.Lerp(pixels[top + left], pixels[top + right], fx),
+                fy);
         }
 
         public static Color[] ShadePreview(Color[] atlas, int resolution, float coverage,
@@ -53,8 +102,8 @@ namespace HiddenBull.UrpStyle.Editor
             var shade = new Color(0.46f, 0.44f, 0.56f);
             var sky = new Color(0.36f, 0.58f, 0.7f);
 
-            var threshold = 1f - coverage;
             var soft = Mathf.Max(softness * 0.5f, 1e-4f);
+            var threshold = (1f - coverage) - coverage * soft;
 
             var pixels = new Color[atlas.Length];
             var total = 0f;
@@ -79,7 +128,7 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         static float[] BuildDensity(CloudAtlasSettings settings, int resolution,
-                                    float[] brush, int brushResolution)
+                                    Color[] brush, int brushResolution)
         {
             var density = new float[resolution * resolution];
 
@@ -120,7 +169,7 @@ namespace HiddenBull.UrpStyle.Editor
                     }
 
                     if (brush != null && settings.brushAmount > 0f)
-                        value += (SampleBrush(brush, brushResolution, u, v, settings.brushScale) - 0.5f)
+                        value += (SampleBrush(brush, brushResolution, u, v, settings.brushScale).b - 0.5f)
                                * settings.brushAmount;
 
                     density[y * resolution + x] = value;
@@ -138,16 +187,21 @@ namespace HiddenBull.UrpStyle.Editor
 
             var span = Mathf.Max(maximum - minimum, 1e-4f);
 
+            var power = Mathf.Max(0.25f, settings.contrast);
+
             for (var i = 0; i < density.Length; i++)
             {
                 var normalized = (density[i] - minimum) / span;
-                density[i] = Mathf.Clamp01((normalized - 0.5f) * settings.contrast + 0.5f);
+
+                density[i] = normalized < 0.5f
+                    ? 0.5f * Mathf.Pow(2f * normalized, power)
+                    : 1f - 0.5f * Mathf.Pow(2f * (1f - normalized), power);
             }
 
             return density;
         }
 
-        static float SampleBrush(float[] brush, int resolution, float u, float v, float scale)
+        static Color SampleBrush(Color[] brush, int resolution, float u, float v, float scale)
         {
             var x = Wrap(Mathf.FloorToInt(u * scale * resolution), resolution);
             var y = Wrap(Mathf.FloorToInt(v * scale * resolution), resolution);

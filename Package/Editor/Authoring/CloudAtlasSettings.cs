@@ -28,27 +28,31 @@ namespace HiddenBull.UrpStyle.Editor
         [Range(0f, 1f)]
         [Tooltip("How far fine noise eats into the cloud. This is what turns a smooth blob into " +
                  "something with torn edges and holes.")]
-        public float erosion = 1f;
+        public float erosion = 0.325f;
 
         [Range(2, 48)]
         [Tooltip("Scale of that erosion noise. Kept whole so the field still tiles.")]
-        public int erosionScale = 12;
+        public int erosionScale = 8;
 
         [Range(0.25f, 4f)]
         [Tooltip("Contrast on the finished density. Higher separates cloud from sky more sharply " +
-                 "and leaves less wispy transition.")]
-        public float contrast = 1.86f;
+                 "and leaves less wispy transition.\n\n" +
+                 "It bends the density rather than clipping it, so no part of the tile is ever " +
+                 "flattened into empty sky: as Cloud Coverage rises the sky fills in one piece at a " +
+                 "time, all the way to fully overcast, instead of leaving holes that no setting can " +
+                 "close.")]
+        public float contrast = 4f;
 
         [Range(0f, 1f)]
         [Tooltip("Strength of the relief baked into RG. This is what the sun lights, so it decides " +
                  "how much a cloud reads as a solid form rather than a flat patch.")]
-        public float reliefStrength = 0.5f;
+        public float reliefStrength = 1f;
 
         [Range(0f, 1f)]
         [Tooltip("How much the relief is smoothed before the normals are taken. Low values follow " +
                  "every speck of noise and light up as sparkle; higher values give broad billows " +
                  "with a clear lit and shadowed side.")]
-        public float reliefSmoothing = 0.645f;
+        public float reliefSmoothing = 1f;
 
         [Range(0f, 1f)]
         [Tooltip("Pushes the whole density field around with a slow drift before the shapes are " +
@@ -56,12 +60,12 @@ namespace HiddenBull.UrpStyle.Editor
                  "the eye finds when a sky looks like it repeats — bending the coordinates first " +
                  "is what stops the cells lining up.\n\n" +
                  "It costs nothing at runtime: the bend is baked into the atlas.")]
-        public float warp = 0.5f;
+        public float warp = 0.325f;
 
         [Range(1, 8)]
         [Tooltip("How quickly the drift changes across the tile. Low values move whole regions " +
                  "together and keep the clouds intact; high values churn the shapes up.")]
-        public int warpScale = 2;
+        public int warpScale = 1;
 
         [Range(0f, 1f)]
         [Tooltip("How far a brush atlas cuts into the cloud before it is baked. It works on the " +
@@ -69,12 +73,22 @@ namespace HiddenBull.UrpStyle.Editor
                  "the cloud is — they are part of the shape rather than a pattern laid over it.\n\n" +
                  "Baking it in rather than sampling the brush at runtime means the cloud march " +
                  "stays one texture read per step, whatever this is set to.")]
-        public float brushAmount = 0.55f;
+        public float brushAmount = 0.225f;
 
         [Range(0.25f, 8f)]
         [Tooltip("How many times the brush atlas repeats across the cloud tile. Low values give " +
                  "broad sweeps through the cloud body, high values a finer tooth on the edge.")]
-        public float brushScale = 0.95f;
+        public float brushScale = 0.65f;
+
+        [Range(0f, 3f)]
+        [Tooltip("How far the strokes repaint the cloud. Every texel takes its density, height and " +
+                 "relief from the middle of the stroke above it, so a cloud is built out of strokes: " +
+                 "its silhouette breaks along them and each one is lit as a single dab rather than " +
+                 "as smooth noise. Above 1 a stroke reaches past its own middle and pulls from " +
+                 "further away, the same as Sky Paint.\n\n" +
+                 "It reads the stroke field of the brush atlas, so the texture above has to be one " +
+                 "made by the Brush Atlas Generator. Baked in, so it costs nothing at runtime.")]
+        public float paint = 2.25f;
 
         [Tooltip("Output texture size. 512 is usually enough — the atlas tiles, and the sky samples " +
                  "it at two scales, so detail comes from repetition rather than resolution.")]

@@ -18,9 +18,11 @@ CBUFFER_START(UnityPerMaterial)
     half _RimPower;
     half _RimIntensity;
     half _BrushObjectSpace;
+    half _BrushScale;
+    half _BrushPaint;
+    half _BrushEdgeKeep;
     half _BrushShading;
     half _BrushAmbient;
-    half _BrushUvWarp;
     half _BrushAlbedo;
     half _BrushRelief;
     half _Surface;
@@ -39,9 +41,11 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _RimPower)
     UNITY_DOTS_INSTANCED_PROP(float , _RimIntensity)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushObjectSpace)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushPaint)
+    UNITY_DOTS_INSTANCED_PROP(float , _BrushEdgeKeep)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushShading)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAmbient)
-    UNITY_DOTS_INSTANCED_PROP(float , _BrushUvWarp)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushAlbedo)
     UNITY_DOTS_INSTANCED_PROP(float , _BrushRelief)
     UNITY_DOTS_INSTANCED_PROP(float , _Surface)
@@ -58,9 +62,11 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _RimPower           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimPower)
 #define _RimIntensity       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _RimIntensity)
 #define _BrushObjectSpace   UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushObjectSpace)
+#define _BrushScale         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushScale)
+#define _BrushEdgeKeep      UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushEdgeKeep)
+#define _BrushPaint         UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushPaint)
 #define _BrushShading       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushShading)
 #define _BrushAmbient       UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAmbient)
-#define _BrushUvWarp        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushUvWarp)
 #define _BrushAlbedo        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushAlbedo)
 #define _BrushRelief        UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _BrushRelief)
 #define _Surface            UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _Surface)
@@ -78,25 +84,53 @@ half HB_SampleBrushMask(float2 uv)
 #endif
 }
 
-void InitializeHiddenBullSurfaceData(float2 uv, out SurfaceData outSurfaceData)
+#define HB_PAINT_EDGE_START 0.15h
+#define HB_PAINT_EDGE_END   0.35h
+
+void InitializeHiddenBullSurfaceData(float2 uv, float2 shift, float2 uvDdx, float2 uvDdy,
+                                     out SurfaceData outSurfaceData)
 {
     outSurfaceData = (SurfaceData)0;
 
     half4 albedoAlpha = _BaseColor;
+    float2 detailUV = uv + shift;
 
 #ifdef _HB_BASE_MAP
-    albedoAlpha *= SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
+    half4 painted = SAMPLE_TEXTURE2D_GRAD(_BaseMap, sampler_BaseMap, detailUV, uvDdx, uvDdy);
+
+    #ifdef _HB_BRUSH
+        half4 original = SAMPLE_TEXTURE2D_GRAD(_BaseMap, sampler_BaseMap, uv, uvDdx, uvDdy);
+
+        half difference = length(sqrt(max(painted.rgb, 0.0h)) - sqrt(max(original.rgb, 0.0h)));
+        half keep = lerp(1.0h, 1.0h - smoothstep(HB_PAINT_EDGE_START, HB_PAINT_EDGE_END, difference),
+                         half(_BrushEdgeKeep));
+
+        painted = half4(lerp(original.rgb, painted.rgb, keep), original.a);
+        detailUV = uv + shift * keep;
+    #endif
+
+    albedoAlpha *= painted;
 #endif
 
     outSurfaceData.alpha = AlphaDiscard(albedoAlpha.a, _Cutoff);
     outSurfaceData.albedo = AlphaModulate(albedoAlpha.rgb, outSurfaceData.alpha);
 
-    outSurfaceData.normalTS = SampleNormal(uv, TEXTURE2D_ARGS(_BumpMap, sampler_BumpMap), _BumpScale);
+#ifdef _NORMALMAP
+    outSurfaceData.normalTS = UnpackNormalScale(
+        SAMPLE_TEXTURE2D_GRAD(_BumpMap, sampler_BumpMap, detailUV, uvDdx, uvDdy), _BumpScale);
+#else
+    outSurfaceData.normalTS = half3(0.0h, 0.0h, 1.0h);
+#endif
 
     outSurfaceData.metallic = _Metallic;
     outSurfaceData.smoothness = _Smoothness;
     outSurfaceData.occlusion = 1.0h;
     outSurfaceData.emission = 0.0h;
+}
+
+void InitializeHiddenBullSurfaceData(float2 uv, out SurfaceData outSurfaceData)
+{
+    InitializeHiddenBullSurfaceData(uv, float2(0.0, 0.0), ddx(uv), ddy(uv), outSurfaceData);
 }
 
 HiddenBullStyleData InitializeHiddenBullStyleData()
@@ -111,7 +145,6 @@ HiddenBullStyleData InitializeHiddenBullStyleData()
     style.brushAnchor = float3(0.0, 0.0, 0.0);
     style.brushShading = _BrushShading;
     style.brushAmbient = _BrushAmbient;
-    style.brushUvWarp = _BrushUvWarp;
     style.brushAlbedo = _BrushAlbedo;
     style.brushRelief = _BrushRelief;
     return style;

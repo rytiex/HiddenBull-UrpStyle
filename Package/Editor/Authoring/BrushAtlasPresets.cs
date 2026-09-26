@@ -36,7 +36,6 @@ namespace HiddenBull.UrpStyle.Editor
             settings.canvasScale = 225;
             settings.resolution = 512;
             settings.contrast = 1.65f;
-            settings.warpSpread = 0.05f;
             settings.seed = 1;
         }
     }

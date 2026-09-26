@@ -32,9 +32,8 @@ struct HiddenBullStyleData
     half rimPower;
     half rimIntensity;
     half brushObjectSpace;
-    half brushAmbient;
-    half brushUvWarp;
     float3 brushAnchor;
+    half brushAmbient;
     half brushShading;
     half brushAlbedo;
     half brushRelief;
