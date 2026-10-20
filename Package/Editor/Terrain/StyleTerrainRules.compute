@@ -1,0 +1,273 @@
+#pragma kernel Rules
+
+#define LIMIT          32
+#define MAX_HEIGHT     (32766.0 / 65535.0)
+#define NOISE_PERIOD   1048576
+#define SEED_STEP      17
+#define HAND_THRESHOLD (2.0 / 255.0)
+#define OPEN           50000.0
+#define VARIANT_SEED   101
+#define VARIANT_HIGH   0.82
+#define VARIANT_LOW    0.18
+#define VARIANT_EDGE   0.04
+
+struct Row
+{
+    float2 slope;
+    float2 height;
+    float slopeSoftness;
+    float heightSoftness;
+    float breakup;
+    float breakupSize;
+    float opacity;
+    float automatic;
+    float variantOf;
+    float variantAmount;
+    float variantSize;
+};
+
+StructuredBuffer<Row> _Rows;
+Texture2D<float> _Heights;
+SamplerState s_linear_clamp_sampler;
+Texture2DArray<float4> _Current;
+Texture2DArray<float4> _Written;
+Texture2DArray<float4> _Hand;
+RWTexture2DArray<float4> _Result;
+RWTexture2DArray<float4> _HandOut;
+
+float4 _Size;
+float4 _Origin;
+int4 _Counts;
+int4 _Area;
+float4 _Flags;
+
+uint Wrap(int value, int period)
+{
+    return (uint)value & (uint)(period - 1);
+}
+
+float Hash(uint x, uint y, uint seed)
+{
+    uint h = x * 374761393u + y * 668265263u + seed * 1274126177u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    h ^= h >> 16;
+    return (h & 0x00FFFFFFu) / 16777216.0;
+}
+
+float ValueNoise(float x, float y, int seed)
+{
+    int ix = (int)floor(x);
+    int iy = (int)floor(y);
+    float fx = x - ix;
+    float fy = y - iy;
+
+    fx = fx * fx * (3.0 - 2.0 * fx);
+    fy = fy * fy * (3.0 - 2.0 * fy);
+
+    uint x0 = Wrap(ix, NOISE_PERIOD);
+    uint y0 = Wrap(iy, NOISE_PERIOD);
+    uint x1 = Wrap(ix + 1, NOISE_PERIOD);
+    uint y1 = Wrap(iy + 1, NOISE_PERIOD);
+
+    float bottom = lerp(Hash(x0, y0, (uint)seed), Hash(x1, y0, (uint)seed), fx);
+    float top = lerp(Hash(x0, y1, (uint)seed), Hash(x1, y1, (uint)seed), fx);
+
+    return lerp(bottom, top, fy);
+}
+
+float Breakup(float2 world, float size, int seed)
+{
+    float x = world.x / size;
+    float y = world.y / size;
+
+    float noise = ValueNoise(x, y, seed) * 0.65 + ValueNoise(x * 2.7 + 31.0, y * 2.7 + 17.0, seed + 7) * 0.35;
+    return noise - 0.5;
+}
+
+float Height(float u, float v)
+{
+    float last = _Size.x - 1.0;
+    float2 uv = (saturate(float2(u, v)) * last + 0.5) / _Size.x;
+    return _Heights.SampleLevel(s_linear_clamp_sampler, uv, 0) / MAX_HEIGHT * _Size.z + _Origin.y;
+}
+
+float Slope(float u, float v)
+{
+    float step = 1.0 / max(_Size.x - 1.0, 1.0);
+    float left = max(u - step, 0.0);
+    float right = min(u + step, 1.0);
+    float down = max(v - step, 0.0);
+    float up = min(v + step, 1.0);
+
+    float dx = (Height(right, v) - Height(left, v)) / max((right - left) * _Size.y, 1e-4);
+    float dz = (Height(u, up) - Height(u, down)) / max((up - down) * _Size.w, 1e-4);
+
+    return degrees(atan(sqrt(dx * dx + dz * dz)));
+}
+
+float Ramp(float inside, float softness)
+{
+    if (softness <= 0.0)
+        return inside >= 0.0 ? 1.0 : 0.0;
+
+    float t = saturate((inside + softness) / softness);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float Band(float value, float low, float high, float softness, float openLow, float openHigh)
+{
+    float below = low <= openLow ? 1.0 : Ramp(value - low, softness);
+    float above = high >= openHigh ? 1.0 : Ramp(high - value, softness);
+
+    return below * above;
+}
+
+float Amount(Row row, float slope, float height, float2 world, int index)
+{
+    if (row.automatic < 0.5 || row.opacity <= 0.0)
+        return 0.0;
+
+    float jitter = row.breakup > 0.0 ? Breakup(world, row.breakupSize, index * SEED_STEP) * 2.0 * row.breakup : 0.0;
+    float steep = Band(slope + jitter * row.slopeSoftness, row.slope.x, row.slope.y, row.slopeSoftness, 0.0, 90.0);
+
+    if (steep <= 0.0)
+        return 0.0;
+
+    float high = Band(height + jitter * row.heightSoftness, row.height.x, row.height.y, row.heightSoftness,
+                      -OPEN, OPEN);
+
+    return steep * high * row.opacity;
+}
+
+float Patches(Row row, float2 world, int index)
+{
+    if (row.variantAmount <= 0.0)
+        return 0.0;
+
+    if (row.variantAmount >= 1.0)
+        return 1.0;
+
+    float noise = Breakup(world, row.variantSize, index * SEED_STEP + VARIANT_SEED) + 0.5;
+    float cut = lerp(VARIANT_HIGH, VARIANT_LOW, row.variantAmount);
+
+    return smoothstep(cut - VARIANT_EDGE, cut + VARIANT_EDGE, noise);
+}
+
+[numthreads(8, 8, 1)]
+void Rules(uint3 id : SV_DispatchThreadID)
+{
+    if ((int)id.x >= _Area.z || (int)id.y >= _Area.w)
+        return;
+
+    int x = _Area.x + (int)id.x;
+    int y = _Area.y + (int)id.y;
+    int resolution = _Counts.x;
+    int layers = min(_Counts.y, LIMIT);
+    int rows = min(_Counts.z, layers);
+    int slices = _Counts.w;
+
+    float step = 1.0 / max(resolution - 1, 1);
+    float u = x * step;
+    float v = y * step;
+    float slope = Slope(u, v);
+    float height = Height(u, v);
+    float2 world = _Origin.xz + float2(u, v) * _Size.yw;
+
+    float bake[LIMIT];
+    float fresh[LIMIT];
+    float held[LIMIT];
+
+    for (int clear = 0; clear < LIMIT; clear++)
+    {
+        bake[clear] = 0.0;
+        fresh[clear] = 0.0;
+        held[clear] = 0.0;
+    }
+
+    bake[0] = 1.0;
+
+    for (int index = 1; index < rows; index++)
+    {
+        float amount = Amount(_Rows[index], slope, height, world, index);
+
+        if (amount <= 0.0)
+            continue;
+
+        for (int below = 0; below < index; below++)
+            bake[below] *= 1.0 - amount;
+
+        bake[index] = amount;
+    }
+
+    for (int variant = 1; variant < rows; variant++)
+    {
+        Row row = _Rows[variant];
+        int parent = (int)row.variantOf;
+
+        if (parent < 0 || parent >= rows)
+            continue;
+
+        float take = bake[parent] * Patches(row, world, variant);
+        bake[parent] -= take;
+        bake[variant] += take;
+    }
+
+    bool known = _Flags.x > 0.5;
+    float painted = 0.0;
+
+    for (int layer = 0; layer < layers; layer++)
+    {
+        int4 texel = int4(x, y, layer >> 2, 0);
+        int channel = layer & 3;
+
+        if (known)
+        {
+            float delta = _Current.Load(texel)[channel] - _Written.Load(texel)[channel];
+            fresh[layer] = delta > HAND_THRESHOLD ? delta : 0.0;
+            held[layer] = _Hand.Load(texel)[channel];
+        }
+
+        painted += fresh[layer];
+    }
+
+    float cover = min(painted, 1.0);
+    float spread = painted > 1.0 ? 1.0 / painted : 1.0;
+    float share = 0.0;
+
+    for (int keep = 0; keep < layers; keep++)
+    {
+        held[keep] = held[keep] * (1.0 - cover) + fresh[keep] * spread;
+        share += held[keep];
+    }
+
+    if (share > 1.0)
+    {
+        for (int scale = 0; scale < layers; scale++)
+            held[scale] /= share;
+
+        share = 1.0;
+    }
+
+    float total = 0.0;
+
+    for (int blend = 0; blend < layers; blend++)
+    {
+        bake[blend] = bake[blend] * (1.0 - share) + held[blend];
+        total += bake[blend];
+    }
+
+    if (total <= 0.0)
+    {
+        bake[0] = 1.0;
+        total = 1.0;
+    }
+
+    for (int slice = 0; slice < slices; slice++)
+    {
+        int first = slice * 4;
+
+        _Result[uint3(x, y, slice)] = float4(bake[first], bake[first + 1], bake[first + 2], bake[first + 3]) / total;
+        _HandOut[uint3(x, y, slice)] = float4(held[first], held[first + 1], held[first + 2], held[first + 3]);
+    }
+}
+

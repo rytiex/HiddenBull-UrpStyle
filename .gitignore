@@ -1,0 +1,19 @@
+# Sandbox test project — local development only, never pushed to the repo
+/HiddenBullUrpStyleSandbox/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vs/
+*.csproj
+*.sln
+*.user
+*.userprefs
+.vscode/
+
+# Other
+*.log

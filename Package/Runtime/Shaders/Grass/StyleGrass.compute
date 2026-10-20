@@ -1,0 +1,429 @@
+#pragma kernel Place
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "../Terrain/TerrainNoise.hlsl"
+#include "StyleGrassInstance.hlsl"
+
+#define HB_GRASS_LAYERS       32
+#define HB_GRASS_FULL         0.25
+#define HB_GRASS_GROW         0.25
+#define HB_GRASS_WIDEN        2.5
+#define HB_GRASS_NEAR         0.18
+#define HB_GRASS_FAR_SHARE    0.6
+#define HB_GRASS_FAR_WIDTH    1.6
+#define HB_GRASS_SPLIT_LOW    0.9
+#define HB_GRASS_SPLIT_HIGH   1.15
+#define HB_GRASS_HEIGHT_RANGE 0.5
+#define HB_GRASS_HOLE         0.5
+#define HB_GRASS_UNPACK       (65535.0 / 32766.0)
+#define HB_GRASS_MAP_MIP      16.0
+#define HB_GRASS_MAP_DETAIL   3.0
+#define HB_GRASS_TIP_LIFT     1.15
+#define HB_GRASS_TIP_CONTRAST 0.7
+#define HB_GRASS_TONE         0.45
+#define HB_GRASS_TONE_SCALE   0.12
+#define HB_GRASS_TONE_ROOT    0.3
+#define HB_GRASS_CULL_MARGIN  4.0
+#define HB_GRASS_CLUMP_SIZE   1.4
+#define HB_GRASS_CLUMP_SHORT  0.7
+#define HB_GRASS_CLUMP_TALL   1.25
+#define HB_GRASS_CLUMP_TONE   0.35
+#define HB_GRASS_BLOOM_AREA   5.0
+#define HB_GRASS_BLOOM_LOW    0.8
+#define HB_GRASS_BLOOM_HIGH   1.05
+#define HB_GRASS_MEADOW_SIZE  9.0
+#define HB_GRASS_MEADOW_FINE  2.6
+#define HB_GRASS_MEADOW_KIND  7.0
+#define HB_GRASS_MEADOW_WARP  5.0
+#define HB_GRASS_MEADOW_RANGE 0.85
+#define HB_GRASS_MEADOW_SOFT  0.2
+#define HB_GRASS_MEADOW_PURE  0.75
+#define HB_GRASS_BLOOM_SHORT  0.6
+
+Texture2D<float> _HB_GrassHeightmap;
+Texture2DArray<float4> _HB_GrassControl;
+Texture2DArray<float4> _HB_GrassAlbedo;
+Texture2D<float> _HB_GrassHoles;
+SamplerState sampler_LinearClamp;
+SamplerState sampler_LinearRepeat;
+
+AppendStructuredBuffer<HiddenBullGrassInstance> _HB_GrassBlades;
+AppendStructuredBuffer<HiddenBullGrassInstance> _HB_GrassFlowers;
+AppendStructuredBuffer<HiddenBullGrassInstance> _HB_GrassDistant;
+
+float4x4 _HB_GrassViewProj;
+float4 _HB_GrassCamera;
+float4 _HB_GrassGrid;
+float4 _HB_GrassTerrainOrigin;
+float4 _HB_GrassTerrainSize;
+float4 _HB_GrassResolution;
+float4 _HB_GrassSettings;
+float4 _HB_GrassRings;
+float4 _HB_GrassSides[4];
+
+float4 _HB_GrassTiling[HB_GRASS_LAYERS];
+float4 _HB_GrassLook[HB_GRASS_LAYERS];
+float4 _HB_GrassVary[HB_GRASS_LAYERS];
+float4 _HB_GrassVaryShape[HB_GRASS_LAYERS];
+float4 _HB_GrassVaryMisc[HB_GRASS_LAYERS];
+float4 _HB_GrassLayer[HB_GRASS_LAYERS];
+float4 _HB_GrassTip[HB_GRASS_LAYERS];
+float4 _HB_GrassFlower[HB_GRASS_LAYERS];
+float4 _HB_GrassWeather[HB_GRASS_LAYERS];
+
+#define HB_GRASS_DISTANCE     _HB_GrassSettings.x
+#define HB_GRASS_TIP_AMOUNT   _HB_GrassSettings.y
+#define HB_GRASS_COUNT        _HB_GrassSettings.z
+#define HB_GRASS_STROKES      _HB_GrassSettings.w
+#define HB_GRASS_VARIANTS     _HB_GrassRings.x
+#define HB_GRASS_BLOOM_MOST   _HB_GrassRings.y
+#define HB_GRASS_SLICES       _HB_GrassRings.z
+#define HB_GRASS_EDGE         _HB_GrassRings.w
+
+float HB_GrassHeight(float2 uv)
+{
+    float2 texel = (uv * (_HB_GrassResolution.x - 1.0) + 0.5) / _HB_GrassResolution.x;
+
+    return _HB_GrassHeightmap.SampleLevel(sampler_LinearClamp, texel, 0) * (_HB_GrassTerrainSize.y * HB_GRASS_UNPACK);
+}
+float HB_GrassFloor(float2 uv)
+{
+    float2 at = uv * (_HB_GrassResolution.x - 1.0);
+    int2 cell = (int2)min(floor(at), _HB_GrassResolution.x - 2.0);
+    float2 f = at - cell;
+
+    float h00 = _HB_GrassHeightmap.Load(int3(cell, 0));
+    float h10 = _HB_GrassHeightmap.Load(int3(cell + int2(1, 0), 0));
+    float h01 = _HB_GrassHeightmap.Load(int3(cell + int2(0, 1), 0));
+    float h11 = _HB_GrassHeightmap.Load(int3(cell + int2(1, 1), 0));
+
+    float forward = f.x > f.y ? h00 + (h10 - h00) * f.x + (h11 - h10) * f.y
+                              : h00 + (h11 - h01) * f.x + (h01 - h00) * f.y;
+
+    return forward * (_HB_GrassTerrainSize.y * HB_GRASS_UNPACK);
+}
+
+float HB_GrassNoise(float2 p, int salt)
+{
+    int2 cell = (int2)floor(p);
+    float2 f = frac(p);
+
+    f = f * f * (3.0 - 2.0 * f);
+
+    float4 corners = float4(HB_TerrainHash(int3(cell.x, salt, cell.y)), HB_TerrainHash(int3(cell.x + 1, salt, cell.y)),
+                            HB_TerrainHash(int3(cell.x, salt, cell.y + 1)),
+                            HB_TerrainHash(int3(cell.x + 1, salt, cell.y + 1)));
+
+    return lerp(lerp(corners.x, corners.y, f.x), lerp(corners.z, corners.w, f.x), f.y);
+}
+
+float2 HB_GrassMeadow(float2 world)
+{
+    float spread = HB_GrassNoise(world / HB_GRASS_MEADOW_SIZE, 113) * 0.65
+                 + HB_GrassNoise(world / HB_GRASS_MEADOW_FINE + 31.0, 127) * 0.35;
+
+    float2 warp = float2(HB_GrassNoise(world / HB_GRASS_MEADOW_WARP, 137),
+                         HB_GrassNoise(world / HB_GRASS_MEADOW_WARP + 19.0, 139)) - 0.5;
+    int2 region = (int2)floor((world + warp * HB_GRASS_MEADOW_KIND) / HB_GRASS_MEADOW_KIND);
+
+    return float2(spread, HB_TerrainHash(int3(region.x, 131, region.y)));
+}
+
+float HB_GrassBloom(float spread, float amount)
+{
+    return amount > 0.0 ? saturate((spread - (1.0 - amount) * HB_GRASS_MEADOW_RANGE) / HB_GRASS_MEADOW_SOFT) : 0.0;
+}
+
+
+float2 HB_GrassClump(float2 world)
+{
+    float2 at = world / HB_GRASS_CLUMP_SIZE;
+    int2 home = (int2)floor(at);
+    float2 clump = float2(0.5, 0.5);
+    float nearest = 1e9;
+
+    for (int z = -1; z <= 1; z++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            int2 cell = home + int2(x, z);
+            float2 site = (float2)cell + float2(HB_TerrainHash(int3(cell.x, 101, cell.y)),
+                                                HB_TerrainHash(int3(cell.x, 103, cell.y)));
+            float2 away = at - site;
+            float reach = dot(away, away);
+
+            if (reach < nearest)
+            {
+                nearest = reach;
+                clump = float2(HB_TerrainHash(int3(cell.x, 107, cell.y)), HB_TerrainHash(int3(cell.x, 109, cell.y)));
+            }
+        }
+    }
+
+    return clump;
+}
+
+
+float3 HB_GrassNormal(float2 uv)
+{
+    float2 texel = 1.0 / (_HB_GrassResolution.x - 1.0);
+    float2 metres = _HB_GrassTerrainSize.xz * texel;
+
+    return normalize(float3(
+        (HB_GrassHeight(uv - float2(texel.x, 0.0)) - HB_GrassHeight(uv + float2(texel.x, 0.0))) / (2.0 * metres.x),
+        1.0,
+        (HB_GrassHeight(uv - float2(0.0, texel.y)) - HB_GrassHeight(uv + float2(0.0, texel.y))) / (2.0 * metres.y)));
+}
+
+struct HiddenBullGrassGround
+{
+    int layer;
+    int second;
+    float weight;
+    float secondWeight;
+    float2 limits;
+};
+
+HiddenBullGrassGround HB_GrassPick(float2 uv, float pick)
+{
+    float2 controlUV = (uv * (_HB_GrassResolution.y - 1.0) + 0.5) / _HB_GrassResolution.y;
+    int count = (int)HB_GRASS_COUNT;
+    int slices = min((int)HB_GRASS_SLICES, HB_GRASS_LAYERS / 4);
+
+    HiddenBullGrassGround ground;
+    ground.layer = -1;
+    ground.second = -1;
+    ground.weight = 0.0;
+    ground.secondWeight = 0.0;
+    ground.limits = float2(0.0, 0.0);
+
+    float4 controls[HB_GRASS_LAYERS / 4];
+    float strongest = 0.0;
+    float total = 0.0;
+
+    for (int slice = 0; slice < slices; slice++)
+    {
+        float4 control = _HB_GrassControl.SampleLevel(sampler_LinearClamp, float3(controlUV, slice), 0);
+        int first = slice * 4;
+
+        control *= float4(first < count, first + 1 < count, first + 2 < count, first + 3 < count);
+        controls[slice] = control;
+
+        for (int part = 0; part < 4; part++)
+        {
+            float weight = control[part];
+
+            total += weight;
+            ground.limits += _HB_GrassWeather[first + part].xy * weight;
+
+            if (weight > strongest)
+            {
+                strongest = weight;
+                ground.second = first + part;
+                ground.secondWeight = weight;
+            }
+        }
+    }
+
+    ground.limits /= max(total, 1e-4);
+
+    float depth = HB_GRASS_EDGE;
+    float shaped = 0.0;
+
+    for (int sum = 0; sum < slices; sum++)
+        shaped += dot(max(controls[sum] - strongest + depth, 0.0), 1.0);
+
+    pick *= shaped;
+
+    for (int choose = 0; choose < slices && ground.layer < 0; choose++)
+    {
+        float4 kept = max(controls[choose] - strongest + depth, 0.0);
+
+        for (int part = 0; part < 4 && ground.layer < 0; part++)
+        {
+            if (pick < kept[part])
+            {
+                ground.layer = choose * 4 + part;
+                ground.weight = kept[part] / max(shaped, 1e-4);
+            }
+            else
+            {
+                pick -= kept[part];
+            }
+        }
+    }
+
+    return ground;
+}
+
+float3 HB_GrassAlbedo(int layer, float2 uv, float mip)
+{
+    return _HB_GrassAlbedo.SampleLevel(sampler_LinearRepeat, float3(uv, layer), mip).rgb;
+}
+
+half3 HB_GrassLayerColour(int layer, float3 position, half broken)
+{
+    float4 st = _HB_GrassTiling[layer];
+    float3 detail = HB_GrassAlbedo(layer, position.xz * st.xy + st.zw, HB_GRASS_MAP_DETAIL);
+    half3 colour = half3(_HB_GrassLook[layer].rgb * detail);
+    half4 patches = half4(_HB_GrassVary[layer]);
+
+    if (patches.a > 0.0h)
+        colour = HB_TerrainVariation(colour, position, float4(float(layer) * 7.13, 3.7, 0.0, 0.0), patches,
+                                     _HB_GrassVaryMisc[layer].x, _HB_GrassVaryShape[layer],
+                                     half(_HB_GrassVaryMisc[layer].y), broken);
+
+    return colour;
+}
+
+bool HB_GrassSeen(float2 middle, float spacing)
+{
+    float bottom = _HB_GrassTerrainOrigin.y;
+    float top = bottom + _HB_GrassTerrainSize.y;
+    bool seen = true;
+
+    for (int side = 0; side < 4; side++)
+    {
+        float4 plane = _HB_GrassSides[side];
+        float3 inside = float3(middle.x, plane.y >= 0.0 ? top : bottom, middle.y);
+
+        seen = seen && dot(plane.xyz, inside) + plane.w + spacing * 1.5 * length(plane.xz) >= 0.0;
+    }
+
+    return seen;
+}
+
+[numthreads(8, 8, 1)]
+void Place(uint3 id : SV_DispatchThreadID)
+{
+    int2 cell = (int2)_HB_GrassGrid.xy + (int2)id.xy;
+    float spacing = _HB_GrassGrid.z;
+
+    if (!HB_GrassSeen(((float2)cell + 0.5) * spacing, spacing))
+        return;
+
+    float flowering = min(HB_GRASS_BLOOM_AREA * spacing * spacing, 1.0);
+
+    float full = HB_GRASS_DISTANCE * HB_GRASS_FULL;
+    float level = max(distance(((float2)cell + 0.5) * spacing, _HB_GrassCamera.xz) - spacing, 1e-2);
+    float chance = HB_TerrainHash(int3(cell.x, 53, cell.y));
+
+    float early = (full * full) / (level * level);
+    float bloom = HB_TerrainHash(int3(cell.x, 59, cell.y));
+    float split = lerp(HB_GRASS_SPLIT_LOW, HB_GRASS_SPLIT_HIGH, HB_TerrainHash(int3(cell.x, 97, cell.y)));
+    bool distant = level > HB_GRASS_DISTANCE * HB_GRASS_NEAR * split;
+    float share = distant ? HB_GRASS_FAR_SHARE : 1.0;
+
+    float2 meadow = float2(0.0, 0.0);
+
+    if (HB_GRASS_VARIANTS > 0.5 && bloom < flowering * early)
+        meadow = HB_GrassMeadow(((float2)cell + 0.5) * spacing);
+
+    float blooming = flowering * early * HB_GrassBloom(meadow.x, HB_GRASS_BLOOM_MOST);
+
+    if (level >= HB_GRASS_DISTANCE || (chance >= early * share && bloom >= blooming))
+        return;
+
+    float2 jitter = float2(HB_TerrainHash(int3(cell.x, 11, cell.y)), HB_TerrainHash(int3(cell.x, 23, cell.y)));
+    float2 world = ((float2)cell + jitter) * spacing;
+    float2 uv = (world - _HB_GrassTerrainOrigin.xz) / _HB_GrassTerrainSize.xz;
+
+    if (any(uv < 0.0) || any(uv > 1.0))
+        return;
+
+    float3 position = float3(world.x, _HB_GrassTerrainOrigin.y + HB_GrassFloor(uv), world.y);
+    float away = distance(position, _HB_GrassCamera.xyz);
+
+    if (away >= HB_GRASS_DISTANCE)
+        return;
+
+    float4 projected = mul(_HB_GrassViewProj, float4(position, 1.0));
+
+    if (projected.w < -HB_GRASS_CULL_MARGIN || any(abs(projected.xy) > projected.w + HB_GRASS_CULL_MARGIN))
+        return;
+
+    if (_HB_GrassHoles.SampleLevel(sampler_LinearClamp, uv, 0) < HB_GRASS_HOLE)
+        return;
+
+    HiddenBullGrassGround ground = HB_GrassPick(uv, HB_TerrainHash(int3(cell.x, 37, cell.y)));
+    int layer = ground.layer;
+
+    if (layer < 0)
+        return;
+
+    float3 normal = HB_GrassNormal(uv);
+    half broken = HB_TerrainEdge(position, 0.0h, half(HB_GRASS_STROKES));
+
+    float4 grass = _HB_GrassLayer[layer];
+    float thin = min(1.0, (full * full) / max(away * away, 1e-4));
+    float keep = grass.x * thin * share;
+    float4 flower = _HB_GrassFlower[layer];
+    float cover = HB_GrassBloom(meadow.x, flower.x);
+    bool flowered = bloom < flowering * cover * thin;
+
+    if (!flowered && chance >= keep)
+        return;
+
+    uint under = HB_GrassPackGround(normal, ground.limits);
+
+    float4 st = _HB_GrassTiling[layer];
+    float3 shade = HB_GrassAlbedo(layer, st.zw, HB_GRASS_MAP_MIP);
+    half3 own = HB_GrassLayerColour(layer, position, broken);
+    half3 root = own;
+
+    if (ground.second >= 0 && ground.second != layer)
+    {
+        half3 strongest = HB_GrassLayerColour(ground.second, position, broken);
+        root = lerp(own, strongest, half(ground.secondWeight / max(ground.secondWeight + ground.weight, 1e-4)));
+    }
+
+    float lift = HB_GRASS_TIP_LIFT + HB_GRASS_TIP_CONTRAST * HB_GRASS_TIP_AMOUNT;
+    float3 tip = grass.w > 0.5 ? _HB_GrassTip[layer].rgb * shade : float3(own) * lift;
+
+    if (flowered)
+    {
+        float pick = HB_TerrainHash(int3(cell.x, 61, cell.y));
+        float species = meadow.y * 0.999;
+        float kind = HB_TerrainHash(int3(cell.x, 67, cell.y)) < HB_GRASS_MEADOW_PURE ? species : pick;
+        float size = flower.y * lerp(HB_GRASS_BLOOM_SHORT, 1.0, pick);
+
+        HiddenBullGrassInstance head;
+        head.position = position;
+        head.height = grass.x > 0.0 ? grass.y * lerp(HB_GRASS_BLOOM_LOW, HB_GRASS_BLOOM_HIGH, pick) : size * 0.5;
+        head.width = size;
+        head.root = HB_GrassPackColour(root, (min(floor(kind * HB_GRASS_VARIANTS), 7.0) + 0.5) / 8.0);
+        head.tip = HB_GrassPackColour(tip, pick);
+        head.ground = under;
+
+        _HB_GrassFlowers.Append(head);
+    }
+
+    if (chance >= keep)
+        return;
+
+    float seed = HB_TerrainHash(int3(cell.x, 71, cell.y));
+    float grow = saturate((keep - chance) / (keep * HB_GRASS_GROW));
+    float2 clump = HB_GrassClump(position.xz);
+    float height = grass.y * (1.0 - HB_GRASS_HEIGHT_RANGE * seed) * grow
+                 * lerp(HB_GRASS_CLUMP_SHORT, HB_GRASS_CLUMP_TALL, clump.x);
+    float widen = min(rsqrt(max(thin, 1e-4)), HB_GRASS_WIDEN);
+
+    float3 field = position * HB_GRASS_TONE_SCALE;
+    float tone = (HB_TerrainNoise(field) * 0.6 + HB_TerrainNoise(field * 3.1 + 9.0) * 0.4 - 0.5) * HB_GRASS_TONE;
+
+    tip *= (1.0 + tone) * (1.0 + (clump.y - 0.5) * HB_GRASS_CLUMP_TONE);
+    root *= half(1.0 + tone * HB_GRASS_TONE_ROOT);
+
+    HiddenBullGrassInstance blade;
+    blade.position = position;
+    blade.height = height;
+    blade.width = widen * grass.z * (distant ? HB_GRASS_FAR_WIDTH : 1.0);
+    blade.root = HB_GrassPackColour(root, HB_TerrainHash(int3(cell.x, 89, cell.y)));
+    blade.tip = HB_GrassPackColour(tip, seed);
+    blade.ground = under;
+
+    if (distant)
+        _HB_GrassDistant.Append(blade);
+    else
+        _HB_GrassBlades.Append(blade);
+}

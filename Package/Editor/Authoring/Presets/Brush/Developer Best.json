@@ -1,0 +1,30 @@
+{
+    "strokeCount": 800,
+    "lengthRange": {
+        "x": 0.1,
+        "y": 0.25
+    },
+    "widthRange": {
+        "x": 0.006,
+        "y": 0.0265
+    },
+    "angle": 35,
+    "angleJitter": 18,
+    "taper": 0.565,
+    "edgeSoftness": 0.25,
+    "opacityVariation": 0.55,
+    "toneVariation": 0.75,
+    "curvature": 0.5,
+    "bristleBreakup": 0.5,
+    "bristleAmount": 0.435,
+    "bristleDensity": 40,
+    "edgeBreakup": 0.35,
+    "edgeBreakupScale": 20,
+    "pigmentAmount": 1,
+    "pigmentScale": 32,
+    "canvasAmount": 0.25,
+    "canvasScale": 225,
+    "resolution": 512,
+    "contrast": 1.65,
+    "seed": 1
+}
