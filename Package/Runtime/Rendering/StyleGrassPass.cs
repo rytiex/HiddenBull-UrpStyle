@@ -242,6 +242,9 @@ namespace HiddenBull.UrpStyle
                 if (stage.IsValid() && owner.gameObject.scene != stage)
                     continue;
 
+                if ((cameraData.camera.cullingMask & (1 << owner.gameObject.layer)) == 0)
+                    continue;
+
                 var terrain = owner.GetComponent<Terrain>();
                 var material = terrain.materialTemplate;
                 var data = terrain.terrainData;
