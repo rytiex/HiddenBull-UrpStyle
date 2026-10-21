@@ -32,6 +32,7 @@ TEXTURE2D_ARRAY(_HB_LayerMask);
 float _HB_TerrainLayerCount;
 float _HB_TerrainControlCount;
 float4 _HB_TerrainControlTexel;
+float4 _HB_TerrainRect;
 float4 _HB_LayerST[HB_TERRAIN_LAYER_LIMIT];
 float4 _HB_LayerLook[HB_TERRAIN_LAYER_LIMIT];
 float4 _HB_LayerWeather[HB_TERRAIN_LAYER_LIMIT];
@@ -300,7 +301,9 @@ half HB_TerrainMacro(float3 positionWS)
 HiddenBullTerrainSurface HB_TerrainArraySurface(Varyings IN, half3 geometryNormal, HiddenBullBrushSample brush)
 {
 #ifdef HB_TERRAIN_FAR_ONLY
-    float2 splatUV = (IN.uvMainAndLM.xy * (_HB_TerrainControlTexel.zw - 1.0f) + 0.5f) * _HB_TerrainControlTexel.xy;
+    // Base patches do not get the splat UV the near shader uses, so the control map is placed by world position.
+    float2 terrainUV = (IN.positionWS.xz - _HB_TerrainRect.xy) * _HB_TerrainRect.zw;
+    float2 splatUV = (terrainUV * (_HB_TerrainControlTexel.zw - 1.0f) + 0.5f) * _HB_TerrainControlTexel.xy;
 #else
     float2 splatUV = (IN.uvMainAndLM.xy * (_Control_TexelSize.zw - 1.0f) + 0.5f) * _Control_TexelSize.xy;
 #endif

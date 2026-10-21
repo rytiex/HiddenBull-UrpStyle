@@ -1208,8 +1208,18 @@ namespace HiddenBull.UrpStyle
                 return;
 
             Align();
-            m_Surface.transform.SetPositionAndRotation(new Vector3(0f, level, 0f), Quaternion.identity);
-            m_Surface.layer = gameObject.layer;
+
+            // Writing the same values still marks every patch under the surface changed, which Unity then
+            // re-processes on every cull, so only write what moved.
+            var surface = m_Surface.transform;
+            var seat = new Vector3(0f, level, 0f);
+
+            if (surface.position != seat || surface.rotation != Quaternion.identity)
+                surface.SetPositionAndRotation(seat, Quaternion.identity);
+
+            if (m_Surface.layer != gameObject.layer)
+                m_Surface.layer = gameObject.layer;
+
             Place();
 
             if (m_Renderer != null && m_Properties != null

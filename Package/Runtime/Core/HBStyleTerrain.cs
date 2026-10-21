@@ -32,6 +32,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayerCountId = Shader.PropertyToID("_HB_TerrainLayerCount");
         static readonly int s_ControlCountId = Shader.PropertyToID("_HB_TerrainControlCount");
         static readonly int s_ControlTexelId = Shader.PropertyToID("_HB_TerrainControlTexel");
+        static readonly int s_TerrainRectId = Shader.PropertyToID("_HB_TerrainRect");
         static readonly int s_TilingId = Shader.PropertyToID("_HB_LayerST");
         static readonly int s_LookId = Shader.PropertyToID("_HB_LayerLook");
         static readonly int s_WeatherId = Shader.PropertyToID("_HB_LayerWeather");
@@ -287,6 +288,8 @@ namespace HiddenBull.UrpStyle
             m_Block.SetFloat(s_ControlCountId, Mathf.Min(slices, (count + 3) / 4));
             m_Block.SetVector(s_ControlTexelId, new Vector4(1f / control.width, 1f / control.height,
                                                             control.width, control.height));
+            m_Block.SetVector(s_TerrainRectId, new Vector4(origin.x, origin.z, 1f / terrainData.size.x,
+                                                           1f / terrainData.size.z));
             m_Block.SetVectorArray(s_TilingId, m_Tiling);
             m_Block.SetVectorArray(s_LookId, m_Look);
             m_Block.SetVectorArray(s_WeatherId, m_Weather);

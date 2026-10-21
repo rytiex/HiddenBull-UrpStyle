@@ -211,9 +211,19 @@ namespace HiddenBull.UrpStyle
 
             position.y = level;
 
-            m_Surface.transform.SetPositionAndRotation(position, Quaternion.LookRotation(heading, Vector3.up));
-            m_Surface.transform.localScale = new Vector3(area.x * 2f, 1f, area.y * 2f);
-            m_Surface.layer = gameObject.layer;
+            // Only write what moved: an unchanged write still marks the surface renderer changed for every cull.
+            var surface = m_Surface.transform;
+            var rotation = Quaternion.LookRotation(heading, Vector3.up);
+            var scale = new Vector3(area.x * 2f, 1f, area.y * 2f);
+
+            if (surface.position != position || surface.rotation != rotation)
+                surface.SetPositionAndRotation(position, rotation);
+
+            if (surface.localScale != scale)
+                surface.localScale = scale;
+
+            if (m_Surface.layer != gameObject.layer)
+                m_Surface.layer = gameObject.layer;
 
             if (m_Renderer != null && m_Properties != null && area != m_Box)
                 Apply();
