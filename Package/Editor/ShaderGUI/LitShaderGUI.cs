@@ -210,7 +210,9 @@ namespace HiddenBull.UrpStyle.Editor
                 "Blend Mode",
                 "Alpha fades the whole surface, highlights included — for hair, cloth, leaves and " +
                 "smoke. Premultiply fades only the colour and keeps highlights at full strength, so " +
-                "clear glass or water still shows a bright reflection where it is almost invisible.");
+                "clear glass or water still shows a bright reflection where it is almost invisible. " +
+                "Additive adds its colour on top of what is behind it and never darkens it — for fire, " +
+                "glows and light beams. Additive surfaces cast no shadow and do not refract.");
 
             public static readonly GUIContent Refraction = new GUIContent(
                 "Refraction",
@@ -403,7 +405,7 @@ namespace HiddenBull.UrpStyle.Editor
                 "Threads", "How many threads fit across one UV unit, or across one tile with Triplanar Mapping.");
 
             public static readonly string[] SurfaceTypeNames = { "Opaque", "Transparent" };
-            public static readonly string[] BlendModeNames = { "Alpha", "Premultiply" };
+            public static readonly string[] BlendModeNames = { "Alpha", "Premultiply", "Additive" };
 
             public const string AlbedoOnlyHint =
                 "This material samples no textures. Gradation comes from the ambient gradient, " +
@@ -415,6 +417,7 @@ namespace HiddenBull.UrpStyle.Editor
         const string k_BrushAnchorKeyword = "_HB_BRUSH_ANCHOR";
         const string k_PremultiplyKeyword = "_HB_PREMULTIPLY";
         const string k_RefractionKeyword = "_HB_REFRACTION";
+        const string k_AdditiveKeyword = "_HB_ADDITIVE";
 
         static readonly (string property, string keyword)[] s_ToggleKeywords =
         {
@@ -687,21 +690,25 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             var transparent = material.HasProperty("_Surface") && material.GetFloat("_Surface") >= 0.5f;
-            var premultiply = transparent && material.HasProperty("_Blend") && material.GetFloat("_Blend") >= 0.5f;
-            CoreUtils.SetKeyword(material, k_PremultiplyKeyword, premultiply);
+            var blend = transparent && material.HasProperty("_Blend")
+                ? Mathf.RoundToInt(material.GetFloat("_Blend"))
+                : 0;
+            var additive = blend == 2;
+            CoreUtils.SetKeyword(material, k_PremultiplyKeyword, blend == 1);
+            CoreUtils.SetKeyword(material, k_AdditiveKeyword, additive);
 
-            var refraction = transparent && material.HasProperty("_RefractionEnabled") &&
+            var refraction = transparent && !additive && material.HasProperty("_RefractionEnabled") &&
                              material.GetFloat("_RefractionEnabled") >= 0.5f;
             CoreUtils.SetKeyword(material, k_RefractionKeyword, refraction);
 
             material.SetShaderPassEnabled("UniversalForward", !transparent);
             material.SetShaderPassEnabled("DepthOnly", !transparent);
             material.SetShaderPassEnabled("DepthNormals", !transparent);
-            var coloredShadows = transparent && material.HasProperty("_CastColoredShadows") &&
+            var coloredShadows = transparent && !additive && material.HasProperty("_CastColoredShadows") &&
                                  material.GetFloat("_CastColoredShadows") >= 0.5f;
-            material.SetShaderPassEnabled("ShadowCaster", !coloredShadows);
+            material.SetShaderPassEnabled("ShadowCaster", !coloredShadows && !additive);
             material.SetShaderPassEnabled("HiddenBullShadowTint", coloredShadows);
-            material.SetShaderPassEnabled("HiddenBullOITMoments", transparent);
+            material.SetShaderPassEnabled("HiddenBullOITMoments", transparent && !additive);
             material.SetShaderPassEnabled("HiddenBullOITColor", transparent);
             material.SetShaderPassEnabled("HiddenBullOITRefraction", refraction);
 
@@ -823,10 +830,17 @@ namespace HiddenBull.UrpStyle.Editor
                     using (new EditorGUI.IndentLevelScope())
                     {
                         DrawPopup(materialEditor, m_BlendMode, Styles.BlendMode, Styles.BlendModeNames);
-                        materialEditor.ShaderProperty(m_CastColoredShadows, Styles.CastColoredShadows);
-                        materialEditor.ShaderProperty(m_RefractionEnabled, Styles.Refraction);
 
-                        if (IsEnabled(m_RefractionEnabled))
+                        var additive = m_BlendMode != null && !m_BlendMode.hasMixedValue &&
+                                       Mathf.RoundToInt(m_BlendMode.floatValue) == 2;
+
+                        if (!additive)
+                        {
+                            materialEditor.ShaderProperty(m_CastColoredShadows, Styles.CastColoredShadows);
+                            materialEditor.ShaderProperty(m_RefractionEnabled, Styles.Refraction);
+                        }
+
+                        if (!additive && IsEnabled(m_RefractionEnabled))
                         {
                             using (new EditorGUI.IndentLevelScope())
                             {

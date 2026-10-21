@@ -23,6 +23,11 @@ Graphs use the URP Unlit target, so compared with the Lit shader they do not hav
 - order-independent transparency, colored transparent shadows and the Rest Pose brush space;
 - a Receive Weather setting: graph objects always shelter the ground under them.
 
+## Transparency
+
+- An Additive surface overlapping an Alpha or Premultiply surface in the same pixel can come out slightly
+  brighter or dimmer than exact, because order-independent transparency normalises the layers together.
+
 ## Statistics window
 
 Unity's Statistics window does not count GPU-driven (indirect) draws, so billboards and grass are

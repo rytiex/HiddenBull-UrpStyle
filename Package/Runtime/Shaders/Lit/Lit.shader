@@ -282,7 +282,7 @@ Shader "HB URP Style/Lit"
             #pragma shader_feature_local_fragment _HB_CLOTH
             #pragma shader_feature_local_fragment _HB_THICKNESS_MAP
             #pragma shader_feature_local_fragment _ALPHATEST_ON
-            #pragma shader_feature_local_fragment _HB_PREMULTIPLY
+            #pragma shader_feature_local_fragment _ _HB_PREMULTIPLY _HB_ADDITIVE
             #pragma shader_feature_local_fragment _HB_REFRACTION
             #pragma shader_feature_local _RECEIVE_SHADOWS_OFF
             #pragma shader_feature_local_fragment _HB_TRIPLANAR

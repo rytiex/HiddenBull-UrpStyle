@@ -101,6 +101,9 @@ void HiddenBullOITColorFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRON
                                    HB_ResolveFog(inputData.positionWS, inputData.normalizedScreenSpaceUV, false));
 
     color.rgb = lerp(HB_FogLight(color.rgb, fogAmount), snowColour, snow);
+#elif defined(_HB_ADDITIVE)
+    color.rgb = HB_FogLight(color.rgb * color.a,
+                            HB_FogAmountAt(inputData.positionWS, inputData.normalizedScreenSpaceUV));
 #else
     color.a = max(color.a, snow);
 
@@ -123,6 +126,8 @@ void HiddenBullOITColorFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRON
 
 #if defined(HB_GLASS)
     half4 contribution = half4(color.rgb * transmittance, snow * transmittance);
+#elif defined(_HB_ADDITIVE)
+    half4 contribution = half4(color.rgb * transmittance, 0.0h);
 #elif defined(_HB_PREMULTIPLY)
     half4 contribution = half4(color.rgb * transmittance, transmittance * color.a);
 #else

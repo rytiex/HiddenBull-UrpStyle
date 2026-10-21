@@ -57,6 +57,10 @@ Transparent Lit materials are drawn by the package's order-independent transpare
 OIT), with refraction inside it, so overlapping glass needs no sorting. **Cast Colored Shadows** makes
 a transparent surface tint the light passing through it instead of casting a solid shadow.
 
+Blend modes: **Alpha** fades the whole surface, **Premultiply** keeps highlights at full strength (glass,
+water), **Additive** adds light without darkening what is behind (fire, glows, beams; no shadow, no
+refraction; set Receive Weather to None).
+
 ## HB URP Style / Foliage
 
 Lit's variant for leaves, bushes and grass cards:
