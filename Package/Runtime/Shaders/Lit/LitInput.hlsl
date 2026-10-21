@@ -5,6 +5,10 @@
 #include "../Library/StyleCommon.hlsl"
 #include "../Library/StyleBillboardInstancing.hlsl"
 
+// A shader that reuses Lit's surface code with a material of its own (Foliage) declares that
+// material first and defines HB_MATERIAL_INPUT, so it carries none of Lit's properties.
+#ifndef HB_MATERIAL_INPUT
+
 CBUFFER_START(UnityPerMaterial)
     float4 _BaseMap_ST;
     float4 _BrushMask_ST;
@@ -61,9 +65,6 @@ CBUFFER_START(UnityPerMaterial)
     half _SheenPower;
     half _Weave;
     half _WeaveScale;
-#ifdef HB_MATERIAL_EXTRA
-    HB_MATERIAL_EXTRA
-#endif
 CBUFFER_END
 
 #ifdef UNITY_DOTS_INSTANCING_ENABLED
@@ -148,6 +149,8 @@ UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 #define _FlakeSize          UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _FlakeSize)
 #define _DropLife           UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DropLife)
 #define _FlakeLife          UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _FlakeLife)
+#endif
+
 #endif
 
 TEXTURE2D(_BrushMask);

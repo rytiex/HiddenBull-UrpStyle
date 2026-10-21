@@ -178,6 +178,18 @@ namespace HiddenBull.UrpStyle
             m_GlobalsPass.Setup(m_Brush, m_Clouds, m_Shadows, m_WeatherDebug);
             renderer.EnqueuePass(m_GlobalsPass);
 
+            // An overlay camera draws over its base camera's image and reuses the shelter, fog and wave
+            // globals the base camera left bound, so it only needs its own transparents.
+            if (renderingData.cameraData.renderType == CameraRenderType.Overlay)
+            {
+                m_TransparencyPass.Setup(m_TransparencyShader, null);
+
+                if (m_TransparencyPass.isReady)
+                    renderer.EnqueuePass(m_TransparencyPass);
+
+                return;
+            }
+
 #if UNITY_EDITOR
             if (m_WavesCompute == null)
                 m_WavesCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(StyleWavesPass.ComputePath);

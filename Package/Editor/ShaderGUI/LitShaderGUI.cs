@@ -732,7 +732,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_RefractionBlur = Optional("_RefractionBlur", properties);
             m_Dispersion = Optional("_Dispersion", properties);
             m_StrokeBend = Optional("_StrokeBend", properties);
-            m_StrokeAlpha = FindProperty("_StrokeAlpha", properties);
+            m_StrokeAlpha = Optional("_StrokeAlpha", properties);
             m_BaseColor = FindProperty("_BaseColor", properties);
             m_DiffuseWrap = FindProperty("_DiffuseWrap", properties);
             m_DiffuseSoftness = FindProperty("_DiffuseSoftness", properties);

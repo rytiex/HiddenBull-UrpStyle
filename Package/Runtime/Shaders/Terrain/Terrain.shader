@@ -254,7 +254,7 @@ Shader "HB URP Style/Terrain"
         UsePass "Hidden/Nature/Terrain/Utilities/PICKING"
     }
 
-    Dependency "BaseMapShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Base Pass)"
+    Dependency "BaseMapShader" = "Hidden/HB URP Style/Terrain Base"
     Dependency "BaseMapGenShader" = "Hidden/Universal Render Pipeline/Terrain/Lit (Basemap Gen)"
 
     CustomEditor "HiddenBull.UrpStyle.Editor.TerrainShaderGUI"

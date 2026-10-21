@@ -283,11 +283,7 @@ half4 HB_LitColour(Varyings input, bool frontFace, out InputData inputData, out 
     half3 weatherNormalWS = inputData.normalWS;
 
     #ifdef HB_HAS_NORMAL_HOOK
-    weatherNormalWS = meshNormalWS;
-    #endif
-
-    #ifdef HB_TWO_SIDED_WEATHER
-    weatherNormalWS.y = abs(weatherNormalWS.y);
+    weatherNormalWS = HB_WeatherNormal(meshNormalWS, inputData.normalWS);
     #endif
 
     HiddenBullWeather weather = HB_ResolveWeather(inputData.positionWS, weatherNormalWS, brush.coverage,

@@ -3,18 +3,10 @@
 
 #define HB_VERTEX_COLOR
 #define HB_ANCHOR_REST
-#define HB_TWO_SIDED_WEATHER
-
-#define HB_MATERIAL_EXTRA \
-    half4 _TranslucencyColor; \
-    half _WindStrength; \
-    half _WindHeight; \
-    half _WindBend; \
-    half _WindFlutter; \
-    half _WindSource;
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-#include "../Lit/LitInput.hlsl"
+#include "FoliageInput.hlsl"
+#include "../Library/StyleCanopy.hlsl"
 
 #define HB_WIND_SWAY_SPEED    1.3
 #define HB_WIND_GUST_SPEED    0.37
@@ -26,9 +18,9 @@
 #define HB_TRANSLUCENT_BASE    0.4h
 #define HB_TRANSLUCENT_HIGH    0.55h
 #define HB_TRANSLUCENT_LOW     0.2h
+#define HB_TRANSLUCENT_NOON    0.4h
 #define HB_TRANSLUCENT_SHADOW  0.35h
 #define HB_TRANSLUCENT_ALBEDO  0.5h
-#define HB_CANOPY_CENTRE       0.6
 
 #ifndef HB_SKY_PASS_FLAG
 #define HB_SKY_PASS_FLAG
@@ -74,12 +66,17 @@ void HB_VertexHook(inout float3 positionOS, half4 color)
 
 half3 HB_NormalHook(half3 normalWS, float3 restOS)
 {
-    float3 low = unity_RendererBounds_Min.xyz;
-    float3 high = unity_RendererBounds_Max.xyz;
-    float3 crown = float3(0.5 * (low.x + high.x), lerp(low.y, high.y, HB_CANOPY_CENTRE), 0.5 * (low.z + high.z));
-    float3 centre = TransformWorldToObject(crown);
+    float3 canopy = HB_CanopyNormal(TransformObjectToWorld(restOS), unity_RendererBounds_Min.xyz,
+                                    unity_RendererBounds_Max.xyz);
 
-    return NormalizeNormalPerPixel(half3(TransformObjectToWorldNormal(SafeNormalize(restOS - centre))));
+    return half3(SafeNormalize(lerp(float3(normalWS), canopy, float(_CanopyShape))));
+}
+
+// Weather settles on the canopy as a whole and the leaf card's own normal only breaks up its edge, so
+// up-facing cards low on the plant and the undersides of the top stay bare.
+half3 HB_WeatherNormal(half3 meshNormalWS, half3 canopyNormalWS)
+{
+    return half3(SafeNormalize(float3(meshNormalWS + canopyNormalWS)));
 }
 
 #define HB_HAS_EXTRA_LIGHT
@@ -88,7 +85,8 @@ half3 HB_ExtraLight(Light light, InputData inputData, SurfaceData surfaceData, h
 {
     half facing = saturate(dot(-inputData.viewDirectionWS, light.direction) * 0.5h + 0.5h);
     half facingAway = saturate(-dot(normalWS, light.direction) * 0.5h + 0.5h);
-    half lowSun = saturate((HB_TRANSLUCENT_HIGH - light.direction.y) / (HB_TRANSLUCENT_HIGH - HB_TRANSLUCENT_LOW));
+    half lowSun = lerp(HB_TRANSLUCENT_NOON, 1.0h,
+                       saturate((HB_TRANSLUCENT_HIGH - light.direction.y) / (HB_TRANSLUCENT_HIGH - HB_TRANSLUCENT_LOW)));
     half level = 1.0h - saturate(inputData.viewDirectionWS.y);
     half through = facingAway * lerp(HB_TRANSLUCENT_BASE, 1.0h, facing * facing) * lowSun * level;
     half shadow = lerp(HB_TRANSLUCENT_SHADOW, 1.0h, light.shadowAttenuation);

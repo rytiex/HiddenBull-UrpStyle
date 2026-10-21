@@ -14,8 +14,15 @@ namespace HiddenBull.UrpStyle.Editor
 
             public static readonly GUIContent TranslucencyColor = new GUIContent(
                 "Translucency Color",
-                "Colour of sunlight coming through the leaves, mixed with the leaf's own colour. Like the " +
-                "grass glow it shows once the sun sits low, strongest when looking towards it.");
+                "Colour of sunlight coming through the leaves, mixed with the leaf's own colour. It lights " +
+                "the side facing away from the sun at any time of day and, like the grass glow, is " +
+                "strongest when the sun sits low and you look towards it.");
+
+            public static readonly GUIContent CanopyShape = new GUIContent(
+                "Canopy Shape",
+                "How much the leaves light as one rounded canopy fitted to the plant's bounds instead of " +
+                "by their own normals. 1 reads as one soft volume; lower it towards 0 for a mesh whose " +
+                "normals were already transferred from a proxy shape in the modelling tool.");
 
             public static readonly GUIContent WindStrength = new GUIContent(
                 "Strength",
@@ -40,6 +47,7 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         MaterialProperty m_TranslucencyColor;
+        MaterialProperty m_CanopyShape;
         MaterialProperty m_WindStrength;
         MaterialProperty m_WindHeight;
         MaterialProperty m_WindBend;
@@ -55,6 +63,7 @@ namespace HiddenBull.UrpStyle.Editor
         protected override void FindExtraProperties(MaterialProperty[] properties)
         {
             m_TranslucencyColor = FindProperty("_TranslucencyColor", properties);
+            m_CanopyShape = FindProperty("_CanopyShape", properties);
             m_WindStrength = FindProperty("_WindStrength", properties);
             m_WindHeight = FindProperty("_WindHeight", properties);
             m_WindBend = FindProperty("_WindBend", properties);
@@ -64,12 +73,13 @@ namespace HiddenBull.UrpStyle.Editor
 
         protected override void DrawExtraSections(MaterialEditor materialEditor)
         {
-            var reset = ResetAction(materialEditor, m_TranslucencyColor);
+            var reset = ResetAction(materialEditor, m_TranslucencyColor, m_CanopyShape);
             var expanded = StyleMaterialHeader.Draw(Styles.Leaves, "Foliage.Leaves", materialEditor, reset: reset);
 
             if (expanded)
             {
                 materialEditor.ShaderProperty(m_TranslucencyColor, Styles.TranslucencyColor);
+                materialEditor.ShaderProperty(m_CanopyShape, Styles.CanopyShape);
             }
 
             StyleMaterialHeader.End(expanded);

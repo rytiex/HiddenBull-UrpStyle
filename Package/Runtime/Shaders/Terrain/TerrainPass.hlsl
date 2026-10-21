@@ -102,6 +102,23 @@ HiddenBullBrushSample HB_TerrainBrush(float3 positionWS, half3 normalWS)
 
 #include "TerrainArrays.hlsl"
 
+#ifdef TERRAIN_SPLAT_BASEPASS
+HiddenBullTerrainSurface HB_TerrainBaseSurface(Varyings IN)
+{
+    half4 albedoSmoothness = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uvMainAndLM.xy);
+
+    HiddenBullTerrainSurface surface = (HiddenBullTerrainSurface)0;
+    surface.albedo = albedoSmoothness.rgb;
+    surface.normalTS = half3(0.0h, 0.0h, 1.0h);
+    surface.smoothness = albedoSmoothness.a;
+    surface.metallic = SAMPLE_TEXTURE2D(_MetallicTex, sampler_MetallicTex, IN.uvMainAndLM.xy).r;
+    surface.occlusion = 1.0h;
+    surface.limits = half2(1.0h, 1.0h);
+    surface.debug = surface.albedo;
+    return surface;
+}
+#endif
+
 void HiddenBullTerrainFragment(
     Varyings IN
     , out half4 outColor : SV_Target0
@@ -119,7 +136,11 @@ void HiddenBullTerrainFragment(
     half3 geometryNormal = HB_TerrainGeometryNormal(IN);
     HiddenBullBrushSample brush = HB_TerrainBrush(IN.positionWS, geometryNormal);
 
+#ifdef TERRAIN_SPLAT_BASEPASS
+    HiddenBullTerrainSurface layered = HB_TerrainBaseSurface(IN);
+#else
     HiddenBullTerrainSurface layered = HB_TerrainArraySurface(IN, geometryNormal, brush);
+#endif
     half3 normalTS = layered.normalTS;
     half3 albedo = layered.albedo;
     half smoothness = layered.smoothness;

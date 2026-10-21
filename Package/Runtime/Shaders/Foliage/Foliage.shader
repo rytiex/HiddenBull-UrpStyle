@@ -51,8 +51,8 @@ Shader "HB URP Style/Foliage"
         _FlakeLife("Flake Life", Range(0.2, 20.0)) = 2.0
         [Enum(Front, 2, Back, 1, Both, 0)] _Cull("Render Face", Float) = 0.0
 
-        _StrokeAlpha("Stroke Alpha", Range(0.0, 1.0)) = 0.25
         _TranslucencyColor("Translucency Color", Color) = (1.0, 0.4824, 0.0, 1.0)
+        _CanopyShape("Canopy Shape", Range(0.0, 1.0)) = 1.0
         _WindStrength("Wind Strength", Range(0.0, 3.0)) = 1.0
         _WindHeight("Plant Height", Float) = 2.0
         _WindBend("Sway", Range(0.0, 1.0)) = 0.4

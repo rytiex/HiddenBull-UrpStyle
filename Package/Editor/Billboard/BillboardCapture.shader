@@ -20,6 +20,7 @@ Shader "Hidden/HB URP Style/Billboard Capture"
 
         HLSLINCLUDE
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/StyleCanopy.hlsl"
 
         CBUFFER_START(UnityPerMaterial)
             float4 _BaseMap_ST;
@@ -35,7 +36,8 @@ Shader "Hidden/HB URP Style/Billboard Capture"
         SAMPLER(sampler_BumpMap);
 
         float4x4 _HB_CaptureWorldToRoot;
-        float4 _HB_CaptureCrown;
+        float4 _HB_CaptureBoundsMin;
+        float4 _HB_CaptureBoundsMax;
 
         struct CaptureAttributes
         {
@@ -111,12 +113,13 @@ Shader "Hidden/HB URP Style/Billboard Capture"
 
                 float3 meshRoot = normalize(mul((float3x3)_HB_CaptureWorldToRoot, normalWS));
 
-                if (_Canopy > 0.5)
-                    normalWS = SafeNormalize(input.positionWS - _HB_CaptureCrown.xyz);
+                float3 canopy = HB_CanopyNormal(input.positionWS, _HB_CaptureBoundsMin.xyz, _HB_CaptureBoundsMax.xyz);
+                normalWS = SafeNormalize(lerp(normalWS, canopy, _Canopy));
 
                 float3 normalRoot = normalize(mul((float3x3)_HB_CaptureWorldToRoot, normalWS));
+                float3 weatherRoot = SafeNormalize(meshRoot + normalRoot);
 
-                return half4(normalRoot * 0.5 + 0.5, abs(meshRoot.y));
+                return half4(normalRoot * 0.5 + 0.5, saturate(weatherRoot.y));
             }
             ENDHLSL
         }

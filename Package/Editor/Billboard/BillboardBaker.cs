@@ -27,10 +27,10 @@ namespace HiddenBull.UrpStyle.Editor
         const string FoliageShaderName = "HB URP Style/Foliage";
         const float DefaultSwitch = 25f;
         const float DefaultCull = 300f;
-        const float CrownHeight = 0.6f;
 
         static readonly int s_WorldToRootId = Shader.PropertyToID("_HB_CaptureWorldToRoot");
-        static readonly int s_CrownId = Shader.PropertyToID("_HB_CaptureCrown");
+        static readonly int s_BoundsMinId = Shader.PropertyToID("_HB_CaptureBoundsMin");
+        static readonly int s_BoundsMaxId = Shader.PropertyToID("_HB_CaptureBoundsMax");
 
         static readonly string[] s_StyleProperties = { "_DiffuseWrap", "_DiffuseSoftness", "_HalfTone" };
 
@@ -132,9 +132,8 @@ namespace HiddenBull.UrpStyle.Editor
             var centerLocal = transform.InverseTransformPoint(bounds.center);
             var extent = new Vector2(sizeLocal * horizontal, sizeLocal * vertical);
 
-            Shader.SetGlobalVector(s_CrownId, new Vector4(bounds.center.x,
-                                                          Mathf.Lerp(bounds.min.y, bounds.max.y, CrownHeight),
-                                                          bounds.center.z, 0f));
+            Shader.SetGlobalVector(s_BoundsMinId, bounds.min);
+            Shader.SetGlobalVector(s_BoundsMaxId, bounds.max);
 
             var albedo = new Texture2D(TileSize * Frames, TileSize, TextureFormat.RGBA32, false, false);
             var normal = new Texture2D(TileSize * Frames, TileSize, TextureFormat.RGBA32, false, true);
@@ -293,7 +292,9 @@ namespace HiddenBull.UrpStyle.Editor
             if (source.HasProperty("_BaseColor"))
                 capture.SetColor("_BaseColor", source.GetColor("_BaseColor"));
 
-            capture.SetFloat("_Canopy", source.shader != null && source.shader.name == FoliageShaderName ? 1f : 0f);
+            var foliage = source.shader != null && source.shader.name == FoliageShaderName;
+            var canopy = foliage && source.HasProperty("_CanopyShape") ? source.GetFloat("_CanopyShape") : 1f;
+            capture.SetFloat("_Canopy", foliage ? canopy : 0f);
 
             var clipped = source.IsKeywordEnabled("_ALPHATEST_ON") && source.HasProperty("_Cutoff");
             capture.SetFloat("_Cutoff", clipped ? source.GetFloat("_Cutoff") : -1f);
