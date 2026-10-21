@@ -129,10 +129,12 @@ Shader "Hidden/HiddenBull/Style Fog"
                     float stored = SAMPLE_TEXTURE2D_LOD(_HB_SkyOcclusion, sampler_PointClamp, uv, 0).r;
                     float depth = UNITY_NEAR_CLIP_VALUE < 0.0 ? clip.z * 0.5 + 0.5 : clip.z;
 
+                    // An empty texel is open sky. Testing it like a roof would cover everything below the
+                    // map's floor, turning the fog under a high camera black.
                 #if UNITY_REVERSED_Z
-                    visible += stored > depth ? 0.0 : 1.0;
+                    visible += stored > 0.0 && stored > depth ? 0.0 : 1.0;
                 #else
-                    visible += stored < depth ? 0.0 : 1.0;
+                    visible += stored < 1.0 && stored < depth ? 0.0 : 1.0;
                 #endif
                 }
 

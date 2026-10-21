@@ -24,6 +24,11 @@ TEXTURE2D(_NormalAtlas);
 SAMPLER(sampler_NormalAtlas);
 
 #if defined(HB_BILLBOARD_FORWARD)
+    // Same snow slopes as Foliage (FoliageHooks.hlsl), so snow does not change at the billboard switch.
+    #define HB_SNOW_NO_SLOPE    0.0h
+    #define HB_SNOW_FULL_SLOPE  0.2h
+    #define HB_SNOW_EDGE_DELAY  0.0h
+
     #include "../Library/StyleLighting.hlsl"
     #include "../Library/StyleWeatherSurface.hlsl"
 #else

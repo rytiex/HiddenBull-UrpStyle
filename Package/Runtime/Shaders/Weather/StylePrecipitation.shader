@@ -127,9 +127,11 @@ Shader "Hidden/HiddenBull/Style Precipitation"
             float stored = SAMPLE_TEXTURE2D_LOD(_HB_SkyOcclusion, sampler_PointClamp, uv + offset, 0).r;
 
         #if UNITY_REVERSED_Z
-            clear = min(clear, (depth - stored) * HB_SKY_RANGE / landing);
+            if (stored > 0.0)
+                clear = min(clear, (depth - stored) * HB_SKY_RANGE / landing);
         #else
-            clear = min(clear, (stored - depth) * HB_SKY_RANGE / landing);
+            if (stored < 1.0)
+                clear = min(clear, (stored - depth) * HB_SKY_RANGE / landing);
         #endif
         }
 

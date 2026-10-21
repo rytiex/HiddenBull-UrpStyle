@@ -13,8 +13,11 @@ float3 HB_CanopyNormal(float3 positionWS, float3 boundsMin, float3 boundsMax)
     float3 centre = float3(boundsMin.x + 0.5 * size.x, boundsMin.y + HB_CANOPY_CENTRE * size.y,
                            boundsMin.z + 0.5 * size.z);
     float3 offset = positionWS - centre;
-    float3 radius = float3(0.5 * size.x, (offset.y > 0.0 ? 1.0 - HB_CANOPY_CENTRE : HB_CANOPY_CENTRE) * size.y,
-                           0.5 * size.z);
+
+    // Below the centre the egg is at least as tall as it is wide, so the lower half of a long, low hedge faces
+    // outwards instead of down. Plants no wider than 1.2x their height are unchanged.
+    float below = max(HB_CANOPY_CENTRE * size.y, 0.5 * max(size.x, size.z));
+    float3 radius = float3(0.5 * size.x, offset.y > 0.0 ? (1.0 - HB_CANOPY_CENTRE) * size.y : below, 0.5 * size.z);
 
     return SafeNormalize(offset / (radius * radius));
 }

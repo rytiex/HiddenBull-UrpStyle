@@ -120,6 +120,7 @@ namespace HiddenBull.UrpStyle
         readonly GraphicsBuffer[] m_Arguments = new GraphicsBuffer[Buffers];
         readonly Material[] m_Materials = new Material[Buffers];
         readonly int[] m_Capacity = new int[Buffers];
+        readonly List<HBStyleTerrain> m_Reached = new List<HBStyleTerrain>();
 
         GraphicsBuffer m_Corners;
         readonly Vector4[] m_Benders = new Vector4[HBStyleGrassBender.Limit];
@@ -233,6 +234,9 @@ namespace HiddenBull.UrpStyle
                                * cameraData.GetViewMatrix();
 
             var stage = cameraData.camera.scene;
+            var anyGrass = false;
+
+            m_Reached.Clear();
 
             foreach (var owner in HBStyleTerrain.active)
             {
@@ -267,9 +271,27 @@ namespace HiddenBull.UrpStyle
                 if (!new Bounds(origin + data.size * 0.5f, reach).Contains(position))
                     continue;
 
-                Record(renderGraph, resourceData, owner, terrain, level, grass, blooms, cameraData.camera,
-                       viewProjection);
+                m_Reached.Add(owner);
+                anyGrass |= grass != null;
             }
+
+            if (m_Reached.Count == 0)
+                return;
+
+            // Sized once for every terrain in reach. Sizing per terrain made buffers flip between sizes and be
+            // recreated every frame when only some of the terrains have a grass texture.
+            Allocate(level, anyGrass);
+
+            foreach (var owner in m_Reached)
+            {
+                var terrain = owner.GetComponent<Terrain>();
+                var material = terrain.materialTemplate;
+
+                Record(renderGraph, resourceData, owner, terrain, level, material.GetTexture(s_GrassTextureId),
+                       material.GetTexture(s_FlowerTextureId), cameraData.camera, viewProjection);
+            }
+
+            m_Reached.Clear();
         }
 
         static bool Grows(HBStyleTerrain owner, bool grass, bool flowers)
@@ -295,8 +317,6 @@ namespace HiddenBull.UrpStyle
             var data = terrain.terrainData;
             var origin = terrain.GetPosition();
             var count = owner.layerCount;
-
-            Allocate(level, grass != null);
 
             var spacing = Spacing / Mathf.Sqrt(level.density);
             var cells = Mathf.Min(Mathf.CeilToInt(level.distance * 2f / spacing / 8f) * 8, MaxGrid);
@@ -581,7 +601,7 @@ namespace HiddenBull.UrpStyle
         {
             var capacity = Mathf.Clamp(Mathf.NextPowerOfTwo(Mathf.CeilToInt(expected)), MinCapacity, MaxCapacity);
 
-            if (m_Instances[buffer] != null && m_Capacity[buffer] == capacity)
+            if (m_Instances[buffer] != null && m_Capacity[buffer] >= capacity)
                 return;
 
             m_Instances[buffer]?.Release();

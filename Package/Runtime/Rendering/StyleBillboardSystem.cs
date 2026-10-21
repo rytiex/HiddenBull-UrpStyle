@@ -95,8 +95,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly List<Group> s_Order = new List<Group>();
         static readonly HashSet<Terrain> s_Terrains = new HashSet<Terrain>();
-        static readonly List<Terrain> s_HiddenTerrains = new List<Terrain>();
-        static readonly List<float> s_HiddenDistances = new List<float>();
+        static readonly Dictionary<Terrain, float> s_TreeDistances = new Dictionary<Terrain, float>();
         static readonly Plane[] s_Planes = new Plane[6];
         static readonly Vector4[] s_PlaneVectors = new Vector4[6];
 
@@ -259,6 +258,7 @@ namespace HiddenBull.UrpStyle
 
         internal static void ClearTerrain(Terrain terrain)
         {
+            ShowTrees(terrain);
             s_Terrains.Remove(terrain);
 
             for (var index = s_Order.Count - 1; index >= 0; index--)
@@ -299,6 +299,8 @@ namespace HiddenBull.UrpStyle
             s_Order.Remove(group);
         }
 
+        // The terrain's own trees stay off for as long as the billboard system draws them. Switching them off
+        // and back on around every camera made Unity rebuild the terrain's tree renderers on every cull.
         static void HideTrees()
         {
             foreach (var terrain in s_Terrains)
@@ -306,22 +308,26 @@ namespace HiddenBull.UrpStyle
                 if (terrain == null || terrain.treeDistance <= 0f)
                     continue;
 
-                s_HiddenTerrains.Add(terrain);
-                s_HiddenDistances.Add(terrain.treeDistance);
+                s_TreeDistances[terrain] = terrain.treeDistance;
                 terrain.treeDistance = 0f;
             }
         }
 
-        static void ShowTrees(ScriptableRenderContext context, Camera camera)
+        static void ShowTrees()
         {
-            for (var index = 0; index < s_HiddenTerrains.Count; index++)
+            foreach (var pair in s_TreeDistances)
             {
-                if (s_HiddenTerrains[index] != null)
-                    s_HiddenTerrains[index].treeDistance = s_HiddenDistances[index];
+                if (pair.Key != null)
+                    pair.Key.treeDistance = pair.Value;
             }
 
-            s_HiddenTerrains.Clear();
-            s_HiddenDistances.Clear();
+            s_TreeDistances.Clear();
+        }
+
+        static void ShowTrees(Terrain terrain)
+        {
+            if (s_TreeDistances.Remove(terrain, out var distance) && terrain != null)
+                terrain.treeDistance = distance;
         }
 
         public static void Rebuild(HBStyleBillboardAsset asset)
@@ -352,11 +358,12 @@ namespace HiddenBull.UrpStyle
 
             s_Hooked = true;
             RenderPipelineManager.beginCameraRendering += Render;
-            RenderPipelineManager.endCameraRendering += ShowTrees;
             LightProbes.tetrahedralizationCompleted += Relight;
             Application.quitting += ReleaseAll;
 #if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload += ReleaseAll;
+            UnityEditor.SceneManagement.EditorSceneManager.sceneSaving += static (_, _) => ShowTrees();
+            UnityEditor.EditorApplication.playModeStateChanged += static _ => ShowTrees();
 #endif
         }
 
@@ -369,7 +376,10 @@ namespace HiddenBull.UrpStyle
         static void Render(ScriptableRenderContext context, Camera camera)
         {
             if (!ready || s_Order.Count == 0)
+            {
+                ShowTrees();
                 return;
+            }
 
             if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection)
                 return;
@@ -420,7 +430,10 @@ namespace HiddenBull.UrpStyle
             }
 
             if (!drawn)
+            {
+                s_Commands.Clear();
                 return;
+            }
 
             context.ExecuteCommandBuffer(s_Commands);
             s_Commands.Clear();
@@ -783,6 +796,8 @@ namespace HiddenBull.UrpStyle
 
         static void ReleaseAll()
         {
+            ShowTrees();
+
             foreach (var group in s_Order)
                 Release(group);
 

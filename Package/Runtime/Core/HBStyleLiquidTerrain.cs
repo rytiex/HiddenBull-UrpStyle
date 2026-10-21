@@ -639,10 +639,14 @@ namespace HiddenBull.UrpStyle
                 var wide = (span.z - span.x) * cell;
                 var size = wide * (1f + PatchMargin * 2f) + PatchSway * 2f;
 
-                patch.bounds = new Bounds(
+                var bounds = new Bounds(
                     new Vector3(origin.x + (span.x + span.z) * 0.5f * cell, level,
                                 origin.y + (span.y + span.w) * 0.5f * cell),
                     new Vector3(size, TileRise * 2f, size));
+
+                // Every write marks the renderer changed, which Unity then re-processes on the next cull.
+                if (patch.bounds != bounds)
+                    patch.bounds = bounds;
             }
         }
 

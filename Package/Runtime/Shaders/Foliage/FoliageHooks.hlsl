@@ -4,6 +4,12 @@
 #define HB_VERTEX_COLOR
 #define HB_ANCHOR_REST
 
+// Leaves hold snow on gentler slopes than ground does, and a plant's rim is its outermost leaves rather than
+// a ledge snow slides off. Billboard.shader uses the same values so far billboards match near plants.
+#define HB_SNOW_NO_SLOPE        0.0h
+#define HB_SNOW_FULL_SLOPE      0.2h
+#define HB_SNOW_EDGE_DELAY      0.0h
+
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "FoliageInput.hlsl"
 #include "../Library/StyleCanopy.hlsl"
@@ -79,6 +85,15 @@ half3 HB_WeatherNormal(half3 meshNormalWS, half3 canopyNormalWS)
     return half3(SafeNormalize(float3(meshNormalWS + canopyNormalWS)));
 }
 
+#define HB_HAS_SNOW_HOOK
+
+static half hb_Snow = 0.0h;
+
+void HB_SnowHook(half snow)
+{
+    hb_Snow = snow;
+}
+
 #define HB_HAS_EXTRA_LIGHT
 
 half3 HB_ExtraLight(Light light, InputData inputData, SurfaceData surfaceData, half3 normalWS)
@@ -88,7 +103,8 @@ half3 HB_ExtraLight(Light light, InputData inputData, SurfaceData surfaceData, h
     half lowSun = lerp(HB_TRANSLUCENT_NOON, 1.0h,
                        saturate((HB_TRANSLUCENT_HIGH - light.direction.y) / (HB_TRANSLUCENT_HIGH - HB_TRANSLUCENT_LOW)));
     half level = 1.0h - saturate(inputData.viewDirectionWS.y);
-    half through = facingAway * lerp(HB_TRANSLUCENT_BASE, 1.0h, facing * facing) * lowSun * level;
+    half through = facingAway * lerp(HB_TRANSLUCENT_BASE, 1.0h, facing * facing) * lowSun * level
+                 * (1.0h - hb_Snow);
     half shadow = lerp(HB_TRANSLUCENT_SHADOW, 1.0h, light.shadowAttenuation);
     half3 tint = _TranslucencyColor.rgb * lerp(half3(1.0h, 1.0h, 1.0h), surfaceData.albedo, HB_TRANSLUCENT_ALBEDO);
 

@@ -158,6 +158,11 @@ namespace HiddenBull.UrpStyle
             if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection)
                 return;
 
+            // Overlay cameras never run the pass (HBStyleFeature), so their cull would be wasted.
+            if (camera.TryGetComponent<UniversalAdditionalCameraData>(out var extra) &&
+                extra.renderType == CameraRenderType.Overlay)
+                return;
+
             var light = MainLight();
             var asset = UniversalRenderPipeline.asset;
 

@@ -31,6 +31,7 @@ TEXTURE2D_ARRAY(_HB_LayerMask);
 
 float _HB_TerrainLayerCount;
 float _HB_TerrainControlCount;
+float4 _HB_TerrainControlTexel;
 float4 _HB_LayerST[HB_TERRAIN_LAYER_LIMIT];
 float4 _HB_LayerLook[HB_TERRAIN_LAYER_LIMIT];
 float4 _HB_LayerWeather[HB_TERRAIN_LAYER_LIMIT];
@@ -298,7 +299,11 @@ half HB_TerrainMacro(float3 positionWS)
 
 HiddenBullTerrainSurface HB_TerrainArraySurface(Varyings IN, half3 geometryNormal, HiddenBullBrushSample brush)
 {
+#ifdef HB_TERRAIN_FAR_ONLY
+    float2 splatUV = (IN.uvMainAndLM.xy * (_HB_TerrainControlTexel.zw - 1.0f) + 0.5f) * _HB_TerrainControlTexel.xy;
+#else
     float2 splatUV = (IN.uvMainAndLM.xy * (_Control_TexelSize.zw - 1.0f) + 0.5f) * _Control_TexelSize.xy;
+#endif
 
     half4 best;
     int4 ids;
@@ -322,9 +327,13 @@ HiddenBullTerrainSurface HB_TerrainArraySurface(Varyings IN, half3 geometryNorma
     if (_SteepMapping > 0.5)
         faces = HB_TerrainFaces(geometryNormal);
 
+#ifdef HB_TERRAIN_FAR_ONLY
+    half far = 1.0h;
+#else
     float reach = max(float(_DetailDistance), 1.0);
     float away = distance(IN.positionWS, GetCameraPositionWS()) / reach;
     half far = half(saturate((away - HB_TERRAIN_FAR_START) / (1.0 - HB_TERRAIN_FAR_START)));
+#endif
     half3 detail = faces * (1.0h - far);
 
     half4 albedo[HB_TERRAIN_PICKS];

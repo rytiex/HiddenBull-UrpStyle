@@ -67,13 +67,15 @@ Lit's variant for leaves, bushes and grass cards:
 
 - Wind with a rest-space anchor, so the brush and weather beads do not slide while leaves move.
 - Canopy normals: lighting uses the normal of a rounded canopy fitted to the renderer bounds, so a bush
-  reads as one soft volume instead of a noisy pile of cards and a tall bush keeps lit sides down to its
-  base. **Canopy Shape** blends back towards the mesh normals, for meshes whose normals were already
-  transferred from a proxy shape. Combining several plants into one mesh gives them one shared canopy.
+  reads as one soft volume instead of a noisy pile of cards. A tall bush keeps lit sides down to its base
+  and a long, low hedge keeps its lower half facing outwards. **Canopy Shape** blends back towards the
+  mesh normals, for meshes whose normals were already transferred from a proxy shape. Combining several
+  plants into one mesh gives them one shared canopy.
 - Grass-like translucency in **Translucency Color**: it lights the side away from the sun all day and
   is strongest with a low sun.
 - Snow and rain settle on the canopy as a whole: weather uses the leaf's normal averaged with the canopy
-  normal, so up-facing leaves on the upper part of the plant take snow and undersides stay bare.
+  normal, so up-facing leaves on the upper part of the plant take snow and undersides stay bare. Leaves
+  hold snow on gentler slopes than the ground and right to the plant's rim; snowy leaves stop glowing.
 - GPU Instancing is on by default.
 - Its material holds only Foliage's own properties (no metallic, specular or rim), so it stays
   compatible with the SRP Batcher and the GPU Resident Drawer.

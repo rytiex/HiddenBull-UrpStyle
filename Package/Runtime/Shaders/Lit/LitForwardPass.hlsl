@@ -296,6 +296,10 @@ half4 HB_LitColour(Varyings input, bool frontFace, out InputData inputData, out 
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
     snowCover = weather.snow;
 
+#ifdef HB_HAS_SNOW_HOOK
+    HB_SnowHook(weather.snow);
+#endif
+
     HB_SoftenBrushUnderSnow(weather.snow, styleData);
 
     half lightReach;

@@ -100,6 +100,13 @@ HiddenBullBrushSample HB_TerrainBrush(float3 positionWS, half3 normalWS)
 #endif
 }
 
+// Patches beyond Base Map Dist take the same colours the near shader blends to at distance, from the
+// package's own layer arrays, instead of Unity's basemap: Unity bakes that from raw Terrain Layer data
+// the package does not use, and it can come out black.
+#ifdef TERRAIN_SPLAT_BASEPASS
+    #define HB_TERRAIN_FAR_ONLY
+#endif
+
 #include "TerrainArrays.hlsl"
 
 #ifdef TERRAIN_SPLAT_BASEPASS
@@ -137,7 +144,13 @@ void HiddenBullTerrainFragment(
     HiddenBullBrushSample brush = HB_TerrainBrush(IN.positionWS, geometryNormal);
 
 #ifdef TERRAIN_SPLAT_BASEPASS
-    HiddenBullTerrainSurface layered = HB_TerrainBaseSurface(IN);
+    HiddenBullTerrainSurface layered;
+
+    UNITY_BRANCH
+    if (_HB_TerrainControlTexel.z > 0.0)
+        layered = HB_TerrainArraySurface(IN, geometryNormal, brush);
+    else
+        layered = HB_TerrainBaseSurface(IN);
 #else
     HiddenBullTerrainSurface layered = HB_TerrainArraySurface(IN, geometryNormal, brush);
 #endif

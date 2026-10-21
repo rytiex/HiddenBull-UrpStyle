@@ -61,8 +61,12 @@ float4 _HB_WeatherSurface;
 
 #define HB_SNOW_ALBEDO          half3(0.5h, 0.54h, 0.6h)
 #define HB_SNOW_SMOOTHNESS      0.2h
-#define HB_SNOW_FULL_SLOPE      0.407h
-#define HB_SNOW_NO_SLOPE        0.174h
+#ifndef HB_SNOW_FULL_SLOPE
+    #define HB_SNOW_FULL_SLOPE  0.407h
+#endif
+#ifndef HB_SNOW_NO_SLOPE
+    #define HB_SNOW_NO_SLOPE    0.174h
+#endif
 #define HB_SNOW_SLOPE_EDGE      0.1h
 #define HB_SNOW_SLOPE_BRUSH     0.6h
 #define HB_SNOW_SOFTEN          0.35h
@@ -72,7 +76,9 @@ float4 _HB_WeatherSurface;
 
 #define HB_SNOW_SPREAD          0.6h
 #define HB_SNOW_PATCH_DELAY     0.5h
-#define HB_SNOW_EDGE_DELAY      0.35h
+#ifndef HB_SNOW_EDGE_DELAY
+    #define HB_SNOW_EDGE_DELAY  0.35h
+#endif
 #define HB_SNOW_DROP_DELAY      0.3h
 #define HB_SNOW_BRUSH_DELAY     0.15h
 #define HB_SNOW_EDGE_WIDTH      0.2
