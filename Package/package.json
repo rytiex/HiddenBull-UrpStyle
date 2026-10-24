@@ -1,8 +1,8 @@
 {
     "name": "com.hiddenbull.urpstyle",
-    "version": "0.1.5",
+    "version": "1.0.0-pre.0",
     "displayName": "HiddenBull URP Style",
-    "description": "A shared Universal Render Pipeline visual style toolkit for HiddenBull games — shaders, renderer features and volume components for a consistent look across projects.",
+    "description": "Shared URP painterly style toolkit for HiddenBull games: one renderer feature and shader modules.",
     "unity": "6000.0",
     "documentationUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/Docs/README.md",
     "licensesUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/LICENSE",
