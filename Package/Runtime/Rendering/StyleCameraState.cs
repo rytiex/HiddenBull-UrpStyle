@@ -7,15 +7,22 @@ namespace HiddenBull.UrpStyle
     sealed class StyleCameraState : IDisposable
     {
         internal readonly Camera camera;
+        internal readonly StyleProfileMix mix = new StyleProfileMix();
         internal double lastRendered;
+
+        StyleSkyLut m_MixLut;
 
         internal StyleCameraState(Camera camera)
         {
             this.camera = camera;
         }
 
+        internal StyleSkyLut mixLut => m_MixLut ??= new StyleSkyLut();
+
         public void Dispose()
         {
+            m_MixLut?.Dispose();
+            m_MixLut = null;
         }
     }
 
@@ -29,11 +36,19 @@ namespace HiddenBull.UrpStyle
 
         internal StyleCameraState this[int index] => m_States[index];
 
+        static Camera s_LastGameCamera;
+
         internal static double clock => Time.realtimeSinceStartupAsDouble;
+
+        internal static Camera lastGameCamera =>
+            s_LastGameCamera != null && s_LastGameCamera.isActiveAndEnabled ? s_LastGameCamera : null;
 
         internal StyleCameraState Touch(Camera camera)
         {
             var now = clock;
+
+            if (camera.cameraType == CameraType.Game && camera.targetTexture == null)
+                s_LastGameCamera = camera;
 
             Prune(now);
 
@@ -84,6 +99,12 @@ namespace HiddenBull.UrpStyle
                 m_States[i].Dispose();
 
             m_States.Clear();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void OnSubsystemRegistration()
+        {
+            s_LastGameCamera = null;
         }
     }
 }

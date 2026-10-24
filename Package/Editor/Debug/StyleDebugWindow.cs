@@ -8,9 +8,14 @@ namespace HiddenBull.UrpStyle.Editor
     sealed class StyleDebugWindow : EditorWindow
     {
         static readonly GUIContent s_ViewLabel = new GUIContent("View",
-            "Replaces the image with one term of a module's calculation, so an artefact can be traced to the " +
-            "step that made it. Views appear here as their modules are added. Closing this window turns the " +
-            "view off.");
+            "Replaces the colour of every HB Style surface with one term of a module's calculation, so an " +
+            "artefact can be traced to the step that made it. Closing this window turns the view off.\n\n" +
+            "Shadows: Attenuation is the final main-light shadow; Unfiltered is URP's own filter without the " +
+            "contact-hardening filter; Blockers shows the blocker share in red and the contact reach in green; " +
+            "Cascades colours each cascade; Filter Values shows softness, contact and taps as red, green and " +
+            "blue (black means the settings never arrived); Search Radius shows the blocker search size.\n\n" +
+            "Atmosphere: Fog Amount shows the fog in front of each surface in red and the horizon haze (after " +
+            "Horizon Layers) in green.");
 
         Vector2 m_Scroll;
 

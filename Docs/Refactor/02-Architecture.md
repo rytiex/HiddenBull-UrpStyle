@@ -74,7 +74,7 @@ a level enum (Off / Low / Medium / High / Ultra) plus per-level parameters.
 
 | Module | Per-level parameters |
 |---|---|
-| Shadows | distance, cascades, resolution, softness, contact reach (≤ 15 m kept at High+), taps |
+| Shadows | distance, cascades, resolution, softness, taps (contact-hardening reach is fixed at 15 m on every level) |
 | Grass | distance, density, translucency |
 | Precipitation | particle share, far layer, max triangles |
 | Liquid | wave texture size, caustics, foam detail, near displacement on/off |
@@ -93,7 +93,8 @@ an editor-only keyword stripped from builds.
 
 ## 4. Environment: profile instead of Volumes
 
-`HBStyleEnvironmentProfile` (ScriptableObject) groups: **Sky** (day/dusk/night gradients, ambient),
+`HBStyleEnvironmentProfile` (ScriptableObject) groups: **Brush** (global atlas, world scale, distance growth,
+patches), **Sky** (day/dusk/night gradients, ambient; the ambient part lands in Phase 1),
 **Celestial** (sun, moon, stars, aurora), **Clouds** (atlas, coverage, shading), **Atmosphere** (height fog,
 horizon), **Weather defaults** (rain, snow, wind, timings).
 
@@ -104,6 +105,12 @@ horizon), **Weather defaults** (rain, snow, wind, timings).
 - `HBStyleEnvironmentZone` (box, priority, blend distance, profile): local overrides (caves, interiors,
   biomes). CPU-side blend only when the camera is inside/near a zone; no per-frame Volume stack evaluation.
 - Static scenes: assign a profile and forget. Dynamic scenes: drive the API. Same data in both.
+- Decided 2026-10-24 (2c): a zone takes over **chosen sections** of its profile (Brush, Sky, Celestial, Clouds,
+  Atmosphere). Layers per base camera: scene profile → API `BlendTo` → zones by priority, each lerped per section;
+  overlay cameras use their base camera's position. The sun's **key light follows `Camera.main`'s mix**, or, with no MainCamera tag, the last rendered active
+  base Game camera that draws to the screen (cameras with a target texture are skipped). Atlases that
+  cannot blend switch at the halfway point; different cloud atlases dip coverage to zero at that point. Each
+  profile's LUT is baked once and cached; a mixed LUT is rebuilt only when its inputs change.
 - Editor-only previews are allowed to run in Edit mode; anything expensive may run only in Play mode.
 
 ## 5. Terrain and Liquid family

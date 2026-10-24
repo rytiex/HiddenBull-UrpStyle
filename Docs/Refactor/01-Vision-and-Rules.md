@@ -93,10 +93,15 @@ Every component's AddComponent entry must make clear what it is for (category + 
 
 ## 5. Performance budgets (targets, measured offline with fxc, full keywords)
 
+Surface shaders lit by URP lights are budgeted by the cost they **add above URP's own Lit forward pass compiled with
+the same URP keywords** (decided 2026-10-24: URP Lit alone is 1048 slots / 101 reads with the full keyword set, so an
+absolute budget would charge URP's own features to us). `Tools~/ShaderVariants.psd1` names the reference variant per
+budgeted variant. Shaders with no URP counterpart (Sky) are budgeted absolutely.
+
 | Shader / pass | Budget (instruction slots) | Texture reads |
 |---|---|---|
 | Lit forward (all features on) | ≤ 2500 | ≤ 60 |
-| Lit forward (albedo only) | ≤ 500 | ≤ 8 |
+| Lit forward (albedo only) | ≤ 500 | ≤ 9 (raised from 8 on 2026-10-24 for the Fog + Horizon split) |
 | Foliage forward | ≤ 2500 | ≤ 60 |
 | Terrain forward | ≤ 3500 | ≤ 140 |
 | Grass | ≤ 2000 | ≤ 30 |

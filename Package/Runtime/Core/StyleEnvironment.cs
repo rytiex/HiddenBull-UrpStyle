@@ -63,8 +63,6 @@ namespace HiddenBull.UrpStyle
         internal static Vector3 weather =>
             Vector3.Lerp(s_WeatherFrom, s_WeatherTo, Progress(s_WeatherStart, s_WeatherSeconds));
 
-        internal static Vector3 weatherTarget => s_WeatherTo;
-
         internal static float timeOfDay
         {
             get

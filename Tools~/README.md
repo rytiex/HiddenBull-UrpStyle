@@ -11,7 +11,9 @@ PowerShell scripts that compile and measure the package outside Unity. Run them 
 | `Compile-Shaders.ps1` | Preprocesses with dxc, compiles with fxc and prints instruction slots and texture reads per variant against its budget. `-Filter` selects variants by name. |
 | `New-Meta.ps1` | Writes a `.meta` with a fresh GUID for every file and folder in `Package/` that has none. `-WhatIf` lists them only. |
 
-- Variants and budgets live in `ShaderVariants.psd1`. `Urp = 'Full'` adds the heaviest URP keyword set
+- Variants and budgets live in `ShaderVariants.psd1`. A variant with `Reference = '<name>'` is checked by the cost
+  it adds above that reference (URP's own Lit at the same keywords); `IsReference = $true` variants always compile.
+  `-Manifest <file>` runs another variant list, e.g. a one-off cost breakdown. `Urp = 'Full'` adds the heaviest URP keyword set
   (cascades, soft shadows, cluster light loop, additional light shadows, lightmap + shadowmask, light layers,
   cookies, SSAO, DBuffer); budgets in `01-Vision-and-Rules.md` are measured with it.
 - Texture reads count `sample*`, `ld_*` and `gather*` instructions in the fxc listing.

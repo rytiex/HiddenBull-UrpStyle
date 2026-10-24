@@ -1,6 +1,8 @@
-param([string]$Out, [string]$Filter = '*')
+param([string]$Out, [string]$Filter = '*', [string]$Manifest)
 
 . (Join-Path $PSScriptRoot 'Common.ps1')
+
+$ErrorActionPreference = 'Continue'
 
 $dir = Get-OutDir $Out 'shaders'
 $root = Join-Path $dir 'root'
@@ -23,12 +25,14 @@ foreach ($name in $links.Keys) {
 $tools = Join-Path $root 'Tools~'
 if (-not (Test-Path $tools)) { New-Item -ItemType Junction -Path $tools -Target $PSScriptRoot | Out-Null }
 
-$manifest = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'ShaderVariants.psd1')
+if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'ShaderVariants.psd1' }
+$data = Import-PowerShellDataFile $Manifest
 $results = @()
+$measured = @{}
 $failed = $false
 
-foreach ($variant in $manifest.Variants) {
-    if ($variant.Name -notlike $Filter) { continue }
+foreach ($variant in $data.Variants) {
+    if ($variant.Name -notlike $Filter -and -not $variant.IsReference) { continue }
 
     $slug = ($variant.Name -replace '[^A-Za-z0-9]+', '_').Trim('_')
     $stage = if ($variant.Stage -eq 'vs') { 'VERTEX' } else { 'FRAGMENT' }
@@ -40,7 +44,7 @@ foreach ($variant in $manifest.Variants) {
         "#define SHADER_STAGE_$stage 1",
         '#define SHADER_AVAILABLE_INTERPOLATORS15 1'
     )
-    $lines += $manifest.Urp[$variant.Urp] | ForEach-Object { "#define $_ 1" }
+    $lines += $data.Urp[$variant.Urp] | ForEach-Object { "#define $_ 1" }
     $lines += $variant.Defines | ForEach-Object { "#define $_ 1" }
     $lines += "#include `"$($variant.Include)`""
 
@@ -73,16 +77,32 @@ foreach ($variant in $manifest.Variants) {
     if ($match) { $slots = [int]$match.Matches[0].Groups[1].Value }
     $reads = @($text | Where-Object { $_ -match '^\s*(sample|ld_|gather)' }).Count
 
+    $measured[$variant.Name] = @{ Slots = $slots; Reads = $reads }
+
+    $addedSlots = $slots
+    $addedReads = $reads
     $status = 'OK'
-    if ($variant.Slots -gt 0 -and $slots -gt $variant.Slots) { $status = 'OVER' }
-    if ($variant.Reads -gt 0 -and $reads -gt $variant.Reads) { $status = 'OVER' }
+
+    if ($variant.Reference) {
+        $reference = $measured[$variant.Reference]
+        if ($reference) {
+            $addedSlots = $slots - $reference.Slots
+            $addedReads = $reads - $reference.Reads
+        } else {
+            $status = 'NO REF'
+        }
+    }
+
+    if ($variant.Slots -gt 0 -and $addedSlots -gt $variant.Slots) { $status = 'OVER' }
+    if ($variant.Reads -gt 0 -and $addedReads -gt $variant.Reads) { $status = 'OVER' }
 
     $results += [pscustomobject]@{
         Variant = $variant.Name
         Slots = $slots
-        Budget = $(if ($variant.Slots -gt 0) { $variant.Slots } else { '-' })
         Reads = $reads
-        ReadBudget = $(if ($variant.Reads -gt 0) { $variant.Reads } else { '-' })
+        AddedSlots = $(if ($variant.Reference) { $addedSlots } else { '-' })
+        AddedReads = $(if ($variant.Reference) { $addedReads } else { '-' })
+        Budget = $(if ($variant.Slots -gt 0) { "$($variant.Slots) / $($variant.Reads)" } else { '-' })
         Warnings = $messages.Count
         Status = $status
     }

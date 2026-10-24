@@ -19,6 +19,7 @@ function Build([string]$Leaf, [string]$Name, [string]$Defines, [string]$Source, 
     New-Item -ItemType Directory -Force $target | Out-Null
 
     $rsp = @('-target:library', '-unsafe+', '-langversion:9.0', '-nostdlib+', '-nologo', "-define:$Defines",
+             '-nowarn:0169,0649,0282,1701,1702', '-preferreduilang:en-US',
              ('-out:"' + (Join-Path $target "$Name.dll") + '"'))
     $rsp += ($refs + $Extra) | ForEach-Object { "-r:`"$_`"" }
     $rsp += Get-ChildItem -Recurse (Join-Path $Source '*.cs') | ForEach-Object { "`"$($_.FullName)`"" }

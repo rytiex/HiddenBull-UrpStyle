@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace HiddenBull.UrpStyle
@@ -12,6 +13,7 @@ namespace HiddenBull.UrpStyle
 
         StyleCameraStates m_Cameras;
         StyleGlobalsPass m_GlobalsPass;
+        HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
         {
@@ -21,25 +23,81 @@ namespace HiddenBull.UrpStyle
 
         internal StyleCameraStates cameras => m_Cameras;
 
+        HBStyleQualityProfile activeQuality
+        {
+            get
+            {
+                if (m_Quality != null)
+                    return m_Quality;
+
+                if (m_DefaultQuality == null)
+                {
+                    m_DefaultQuality = CreateInstance<HBStyleQualityProfile>();
+                    m_DefaultQuality.name = "HB Style Default Quality";
+                    m_DefaultQuality.hideFlags = HideFlags.HideAndDontSave;
+                }
+
+                return m_DefaultQuality;
+            }
+        }
+
         public override void Create()
         {
             Dispose(true);
 
             m_Cameras = new StyleCameraStates();
             m_GlobalsPass = new StyleGlobalsPass();
+
+#if UNITY_EDITOR
+            ForceDepthPriming();
+#endif
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
             var cameraData = renderingData.cameraData;
+            var quality = activeQuality;
+            var shadows = quality.shadows;
 
+            m_GlobalsPass.Setup(quality, m_Cameras);
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)
                 return;
 
             m_Cameras.Touch(cameraData.camera);
+
+            StyleShadowSettings.Apply(GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset, shadows);
         }
+
+#if UNITY_EDITOR
+        bool m_PrimingPending;
+
+        void ForceDepthPriming()
+        {
+            if (m_PrimingPending)
+                return;
+
+            m_PrimingPending = true;
+
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                m_PrimingPending = false;
+
+                if (this == null)
+                    return;
+
+                var path = UnityEditor.AssetDatabase.GetAssetPath(this);
+
+                if (UnityEditor.AssetDatabase.LoadMainAssetAtPath(path) is not UniversalRendererData data ||
+                    data.depthPrimingMode == DepthPrimingMode.Forced)
+                    return;
+
+                data.depthPrimingMode = DepthPrimingMode.Forced;
+                UnityEditor.EditorUtility.SetDirty(data);
+            };
+        }
+#endif
 
         protected override void Dispose(bool disposing)
         {
@@ -48,6 +106,9 @@ namespace HiddenBull.UrpStyle
 
             m_Cameras?.Dispose();
             m_Cameras = null;
+
+            CoreUtils.Destroy(m_DefaultQuality);
+            m_DefaultQuality = null;
         }
     }
 }

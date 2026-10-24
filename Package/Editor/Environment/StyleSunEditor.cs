@@ -11,8 +11,10 @@ namespace HiddenBull.UrpStyle.Editor
         const float DialStep = 1f / 60f;
 
         const string Hint =
-            "This light is turned by Time of Day: toward the sun by day and toward the moon at night. " +
-            "Rotating the light by hand is undone the next time it updates; change the hour instead.";
+            "This light is turned by Time of Day: toward the sun by day and toward the moon at night. Its " +
+            "colour and intensity come from Sky Light, Sky Light Intensity and Moon Light in the profile's Sky " +
+            "section, faded out and back in across the swap. Changes made by hand are undone the next time it " +
+            "updates; change the hour or the profile instead.";
 
         static readonly string[] s_Compass = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 

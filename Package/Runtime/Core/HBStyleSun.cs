@@ -25,6 +25,10 @@ namespace HiddenBull.UrpStyle
                  "defaults. Empty uses the package defaults.")]
         HBStyleEnvironmentProfile m_Profile;
 
+        static readonly StyleProfileMix s_Mix = new StyleProfileMix();
+
+        Light m_Light;
+
         public float timeOfDay
         {
             get => m_TimeOfDay;
@@ -77,6 +81,35 @@ namespace HiddenBull.UrpStyle
 
             if (transform.rotation != rotation)
                 transform.rotation = rotation;
+
+            if (m_Light == null)
+                m_Light = GetComponent<Light>();
+
+            var elevation = StyleKeyLight.SunElevation(m_TimeOfDay);
+            Color colour;
+            float intensity;
+
+            if (StyleEnvironment.sun == this)
+            {
+                var view = Camera.main;
+
+                if (view == null)
+                    view = StyleCameraStates.lastGameCamera;
+
+                s_Mix.Evaluate(view != null ? view.transform.position : (Vector3?)null);
+                StyleKeyLight.Resolve(s_Mix, elevation, out colour, out intensity);
+            }
+            else
+            {
+                var profile = m_Profile != null ? m_Profile : StyleEnvironment.defaultProfile;
+                StyleKeyLight.Resolve(profile, elevation, out colour, out intensity);
+            }
+
+            if (m_Light.color != colour)
+                m_Light.color = colour;
+
+            if (!Mathf.Approximately(m_Light.intensity, intensity))
+                m_Light.intensity = intensity;
         }
 
         void Reset()

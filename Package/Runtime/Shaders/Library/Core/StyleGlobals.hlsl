@@ -3,7 +3,38 @@
 
 CBUFFER_START(HBStyleFrame)
     float4 _HB_Environment;
+    float4 _HB_AmbientFloor;
     float4 _HB_Weather;
+    float4 _HB_Brush;
+    float4 _HB_BrushVariation;
+    float4 _HB_ShadowFilter;
+    float4 _HB_ShadowBrush;
+    float4 _HB_Sky;
+    float4 _HB_SkyBrush;
+    float4 _HB_SunDirection;
+    float4 _HB_SunColor;
+    float4 _HB_SunDisc;
+    float4 _HB_SunGlow;
+    float4 _HB_MoonColor;
+    float4 _HB_MoonDisc;
+    float4 _HB_MoonGlow;
+    float4 _HB_Stars;
+    float4 _HB_StarLook;
+    float4 _HB_Aurora;
+    float4 _HB_AuroraLow;
+    float4 _HB_AuroraMid;
+    float4 _HB_AuroraHigh;
+    float4 _HB_CloudParams;
+    float4 _HB_CloudMotion;
+    float4 _HB_CloudLight;
+    float4 _HB_CloudAwayLight;
+    float4 _HB_CloudDirection;
+    float4 _HB_CloudSlab;
+    float4 _HB_CloudTint;
+    float4 _HB_CloudLook;
+    float4 _HB_Fog;
+    float4 _HB_FogScatter;
+    float4 _HB_Horizon;
     float4 _HB_Debug;
 CBUFFER_END
 

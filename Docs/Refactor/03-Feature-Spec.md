@@ -74,6 +74,13 @@ shader and the sky:
   mountain ridges recede in steps and the sea meets the sky without pixel noise at the horizon.
 - **Sun inscatter**: analytic glow toward the sun; optional cheap sun-shaft term only if it stays in budget.
 - Transparents and liquids use the same function. Shader Graph gets a node.
+- Decided 2026-10-24 (revised after the 2a test): two separate terms.
+  **Fog** — height + distance fog with its **own Day/Dusk/Night fog gradients** read along the view direction (a
+  third slice of the sky LUT), near and mid range; it also hazes the sky.
+  **Horizon** — far aerial perspective fading toward the **sky colour** with its own start/end distances, so the
+  horizon stays seamless; the optional **horizon layers** (quality toggle) step this term into soft-edged layers.
+- Key light: **HB Style Sun writes the Light's colour and intensity** (Sky Light gradient, Moon Light, fade
+  across the sun–moon swap, overcast dimming), so URP shaders and the lightmapper see the same light.
 - Done: no 3D textures, no history buffers, no full-screen fog pass; sky and terrain meet seamlessly.
 
 ## 6. Sky — Change + New
