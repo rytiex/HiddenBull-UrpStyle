@@ -20,6 +20,7 @@ namespace HiddenBull.UrpStyle
 
         HBStyleQualityProfile m_Quality;
         StyleCameraStates m_Cameras;
+        StyleShelterPass m_Shelter;
 
         class PassData
         {
@@ -28,6 +29,10 @@ namespace HiddenBull.UrpStyle
             public Texture brushAtlas;
             public Texture cloudAtlas;
             public Texture skyLut;
+            public bool resetShelter;
+            public bool bindShelter;
+            public bool noUnderside;
+            public StyleShelterPass.Binding shelter;
         }
 
         internal StyleGlobalsPass()
@@ -36,10 +41,11 @@ namespace HiddenBull.UrpStyle
             profilingSampler = new ProfilingSampler("HB Style Globals");
         }
 
-        internal void Setup(HBStyleQualityProfile quality, StyleCameraStates cameras)
+        internal void Setup(HBStyleQualityProfile quality, StyleCameraStates cameras, StyleShelterPass shelter)
         {
             m_Quality = quality;
             m_Cameras = cameras;
+            m_Shelter = shelter;
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -47,6 +53,7 @@ namespace HiddenBull.UrpStyle
             var cameraData = frameData.Get<UniversalCameraData>();
             var cascades = frameData.Get<UniversalShadowData>().mainLightShadowCascadesCount;
 
+            var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
             var state = CameraState(cameraData);
             var mix = state != null ? state.mix : m_SharedMix;
             var mixLut = state != null ? state.mixLut : m_SharedMixLut;
@@ -66,6 +73,21 @@ namespace HiddenBull.UrpStyle
             passData.brushAtlas = resolved.brushAtlas != null ? resolved.brushAtlas : Texture2D.grayTexture;
             passData.cloudAtlas = resolved.cloudAtlas != null ? resolved.cloudAtlas : Texture2D.blackTexture;
             passData.skyLut = resolved.skyLut;
+            passData.bindShelter = false;
+
+            if (kind == StyleCameraKind.Overlay && m_Shelter != null &&
+                m_Shelter.TryGetMap(cameraData.baseCamera, out var shelter))
+            {
+                Bind(renderGraph, builder, shelter.depth, StyleShelterPass.depthId);
+                Bind(renderGraph, builder, shelter.under, StyleShelterPass.underId);
+                Bind(renderGraph, builder, shelter.far, StyleShelterPass.farDepthId);
+
+                passData.noUnderside = shelter.under == null;
+                passData.bindShelter = true;
+                passData.shelter = shelter;
+            }
+
+            passData.resetShelter = kind != StyleCameraKind.Overlay || !passData.bindShelter;
 
             builder.SetRenderFunc(static (PassData data, UnsafeGraphContext context) =>
             {
@@ -73,7 +95,35 @@ namespace HiddenBull.UrpStyle
                 context.cmd.SetGlobalTexture(s_BrushAtlasId, data.brushAtlas);
                 context.cmd.SetGlobalTexture(s_CloudAtlasId, data.cloudAtlas);
                 context.cmd.SetGlobalTexture(s_SkyLutId, data.skyLut);
+
+                if (data.bindShelter)
+                {
+                    if (data.noUnderside)
+                        context.cmd.SetGlobalTexture(StyleShelterPass.underId, Texture2D.blackTexture);
+
+                    context.cmd.SetGlobalMatrix(StyleShelterPass.viewProjectionId, data.shelter.viewProjection);
+                    context.cmd.SetGlobalVector(StyleShelterPass.heightId, data.shelter.height);
+                    context.cmd.SetGlobalMatrix(StyleShelterPass.farViewProjectionId, data.shelter.farViewProjection);
+                    context.cmd.SetGlobalVector(StyleShelterPass.farHeightId, data.shelter.farHeight);
+                    context.cmd.SetGlobalVector(StyleShelterPass.stateId,
+                                                StyleShelterPass.State(data.shelter.far != null));
+                }
+                else if (data.resetShelter)
+                {
+                    context.cmd.SetGlobalVector(StyleShelterPass.stateId, Vector4.zero);
+                }
             });
+        }
+
+        static void Bind(RenderGraph renderGraph, IUnsafeRenderGraphBuilder builder, RTHandle texture, int id)
+        {
+            if (texture == null)
+                return;
+
+            var handle = renderGraph.ImportTexture(texture);
+
+            builder.UseTexture(handle, AccessFlags.Read);
+            builder.SetGlobalTextureAfterPass(handle, id);
         }
 
         StyleCameraState CameraState(UniversalCameraData cameraData)

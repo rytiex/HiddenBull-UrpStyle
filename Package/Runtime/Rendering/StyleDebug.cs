@@ -11,7 +11,11 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Shadows/Cascades")] ShadowCascades = 4,
         [InspectorName("Shadows/Filter Values")] ShadowFilter = 5,
         [InspectorName("Shadows/Search Radius")] ShadowRadius = 6,
-        [InspectorName("Atmosphere/Fog Amount")] FogAmount = 7
+        [InspectorName("Atmosphere/Fog Amount")] FogAmount = 7,
+        [InspectorName("Weather/Shelter")] WeatherShelter = 8,
+        [InspectorName("Weather/Wetness")] WeatherWetness = 9,
+        [InspectorName("Weather/Snow")] WeatherSnow = 10,
+        [InspectorName("Weather/Precipitation")] WeatherPrecipitation = 11
     }
 
     static class StyleDebug
@@ -19,5 +23,17 @@ namespace HiddenBull.UrpStyle
         internal const string Keyword = "HB_STYLE_DEBUG";
 
         internal static StyleDebugView view;
+
+        internal static bool previewShelter;
+        internal static bool previewGameCamera;
+        internal static Texture shelterPreview;
+
+        internal static int rainDrops;
+        internal static int snowFlakes;
+
+        internal static bool IsPreviewCamera(Camera camera)
+        {
+            return camera.cameraType == (previewGameCamera ? CameraType.Game : CameraType.SceneView);
+        }
     }
 }

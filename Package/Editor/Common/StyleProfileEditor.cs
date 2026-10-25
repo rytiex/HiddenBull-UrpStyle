@@ -92,6 +92,12 @@ namespace HiddenBull.UrpStyle.Editor
             { "m_HorizonStart", "Horizon" }
         };
 
+        static readonly Dictionary<string, string> s_Weather = new Dictionary<string, string>
+        {
+            { "m_RainColor", "Look" },
+            { "m_Speed", "Timing" }
+        };
+
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
@@ -101,6 +107,7 @@ namespace HiddenBull.UrpStyle.Editor
             DrawSection("m_Celestial", "Celestial", s_Celestial);
             DrawSection("m_Clouds", "Clouds", s_Clouds);
             DrawSection("m_Atmosphere", "Atmosphere", s_Atmosphere);
+            DrawSection("m_Weather", "Weather", s_Weather);
 
             serializedObject.ApplyModifiedProperties();
         }
@@ -122,6 +129,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             DrawSection("m_Shadows", "Shadows", s_Levels);
             DrawSection("m_Atmosphere", "Atmosphere", s_Levels);
+            DrawSection("m_Weather", "Weather", s_Levels);
+            DrawSection("m_Precipitation", "Precipitation", s_Levels);
 
             serializedObject.ApplyModifiedProperties();
         }

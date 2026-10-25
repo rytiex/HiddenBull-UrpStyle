@@ -16,7 +16,7 @@ namespace HiddenBull.UrpStyle
             remove => StyleEnvironment.weatherChanged -= value;
         }
 
-        public static HBStyleSun sun => StyleEnvironment.sun;
+        public static HBStyleEnvironmentController controller => StyleEnvironment.controller;
 
         public static HBStyleEnvironmentProfile profile => StyleEnvironment.targetProfile;
 
@@ -33,6 +33,10 @@ namespace HiddenBull.UrpStyle
         public static float snow => StyleEnvironment.weather.y;
 
         public static float wind => StyleEnvironment.weather.z;
+
+        public static float wetness => StyleWeatherState.wetness;
+
+        public static float snowCover => StyleWeatherState.snow;
 
         public static void SetProfile(HBStyleEnvironmentProfile profile) => StyleEnvironment.BlendTo(profile, 0f);
 

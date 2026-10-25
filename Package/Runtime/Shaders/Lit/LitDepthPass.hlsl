@@ -35,6 +35,10 @@
 
 float3 _LightDirection;
 float3 _LightPosition;
+#elif !defined(HB_DEPTH_NORMALS)
+    #define HB_SHELTER_MOVING 1.5
+
+float _HB_ShelterPass;
 #endif
 
 #if defined(LOD_FADE_CROSSFADE)
@@ -107,6 +111,11 @@ HBDepthVaryings HB_DepthVertex(HBDepthAttributes input)
         TransformWorldToHClip(ApplyShadowBias(positionWS, biasNormalWS, lightDirectionWS)));
 #else
     output.positionCS = TransformWorldToHClip(positionWS);
+
+    #ifndef HB_DEPTH_NORMALS
+    if (_HB_ShelterPass > 0.5 && _ReceiveWeather > HB_SHELTER_MOVING)
+        output.positionCS = float4(0.0, 0.0, 0.0, 0.0);
+    #endif
 #endif
 
 #ifdef HB_VERTEX_UV

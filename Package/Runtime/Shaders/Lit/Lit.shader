@@ -64,6 +64,16 @@ Shader "HB URP Style/Lit"
         [HDR] _EmissionColor("Emission Color", Color) = (1.0, 1.0, 1.0, 1.0)
         [NoScaleOffset] _EmissionMap("Emission Map", 2D) = "white" {}
 
+        [Enum(None, 0, Moving, 2, Static, 1)] _ReceiveWeather("Receive Weather", Float) = 1.0
+        _Wetness("Wetness", Range(0.0, 1.0)) = 0.5
+        _SnowCover("Snow Cover", Range(0.0, 1.0)) = 1.0
+        _DropDensity("Drop Density", Range(0.0, 1.0)) = 0.25
+        _DropSize("Drop Size", Range(0.005, 0.2)) = 0.0125
+        _DropLife("Drop Life", Range(0.2, 20.0)) = 2.0
+        _FlakeDensity("Flake Density", Range(0.0, 1.0)) = 0.25
+        _FlakeSize("Flake Size", Range(0.005, 0.1)) = 0.0125
+        _FlakeLife("Flake Life", Range(0.2, 20.0)) = 2.0
+
         [ToggleUI] _AlphaClipEnabled("Alpha Clip", Float) = 0.0
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0
@@ -95,7 +105,7 @@ Shader "HB URP Style/Lit"
             Cull [_Cull]
 
             HLSLPROGRAM
-            #pragma target 3.5
+            #pragma target 4.5
 
             #pragma vertex HB_LitVertex
             #pragma fragment HB_LitFragment
@@ -113,6 +123,7 @@ Shader "HB URP Style/Lit"
             #pragma shader_feature_local_fragment _HB_CLOTH
             #pragma shader_feature_local_fragment _HB_THICKNESS_MAP
             #pragma shader_feature_local_fragment _HB_EMISSION
+            #pragma shader_feature_local_fragment _ _HB_WEATHER _HB_WEATHER_MOVING
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma shader_feature_local _RECEIVE_SHADOWS_OFF
 

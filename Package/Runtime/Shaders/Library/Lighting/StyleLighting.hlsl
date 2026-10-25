@@ -15,6 +15,7 @@
 #define HB_SPECULAR_SHEEN_LEVEL 0.3h
 #define HB_SPECULAR_SHEEN_MOST  1.5h
 #define HB_SPECULAR_BRUSH       1.0h
+#define HB_WET_FILM_SMOOTHNESS  0.85h
 
 half3 HB_LightResponse(Light light, half3 normalWS, half3 surfaceNormalWS, HBStyleData style, half terminatorOffset)
 {
@@ -171,7 +172,7 @@ half3 HB_DirectSpecular(BRDFData brdfData, half3 normalWS, half3 lightDirection,
 
 half3 HB_LightContribution(Light light, half3 toneNormal, half3 surfaceNormal, HBStyleData style,
                            half terminatorOffset, half3 diffuse, BRDFData brdfData, InputData inputData,
-                           SurfaceData surfaceData)
+                           SurfaceData surfaceData, half wet)
 {
     half3 radiance = HB_LightResponse(light, toneNormal, surfaceNormal, style, terminatorOffset);
     half3 colour = radiance * diffuse;
@@ -180,16 +181,24 @@ half3 HB_LightContribution(Light light, half3 toneNormal, half3 surfaceNormal, H
     colour += HB_ExtraLight(light, inputData, surfaceData, toneNormal);
 #endif
 
-#ifdef _HB_SPECULAR
+#if defined(_HB_SPECULAR)
     colour += radiance * HB_DirectSpecular(brdfData, inputData.normalWS, light.direction, inputData.viewDirectionWS,
                                            style.diffuseSoftness, terminatorOffset);
+#elif defined(HB_WEATHER)
+    UNITY_BRANCH
+    if (wet > 0.0h)
+    {
+        colour += radiance * HB_DirectSpecular(brdfData, inputData.normalWS, light.direction,
+                                               inputData.viewDirectionWS, style.diffuseSoftness, terminatorOffset)
+                * wet;
+    }
 #endif
 
     return colour;
 }
 
 half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData style, HBBrushSample brush,
-                  bool brushed)
+                  bool brushed, half wet)
 {
     half3 surfaceNormal = inputData.normalWS;
 
@@ -270,6 +279,29 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     BRDFData brdfData = (BRDFData)0;
     half3 colour = ambient * surfaceData.albedo;
     half3 diffuse = surfaceData.albedo;
+
+    #ifdef HB_WEATHER
+    UNITY_BRANCH
+    if (wet > 0.0h)
+    {
+        SurfaceData film = surfaceData;
+        film.albedo = half3(0.0h, 0.0h, 0.0h);
+        film.metallic = 0.0h;
+        film.smoothness = HB_WET_FILM_SMOOTHNESS;
+        film.alpha = 1.0h;
+
+        InitializeBRDFData(film, brdfData);
+
+        half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
+        half3 environment = HB_EnvironmentReflection(reflectVector, inputData.normalWS, inputData.positionWS,
+                                                     brdfData.perceptualRoughness,
+                                                     inputData.normalizedScreenSpaceUV, lightReach) * occlusion;
+        half gloss = 1.0h - brdfData.perceptualRoughness;
+        half fresnelTerm = Pow4(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS))) * (gloss * gloss);
+
+        colour += EnvironmentBRDFSpecular(brdfData, fresnelTerm) * environment * wet;
+    }
+    #endif
 #endif
 
 #ifdef _LIGHT_LAYERS
@@ -277,7 +309,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 #endif
     {
         colour += HB_LightContribution(mainLight, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                       brdfData, inputData, surfaceData);
+                                       brdfData, inputData, surfaceData, wet);
     }
 
 #if defined(_ADDITIONAL_LIGHTS)
@@ -296,7 +328,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     #endif
         {
             colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                           brdfData, inputData, surfaceData);
+                                           brdfData, inputData, surfaceData, wet);
         }
     }
     #endif
@@ -309,7 +341,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     #endif
         {
             colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                           brdfData, inputData, surfaceData);
+                                           brdfData, inputData, surfaceData, wet);
         }
     LIGHT_LOOP_END
 #endif

@@ -15,7 +15,26 @@ namespace HiddenBull.UrpStyle.Editor
             "Cascades colours each cascade; Filter Values shows softness, contact and taps as red, green and " +
             "blue (black means the settings never arrived); Search Radius shows the blocker search size.\n\n" +
             "Atmosphere: Fog Amount shows the fog in front of each surface in red and the horizon haze (after " +
-            "Horizon Layers) in green.");
+            "Horizon Layers) in green.\n\n" +
+            "Weather: Shelter is white where a surface has open sky above it and black where something covers " +
+            "it, read from the top-down shelter map 160 m around the camera. Wetness shows how wet each surface " +
+            "with Receive Weather is (white is soaked, after its material's Wetness); Snow shows how much snow " +
+            "covers it. Precipitation draws the falling rain and snow that a roof should hide in red instead of " +
+            "hiding it, so the roof check can be seen.");
+
+        static readonly GUIContent s_FallingLabel = new GUIContent("Falling Drops / Flakes",
+            "Rain drops and snow flakes sent to the Game camera this frame, before the ones under roofs, beyond " +
+            "the box around the camera or in fog are dropped on the GPU.");
+
+        static readonly GUIContent s_ShelterLabel = new GUIContent("Show Shelter Map",
+            "Draws the shelter map below: the scene seen from above, 160 m around the camera. Brighter is " +
+            "higher (10 m above the camera is white, 10 m below black); dark blue is open sky with nothing " +
+            "below; the red dot is the camera.");
+
+        static readonly GUIContent s_ShelterCameraLabel = new GUIContent("Camera",
+            "Which camera's shelter map to draw.");
+
+        static readonly string[] s_ShelterCameras = { "Scene View", "Game" };
 
         Vector2 m_Scroll;
 
@@ -28,6 +47,7 @@ namespace HiddenBull.UrpStyle.Editor
         void OnDisable()
         {
             SetView(StyleDebugView.Off);
+            StyleDebug.previewShelter = false;
         }
 
         void OnInspectorUpdate()
@@ -50,6 +70,9 @@ namespace HiddenBull.UrpStyle.Editor
             DrawEnvironment();
 
             EditorGUILayout.Space();
+            DrawShelter();
+
+            EditorGUILayout.Space();
             DrawCameras();
 
             EditorGUILayout.EndScrollView();
@@ -61,7 +84,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             using (new EditorGUI.DisabledScope(true))
             {
-                EditorGUILayout.ObjectField("Sun", StyleEnvironment.sun, typeof(HBStyleSun), true);
+                EditorGUILayout.ObjectField("Controller", StyleEnvironment.controller,
+                    typeof(HBStyleEnvironmentController), true);
                 EditorGUILayout.ObjectField("Profile", StyleEnvironment.targetProfile,
                     typeof(HBStyleEnvironmentProfile), false);
             }
@@ -72,6 +96,39 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.LabelField("Profile Blend", StyleEnvironment.profileBlend.ToString("0.00"));
             EditorGUILayout.LabelField("Rain / Snow / Wind",
                 $"{weather.x:0.00} / {weather.y:0.00} / {weather.z:0.00}");
+            EditorGUILayout.LabelField("Wet / Snow Settled",
+                $"{StyleWeatherState.wetness:0.00} / {StyleWeatherState.snow:0.00}");
+        }
+
+        void DrawShelter()
+        {
+            EditorGUILayout.LabelField("Weather", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(s_FallingLabel,
+                new GUIContent($"{StyleDebug.rainDrops} / {StyleDebug.snowFlakes}"));
+
+            StyleDebug.previewShelter = EditorGUILayout.Toggle(s_ShelterLabel, StyleDebug.previewShelter);
+
+            if (!StyleDebug.previewShelter)
+                return;
+
+            var camera = EditorGUILayout.Popup(s_ShelterCameraLabel, StyleDebug.previewGameCamera ? 1 : 0,
+                                               s_ShelterCameras);
+
+            StyleDebug.previewGameCamera = camera == 1;
+
+            var texture = StyleDebug.shelterPreview;
+
+            if (texture == null)
+            {
+                EditorGUILayout.HelpBox("Waiting for the camera to render.", MessageType.None);
+                return;
+            }
+
+            var size = Mathf.Min(position.width - 24f, 384f);
+            var rect = GUILayoutUtility.GetRect(size, size, GUILayout.ExpandWidth(false));
+
+            EditorGUI.DrawPreviewTexture(rect, texture);
+            SceneView.RepaintAll();
         }
 
         static void DrawCameras()

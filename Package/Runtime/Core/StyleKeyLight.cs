@@ -8,6 +8,11 @@ namespace HiddenBull.UrpStyle
 
         const float OvercastStart = 0.55f;
         const float OvercastFull = 0.95f;
+        const float PrecipitationToCover = 2f;
+        const float OvercastSunLoss = 0.7f;
+
+        const HBStyleProfileSections KeyLightSections =
+            HBStyleProfileSections.Sky | HBStyleProfileSections.Clouds | HBStyleProfileSections.Weather;
 
         static Gradient s_DefaultSkyLight;
         static Gradient s_DefaultSunDisc;
@@ -31,7 +36,7 @@ namespace HiddenBull.UrpStyle
 
         internal static float SunElevation(float timeOfDay)
         {
-            return Mathf.Sin(HBStyleSun.SunAngle(timeOfDay) * Mathf.Deg2Rad);
+            return Mathf.Sin(HBStyleEnvironmentController.SunAngle(timeOfDay) * Mathf.Deg2Rad);
         }
 
         internal static float Handoff(float elevation)
@@ -44,12 +49,21 @@ namespace HiddenBull.UrpStyle
             return elevation >= 0f ? 1f : sky.moonLight;
         }
 
-        internal static float Overcast(HBStyleCloudSettings clouds)
+        internal static float Coverage(HBStyleEnvironmentProfile profile)
         {
-            if (clouds.atlas == null)
+            var coverage = profile.clouds.coverage;
+            var weather = StyleEnvironment.weather;
+            var falling = Mathf.Clamp01(Mathf.Max(weather.x, weather.y) * PrecipitationToCover);
+
+            return Mathf.Lerp(coverage, Mathf.Max(coverage, OvercastFull), profile.weather.cloudResponse * falling);
+        }
+
+        internal static float Overcast(HBStyleEnvironmentProfile profile)
+        {
+            if (profile.clouds.atlas == null)
                 return 0f;
 
-            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OvercastStart, OvercastFull, clouds.coverage));
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OvercastStart, OvercastFull, Coverage(profile)));
         }
 
         internal static float DayBlend(HBStyleSkySettings sky, float elevation)
@@ -83,7 +97,7 @@ namespace HiddenBull.UrpStyle
             {
                 var zone = mix.zones[i];
 
-                if ((zone.sections & (HBStyleProfileSections.Sky | HBStyleProfileSections.Clouds)) != 0)
+                if ((zone.sections & KeyLightSections) != 0)
                     Toward(zone.profile, zone.weight, elevation, ref colour, ref intensity);
             }
         }
@@ -104,7 +118,7 @@ namespace HiddenBull.UrpStyle
 
             colour = OverElevation(SkyLight(sky), elevation);
             intensity = sky.skyLightIntensity * Handoff(elevation) * Share(sky, elevation)
-                      * (1f - Overcast(profile.clouds));
+                      * (1f - Overcast(profile) * OvercastSunLoss);
         }
     }
 }

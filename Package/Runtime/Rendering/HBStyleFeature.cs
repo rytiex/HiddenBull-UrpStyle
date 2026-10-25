@@ -11,8 +11,22 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Quality levels of every HB Style module drawn by this renderer. Empty uses the defaults.")]
         HBStyleQualityProfile m_Quality;
 
+        [SerializeField]
+        [HideInInspector]
+        ComputeShader m_ShelterCompute;
+
+        [SerializeField]
+        [HideInInspector]
+        Shader m_UndersideShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Shader m_PrecipitationShader;
+
         StyleCameraStates m_Cameras;
         StyleGlobalsPass m_GlobalsPass;
+        StyleShelterPass m_ShelterPass;
+        StylePrecipitationPass m_PrecipitationPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -47,8 +61,14 @@ namespace HiddenBull.UrpStyle
 
             m_Cameras = new StyleCameraStates();
             m_GlobalsPass = new StyleGlobalsPass();
+            m_ShelterPass = new StyleShelterPass();
+            m_PrecipitationPass = new StylePrecipitationPass();
 
 #if UNITY_EDITOR
+            m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
+            m_UndersideShader = Load(m_UndersideShader, StyleShelterPass.UndersidePath);
+            m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
+
             ForceDepthPriming();
 #endif
         }
@@ -59,7 +79,7 @@ namespace HiddenBull.UrpStyle
             var quality = activeQuality;
             var shadows = quality.shadows;
 
-            m_GlobalsPass.Setup(quality, m_Cameras);
+            m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass);
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)
@@ -67,10 +87,29 @@ namespace HiddenBull.UrpStyle
 
             m_Cameras.Touch(cameraData.camera);
 
+            m_ShelterPass.Setup(m_ShelterCompute, m_UndersideShader, quality.weather);
+            renderer.EnqueuePass(m_ShelterPass);
+
+            m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
+            renderer.EnqueuePass(m_PrecipitationPass);
+
             StyleShadowSettings.Apply(GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset, shadows);
         }
 
 #if UNITY_EDITOR
+        T Load<T>(T current, string path) where T : Object
+        {
+            if (current != null)
+                return current;
+
+            var loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<T>(path);
+
+            if (loaded != null)
+                UnityEditor.EditorUtility.SetDirty(this);
+
+            return loaded;
+        }
+
         bool m_PrimingPending;
 
         void ForceDepthPriming()
@@ -103,6 +142,12 @@ namespace HiddenBull.UrpStyle
         {
             m_GlobalsPass?.Dispose();
             m_GlobalsPass = null;
+
+            m_ShelterPass?.Dispose();
+            m_ShelterPass = null;
+
+            m_PrecipitationPass?.Dispose();
+            m_PrecipitationPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

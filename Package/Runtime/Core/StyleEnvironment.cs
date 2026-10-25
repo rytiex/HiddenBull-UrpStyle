@@ -6,7 +6,7 @@ namespace HiddenBull.UrpStyle
 {
     static class StyleEnvironment
     {
-        static readonly List<HBStyleSun> s_Suns = new List<HBStyleSun>();
+        static readonly List<HBStyleEnvironmentController> s_Controllers = new List<HBStyleEnvironmentController>();
 
         static HBStyleEnvironmentProfile s_Default;
         static HBStyleEnvironmentProfile s_Override;
@@ -16,15 +16,19 @@ namespace HiddenBull.UrpStyle
 
         static float s_TimeOfDay = 12f;
 
+        static Vector3 s_Weather = new Vector3(0f, 0f, 0.2f);
         static Vector3 s_WeatherFrom;
         static Vector3 s_WeatherTo;
         static double s_WeatherStart;
         static float s_WeatherSeconds;
+        static bool s_WeatherMoving;
+        static Vector3 s_WeatherShown;
 
         internal static event Action<HBStyleEnvironmentProfile> profileChanged;
         internal static event Action weatherChanged;
 
-        internal static HBStyleSun sun => s_Suns.Count > 0 ? s_Suns[s_Suns.Count - 1] : null;
+        internal static HBStyleEnvironmentController controller =>
+            s_Controllers.Count > 0 ? s_Controllers[s_Controllers.Count - 1] : null;
 
         internal static double clock => Application.isPlaying ? Time.timeAsDouble : Time.realtimeSinceStartupAsDouble;
 
@@ -47,7 +51,7 @@ namespace HiddenBull.UrpStyle
         {
             get
             {
-                var active = sun;
+                var active = controller;
 
                 return active != null && active.profile != null ? active.profile : defaultProfile;
             }
@@ -60,20 +64,40 @@ namespace HiddenBull.UrpStyle
 
         internal static float profileBlend => Progress(s_BlendStart, s_BlendSeconds);
 
-        internal static Vector3 weather =>
-            Vector3.Lerp(s_WeatherFrom, s_WeatherTo, Progress(s_WeatherStart, s_WeatherSeconds));
+        internal static Vector3 weather
+        {
+            get
+            {
+                if (s_WeatherMoving)
+                    return Vector3.Lerp(s_WeatherFrom, s_WeatherTo, Progress(s_WeatherStart, s_WeatherSeconds));
+
+                var active = controller;
+
+                return active != null ? active.weather : s_Weather;
+            }
+        }
+
+        internal static float windHeading
+        {
+            get
+            {
+                var active = controller;
+
+                return active != null ? active.windHeading : 0f;
+            }
+        }
 
         internal static float timeOfDay
         {
             get
             {
-                var active = sun;
+                var active = controller;
 
                 return active != null ? active.timeOfDay : s_TimeOfDay;
             }
             set
             {
-                var active = sun;
+                var active = controller;
 
                 if (active != null)
                     active.timeOfDay = value;
@@ -82,15 +106,15 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static void Register(HBStyleSun sun)
+        internal static void Register(HBStyleEnvironmentController controller)
         {
-            s_Suns.Remove(sun);
-            s_Suns.Add(sun);
+            s_Controllers.Remove(controller);
+            s_Controllers.Add(controller);
         }
 
-        internal static void Unregister(HBStyleSun sun)
+        internal static void Unregister(HBStyleEnvironmentController controller)
         {
-            s_Suns.Remove(sun);
+            s_Controllers.Remove(controller);
         }
 
         internal static void BlendTo(HBStyleEnvironmentProfile profile, float seconds)
@@ -109,8 +133,42 @@ namespace HiddenBull.UrpStyle
             s_WeatherTo = new Vector3(Mathf.Clamp01(rain), Mathf.Clamp01(snow), Mathf.Clamp01(wind));
             s_WeatherStart = clock;
             s_WeatherSeconds = Mathf.Max(seconds, 0f);
+            s_WeatherMoving = true;
+
+            AdvanceWeather();
 
             weatherChanged?.Invoke();
+        }
+
+        internal static void AdvanceWeather()
+        {
+            if (!s_WeatherMoving)
+                return;
+
+            var progress = Progress(s_WeatherStart, s_WeatherSeconds);
+            var value = Vector3.Lerp(s_WeatherFrom, s_WeatherTo, progress);
+            var active = controller;
+
+            s_WeatherShown = value;
+
+            if (active != null)
+                active.ShowWeather(value);
+            else
+                s_Weather = value;
+
+            if (progress >= 1f)
+                s_WeatherMoving = false;
+        }
+
+        internal static void StopWeather()
+        {
+            s_WeatherMoving = false;
+        }
+
+        internal static void WeatherEdited(Vector3 value)
+        {
+            if (s_WeatherMoving && value != s_WeatherShown)
+                s_WeatherMoving = false;
         }
 
         static float Progress(double start, float seconds)
@@ -128,18 +186,21 @@ namespace HiddenBull.UrpStyle
             s_BlendStart = 0.0;
             s_BlendSeconds = 0f;
             s_TimeOfDay = 12f;
+            s_Weather = new Vector3(0f, 0f, 0.2f);
             s_WeatherFrom = Vector3.zero;
             s_WeatherTo = Vector3.zero;
             s_WeatherStart = 0.0;
             s_WeatherSeconds = 0f;
+            s_WeatherMoving = false;
             profileChanged = null;
             weatherChanged = null;
+            StyleWeatherState.Reset();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void OnSubsystemRegistration()
         {
-            s_Suns.Clear();
+            s_Controllers.Clear();
             ResetRuntime();
         }
 

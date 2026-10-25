@@ -5,6 +5,9 @@ CBUFFER_START(HBStyleFrame)
     float4 _HB_Environment;
     float4 _HB_AmbientFloor;
     float4 _HB_Weather;
+    float4 _HB_WeatherSurface;
+    float4 _HB_WeatherLook;
+    float4 _HB_Precipitation;
     float4 _HB_Brush;
     float4 _HB_BrushVariation;
     float4 _HB_ShadowFilter;
@@ -42,6 +45,18 @@ CBUFFER_END
 #define HB_RAIN _HB_Weather.x
 #define HB_SNOW _HB_Weather.y
 #define HB_WIND _HB_Weather.z
+#define HB_WIND_HEADING _HB_Weather.w
+
+#define HB_SURFACE_WET _HB_WeatherSurface.x
+#define HB_SURFACE_SNOW _HB_WeatherSurface.y
+#define HB_SURFACE_RAIN _HB_WeatherSurface.z
+#define HB_SURFACE_CLOCK _HB_WeatherSurface.w
+#define HB_RAIN_COLOR _HB_WeatherLook.rgb
+#define HB_WEATHER_DETAIL _HB_WeatherLook.w
+#define HB_RAIN_OPACITY _HB_Precipitation.x
+#define HB_RAIN_WIDTH _HB_Precipitation.y
+#define HB_SNOW_SIZE _HB_Precipitation.z
+#define HB_SNOW_OPACITY _HB_Precipitation.w
 
 #if defined(HB_STYLE_DEBUG)
     #define HB_DEBUG_VIEW ((int)_HB_Debug.x)

@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace HiddenBull.UrpStyle.Editor
 {
-    [CustomEditor(typeof(HBStyleSun))]
+    [CustomEditor(typeof(HBStyleEnvironmentController))]
     [CanEditMultipleObjects]
-    sealed class StyleSunEditor : UnityEditor.Editor
+    sealed class StyleEnvironmentControllerEditor : UnityEditor.Editor
     {
         const float DialSize = 168f;
         const float DialStep = 1f / 60f;
@@ -13,8 +13,8 @@ namespace HiddenBull.UrpStyle.Editor
         const string Hint =
             "This light is turned by Time of Day: toward the sun by day and toward the moon at night. Its " +
             "colour and intensity come from Sky Light, Sky Light Intensity and Moon Light in the profile's Sky " +
-            "section, faded out and back in across the swap. Changes made by hand are undone the next time it " +
-            "updates; change the hour or the profile instead.";
+            "section, faded out and back in across the swap, and dimmed when rain or snow close the clouds. " +
+            "Changes made by hand are undone the next time it updates; change the hour or the profile instead.";
 
         static readonly string[] s_Compass = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
@@ -31,9 +31,26 @@ namespace HiddenBull.UrpStyle.Editor
             ("Dawn", 6f), ("Noon", 12f), ("Dusk", 18f), ("Midnight", 0f)
         };
 
+        const int WeatherPerRow = 4;
+
+        static readonly (GUIContent label, float rain, float snow, float wind)[] s_Weather =
+        {
+            (new GUIContent("Clear", "No rain or snow, a light breeze."), 0f, 0f, 0.1f),
+            (new GUIContent("Drizzle", "Light rain, barely any wind."), 0.15f, 0f, 0.1f),
+            (new GUIContent("Rain", "Steady rain."), 0.5f, 0f, 0.2f),
+            (new GUIContent("Storm", "Heavy rain driven by a strong wind."), 1f, 0f, 0.8f),
+            (new GUIContent("Light Snow", "A few flakes drifting down."), 0f, 0.3f, 0.1f),
+            (new GUIContent("Blizzard", "Heavy snow in a strong wind."), 0f, 1f, 0.9f),
+            (new GUIContent("Sleet", "Rain and snow together."), 0.4f, 0.4f, 0.3f)
+        };
+
         SerializedProperty m_TimeOfDay;
         SerializedProperty m_Heading;
         SerializedProperty m_Profile;
+        SerializedProperty m_Rain;
+        SerializedProperty m_Snow;
+        SerializedProperty m_Wind;
+        SerializedProperty m_WindHeading;
 
         GUIStyle m_Clock;
         GUIStyle m_Caption;
@@ -43,6 +60,10 @@ namespace HiddenBull.UrpStyle.Editor
             m_TimeOfDay = serializedObject.FindProperty("m_TimeOfDay");
             m_Heading = serializedObject.FindProperty("m_Heading");
             m_Profile = serializedObject.FindProperty("m_Profile");
+            m_Rain = serializedObject.FindProperty("m_Rain");
+            m_Snow = serializedObject.FindProperty("m_Snow");
+            m_Wind = serializedObject.FindProperty("m_Wind");
+            m_WindHeading = serializedObject.FindProperty("m_WindHeading");
         }
 
         public override void OnInspectorGUI()
@@ -66,7 +87,13 @@ namespace HiddenBull.UrpStyle.Editor
 
             DrawHeading();
 
+            EditorGUILayout.Space();
+
+            DrawWeather();
+
             serializedObject.ApplyModifiedProperties();
+
+            DrawStatus();
         }
 
         void DrawDial()
@@ -193,6 +220,60 @@ namespace HiddenBull.UrpStyle.Editor
 
                 GUILayout.Label(point, EditorStyles.miniLabel, GUILayout.Width(52f));
             }
+        }
+
+        void DrawWeather()
+        {
+            EditorGUILayout.LabelField("Weather", EditorStyles.boldLabel);
+
+            for (var start = 0; start < s_Weather.Length; start += WeatherPerRow)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    for (var i = start; i < Mathf.Min(start + WeatherPerRow, s_Weather.Length); i++)
+                    {
+                        var preset = s_Weather[i];
+
+                        if (!GUILayout.Button(preset.label, EditorStyles.miniButton))
+                            continue;
+
+                        m_Rain.floatValue = preset.rain;
+                        m_Snow.floatValue = preset.snow;
+                        m_Wind.floatValue = preset.wind;
+                    }
+                }
+            }
+
+            EditorGUILayout.PropertyField(m_Rain);
+            EditorGUILayout.PropertyField(m_Snow);
+            EditorGUILayout.PropertyField(m_Wind);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PropertyField(m_WindHeading);
+
+                var point = m_WindHeading.hasMultipleDifferentValues
+                    ? "—"
+                    : "toward " + s_Compass[Mathf.RoundToInt(m_WindHeading.floatValue / 45f) % 8];
+
+                GUILayout.Label(point, EditorStyles.miniLabel, GUILayout.Width(52f));
+            }
+        }
+
+        void DrawStatus()
+        {
+            if (!Application.isPlaying)
+                return;
+
+            EditorGUILayout.Space(2f);
+
+            var wet = EditorGUILayout.GetControlRect();
+            EditorGUI.ProgressBar(wet, StyleWeatherState.wetness, $"Surfaces wet  {StyleWeatherState.wetness:P0}");
+
+            var snow = EditorGUILayout.GetControlRect();
+            EditorGUI.ProgressBar(snow, StyleWeatherState.snow, $"Snow settled  {StyleWeatherState.snow:P0}");
+
+            Repaint();
         }
 
         static string Format(float hour)

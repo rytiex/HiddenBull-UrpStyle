@@ -45,6 +45,15 @@ CBUFFER_START(UnityPerMaterial)
     half _SheenPower;
     half _Weave;
     half _WeaveScale;
+    half _ReceiveWeather;
+    half _Wetness;
+    half _SnowCover;
+    half _DropDensity;
+    half _DropSize;
+    half _DropLife;
+    half _FlakeDensity;
+    half _FlakeSize;
+    half _FlakeLife;
 CBUFFER_END
 
 #ifdef UNITY_DOTS_INSTANCING_ENABLED

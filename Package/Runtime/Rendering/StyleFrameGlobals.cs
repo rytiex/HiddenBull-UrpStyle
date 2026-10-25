@@ -9,7 +9,7 @@ namespace HiddenBull.UrpStyle
     {
         internal const string BufferName = "HBStyleFrame";
 
-        const float OvercastAmbientLift = 0.25f;
+        const float OvercastAmbientLift = 0.75f;
         const float CloudElevationLift = 0.09f;
 
         static Gradient s_DefaultAurora;
@@ -17,6 +17,9 @@ namespace HiddenBull.UrpStyle
         public Vector4 _HB_Environment;
         public Vector4 _HB_AmbientFloor;
         public Vector4 _HB_Weather;
+        public Vector4 _HB_WeatherSurface;
+        public Vector4 _HB_WeatherLook;
+        public Vector4 _HB_Precipitation;
         public Vector4 _HB_Brush;
         public Vector4 _HB_BrushVariation;
         public Vector4 _HB_ShadowFilter;
@@ -57,15 +60,15 @@ namespace HiddenBull.UrpStyle
             var timeOfDay = StyleEnvironment.timeOfDay;
             var sky = profile.sky;
             var elevation = StyleKeyLight.SunElevation(timeOfDay);
-            var sun = StyleEnvironment.sun;
-            var sunDirection = sun != null
-                ? sun.sunDirection
-                : -(Quaternion.Euler(HBStyleSun.SunAngle(timeOfDay), 0f, 0f) * Vector3.forward);
+            var controller = StyleEnvironment.controller;
+            var sunDirection = controller != null
+                ? controller.sunDirection
+                : -(Quaternion.Euler(HBStyleEnvironmentController.SunAngle(timeOfDay), 0f, 0f) * Vector3.forward);
 
             var blend = StyleKeyLight.DayBlend(sky, elevation);
             var spread = sky.sunsetFocus * 4f * blend * (1f - blend);
             var away = Mathf.Clamp01(blend + spread * 0.45f);
-            var overcast = StyleKeyLight.Overcast(profile.clouds);
+            var overcast = StyleKeyLight.Overcast(profile);
             var night = Mathf.Sin(sky.nightElevation * Mathf.Deg2Rad);
             var afterglow = Mathf.Clamp01(Mathf.InverseLerp(night, 0f, elevation));
 
@@ -77,8 +80,7 @@ namespace HiddenBull.UrpStyle
                                                   * (1f - overcast), ambientIntensity);
             globals._HB_AmbientFloor = new Vector4(ground.r, ground.g, ground.b, ProbeLightingBaked() ? 1f : 0f);
 
-            var weather = StyleEnvironment.weather;
-            globals._HB_Weather = new Vector4(weather.x, weather.y, weather.z, 0f);
+            PackWeather(profile.weather, quality.weather, ref globals);
 
             PackBrush(profile.brush, quality.shadows, cascades, ref globals);
 
@@ -152,6 +154,14 @@ namespace HiddenBull.UrpStyle
                 current._HB_CloudLook = L(current._HB_CloudLook, other._HB_CloudLook, t);
             }
 
+            if ((sections & HBStyleProfileSections.Weather) != 0)
+            {
+                var look = L(current._HB_WeatherLook, other._HB_WeatherLook, t);
+
+                current._HB_WeatherLook = new Vector4(look.x, look.y, look.z, current._HB_WeatherLook.w);
+                current._HB_Precipitation = L(current._HB_Precipitation, other._HB_Precipitation, t);
+            }
+
             if ((sections & HBStyleProfileSections.Atmosphere) != 0)
             {
                 var layers = half ? other._HB_Horizon.w : current._HB_Horizon.w;
@@ -164,6 +174,24 @@ namespace HiddenBull.UrpStyle
         }
 
         static Vector4 L(Vector4 a, Vector4 b, float t) => Vector4.LerpUnclamped(a, b, t);
+
+        static void PackWeather(HBStyleWeatherSettings weather, HBStyleWeatherQuality quality,
+                                ref StyleFrameGlobals globals)
+        {
+            StyleWeatherState.Advance();
+
+            var falling = StyleEnvironment.weather;
+            var heading = StyleEnvironment.windHeading * Mathf.Deg2Rad;
+            var rainColor = StyleKeyLight.Linear(weather.rainColor);
+
+            globals._HB_Weather = new Vector4(falling.x, falling.y, falling.z, heading);
+            globals._HB_WeatherSurface = new Vector4(StyleWeatherState.wetness, StyleWeatherState.snow,
+                                                     StyleWeatherState.rain, (float)StyleWeatherState.fallClock);
+            globals._HB_WeatherLook = new Vector4(rainColor.r, rainColor.g, rainColor.b,
+                                                  quality.current.detailDistance);
+            globals._HB_Precipitation = new Vector4(weather.rainOpacity, weather.rainWidth, weather.snowSize,
+                                                    weather.snowOpacity);
+        }
 
         static void PackBrush(HBStyleBrushSettings brush, HBStyleShadowQuality shadows, int cascades,
                               ref StyleFrameGlobals globals)
@@ -241,8 +269,8 @@ namespace HiddenBull.UrpStyle
             var wind = clouds.wind * 0.004f;
             var tint = StyleKeyLight.Linear(clouds.tint);
 
-            globals._HB_CloudParams = new Vector4(clouds.coverage, clouds.scale * 0.03f, clouds.softness * 0.5f,
-                                                  clouds.steps);
+            globals._HB_CloudParams = new Vector4(StyleKeyLight.Coverage(profile), clouds.scale * 0.03f,
+                                                  clouds.softness * 0.5f, clouds.steps);
             globals._HB_CloudMotion = new Vector4(wind.x, wind.y, 0f, 0f);
             globals._HB_CloudLook = new Vector4(clouds.silverLining, clouds.sunThrough, clouds.powder, 0f);
             globals._HB_CloudLight = new Vector4(light.r, light.g, light.b, 0f);

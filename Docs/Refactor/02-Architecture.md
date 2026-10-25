@@ -5,7 +5,8 @@
 ```
 Data (ScriptableObjects)          Scene (components)              Rendering (one renderer feature)
 -------------------------         -----------------------         --------------------------------
-HBStyleEnvironmentProfile   --->  HBStyleSun (time, profile)  --> StyleFrameGlobals (one CBUFFER upload)
+HBStyleEnvironmentProfile   --->  HBStyleEnvironmentController --> StyleFrameGlobals (one CBUFFER upload)
+                                  (time, weather, profile)
 HBStyleQualityProfile       --->  HBStyleFeature (renderer)   --> pass scheduler (per camera, base only)
 HBStyleTerrainLayer (+Liquid)     HBStyleTerrain / Liquid     --> terrain + liquid clipmap draw
 HBStyleBillboardAsset             HBStyleBillboard            --> GPU instancing system
@@ -96,10 +97,12 @@ an editor-only keyword stripped from builds.
 `HBStyleEnvironmentProfile` (ScriptableObject) groups: **Brush** (global atlas, world scale, distance growth,
 patches), **Sky** (day/dusk/night gradients, ambient; the ambient part lands in Phase 1),
 **Celestial** (sun, moon, stars, aurora), **Clouds** (atlas, coverage, shading), **Atmosphere** (height fog,
-horizon), **Weather defaults** (rain, snow, wind, timings).
+horizon), **Weather style** (timings, rain colour, cloud response; the rain / snow / wind values themselves live on
+the controller, decided 2026-10-24).
 
-- `HBStyleSun` on the directional light: time of day, heading, profile reference. It is the single owner of
-  environment state and uploads it once per frame into the globals CBUFFER.
+- `HBStyleEnvironmentController` (was `HBStyleSun`, renamed in Phase 3) on the directional light: time of day, sun
+  heading, rain, snow, wind, wind heading, profile reference. It is the single owner of environment state and
+  uploads it once per frame into the globals CBUFFER.
 - `HBStyleEnvironment` (static runtime API): `SetProfile`, `BlendTo(profile, seconds)`,
   `SetWeather(rain, snow, wind, seconds)`, `TimeOfDay`, events for gameplay.
 - `HBStyleEnvironmentZone` (box, priority, blend distance, profile): local overrides (caves, interiors,
@@ -135,7 +138,7 @@ HBStyleTerrain (component)
 
 ## 6. Module data flow per frame
 
-1. `HBStyleSun` resolves environment (profile + zones + API transitions) → globals struct.
+1. `HBStyleEnvironmentController` resolves environment (profile + zones + API transitions) → globals struct.
 2. Feature Globals pass uploads one CBUFFER (environment, brush, quality, weather state, time).
 3. Shelter pass updates near/far sky-depth maps for the base camera (dilated by the roof margin).
 4. Terrain/grass/billboard computes cull into indirect args.

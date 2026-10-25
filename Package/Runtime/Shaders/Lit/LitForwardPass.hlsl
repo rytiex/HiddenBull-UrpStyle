@@ -1,6 +1,10 @@
 #ifndef HB_LIT_FORWARD_PASS_INCLUDED
 #define HB_LIT_FORWARD_PASS_INCLUDED
 
+#if defined(_HB_WEATHER) || defined(_HB_WEATHER_MOVING)
+    #define HB_WEATHER
+#endif
+
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSurface.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSubsurface.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"
@@ -9,6 +13,16 @@
 #if defined(LOD_FADE_CROSSFADE)
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
 #endif
+
+#ifdef HB_WEATHER
+    #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherSurface.hlsl"
+#elif defined(HB_STYLE_DEBUG)
+    #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
+#endif
+
+#define HB_DEBUG_SHELTER 8
+#define HB_DEBUG_WETNESS 9
+#define HB_DEBUG_SNOW    10
 
 #if defined(_HB_BRUSH_ANCHOR)
     #define HB_ANCHOR
@@ -254,9 +268,44 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 
     HB_InitializeBakedGI(input, lightmapShift, inputData);
 
-    half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, brushed);
+#ifdef HB_WEATHER
+    HBWeatherMaterial weatherMaterial;
+    weatherMaterial.wetness = half(_Wetness);
+    weatherMaterial.snowCover = half(_SnowCover);
+    weatherMaterial.beads = half4(_DropDensity, _DropSize, _FlakeDensity, _FlakeSize);
+    weatherMaterial.beadLife = half2(_DropLife, _FlakeLife);
+
+    HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, brush.coverage, surface.anchorOS,
+                                          weatherMaterial);
+
+    HB_ApplyWeather(weather, surfaceData, inputData.normalWS);
+    inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
+    HB_SoftenBrushUnderSnow(weather.snow, style);
+
+    half wet = max(weather.wet, weather.flow);
+    half snow = weather.snow;
+#else
+    half wet = 0.0h;
+    half snow = 0.0h;
+#endif
+
+    half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, brushed, wet);
 
     colour.rgb = HB_ApplyAtmosphere(colour.rgb, inputData.positionWS);
+
+#if defined(HB_STYLE_DEBUG)
+    if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
+    {
+        half open = HB_ShelterOpen(inputData.positionWS, inputData.normalWS);
+        colour.rgb = half3(open, open, open);
+    }
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_WETNESS)
+        colour.rgb = half3(wet, wet, wet);
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_SNOW)
+        colour.rgb = half3(snow, snow, snow);
+#endif
 
     return colour;
 }

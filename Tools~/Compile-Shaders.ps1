@@ -26,7 +26,8 @@ $tools = Join-Path $root 'Tools~'
 if (-not (Test-Path $tools)) { New-Item -ItemType Junction -Path $tools -Target $PSScriptRoot | Out-Null }
 
 if (-not $Manifest) { $Manifest = Join-Path $PSScriptRoot 'ShaderVariants.psd1' }
-$data = Import-PowerShellDataFile $Manifest
+try { $data = Import-PowerShellDataFile $Manifest -ErrorAction Stop }
+catch { Write-Host "Manifest could not be read: $Manifest`n$($_.Exception.Message)"; exit 1 }
 $results = @()
 $measured = @{}
 $failed = $false
@@ -35,7 +36,7 @@ foreach ($variant in $data.Variants) {
     if ($variant.Name -notlike $Filter -and -not $variant.IsReference) { continue }
 
     $slug = ($variant.Name -replace '[^A-Za-z0-9]+', '_').Trim('_')
-    $stage = if ($variant.Stage -eq 'vs') { 'VERTEX' } else { 'FRAGMENT' }
+    $stage = switch ($variant.Stage) { 'vs' { 'VERTEX' } 'cs' { 'COMPUTE' } default { 'FRAGMENT' } }
 
     $lines = @(
         '#define SHADER_API_D3D11 1',
@@ -45,7 +46,9 @@ foreach ($variant in $data.Variants) {
         '#define SHADER_AVAILABLE_INTERPOLATORS15 1'
     )
     $lines += $data.Urp[$variant.Urp] | ForEach-Object { "#define $_ 1" }
-    $lines += $variant.Defines | ForEach-Object { "#define $_ 1" }
+    $lines += $variant.Defines | ForEach-Object {
+        if ($_ -match '=') { "#define $($_ -replace '=', ' ')" } else { "#define $_ 1" }
+    }
     $lines += "#include `"$($variant.Include)`""
 
     $wrapper = Join-Path $dir "$slug.wrapper.hlsl"
@@ -62,7 +65,8 @@ foreach ($variant in $data.Variants) {
     }
 
     $fxcOut = & $Fxc /nologo /Gec /T "$($variant.Stage)_5_0" /E $variant.Entry /Fc $asm $pre 2>&1
-    $messages = @($fxcOut | ForEach-Object { "$_" } | Where-Object { $_ -match 'error|warning' })
+    $messages = @($fxcOut | ForEach-Object { "$_" } |
+                  Where-Object { $_ -match 'error|warning' -and $_ -notmatch "X3568: 'kernel'" })
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[$($variant.Name)] compile FAILED"
@@ -95,6 +99,7 @@ foreach ($variant in $data.Variants) {
 
     if ($variant.Slots -gt 0 -and $addedSlots -gt $variant.Slots) { $status = 'OVER' }
     if ($variant.Reads -gt 0 -and $addedReads -gt $variant.Reads) { $status = 'OVER' }
+    if ($status -eq 'OVER') { $failed = $true }
 
     $results += [pscustomobject]@{
         Variant = $variant.Name

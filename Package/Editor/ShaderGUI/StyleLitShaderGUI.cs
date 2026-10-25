@@ -17,6 +17,46 @@ namespace HiddenBull.UrpStyle.Editor
             public static readonly GUIContent Advanced = new GUIContent("Advanced");
             public static readonly GUIContent Subsurface = new GUIContent("Subsurface");
 
+            public static readonly GUIContent Weather = new GUIContent(
+                "Weather", "How the surface takes part in the weather of the HB Style Environment Controller.");
+
+            public static readonly GUIContent Wetness = new GUIContent(
+                "Wetness", "How dark and glossy this surface gets at its wettest (0 to 1). Where and when it gets " +
+                "wet does not change: open surfaces soak over the profile's Wet Time while it rains.");
+
+            public static readonly GUIContent SnowCover = new GUIContent(
+                "Snow Cover", "How much of this surface the snow can hide at its deepest (0 to 1). 1 turns it fully " +
+                "white; lower values let the surface show through. Moving surfaces carry snow flakes instead.");
+
+            public static readonly string[] ReceiveWeatherNames = { "None", "Static", "Moving" };
+
+            public static readonly GUIContent ReceiveWeather = new GUIContent(
+                "Receive Weather",
+                "Static: for things that stay put; they keep rain and snow off what is below them. Moving: for " +
+                "characters, vehicles and props that move; they never keep rain or snow off what is below. They " +
+                "carry rain drops and snow flakes on upward faces instead of running water or a snow blanket. With " +
+                "an HB Style Weather Body on the object they wet and dry gradually as they leave or enter cover " +
+                "(Play mode); without one, and in Edit mode, they follow cover at once. None: the surface takes no " +
+                "weather.");
+
+            public static readonly GUIContent DropDensity = new GUIContent(
+                "Drop Density", "Share of the upward-facing surface that rain drops settle on (0 to 1).");
+
+            public static readonly GUIContent DropSize = new GUIContent(
+                "Drop Size", "Spacing of the drops in metres, as the object is scaled.");
+
+            public static readonly GUIContent DropLife = new GUIContent(
+                "Drop Life", "Seconds a drop lasts before it shrinks away and a new one forms.");
+
+            public static readonly GUIContent FlakeDensity = new GUIContent(
+                "Flake Density", "Share of the upward-facing surface that snow flakes settle on (0 to 1).");
+
+            public static readonly GUIContent FlakeSize = new GUIContent(
+                "Flake Size", "Spacing of the flakes in metres, as the object is scaled.");
+
+            public static readonly GUIContent FlakeLife = new GUIContent(
+                "Flake Life", "Seconds a flake lasts before it melts away and a new one lands.");
+
             public static readonly GUIContent Emission = new GUIContent(
                 "Emission",
                 "Light the surface gives off by itself: lamps, screens, embers. It is added on top of the lit " +
@@ -210,6 +250,9 @@ namespace HiddenBull.UrpStyle.Editor
                 "colour still reads in three tones.";
         }
 
+        const int StaticWeather = 1;
+        const int MovingWeather = 2;
+
         static readonly (string property, string keyword)[] s_ToggleKeywords =
         {
             ("_BrushEnabled", "_HB_BRUSH"),
@@ -278,15 +321,32 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_EmissionEnabled;
         MaterialProperty m_EmissionColor;
         MaterialProperty m_EmissionMap;
+        MaterialProperty m_ReceiveWeather;
+        MaterialProperty m_Wetness;
+        MaterialProperty m_SnowCover;
+        MaterialProperty m_DropDensity;
+        MaterialProperty m_DropSize;
+        MaterialProperty m_DropLife;
+        MaterialProperty m_FlakeDensity;
+        MaterialProperty m_FlakeSize;
+        MaterialProperty m_FlakeLife;
         MaterialProperty m_AlphaClipEnabled;
         MaterialProperty m_Cutoff;
         MaterialProperty m_ReceiveShadows;
         MaterialProperty m_Cull;
         MaterialProperty m_QueueOffset;
 
+        bool m_Opened;
+
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
             FindProperties(properties);
+
+            if (!m_Opened)
+            {
+                m_Opened = true;
+                ValidateTargets(materialEditor);
+            }
 
             EditorGUI.BeginChangeCheck();
 
@@ -298,6 +358,7 @@ namespace HiddenBull.UrpStyle.Editor
             DrawRim(materialEditor);
             DrawSubsurface(materialEditor);
             DrawEmission(materialEditor);
+            DrawWeather(materialEditor);
             DrawAdvanced(materialEditor);
 
             CoreEditorUtils.DrawSplitter();
@@ -316,6 +377,13 @@ namespace HiddenBull.UrpStyle.Editor
 
             foreach (var (property, keyword) in s_ToggleKeywords)
                 CoreUtils.SetKeyword(material, keyword, GetToggle(material, property));
+
+            var weather = material.HasProperty("_ReceiveWeather")
+                ? Mathf.RoundToInt(material.GetFloat("_ReceiveWeather"))
+                : 0;
+
+            CoreUtils.SetKeyword(material, "_HB_WEATHER", weather == StaticWeather);
+            CoreUtils.SetKeyword(material, "_HB_WEATHER_MOVING", weather == MovingWeather);
 
             var triplanarRest = GetToggle(material, "_TriplanarEnabled") &&
                                 material.GetFloat("_TriplanarSpace") >= 1.5f;
@@ -400,6 +468,15 @@ namespace HiddenBull.UrpStyle.Editor
             m_EmissionEnabled = FindProperty("_EmissionEnabled", properties);
             m_EmissionColor = FindProperty("_EmissionColor", properties);
             m_EmissionMap = FindProperty("_EmissionMap", properties);
+            m_ReceiveWeather = FindProperty("_ReceiveWeather", properties);
+            m_Wetness = FindProperty("_Wetness", properties);
+            m_SnowCover = FindProperty("_SnowCover", properties);
+            m_DropDensity = FindProperty("_DropDensity", properties);
+            m_DropSize = FindProperty("_DropSize", properties);
+            m_DropLife = FindProperty("_DropLife", properties);
+            m_FlakeDensity = FindProperty("_FlakeDensity", properties);
+            m_FlakeSize = FindProperty("_FlakeSize", properties);
+            m_FlakeLife = FindProperty("_FlakeLife", properties);
             m_AlphaClipEnabled = FindProperty("_AlphaClipEnabled", properties);
             m_Cutoff = FindProperty("_Cutoff", properties);
             m_ReceiveShadows = FindProperty("_ReceiveShadows", properties);
@@ -652,6 +729,54 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 materialEditor.TexturePropertyWithHDRColor(Styles.EmissionMap, m_EmissionMap, m_EmissionColor, false);
                 materialEditor.LightmapEmissionFlagsProperty(0, true, true);
+            }
+
+            StyleMaterialHeader.End(expanded);
+        }
+
+        void DrawWeather(MaterialEditor materialEditor)
+        {
+            var reset = ResetAction(materialEditor, m_ReceiveWeather, m_Wetness, m_SnowCover, m_DropDensity, m_DropSize,
+                                    m_DropLife, m_FlakeDensity, m_FlakeSize, m_FlakeLife);
+            var expanded = StyleMaterialHeader.Draw(Styles.Weather, "Weather", materialEditor, reset: reset);
+
+            if (expanded)
+            {
+                var rect = EditorGUILayout.GetControlRect();
+                var value = Mathf.RoundToInt(m_ReceiveWeather.floatValue);
+                var index = value == MovingWeather ? 2 : value == StaticWeather ? 1 : 0;
+
+                MaterialEditor.BeginProperty(rect, m_ReceiveWeather);
+                EditorGUI.showMixedValue = m_ReceiveWeather.hasMixedValue;
+                EditorGUI.BeginChangeCheck();
+
+                index = EditorGUI.Popup(rect, Styles.ReceiveWeather, index,
+                                        EditorGUIUtility.TrTempContent(Styles.ReceiveWeatherNames));
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    materialEditor.RegisterPropertyChangeUndo(Styles.ReceiveWeather.text);
+                    m_ReceiveWeather.floatValue = index == 2 ? MovingWeather : index;
+                }
+
+                EditorGUI.showMixedValue = false;
+                MaterialEditor.EndProperty();
+
+                if (index != 0 || m_ReceiveWeather.hasMixedValue)
+                    materialEditor.ShaderProperty(m_Wetness, Styles.Wetness);
+
+                if (index == 1 || m_ReceiveWeather.hasMixedValue)
+                    materialEditor.ShaderProperty(m_SnowCover, Styles.SnowCover);
+
+                if (index == 2 || m_ReceiveWeather.hasMixedValue)
+                {
+                    materialEditor.ShaderProperty(m_DropDensity, Styles.DropDensity);
+                    materialEditor.ShaderProperty(m_DropSize, Styles.DropSize);
+                    materialEditor.ShaderProperty(m_DropLife, Styles.DropLife);
+                    materialEditor.ShaderProperty(m_FlakeDensity, Styles.FlakeDensity);
+                    materialEditor.ShaderProperty(m_FlakeSize, Styles.FlakeSize);
+                    materialEditor.ShaderProperty(m_FlakeLife, Styles.FlakeLife);
+                }
             }
 
             StyleMaterialHeader.End(expanded);

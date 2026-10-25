@@ -29,13 +29,13 @@ fixes stacked on fixes. v1 keeps the look and rebuilds the structure.
 | Compatibility | **Clean break.** No old component GUIDs, property names or scenes kept working. One-shot converters only where listed in the spec (Unity TerrainData height import; basic texture slots of old materials). |
 | Terrain | **Our own terrain** (camera-centred clipmap like Liquid Terrain), our own height + layer data. Unity TerrainData is used only to import height once. |
 | Terrain + Liquid | One family: liquid uses the terrain's data directly; one set of components and tools. |
-| Environment settings | **ScriptableObject profile on the HB Style Sun. No URP Volume components.** Runtime API for dynamic scenes (weather transitions, profile blending) and a box zone component for local overrides. |
+| Environment settings | **ScriptableObject profile on the HB Style Environment Controller (was HB Style Sun). No URP Volume components.** Runtime API for dynamic scenes (weather transitions, profile blending) and a box zone component for local overrides. |
 | Fog | Replace the froxel volumetric fog with a cheaper analytic **height fog + horizon / aerial perspective** applied in-shader. |
 | Transparency | Keep moment-based OIT (no Weighted-Blended tiers), but optimise it and add real tinted transmission. |
 | MSAA | **Not supported** (Depth Priming Forced and OIT need it off). Document it; post AA only. |
 | Shader Graph | **Node library only** (Custom Function / Sub Graph nodes for an Unlit graph). No template graph. |
 | Unity version | Unity 6000.4 (6000.0 minimum), URP 17.4, Forward+, Render Graph only. PC and console. No WebGL/mobile. |
-| Lighting | Mixed lighting with **Shadowmask** is the supported bake mode. APV recommended. Time of day lives on HB Style Sun. |
+| Lighting | Mixed lighting with **Shadowmask** is the supported bake mode. APV recommended. Time of day and weather live on HB Style Environment Controller. |
 
 ## 3. Naming and organisation
 
@@ -100,7 +100,7 @@ budgeted variant. Shaders with no URP counterpart (Sky) are budgeted absolutely.
 
 | Shader / pass | Budget (instruction slots) | Texture reads |
 |---|---|---|
-| Lit forward (all features on) | ≤ 2500 | ≤ 60 |
+| Lit forward (all features on) | ≤ 2550 (raised from 2500 on 2026-10-25 for the weather overhang check) | ≤ 60 |
 | Lit forward (albedo only) | ≤ 500 | ≤ 9 (raised from 8 on 2026-10-24 for the Fog + Horizon split) |
 | Foliage forward | ≤ 2500 | ≤ 60 |
 | Terrain forward | ≤ 3500 | ≤ 140 |
