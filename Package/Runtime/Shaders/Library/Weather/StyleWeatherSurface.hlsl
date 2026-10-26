@@ -24,6 +24,7 @@
 #define HB_WEATHER_DETAIL_FADE  5.0
 
 #define HB_WET_DARKEN           0.2h
+#define HB_GROUND_WET_DARKEN    0.3h
 #define HB_WET_FLAT_SMOOTHNESS  0.92h
 #define HB_WET_WALL_SMOOTHNESS  0.6h
 
@@ -243,7 +244,7 @@ half HB_RainFlow(float3 positionWS, half3 normalWS, half amount, float footprint
 }
 
 HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brushCoverage, half wetLimit,
-                                   half snowLimit)
+                                   half snowLimit, bool ground, half groundHeight)
 {
     HBWeather weather;
     weather.wet = 0.0h;
@@ -258,8 +259,8 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     UNITY_BRANCH
     if (wet > 0.0h || cover > 0.0h)
     {
-        float3 boundsMin = unity_RendererBounds_Min.xyz;
-        float3 boundsMax = unity_RendererBounds_Max.xyz;
+        float3 boundsMin = ground ? positionWS - 1e3 : unity_RendererBounds_Min.xyz;
+        float3 boundsMax = ground ? positionWS + 1e3 : unity_RendererBounds_Max.xyz;
         float3 size = max(boundsMax - boundsMin, 1e-3);
         float2 toEdge = min(positionWS.xz - boundsMin.xz, boundsMax.xz - positionWS.xz);
         float3 positionDx = ddx(positionWS);
@@ -272,7 +273,8 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
                   * facing;
         half patches = HB_WeatherPatches(positionWS);
         half edge = half(1.0 - saturate(min(toEdge.x, toEdge.y) / HB_SNOW_EDGE_WIDTH));
-        half height = size.y > HB_SNOW_FLAT_OBJECT ? half(saturate((positionWS.y - boundsMin.y) / size.y)) : 1.0h;
+        half height = ground ? groundHeight
+                    : size.y > HB_SNOW_FLAT_OBJECT ? half(saturate((positionWS.y - boundsMin.y) / size.y)) : 1.0h;
         half detail = HB_WeatherDetail(positionWS);
 
         UNITY_BRANCH
@@ -304,7 +306,7 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
         half soaked = lerp(flat, drained, steepWet);
 
         UNITY_BRANCH
-        if (spotReach > 0.0h)
+        if (!ground && spotReach > 0.0h)
         {
             half spotted = HB_SpottedWet(positionWS.xz, normalWS, lerp(wet, drained, steepWet), brushCoverage,
                                          footprint, detail);
@@ -320,7 +322,7 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
         half steepFlow = saturate((HB_FLOW_STEEP - normalWS.y) / HB_FLOW_STEEP_EDGE);
 
         UNITY_BRANCH
-        if (weather.rain > 0.0h && steepFlow > 0.0h && footprint < HB_FLOW_SPACING)
+        if (!ground && weather.rain > 0.0h && steepFlow > 0.0h && footprint < HB_FLOW_SPACING)
         {
             half3 bend;
             half flow = HB_RainFlow(positionWS, normalWS, weather.rain, footprint, bend);
@@ -494,7 +496,8 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half brushCoverag
 
     weather = HB_ResolveMovingWeather(positionWS, normalWS, anchorOS, material, wet, snow, clock);
 #else
-    weather = HB_ResolveSurfaceWeather(positionWS, normalWS, brushCoverage, material.wetness, material.snowCover);
+    weather = HB_ResolveSurfaceWeather(positionWS, normalWS, brushCoverage, material.wetness, material.snowCover,
+                                       false, 1.0h);
 #endif
 
     return weather;
@@ -535,7 +538,7 @@ half3 HB_RainRipples(float3 positionWS, half3 normalWS, HBWeather weather)
     return any(bend != 0.0h) ? SafeNormalize(normalWS + bend) : normalWS;
 }
 
-void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS)
+void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS, bool ground)
 {
     UNITY_BRANCH
     if (weather.wet > 0.0h || weather.snow > 0.0h || weather.flow > 0.0h)
@@ -546,8 +549,11 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         half flat = saturate(normalWS.y);
         half gloss = max(surfaceData.smoothness, lerp(HB_WET_WALL_SMOOTHNESS, HB_WET_FLAT_SMOOTHNESS, flat));
 
-        surfaceData.albedo = PositivePow(max(surfaceData.albedo, 0.0h), 1.0h + wet)
-                           * (1.0h - HB_WET_DARKEN * wet) * (1.0h - HB_FLOW_DARKEN * flow);
+        if (ground)
+            surfaceData.albedo *= 1.0h - HB_GROUND_WET_DARKEN * wet;
+        else
+            surfaceData.albedo = PositivePow(max(surfaceData.albedo, 0.0h), 1.0h + wet)
+                               * (1.0h - HB_WET_DARKEN * wet) * (1.0h - HB_FLOW_DARKEN * flow);
         surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet);
         surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow);
 

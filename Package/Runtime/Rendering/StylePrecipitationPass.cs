@@ -38,12 +38,16 @@ namespace HiddenBull.UrpStyle
 
         static readonly int s_OffsetId = Shader.PropertyToID("_HB_PrecipitationOffset");
         static readonly int s_VelocityId = Shader.PropertyToID("_HB_PrecipitationVelocity");
+        static readonly int s_GroundMapId = Shader.PropertyToID("_HB_GroundHeightmap");
+        static readonly int s_GroundSizeId = Shader.PropertyToID("_HB_GroundSize");
+        static readonly int s_GroundOriginId = Shader.PropertyToID("_HB_GroundOrigin");
 
         readonly MaterialPropertyBlock m_RainBlock = new MaterialPropertyBlock();
         readonly MaterialPropertyBlock m_SnowBlock = new MaterialPropertyBlock();
         readonly MaterialPropertyBlock m_FarRainBlock = new MaterialPropertyBlock();
         readonly MaterialPropertyBlock m_FarSnowBlock = new MaterialPropertyBlock();
         readonly MaterialPropertyBlock m_WindBlock = new MaterialPropertyBlock();
+        readonly MaterialPropertyBlock[] m_Blocks;
 
         Material m_Material;
         HBStylePrecipitationQuality m_Quality;
@@ -52,6 +56,7 @@ namespace HiddenBull.UrpStyle
         {
             renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
             profilingSampler = new ProfilingSampler("HB Style Precipitation");
+            m_Blocks = new[] { m_RainBlock, m_SnowBlock, m_FarRainBlock, m_FarSnowBlock, m_WindBlock };
         }
 
         internal void Setup(Shader shader, HBStylePrecipitationQuality quality)
@@ -60,6 +65,29 @@ namespace HiddenBull.UrpStyle
                 m_Material = CoreUtils.CreateEngineMaterial(shader);
 
             m_Quality = quality;
+        }
+
+        void BindGround(Vector3 cameraPosition)
+        {
+            Texture heightmap = Texture2D.blackTexture;
+            var size = Vector4.zero;
+            var origin = Vector4.zero;
+
+            if (StyleTerrains.TryGetGround(cameraPosition, out var data, out var corner))
+            {
+                var bounds = data.size;
+
+                heightmap = data.terrainData.heightmapTexture;
+                size = new Vector4(bounds.x, bounds.y, bounds.z, data.resolution);
+                origin = new Vector4(corner.x, corner.y, corner.z, 1f);
+            }
+
+            foreach (var block in m_Blocks)
+            {
+                block.SetTexture(s_GroundMapId, heightmap);
+                block.SetVector(s_GroundSizeId, size);
+                block.SetVector(s_GroundOriginId, origin);
+            }
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
@@ -104,6 +132,8 @@ namespace HiddenBull.UrpStyle
 
             m_WindBlock.SetVector(s_OffsetId, new Vector4(windShare, StylePrecipitation.windSpeed, 0f, WindSeed));
             m_WindBlock.SetVector(s_VelocityId, StylePrecipitation.windMotion);
+
+            BindGround(camera.transform.position);
 
             using var builder = renderGraph.AddRasterRenderPass<PassData>("HB Style Precipitation", out var data,
                                                                          profilingSampler);

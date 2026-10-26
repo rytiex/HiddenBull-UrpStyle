@@ -307,6 +307,303 @@ shader and the sky:
 - Curvature shading (cavities darker, ridges lit).
 - Editing overlay: sculpt (raise/lower/smooth/flatten), paint layers, paint grass, paint plants, paint water.
 - Done: replaces Unity Terrain in the sandbox scenes; same or better look; no basemap artefacts.
+- Decided 2026-10-25 (Phase 4 discussion), built in small steps with one Unity test each:
+  - **4.1** component + R16 heightmap + import + CDLOD clipmap rendering (flat colour with our lighting, LOD
+    debug view) + hidden TerrainData collider; **4.2** layers, control maps, rule bake, hand painting; **4.3**
+    sculpt and paint tools; **4.4** look (hex tiling, steep slopes, curvature, brush strokes, detail distance);
+    **4.5** weather on terrain.
+  - Size: one `HBStyleTerrain` is one terrain of up to 4 km × 4 km with up to a 4097² heightmap (~1 m spacing);
+    neighbouring tiles and streaming are out of scope for now.
+  - Layers: the strongest **3** per pixel (as specced; the old package used 4).
+  - **Holes**: a paintable hole mask; the terrain is not drawn there, the collider gets the hole (TerrainData
+    holes) and the shelter map does not see ground there. Cave interiors are separate meshes.
+  - Import from Unity TerrainData: **height and holes** only; layer painting, trees and details are not imported
+    (maps are usually made from scratch).
+  - Heightfield + clipmap stays the base (discussed against voxel Surface Nets 2026-10-25: 3D data, per-chunk
+    meshing, LOD seams that need Transvoxel-style stitching, mesh colliders and harder grass / liquids / import;
+    no head-to-head benchmark found). Small voxel volumes for caves and overhangs may come later as their own step.
+  - 4.1 decisions: data lives in an **`HBStyleTerrainData` asset** (heightmap, holes, later control maps; the
+    hidden collider TerrainData is generated in the editor as its sub-asset, so nothing is built at runtime);
+    patch selection on the **CPU quadtree** only (one instanced draw, no GPU path kept in reserve), its CPU time
+    shown in the Debug window; normals computed per pixel in the shader from neighbouring heights (cost reported
+    with 4.1). No meshes are generated: one fixed grid mesh is drawn per patch and reads the heights on the GPU;
+    physics is always Unity's TerrainCollider.
+  - LOD (final 2026-10-25): **distance-based CDLOD**. Within ~32 m of the camera the terrain is drawn at full
+    heightmap resolution on every quality, so it matches the collider and nothing sinks or floats; the quality
+    level only sets how fast density drops with distance; rings morph into each other, no pops or cracks. A
+    per-area error-driven LOD was chosen first and dropped: varying the ranges across the terrain breaks CDLOD's
+    one-level-apart rule far away (cracks) unless skirts or a distance-mipped roughness field are added. Distant
+    detail is kept in the lighting by the per-pixel normals.
+  - Baked light: **none on the terrain** (user's call 2026-10-25). The terrain gets realtime shadows and our
+    stylised ambient; beyond the shadow distance static objects and hills cast no shadow on it. Researched first:
+    a hidden proxy mesh for Unity's lightmapper (unverified that a hidden renderer keeps its bake) or our own
+    terrain-space shadow bake; either can be added later without changing the rendering.
+  - 4.1 built (2026-10-25, compiled offline, not run in Unity):
+    - `HBStyleTerrainData` (Create > HiddenBull > URP Style > Terrain Data) keeps a hidden Unity `TerrainData`
+      sub-asset as the single height / hole store: it gives the CPU heights (collider, queries) and the GPU
+      textures (`heightmapTexture`, `holesTexture`) without a second copy or any syncing; no Unity Terrain
+      component is used. The asset also stores min / max height per 16 × 16 patch. Its inspector imports heights
+      and holes from a Unity TerrainData or creates a flat terrain (513–4097, any size). Terrains are square
+      (width = length); a non-square Unity terrain is refused on import. Rotation and scale of the GameObject
+      are ignored, like Unity's terrain.
+    - `HBStyleTerrain` (on a GameObject with a TerrainCollider, which it fills): per camera in
+      `beginCameraRendering` it selects patches on a CPU quadtree and submits two `RenderMeshInstanced` lists
+      (view-culled for the camera, and a shadow-only list within shadow distance + 64 m without view culling);
+      Game and Scene cameras only, not overlays. `TryGetHeight` / `TryGetNormal` read the TerrainData.
+    - CDLOD after Strugar: patches of 16 quads; a node out of its child's range draws that quadrant at its own
+      level with a half patch (8 quads), so every drawn patch lies inside its own range. Morph over the last 25 %
+      of each range from the unmorphed vertex's 3D distance. Simulated with the real selection code and the
+      shader's morph: 0 level jumps and 0 cracks on 30–40 cameras over hills, a 56° slope, an 84° cliff and a
+      vertical cliff for a first range ≥ 96 m (80 m: 14 cracks of ≤ 5 cm at the vertical cliff), the nearest
+      32 m always at full resolution. Quality Terrain section: first range Low 96 / Medium 112 / High 128 /
+      Ultra 160 m (~110k–170k triangles on a 1 km test terrain).
+    - `HB URP Style/Terrain`: flat colour with our lighting (HB_StyleLit, our ambient, realtime shadows,
+      atmosphere), normals per pixel from 4 neighbouring heights, holes clipped in every pass; ShadowCaster,
+      DepthOnly, DepthNormals; the terrain drops out of the shelter map (it is the ground, not a roof). Debug view
+      Terrain/Detail Rings; the Debug window shows patches and CPU selection time for the Game camera.
+    - 4.1 test (2026-10-25): first run threw "Material needs to enable instancing"; fixed by removing the
+      `DisableBatching` tag (pitfall 1.11). The user then reported the terrain working.
+  - 4.2 decisions (2026-10-25):
+    - The layer list, the rules and the painted weights live in the **`HBStyleTerrainData` asset** (not on the
+      component as first specced), so map and layers always travel together.
+    - Layers are our own **`HBStyleTerrainLayer`** assets (albedo / normal / mask, tiling, tint; weather limits,
+      grass type and footstep fields can be added later), with an import button that copies textures from a
+      Unity TerrainLayer.
+    - Up to **16 layers**: 4 RGBA control textures; the shader reads them and samples only the strongest 3
+      layers per pixel. Control resolution is chosen per asset (512–4096, default 2048).
+    - Rules: slope and height ranges, edge softness, order (later rows win) and edge break-up noise; water
+      proximity comes with the liquids (Phase 6). Rules are baked on the GPU **automatically** after a short pause
+      when a rule or the heights change, plus a Bake Now button; hand painting is kept across bakes (painting
+      itself arrives with the tools in 4.3).
+    - Layer textures are resampled into compressed texture arrays at a chosen size (512 / 1024 / 2048, default
+      1024), so source textures may differ in size and format.
+  - 4.2 as built (2026-10-25, compiled offline, not yet run in Unity):
+    - `HBStyleTerrainLayer` (albedo, normal, mask R metallic / G occlusion / B height / A smoothness, tint, size
+      and offset in metres, normal strength, smoothness, metallic) with "Import From Unity Terrain Layer"; with a
+      mask map the Unity layer's mask remap maximum becomes our smoothness / metallic multiplier.
+    - `HBStyleTerrainLayerRule` rows in the data asset; the first row is the base and covers everything, later
+      rows cover the ones before them by their opacity where slope, height and break-up noise match. Rows with
+      Automatic off are placed only by painting (4.3).
+    - Editor-only bake: `StyleTerrainRules.compute` writes the weights (normalised, hand weights added as
+      `bake · (1 − Σhand) + hand`) into an RGBA8 array, read back into the asset's readable "Control" sub-asset.
+      `StyleTerrainArrays` resamples every layer into "Albedo" (BC7 sRGB), "Normal" (BC5) and "Mask" (BC7)
+      array sub-assets with mips. A service bakes 0.4 s after the last rule, layer or height change and skips
+      work whose signature is unchanged; tint, tiling, smoothness, metallic and normal strength are read live.
+    - Shader: loops over `ceil(N / 4)` control slices, keeps the strongest 3, samples only those (with explicit
+      gradients), then height-blends: `key = w + (h − 0.5) · 0.5`, `w' = max(key − top + 0.2, 0)`, normalised.
+      Simulated across a border: coverage follows the weight (50 % at w = 0.5), the texture height decides only
+      inside w ≈ 0.3–0.7, and a layer under ~25 % weight never punches through (the first sketch, `key = w + h`,
+      let a 2 % layer with a tall texture beat a 97 % one). Without baked layers the terrain keeps the flat colour.
+    - Normal maps use a tangent frame built from the height normal (T = (n.y, −n.x, 0)). Debug view
+      Terrain/Layers colours each pixel by its strongest layer.
+    - Query: `GetLayerAt(position)` and `GetLayersAt(position, layers[], weights[])` (up to 3, weights summing to
+      1) read the control sub-asset bilinearly on the CPU; they report the baked weights, not the texture-height
+      blend.
+  - 4.2b decisions (2026-10-25, after the first 4.2 look): the bare Vector2 rule fields were not readable.
+    - **`HBStyleTerrainLayerSet`** asset holds the layers and their rules; `HBStyleTerrainData` references a set
+      and keeps only the baked maps and the hand painting, so one set serves many scenes and is copied to vary.
+      Hand painting is stored per layer identity, not per row, so reordering a shared set does not move paint.
+    - Rule UI: min-max sliders over a histogram of the terrain's real heights / slopes, height limited to the
+      terrain's actual range in metres, a texture swatch per row, and the selected row's area highlighted in
+      the Scene view.
+    - Converter: selected Unity TerrainLayers → HB Style Terrain Layers created next to them.
+    - Menus: Create > HiddenBull > URP Style > Profiles (Quality, Environment) and > Terrain (Terrain Data,
+      Terrain Layer, Terrain Layer Set); GameObject > HiddenBull > HB Style Terrain creates the component,
+      collider and a new data asset saved automatically like Unity's terrain.
+    - Order: 4.2b → 4.3 (sculpt, holes and layer paint on one brush framework) → 4.4 + 4.5 together, each part
+      with its own debug view.
+  - 4.2b as built (2026-10-25, compiled offline, not yet run in Unity):
+    - `HBStyleTerrainLayerSet` replaces the data's own list (layer lists made in 4.2 must be made again in a
+      set). The data keeps a snapshot of the layers it was baked with, so a set edited from another scene leaves
+      this terrain consistent (old look) until it is baked again; a terrain bakes on enable when its signature
+      changed. The bake signature now includes each row's layer asset.
+    - One list drawer serves the set inspector and the data inspector (which edits the referenced set in
+      place, with New to create one): texture swatch, foldout per row, Slope and Height as min-max sliders over a
+      histogram (256² samples of the terrain, sqrt-scaled bars, blue inside the range); Height spans the
+      terrain's real min-max and a handle at an end writes the open value (±10000). Without a terrain in the
+      open scene the set inspector shows a plain Height field. New rows get the rule defaults.
+    - Selecting a row highlights that layer's baked weight in pink in Scene view cameras only
+      (`_HB_TerrainLayers.w`, one extra control read behind a uniform branch).
+    - Assets > HiddenBull > Convert To HB Style Terrain Layer turns every selected Unity TerrainLayer into an
+      HB layer of the same name next to it. GameObject > HiddenBull > HB Style Terrain creates the object with
+      the collider and a new 1025², 1024 × 300 m flat data asset at Assets/HB Style Terrain Data.asset.
+    - Data inspector order: Layers (set, resolutions, list, Bake Now), Terrain info, then the Import and New
+      Flat Terrain sections as foldouts.
+  - 4.2c after the 4.2b test (2026-10-25, compiled offline, not yet run in Unity). User: layers still hard to use,
+    highlight looked like an error, tiling repeats, no auto bake ("the old terrain's bake logic was nice").
+    - **No auto bake.** While a Terrain Data or Layer Set inspector is open, `StyleTerrainPreviewer` reruns the
+      rules compute (at most every 0.1 s, only when the signature changed) into a temporary RenderTexture array
+      bound to the terrain (`StyleTerrains.SetPreview`); the data asset is untouched. Leaving the inspector
+      returns the terrain to its last bake. Only the **Bake** button writes the control sub-asset. Layer
+      texture arrays still rebuild by themselves, 0.5 s after a texture change, while an inspector previews.
+    - Status bar on both inspectors: No heights / No layers / Baked, up to date / Previewing changes, not baked
+      yet (Needs bake outside the inspector) with the Bake button.
+    - **Pick** buttons beside Slope and Height: in the Scene view the cursor shows height and slope of the
+      ground; a drag sets the range to the min-max under the drag; Esc cancels.
+    - Highlight is now a 45 % blue overlay; it follows the live preview, so dragging a slider moves it at once.
+    - **Hex tiling** on the strongest picked layer only (the 2026-10-19 tuning: rate 0.3, luminance weight
+      exp2((lum − max) · 10), max-normalise, pow 24); the other two picks sample plainly. +6 reads.
+    - Data inspector: status bar, then a Layers box (set + New + Duplicate, list, Bake Settings foldout with the
+      two resolutions) and a Heights box (size line, Import and New Flat Terrain foldouts).
+    - GameObject > HiddenBull > HB Style Terrain saves "<Scene> Terrain Data" in the scene's same-named folder
+      when it exists, else next to the scene; Assets/ only for an unsaved scene.
+    - Occlusion culling: only frustum culling per patch. A GPU Hi-Z pass is left to the final measurement phase.
+  - 4.2d after the 4.2c test (2026-10-25, compiled offline, not yet run in Unity). User: the panel is unreadable,
+    the old Terrain Layers window was nicer; a hard seam and shapes not in the textures came with hex tiling.
+    - **Everything on the HB Style Terrain component** (user: one place, several windows make it harder; e.g.
+      watch the bake preview while sculpting). Its inspector: Data field + New, status bar (state, Preview
+      toggle remembered per user, Bake), tabs **Layers** and **Settings** (4.3 brushes join here). Terrain Data
+      only stores; its and the Layer Set's inspectors show a summary and Select buttons for terrains using them.
+    - Layers tab follows the old window: slope × height histogram graph (90 × 64 bins, log scale) with every
+      automatic layer as a coloured box whose edges drag (dragging a height edge to the border = no limit);
+      short list with colour strip, thumbnail and mode; the selected row's details (Where: Automatic, Slope
+      min-max, Lowest / Highest with Any, softness, break-up, opacity, Pick Slope / Height In Scene); the layer
+      asset's own settings inline under Look; Pick in Scene (old dark hover box with layer, slope, height;
+      click selects the layer whose rule matches the point) and Layer Map (Scene view colours by list colour).
+    - Hex tiling now on all three picks (removes the seam: a layer was hex-sampled as the strongest pick and
+      plainly as the second) and without the luminance weight (the user saw shapes that are not in the
+      textures only since hex); weights: barycentric, max-normalised, pow 24. 139 / 140 reads: the terrain
+      budget is full, 4.4 and 4.5 need a raise or savings.
+    - Height values stay metres above each terrain's own base; Any keeps a side unlimited on every terrain.
+    - After the 4.2d test: picked ranges are rounded (0.5°, 0.1 m; a flat-ground raycast returned 4.77e-07 m),
+      Lowest / Highest show two decimals and write only when edited, and a Highlight toggle (remembered) sits
+      next to Pick in Scene and Layer Map. The user approved the look and the budget use; 4.2 is closed.
+  - 4.3 decisions (2026-10-25):
+    - Brushes: Raise / Lower (Shift lowers), Smooth, Flatten (to the clicked height), Set Height (typed metres),
+      Holes (Shift fills), Paint Layer, Noise, Terrace, Stamp (a height texture pressed into the ground).
+    - Shape: our round brush (Size, Strength, Falloff hardness) by default; Unity's terrain brush textures can
+      be picked as the shape, with a rotation.
+    - Sculpting writes the heights directly; layer rules and hand paint show in the live preview, and the Paint
+      Layer brush turns Preview on. Bake writes the layer maps; until then the status says Needs bake. A Clear
+      Hand Painting button. Undo for every stroke.
+    - One **Brushes** tab on the component (Layers | Brushes | Settings): a tool row like Unity's, the brush
+      settings below; Paint Layer picks from the same coloured list as the Layers tab.
+    - Built in steps, each tested: **4.3a** brush framework + Raise / Lower, Smooth, Flatten, Set Height (undo,
+      collider, patch bounds, preview follow); **4.3b** Holes + Paint Layer (hand array per layer identity,
+      Clear Hand Painting); **4.3c** Noise, Terrace, Stamp, Unity brush shapes and rotation.
+  - 4.3a as built (2026-10-25, compiled offline, stamp maths simulated, not yet run in Unity):
+    - Component tabs Layers | Brushes | Settings. The Brushes tab runs the Scene tool while it is shown
+      (`StyleTerrainBrush`): tool row Raise / Lower, Smooth, Flatten, Set Height; Size (m), Strength, Hardness,
+      Height for Set Height (Shift-click takes it from the ground). Settings are per user (EditorPrefs).
+    - A stroke records one undo of the TerrainData and the data asset (complete object), stamps every
+      15 % of the brush size along the drag, writes with `SetHeightsDelayLOD` and syncs (collider, LOD) on
+      mouse up. Patch bounds update only for the touched patches (`HBStyleTerrainData.UpdateBounds`), which
+      bumps the version, so the quadtree and the layer preview follow during the stroke.
+    - Stamp maths (`StyleTerrainStamp`, pure C#): falloff 1 inside Hardness, smoothstep to 0 at the rim.
+      Raise adds 2 % of the brush size in metres × Strength per stamp; Smooth moves toward the 3 × 3 average,
+      Flatten / Set Height toward the target, both by 50 % × Strength per stamp. Simulated: a 20 m brush at
+      0.5 raises 0.20 m at the centre, 0 at the rim, symmetric; a 10 m step smooths into a ramp; flat ground
+      stays flat; heights clamp to 0..range (a new flat terrain sits at 0, so Lower cannot dig below it).
+    - Cursor: the brush circle drawn on the ground (inner ring for Hardness); orange while lowering.
+    - User confirmed 4.3a (2026-10-25).
+  - 4.3b as built (2026-10-25, compiled offline, paint mixing simulated, not yet run in Unity):
+    - **Holes** (Shift fills): cells whose falloff is ≥ 0.5 are set, written with `SetHolesDelayLOD`; the holes
+      texture and collider sync on mouse up (so the cut may show only when the mouse is released).
+    - **Paint Layer** (Shift erases): hand paint lives in the data asset as a "Hand" RGBA8 Texture2DArray at the
+      control resolution, one channel per **layer asset** (`m_HandLayers`), grown four channels at a time, up to
+      16. The rules compute samples each row's own channel (row → channel by layer identity), so reordering a set
+      never moves paint, and a layer removed from the set simply stops counting. Mix per stamp:
+      every channel × (1 − a), painted channel + a, with a = falloff × Strength × 0.5; floor / ceil keep 8-bit
+      steps from stalling (simulated: full cover at a = 0.01…0.25, erasing reaches 0, sum ≤ 100 %).
+    - Painting edits the CPU copy through `GetPixelData` and pushes only the touched rectangle to the GPU
+      (`Graphics.CopyTexture`), then restarts the preview, so it shows at once; Bake writes it into the control
+      maps. Choosing Paint Layer turns Preview on. Clear Hand Painting zeroes the array (undoable).
+    - Undo: holes record the TerrainData, painting records the hand array and the data asset (whole objects,
+      so one paint undo can hold up to 64 MB at 2048² × 16 channels).
+    - Brushes tab: tools in a 3 × 2 grid; Paint Layer lists the set's layers with colour strip and thumbnail.
+    - Fixes after the 4.3b test (user: holes and falling objects work): holding the mouse still keeps stamping
+      every 0.05 s (not for Holes); a ray that the collider misses (inside a hole) falls back to marching the
+      heightfield (half-sample steps, 12 bisections; simulated exact against flat, hill side and hill top, sky
+      rays miss), used by the brush and the picker; small brushes always reach at least one sample / texel,
+      and the hole brush always sets the cell under the cursor; the Holes tool draws the hole-cell grid around
+      the cursor (up to 32 cells each way).
+  - 4.3c decisions and build (2026-10-26, compiled offline, maths simulated, not yet run in Unity). The user
+    dropped the Stamp brush.
+    - **Noise**: world-fixed value-noise fBm (3 octaves, −1…1) scaled like Raise; adds bumps and dips, Shift
+      turns them over, the same place grows the same shapes. Setting: Noise Size (m).
+    - **Terrace**: pulls toward step · (floor(h / step) + frac^6): flat treads, steep but continuous risers
+      (simulated monotonic, no jumps). Setting: Step Height (m).
+    - **Shapes** for every brush: thumbnail grid of our Round brush, Unity's built-in terrain brushes
+      (loaded as `Brushes/builtin_brush_N.brush`; `UnityEditor.Brush` is internal, so its texture is read
+      through its serialized fields) and Brush assets in the project (Refresh button). A shape is read once into
+      a 128² mask (grey × alpha, alpha alone for Alpha8) and sampled bilinearly in the brush square; Rotation
+      (degrees) turns it, a line on the cursor shows the shape's top. Hardness applies to Round only.
+    - Tools grid 4 × 2: Raise / Lower, Smooth, Flatten, Set Height, Holes, Paint Layer, Noise, Terrace.
+    - After the 4.3c test: icons were red and some brushes acted square — Unity's brush masks are single-channel
+      (red) and several built-ins keep their round shape in the falloff curve, not the mask. Now the finished
+      brush texture is taken from the internal `Brush.texture` (reflection; mask field as fallback), the mask
+      uses the brightest channel × alpha, and the grid shows grey icons made from that mask. The Scene view
+      draws the brush footprint on the ground (40 × 40 cells, brush colour, alpha = weight × 0.45) so shape,
+      rotation and hardness are visible. Holes has no shape choice (round with Hardness, plus its grid).
+  - 4.3 closed (2026-10-26, user: "devam edelim").
+  - 4.4 + 4.5 decisions (2026-10-26):
+    - **4.4 look** = the cheap set only: curvature shading (cavities darker, ridges lit; from the heights the
+      normal already reads, +1 read), our brush-stroke feel (as in Lit, no reads), large-scale colour variation
+      (macro variation, no reads). Detail distance and steep-slope side projection are **not** built.
+    - **4.5 weather** = wetness and snow as in Lit (open ground from the shelter map stays dry under roofs and
+      bridges; snow by slope and in patches, filling the low parts of the layer texture first), per-layer
+      Wetness and Snow Cover on `HBStyleTerrainLayer`, then rain details (spots and ripples on flat ground,
+      running water on steep slopes, fading at the Weather detail distance).
+    - Terrain forward budget raised to **4500 slots / 175 reads** (from 3500 / 140).
+    - Steps, one test each: **4.4** (all three looks, debug view Terrain/Curvature), **4.5a** wetness + snow +
+      layer limits, **4.5b** rain details.
+  - 4.4 as built (2026-10-26, compiled offline, not yet run in Unity):
+    - The terrain material is made by the component, so the look lives in the data asset (`HBStyleTerrainLook`)
+      and is edited on a new **Look** tab (Layers | Brushes | Look | Settings), bound per terrain by
+      property block (`_HB_TerrainBrush`, `_HB_TerrainStyle`, `_HB_TerrainVariation`). Defaults = Lit's.
+    - Brush strokes as in Lit (world space): Brush Size, Brush Paint (layer textures and layer borders are
+      sampled at the stroke-shifted position; mip derivatives from the unshifted one), Tone Strokes, Relief,
+      Shading / Ambient Break-up, Albedo Variation.
+    - Curvature: Laplacian of the heights from the four normal taps plus the centre (+1 read), with the tap
+      distance = max(texel, pixel footprint) so it does not shimmer far away (the normal uses the same taps).
+      bend = clamp(Laplacian × 2 m, −1…1); albedo × (1 − bend × Curvature × 0.5). Analytic check: a 10 m deep,
+      σ 10 m valley floor bends 0.4 (−10 % at Curvature 0.5), a 5 m, σ 5 m ridge −0.8 (+20 %); wide hills
+      barely change. Debug view Terrain/Curvature: blue hollows, red ridges.
+    - Macro variation: the old 24 m / 7 m two-octave noise, ±17.5 % brightness at 1.
+  - 4.4 confirmed by the user (2026-10-26; whole frame 2.6 ms GPU in the editor with the terrain filling the view).
+  - 4.5a as built (2026-10-26, compiled offline, not yet run in Unity):
+    - The terrain always compiles the weather (`HB_WEATHER`; uniform branches skip it when dry) and calls Lit's
+      `HB_ResolveSurfaceWeather` with a new ground path: no renderer-bounds edge delay, and the "height" delay
+      comes from the blended layer texture height, so snow settles in the texture's low parts first. Lit passes
+      a constant false, so its code and counts are unchanged.
+    - `HBStyleTerrainLayer` gained Wetness and Snow Cover (0–1, default 1), blended by the layer weights
+      (`_HB_LayerSurface.zw`). Brush strokes soften under snow; wet ground gets the film reflection and
+      highlight as in Lit.
+    - Rain spots and running water come with the shared function already (spots on flat ground, running water
+      only very close on steep ground); ripples and terrain-scale tuning are 4.5b.
+    - Debug views Weather/Shelter, Weather/Wetness and Weather/Snow work on the terrain.
+  - After the 4.5a test (2026-10-26; 3.7 ms GPU frame in the editor with rain, precipitation and all weather on):
+    the ground darkened far too much in rain — Lit's albedo^(1 + wet) turns dark grass ~5× darker. Decided: the
+    ground path darkens linearly, at most 30 % (`HB_GROUND_WET_DARKEN`), gloss and film unchanged; rain spots and
+    running water are dropped on the ground (15 cm spots and 5 cm flow lines do not read at terrain scale);
+    Lit keeps all three. **4.5b is skipped** (no puddles or ripples on the terrain). Terrain weather is done;
+    the remaining Phase 4 step is the terrain UI rework.
+  - **4.6 UI rework** (2026-10-26, decided after studying the pre-v1 Liquid Terrain editor; compiled offline, not
+    yet run in Unity):
+    - Every tab opens with a guide card (`StyleTerrainGUI.Guide`): drawn icon, title, help text, shortcut chips,
+      colour strip. Sections use coloured header bars: Layers green, Brushes blue (Shape) / orange (Surface),
+      Look purple, Settings grey.
+    - Brushes tab (`StyleTerrainBrushPanel`): a **Shape** palette (Raise, Smooth, Flatten, Set Height, Noise,
+      Terrace) and a **Surface** palette (Holes, then one tile per layer with its texture, list colour and a
+      shortened name) as drawn tiles, five per row. Clicking the active tile again (or Esc) puts the tool away,
+      so Scene view selection works again; the state is per editor session. A Brush section with a preview (size
+      on a log scale, strength, hardness or the rotated shape) and compact sliders; Brush Shape grid below;
+      Clear Hand Painting at the bottom. Picking Paint turns Preview on.
+    - Scene shortcuts while a tool is out: [ ] brush size ×/÷ 1.15, - = strength ∓0.05, Esc put away.
+    - Scene label next to the cursor (dark box, tool colour): ground height (Raise / Lower, Smooth, Flatten with
+      its target while stroking, Set Height with its target, Noise, Terrace with the step), Ground / Hole and
+      Cut / Fill for Holes, layer name and the painted share under the cursor for Paint.
+  - 4.6 test (2026-10-26): the user found everything working except rain and snow sinking into the terrain. Cause:
+    precipitation lands on the shelter map, and the terrain is kept out of that map (so slopes do not shelter
+    themselves), so drops fell to the ground and were cut by depth. Fix: the precipitation pass binds the
+    heightmap of the terrain under the camera (`StyleTerrains.TryGetGround`, per property block) and
+    `HB_DropGrounded` fades drops, flakes, far curtains and wind ribbons over the last 0.3 m above the ground,
+    exactly as under roofs (+24 slots, +1 read in the precipitation shaders). Only the terrain under the camera
+    counts.
+  - **Phase 4 closed (2026-10-26)** by the user after the precipitation fix.
+  - Gameplay query (user's footsteps; lands with layers in 4.2): `HBStyleTerrain` returns the strongest
+    `HBStyleTerrainLayer` at a world point, and on request the point's 3 layers with weights, from a CPU copy of
+    the control maps; 4.1 already brings height and normal queries.
 
 ## 9. Grass — Change
 

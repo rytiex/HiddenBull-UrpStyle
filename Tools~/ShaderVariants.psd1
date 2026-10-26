@@ -383,5 +383,76 @@
             Slots = 0
             Reads = 0
         }
+        @{
+            Name = 'Terrain Forward'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainForwardPass.hlsl'
+            Entry = 'HB_TerrainForwardFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @()
+            Slots = 4500
+            Reads = 175
+        }
+        @{
+            Name = 'Terrain Forward (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainForwardPass.hlsl'
+            Entry = 'HB_TerrainForwardFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Terrain vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainForwardPass.hlsl'
+            Entry = 'HB_TerrainForwardVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Terrain ShadowCaster vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainDepthPass.hlsl'
+            Entry = 'HB_TerrainDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Terrain DepthOnly fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainDepthPass.hlsl'
+            Entry = 'HB_TerrainDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Terrain DepthNormals fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainDepthPass.hlsl'
+            Entry = 'HB_TerrainDepthNormalsFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Terrain Layer Rules'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Terrain/StyleTerrainRules.compute'
+            Entry = 'Rules'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
     )
 }

@@ -2,7 +2,8 @@ using UnityEngine;
 
 namespace HiddenBull.UrpStyle
 {
-    [CreateAssetMenu(fileName = "HB Style Quality Profile", menuName = "HiddenBull/URP Style/Quality Profile")]
+    [CreateAssetMenu(fileName = "HB Style Quality Profile", order = 0,
+                     menuName = "HiddenBull/URP Style/Profiles/Quality Profile")]
     public sealed class HBStyleQualityProfile : ScriptableObject
     {
         [SerializeField]
@@ -21,6 +22,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Precipitation levels: how much falling rain and snow is drawn.")]
         HBStylePrecipitationQuality m_Precipitation = new HBStylePrecipitationQuality();
 
+        [SerializeField]
+        [Tooltip("Terrain levels: how fast the HB Style Terrain's triangle density drops with distance.")]
+        HBStyleTerrainQuality m_Terrain = new HBStyleTerrainQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -28,5 +33,7 @@ namespace HiddenBull.UrpStyle
         public HBStyleWeatherQuality weather => m_Weather;
 
         public HBStylePrecipitationQuality precipitation => m_Precipitation;
+
+        public HBStyleTerrainQuality terrain => m_Terrain;
     }
 }

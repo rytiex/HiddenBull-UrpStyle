@@ -80,6 +80,7 @@ namespace HiddenBull.UrpStyle
             var shadows = quality.shadows;
 
             m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass);
+            StyleTerrains.quality = quality.terrain;
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)

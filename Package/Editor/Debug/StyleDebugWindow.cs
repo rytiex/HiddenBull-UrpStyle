@@ -20,7 +20,13 @@ namespace HiddenBull.UrpStyle.Editor
             "it, read from the top-down shelter map 160 m around the camera. Wetness shows how wet each surface " +
             "with Receive Weather is (white is soaked, after its material's Wetness); Snow shows how much snow " +
             "covers it. Precipitation draws the falling rain and snow that a roof should hide in red instead of " +
-            "hiding it, so the roof check can be seen.");
+            "hiding it, so the roof check can be seen.\n\n" +
+            "Terrain: Detail Rings colours each detail ring of the HB Style Terrain (red is the nearest, " +
+            "full-resolution ring) and blends into the next colour where a ring morphs into the coarser one.");
+
+        static readonly GUIContent s_TerrainLabel = new GUIContent("Terrain Patches / Selection",
+            "Terrain patches drawn for the Game camera this frame (view and shadow lists together) and the CPU time " +
+            "spent choosing them, in milliseconds.");
 
         static readonly GUIContent s_FallingLabel = new GUIContent("Falling Drops / Flakes",
             "Rain drops and snow flakes sent to the Game camera this frame, before the ones under roofs, beyond " +
@@ -105,6 +111,8 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.LabelField("Weather", EditorStyles.boldLabel);
             EditorGUILayout.LabelField(s_FallingLabel,
                 new GUIContent($"{StyleDebug.rainDrops} / {StyleDebug.snowFlakes}"));
+            EditorGUILayout.LabelField(s_TerrainLabel,
+                new GUIContent($"{StyleDebug.terrainPatches} / {StyleDebug.terrainSelectMs:0.000} ms"));
 
             StyleDebug.previewShelter = EditorGUILayout.Toggle(s_ShelterLabel, StyleDebug.previewShelter);
 

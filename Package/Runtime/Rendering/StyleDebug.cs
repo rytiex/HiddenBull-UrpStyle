@@ -15,7 +15,10 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Weather/Shelter")] WeatherShelter = 8,
         [InspectorName("Weather/Wetness")] WeatherWetness = 9,
         [InspectorName("Weather/Snow")] WeatherSnow = 10,
-        [InspectorName("Weather/Precipitation")] WeatherPrecipitation = 11
+        [InspectorName("Weather/Precipitation")] WeatherPrecipitation = 11,
+        [InspectorName("Terrain/Detail Rings")] TerrainRings = 12,
+        [InspectorName("Terrain/Layers")] TerrainLayers = 13,
+        [InspectorName("Terrain/Curvature")] TerrainCurvature = 14
     }
 
     static class StyleDebug
@@ -30,6 +33,9 @@ namespace HiddenBull.UrpStyle
 
         internal static int rainDrops;
         internal static int snowFlakes;
+
+        internal static int terrainPatches;
+        internal static double terrainSelectMs;
 
         internal static bool IsPreviewCamera(Camera camera)
         {

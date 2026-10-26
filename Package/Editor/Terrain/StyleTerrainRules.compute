@@ -1,0 +1,219 @@
+#pragma kernel Rules
+
+#define LIMIT          16
+#define MAX_HEIGHT     (32766.0 / 65535.0)
+#define NOISE_PERIOD   1048576
+#define SEED_STEP      17
+#define OPEN           50000.0
+
+struct Row
+{
+    float2 slope;
+    float2 height;
+    float slopeSoftness;
+    float heightSoftness;
+    float breakup;
+    float breakupSize;
+    float opacity;
+    float automatic;
+    float hand;
+    float unused;
+};
+
+StructuredBuffer<Row> _Rows;
+Texture2D<float> _Heights;
+SamplerState s_linear_clamp_sampler;
+Texture2DArray<float4> _Hand;
+RWTexture2DArray<float4> _Result;
+
+float4 _Size;
+int4 _Counts;
+
+#define HB_HEIGHT_RESOLUTION  _Size.x
+#define HB_WIDTH              _Size.y
+#define HB_HEIGHT_RANGE       _Size.z
+#define HB_CONTROL_RESOLUTION _Size.w
+#define HB_LAYERS             _Counts.x
+#define HB_HAS_HAND           _Counts.z
+
+uint Wrap(int value)
+{
+    return (uint)value & (uint)(NOISE_PERIOD - 1);
+}
+
+float Hash(uint x, uint y, uint seed)
+{
+    uint h = x * 374761393u + y * 668265263u + seed * 1274126177u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    h ^= h >> 16;
+    return (h & 0x00FFFFFFu) / 16777216.0;
+}
+
+float ValueNoise(float x, float y, int seed)
+{
+    int ix = (int)floor(x);
+    int iy = (int)floor(y);
+    float fx = x - ix;
+    float fy = y - iy;
+
+    fx = fx * fx * (3.0 - 2.0 * fx);
+    fy = fy * fy * (3.0 - 2.0 * fy);
+
+    float bottom = lerp(Hash(Wrap(ix), Wrap(iy), (uint)seed), Hash(Wrap(ix + 1), Wrap(iy), (uint)seed), fx);
+    float top = lerp(Hash(Wrap(ix), Wrap(iy + 1), (uint)seed), Hash(Wrap(ix + 1), Wrap(iy + 1), (uint)seed), fx);
+
+    return lerp(bottom, top, fy);
+}
+
+float Breakup(float2 position, float size, int seed)
+{
+    float2 p = position / size;
+
+    return ValueNoise(p.x, p.y, seed) * 0.65 + ValueNoise(p.x * 2.7 + 31.0, p.y * 2.7 + 17.0, seed + 7) * 0.35
+         - 0.5;
+}
+
+float Height(float2 uv)
+{
+    float last = HB_HEIGHT_RESOLUTION - 1.0;
+    float2 sample = (saturate(uv) * last + 0.5) / HB_HEIGHT_RESOLUTION;
+
+    return _Heights.SampleLevel(s_linear_clamp_sampler, sample, 0) / MAX_HEIGHT * HB_HEIGHT_RANGE;
+}
+
+float Slope(float2 uv)
+{
+    float step = 1.0 / max(HB_HEIGHT_RESOLUTION - 1.0, 1.0);
+    float left = max(uv.x - step, 0.0);
+    float right = min(uv.x + step, 1.0);
+    float down = max(uv.y - step, 0.0);
+    float up = min(uv.y + step, 1.0);
+
+    float dx = (Height(float2(right, uv.y)) - Height(float2(left, uv.y))) / max((right - left) * HB_WIDTH, 1e-4);
+    float dz = (Height(float2(uv.x, up)) - Height(float2(uv.x, down))) / max((up - down) * HB_WIDTH, 1e-4);
+
+    return degrees(atan(sqrt(dx * dx + dz * dz)));
+}
+
+float Ramp(float inside, float softness)
+{
+    if (softness <= 0.0)
+        return inside >= 0.0 ? 1.0 : 0.0;
+
+    float t = saturate((inside + softness) / softness);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float Band(float value, float low, float high, float softness, float openLow, float openHigh)
+{
+    float below = low <= openLow ? 1.0 : Ramp(value - low, softness);
+    float above = high >= openHigh ? 1.0 : Ramp(high - value, softness);
+
+    return below * above;
+}
+
+float Amount(Row row, float slope, float height, float2 position, int index)
+{
+    if (row.automatic < 0.5 || row.opacity <= 0.0)
+        return 0.0;
+
+    float jitter = row.breakup > 0.0 ? Breakup(position, row.breakupSize, index * SEED_STEP) * 2.0 * row.breakup
+                                     : 0.0;
+    float steep = Band(slope + jitter * row.slopeSoftness, row.slope.x, row.slope.y, row.slopeSoftness, 0.0, 90.0);
+
+    if (steep <= 0.0)
+        return 0.0;
+
+    float high = Band(height + jitter * row.heightSoftness, row.height.x, row.height.y, row.heightSoftness, -OPEN,
+                      OPEN);
+
+    return steep * high * row.opacity;
+}
+
+[numthreads(8, 8, 1)]
+void Rules(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)HB_CONTROL_RESOLUTION;
+
+    if ((int)id.x >= resolution || (int)id.y >= resolution)
+        return;
+
+    int layers = min(HB_LAYERS, LIMIT);
+    float2 uv = ((float2)id.xy + 0.5) / resolution;
+    float slope = Slope(uv);
+    float height = Height(uv);
+    float2 position = uv * HB_WIDTH;
+
+    float bake[LIMIT];
+    float hand[LIMIT];
+
+    for (int clear = 0; clear < LIMIT; clear++)
+    {
+        bake[clear] = 0.0;
+        hand[clear] = 0.0;
+    }
+
+    bake[0] = 1.0;
+
+    for (int index = 1; index < layers; index++)
+    {
+        float amount = Amount(_Rows[index], slope, height, position, index);
+
+        if (amount <= 0.0)
+            continue;
+
+        for (int below = 0; below < index; below++)
+            bake[below] *= 1.0 - amount;
+
+        bake[index] = amount;
+    }
+
+    float share = 0.0;
+
+    if (HB_HAS_HAND > 0)
+    {
+        for (int layer = 0; layer < layers; layer++)
+        {
+            int channel = (int)_Rows[layer].hand;
+
+            if (channel < 0)
+                continue;
+
+            hand[layer] = _Hand.SampleLevel(s_linear_clamp_sampler, float3(uv, channel >> 2), 0)[channel & 3];
+            share += hand[layer];
+        }
+
+        if (share > 1.0)
+        {
+            for (int scale = 0; scale < layers; scale++)
+                hand[scale] /= share;
+
+            share = 1.0;
+        }
+    }
+
+    float total = 0.0;
+
+    for (int blend = 0; blend < layers; blend++)
+    {
+        bake[blend] = bake[blend] * (1.0 - share) + hand[blend];
+        total += bake[blend];
+    }
+
+    if (total <= 0.0)
+    {
+        bake[0] = 1.0;
+        total = 1.0;
+    }
+
+    for (int slice = 0; slice < (layers + 3) >> 2; slice++)
+    {
+        float4 weights;
+        weights.x = bake[slice * 4] / total;
+        weights.y = slice * 4 + 1 < layers ? bake[slice * 4 + 1] / total : 0.0;
+        weights.z = slice * 4 + 2 < layers ? bake[slice * 4 + 2] / total : 0.0;
+        weights.w = slice * 4 + 3 < layers ? bake[slice * 4 + 3] / total : 0.0;
+
+        _Result[uint3(id.xy, slice)] = weights;
+    }
+}

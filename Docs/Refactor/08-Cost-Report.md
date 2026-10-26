@@ -97,7 +97,17 @@ profile and a section-wise lerp. Each profile's sky LUT (3 × 256 × 3 RGBAHalf)
 zone in reach and no blend running, the path is the same single-profile path as before. Zone weight maths simulated
 offline (inside, edge, blend band, corner, rotated and scaled boxes, zero blend distance).
 
-## Phase 3 — Weather, step 1: shelter map (compiled offline, not run in Unity)
+## Phase 3 — Weather
+
+Confirmed and closed by the user on 2026-10-25 (commit `2630d7f` on `refactor/v1`, plus the closing docs).
+Measured in Unity by the user, Game view Statistics, whole frame, every quality at Ultra, ~50 × 50 m sandbox with
+weather on: GPU frame 2.5 ms, global frame 3.3 ms (302 FPS), CPU main / render thread 54 % / 46 %. Before the far
+layer, far shelter map and wind ribbons the same scene measured 2.2 ms, so those parts add about 0.3 ms there. The
+phase targets per pass (shelter ≤ 0.3 ms, precipitation ≤ 0.5 ms at Ultra) were not profiled separately; they move
+to the final measurement in Phase 12 together with the rest. Final Lit cost: all features + weather +2543 / +37
+(triplanar, budget 2550 / 60).
+
+### Step 1: shelter map (compiled offline, not run in Unity)
 
 The first weather batch was removed after its test; its numbers are kept below only as history. Step 1 adds no
 cost to any Lit variant outside the debug view: Lit albedo only stays +395 / +9 and all features +1470 / +23
@@ -329,3 +339,94 @@ Globals CBUFFER `HBStyleFrame` (Phase 1, 128 bytes):
 
 Global textures: `_HB_BrushAtlas` (profile atlas), `_HB_AmbientLut` (256 × 3 RGBAHalf array, rebaked only when the
 profile changes).
+
+## Phase 4 — Terrain
+
+### Step 4.1: data, CDLOD clipmap, collider (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (flat colour, Full URP keywords) | 1458 | 110 | +410 / +9 | 3500 / 140 — OK |
+| HB Terrain vertex (forward / depth) | 44 | 2 | – | – |
+| HB Terrain ShadowCaster vertex (normal for bias) | 87 | 6 | – | – |
+| HB Terrain DepthOnly / DepthNormals fragment | 8 / 41 | 1 / 5 | – | – |
+
+The per-pixel normal costs 4 height reads, the holes one more. CPU per camera: two quadtree selections (view,
+shadows) over at most 12 levels, shown in the Debug window; GPU: two instanced draws per mesh (full / half patch),
+~110k–170k triangles on a 1 km test terrain depending on the quality (simulated selection). Memory: the Unity
+TerrainData's own heights and textures (~32 MB CPU + GPU for 4097²) and 2 floats per 16 × 16 patch.
+
+### Step 4.2: layers (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (layers, Full URP keywords) | 1687 | 120 | +639 / +19 | 3500 / 140 — OK |
+| HB Terrain forward (debug, Minimal URP) | 553 | 20 | – | – |
+| Terrain Layer Rules compute (editor bake) | 357 | 9 | – | – |
+
+Over 4.1: +229 slots and +10 reads (the control loop counts once; at run time each pixel reads `ceil(N / 4)`
+control slices plus 3 × 3 layer textures). Memory at the defaults (16 layers, 2048 control, 1024 textures):
+control 4 × 16 MB RGBA8 = 64 MB on the GPU and the same again as the CPU copy the queries read; layer arrays
+~64 MB (BC7 + BC5 + BC7, 1.33 MB per 1024² slice with mips). The arrays are saved readable, so a build keeps a
+CPU copy of them too until that is trimmed (open item).
+
+### Step 4.2b: layer sets, rule UI, Scene highlight (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (layers + highlight, Full URP keywords) | 1699 | 121 | +651 / +20 | 3500 / 140 — OK |
+
+The highlight read only runs in Scene view cameras with a row selected. Editor: the histogram samples the terrain
+256² times once per height change (cached per data asset).
+
+### Step 4.2c: live preview, hex tiling on the strongest layer (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (layers, hex on pick 1, highlight, Full URP keywords) | 1774 | 127 | +726 / +26 | 3500 / 140 — OK |
+| HB Terrain forward (debug, Minimal URP) | 640 | 27 | – | – |
+
+Hex tiling costs 6 reads (3 taps × albedo / normal / mask instead of 1 tap) on the strongest layer only. Editor
+preview: one rules dispatch per change (≤ 10 per second while dragging) into a 2048² × ceil(N/4) RGBA8 array
+(16 MB per slice), released when the inspector closes.
+
+### Step 4.2d: hex on all three picks, layer map (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (3 picks hex, highlight + layer map, Full URP keywords) | 1912 | 139 | +864 / +38 | 3500 / 140 — OK, full |
+| HB Terrain forward (debug, Minimal URP) | 781 | 39 | – | – |
+
+Each pick costs 9 reads (3 hex taps × albedo / normal / mask). 4.4 (curvature, steep slopes, detail distance) and
+4.5 (weather) cannot add reads without a budget raise or a saving (for example a cheaper third pick).
+
+### Step 4.4: brush strokes, curvature, macro variation (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (Full URP keywords) | 2466 | 140 | +1418 / +39 | 4500 / 175 — OK (raised from 3500 / 140) |
+| HB Terrain forward (debug, Minimal URP) | 1459 | 43 | – | – |
+
+Over 4.2d: +554 slots (brush sampling and stroke shift, curvature, macro noise) and +1 read (curvature centre tap).
+
+### Step 4.5a: wetness and snow on the terrain (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (weather always compiled, Full URP keywords) | 3645 | 151 | +2597 / +50 | 4500 / 175 — OK |
+| HB Terrain forward (debug, Minimal URP) | 2568 | 58 | – | – |
+
+Over 4.4: +1179 slots and +11 reads (shelter lookup, patches, rain spots, running water, wet film), close to what
+the weather costs in Lit (+1698 / +20 with its renderer-bounds terms). Lit counts unchanged by the shared ground path.
+User measurement before 4.5a: 2.6 ms GPU for the whole frame in the editor with the terrain filling the view.
+
+### Step 4.5a fixes: linear ground darkening, no spots / running water on the ground
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| HB Terrain forward (Full URP keywords) | 3205 | 151 | +2157 / +50 | 4500 / 175 — OK |
+| HB Terrain forward (debug, Minimal URP) | 2126 | 58 | – | – |
+
+−440 slots against 4.5a (spots and running water were procedural, so reads are unchanged). Lit counts unchanged.
+User measurement: 3.7 ms GPU for the whole frame in the editor with rain falling (precipitation, shelter maps,
+wet Lit objects and wet terrain together), against 2.6 ms dry.

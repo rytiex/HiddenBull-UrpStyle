@@ -278,7 +278,7 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, brush.coverage, surface.anchorOS,
                                           weatherMaterial);
 
-    HB_ApplyWeather(weather, surfaceData, inputData.normalWS);
+    HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false);
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 

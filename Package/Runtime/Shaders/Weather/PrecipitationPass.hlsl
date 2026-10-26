@@ -6,8 +6,14 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Atmosphere/StyleAtmosphere.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
 
+TEXTURE2D(_HB_GroundHeightmap);
+
 float4 _HB_PrecipitationOffset;
 float4 _HB_PrecipitationVelocity;
+float4 _HB_GroundSize;
+float4 _HB_GroundOrigin;
+
+#define HB_GROUND_HEIGHT_SCALE  (65535.0 / 32766.0)
 
 #define HB_DROP_OFFSET          _HB_PrecipitationOffset.xyz
 #define HB_DROP_SEED            uint(_HB_PrecipitationOffset.w)
@@ -74,6 +80,25 @@ float3 HB_WrapDrop(float3 seed, float3 cameraPositionWS)
     return origin + local - floor(local / HB_PRECIPITATION_BOX) * HB_PRECIPITATION_BOX;
 }
 
+half HB_DropGrounded(float3 positionWS)
+{
+    half grounded = 0.0h;
+    float2 uv = (positionWS.xz - _HB_GroundOrigin.xz) / max(_HB_GroundSize.xz, 1e-3);
+
+    UNITY_BRANCH
+    if (_HB_GroundOrigin.w > 0.5 && all(uv >= 0.0) && all(uv <= 1.0))
+    {
+        float resolution = _HB_GroundSize.w;
+        float2 texel = (uv * (resolution - 1.0) + 0.5) / resolution;
+        float ground = _HB_GroundOrigin.y + _HB_GroundSize.y * HB_GROUND_HEIGHT_SCALE
+                     * SAMPLE_TEXTURE2D_LOD(_HB_GroundHeightmap, sampler_LinearClamp, texel, 0).r;
+
+        grounded = half(saturate((ground + HB_LANDING - positionWS.y) / HB_LANDING));
+    }
+
+    return grounded;
+}
+
 half HB_DropSheltered(float3 positionWS)
 {
     half sheltered = 0.0h;
@@ -98,7 +123,7 @@ half HB_DropSheltered(float3 positionWS)
         }
     }
 
-    return sheltered;
+    return max(sheltered, HB_DropGrounded(positionWS));
 }
 
 half HB_DropFade(float3 positionWS, float3 seed, float3 cameraPositionWS, out half sheltered)
