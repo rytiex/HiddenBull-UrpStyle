@@ -133,6 +133,7 @@ namespace HiddenBull.UrpStyle.Editor
             DrawSection("m_Weather", "Weather", s_Levels);
             DrawSection("m_Precipitation", "Precipitation", s_Levels);
             DrawSection("m_Terrain", "Terrain", s_Levels);
+            DrawSection("m_Grass", "Grass", s_Levels);
 
             serializedObject.ApplyModifiedProperties();
         }

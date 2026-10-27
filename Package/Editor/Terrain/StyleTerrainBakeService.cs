@@ -21,7 +21,8 @@ namespace HiddenBull.UrpStyle.Editor
                 return data.controlLayers > 0 ? StyleTerrainBakeState.NeedsBake : StyleTerrainBakeState.NoLayers;
 
             var baked = data.control != null && data.bakeSignature == StyleTerrainBaker.Signature(data) &&
-                        data.textureSignature == StyleTerrainArrays.Signature(data);
+                        data.textureSignature == StyleTerrainArrays.Signature(data) &&
+                        data.grassSignature == StyleTerrainArrays.GrassSignature(data);
 
             return baked ? StyleTerrainBakeState.UpToDate : StyleTerrainBakeState.NeedsBake;
         }
@@ -33,6 +34,9 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (data.textureSignature != StyleTerrainArrays.Signature(data))
                 StyleTerrainArrays.Build(data);
+
+            if (data.grassSignature != StyleTerrainArrays.GrassSignature(data))
+                StyleTerrainArrays.BuildGrass(data);
 
             var signature = StyleTerrainBaker.Signature(data);
 

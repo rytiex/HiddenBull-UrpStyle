@@ -475,6 +475,76 @@
             Reads = 0
         }
         @{
+            Name = 'Grass Forward'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_GRASS_FORWARD')
+            Slots = 2000
+            Reads = 30
+        }
+        @{
+            Name = 'Grass Forward (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_GRASS_FORWARD', 'HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass DepthOnly fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass DepthNormals fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassDepthNormalsFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Place'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
+            Entry = 'Place'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Cull'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
+            Entry = 'Cull'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Terrain Layer Rules'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/Terrain/StyleTerrainRules.compute'
             Entry = 'Rules'

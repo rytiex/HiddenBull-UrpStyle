@@ -36,6 +36,9 @@ namespace HiddenBull.UrpStyle
         static readonly int s_StyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_VariationId = Shader.PropertyToID("_HB_TerrainVariation");
         static readonly int s_GrassMapId = Shader.PropertyToID("_HB_GrassMap");
+        static readonly int s_DiffuseWrapId = Shader.PropertyToID("_DiffuseWrap");
+        static readonly int s_DiffuseSoftnessId = Shader.PropertyToID("_DiffuseSoftness");
+        static readonly int s_HalfToneId = Shader.PropertyToID("_HalfTone");
         static readonly int s_LayerGrassId = Shader.PropertyToID("_HB_LayerGrass");
 
         static readonly List<HBStyleTerrain> s_Active = new List<HBStyleTerrain>();
@@ -54,6 +57,14 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         Shader m_Shader;
 
+        [SerializeField]
+        [HideInInspector]
+        Shader m_GrassShader;
+
+        [SerializeField]
+        [HideInInspector]
+        ComputeShader m_GrassCompute;
+
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly List<StyleTerrainNode> m_Nodes = new List<StyleTerrainNode>();
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
@@ -68,16 +79,45 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerLook = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerSurface = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrass = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerGrassTip = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly StyleGrass m_Grass = new StyleGrass();
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
         readonly float[] m_OneWeight = new float[1];
         readonly Stopwatch m_Watch = new Stopwatch();
 
         Material m_Material;
+        Texture m_BoundControl;
+        int m_BoundLayers;
         HBStyleTerrainData m_BuiltData;
         int m_BuiltVersion = -1;
 
         internal static IReadOnlyList<HBStyleTerrain> active => s_Active;
+
+        internal Shader grassShader => m_GrassShader;
+
+        internal ComputeShader grassCompute => m_GrassCompute;
+
+        internal Texture boundControl => m_BoundControl;
+
+        internal int boundLayers => m_BoundLayers;
+
+        internal Vector4[] layerGrass => m_LayerGrass;
+
+        internal Vector4[] layerGrassTip => m_LayerGrassTip;
+
+        internal Vector4[] layerST => m_LayerST;
+
+        internal Vector4[] layerLook => m_LayerLook;
+
+        internal Texture emptyArray => EmptyArray();
+
+        internal Vector4 grassStyle => m_Material != null
+            ? new Vector4(m_Material.GetFloat(s_DiffuseWrapId), m_Material.GetFloat(s_DiffuseSoftnessId),
+                          m_Material.GetFloat(s_HalfToneId), 0f)
+            : Vector4.zero;
+
+        internal Texture grassMap => m_Data.grass != null ? m_Data.grass : UnpaintedGrass();
 
         public HBStyleTerrainData data
         {
@@ -220,24 +260,37 @@ namespace HiddenBull.UrpStyle
         {
             s_Active.Remove(this);
             RenderPipelineManager.beginCameraRendering -= Draw;
+            m_Grass.Release();
         }
 
         void OnDestroy()
         {
             CoreUtils.Destroy(m_Material);
             m_Material = null;
+            m_Grass.Dispose();
         }
 
 #if UNITY_EDITOR
         void Reset()
         {
-            m_Shader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
+            LoadShaders();
+        }
+
+        void LoadShaders()
+        {
+            if (m_Shader == null)
+                m_Shader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
+
+            if (m_GrassShader == null)
+                m_GrassShader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(StyleGrass.ShaderPath);
+
+            if (m_GrassCompute == null)
+                m_GrassCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(StyleGrass.ComputePath);
         }
 
         void OnValidate()
         {
-            if (m_Shader == null)
-                m_Shader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
+            LoadShaders();
 
             UnityEditor.EditorApplication.delayCall += () =>
             {
@@ -273,8 +326,8 @@ namespace HiddenBull.UrpStyle
             }
 
 #if UNITY_EDITOR
-            if (m_Shader == null)
-                m_Shader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
+            if (m_Shader == null || m_GrassShader == null || m_GrassCompute == null)
+                LoadShaders();
 #endif
 
             if (m_Material == null && m_Shader != null)
@@ -337,6 +390,7 @@ namespace HiddenBull.UrpStyle
             var bounds = new Bounds(origin + size * 0.5f, size + Vector3.up * 2f);
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
+            m_Grass.Draw(context, camera, this);
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             var shadowDistance = pipeline != null ? pipeline.shadowDistance : FallbackShadowDistance;
@@ -439,7 +493,8 @@ namespace HiddenBull.UrpStyle
                     m_LayerST[index] = new Vector4(0.25f, 0.25f, 0f, 0f);
                     m_LayerLook[index] = new Vector4(1f, 1f, 1f, 1f);
                     m_LayerSurface[index] = new Vector4(0.2f, 0f, 1f, 1f);
-                    m_LayerGrass[index] = Vector4.zero;
+                    m_LayerGrass[index] = new Vector4(0f, 0f, 0f, -1f);
+                    m_LayerGrassTip[index] = new Vector4(1f, 1f, 1f, 0f);
                     continue;
                 }
 
@@ -450,8 +505,16 @@ namespace HiddenBull.UrpStyle
                                                layer.offset.y / size.y);
                 m_LayerLook[index] = new Vector4(tint.r, tint.g, tint.b, layer.normalStrength);
                 m_LayerSurface[index] = new Vector4(layer.smoothness, layer.metallic, layer.wetness, layer.snowCover);
-                m_LayerGrass[index] = new Vector4(layer.grassDensity, layer.grassHeight, layer.grassWidth, 0f);
+                var slice = m_Data.GrassSlice(layer);
+                var tip = layer.grassTip.linear;
+
+                m_LayerGrass[index] = new Vector4(slice >= 0 ? layer.grassDensity : 0f, layer.grassHeight,
+                                                  layer.grassWidth, slice);
+                m_LayerGrassTip[index] = new Vector4(tip.r, tip.g, tip.b, layer.grassTipStrength);
             }
+
+            m_BoundControl = painted ? control : null;
+            m_BoundLayers = layers;
 
             block.SetVectorArray(s_LayerSTId, m_LayerST);
             block.SetVectorArray(s_LayerLookId, m_LayerLook);

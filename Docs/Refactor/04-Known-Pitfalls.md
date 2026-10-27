@@ -23,6 +23,7 @@ Read this before touching the related system. Each entry: **symptom → cause �
 | 1.14 | Transparents break with MSAA | OIT targets are not MSAA-resolved | MSAA unsupported; document. |
 | 1.15 | Cascade-shaped light leak on huge triangles | Shadow pancaking clamps per vertex | Set Directional Light → Shadows → Near Plane = 1 (user's choice; do not add ZClip changes unless asked). |
 | 1.16 | Shadow artefact looked like a lightmap leak | Our contact filter returned lit when its blocker search found nothing at contact points | For any "leak", first ask whether it survives turning the realtime sun off; compare Attenuation vs Unfiltered debug views. |
+| 1.17 | Grass drawn with `RenderPrimitivesIndirect` was pitch black | Procedural draws get no per-object data: `SampleSH` and `GetMainLight().distanceAttenuation` (unity_LightData) read 0 | In procedural shaders use `_MainLightColor` / `_MainLightPosition` and the package ambient (`HB_GradientAmbient` / `HB_ResolveAmbient`), never per-object SH or light data. |
 
 ## 2. Shader authoring traps
 

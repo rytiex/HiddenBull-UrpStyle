@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
@@ -12,6 +13,11 @@ namespace HiddenBull.UrpStyle.Editor
         const int AlbedoPass = 0;
         const int NormalPass = 1;
         const int MaskPass = 2;
+        const int GrassResolution = 512;
+        const int GrassVersion = 2;
+        const float GrassMeanDetail = 0.5f;
+        const byte GrassSolid = 128;
+        const string GrassName = "Grass Tufts";
 
         static readonly int s_SourceId = Shader.PropertyToID("_Source");
         static readonly int s_AlbedoId = Shader.PropertyToID("_Albedo");
@@ -118,6 +124,120 @@ namespace HiddenBull.UrpStyle.Editor
 
             data.SetTextures(albedo, normal, mask, Signature(data));
             EditorUtility.SetDirty(data);
+        }
+
+        internal static string GrassSignature(HBStyleTerrainData data)
+        {
+            var text = new StringBuilder();
+
+            text.Append(Version).Append(':').Append(GrassVersion).Append(':').Append(GrassResolution);
+
+            foreach (var texture in GrassTextures(data))
+                Append(text, texture);
+
+            return text.ToString();
+        }
+
+        static List<Texture2D> GrassTextures(HBStyleTerrainData data)
+        {
+            var textures = new List<Texture2D>();
+
+            for (var index = 0; index < data.layerCount; index++)
+            {
+                var layer = data.layers[index].layer;
+
+                if (layer != null && layer.grassTexture != null && !textures.Contains(layer.grassTexture))
+                    textures.Add(layer.grassTexture);
+            }
+
+            return textures;
+        }
+
+        internal static void BuildGrass(HBStyleTerrainData data)
+        {
+            var textures = GrassTextures(data);
+            var signature = GrassSignature(data);
+
+            StyleTerrainBaker.Remove(data, GrassName);
+
+            if (textures.Count == 0)
+            {
+                data.SetGrassTextures(null, new Texture2D[0], signature);
+                EditorUtility.SetDirty(data);
+                return;
+            }
+
+            var format = Pick(TextureFormat.BC7);
+            var array = new Texture2DArray(GrassResolution, GrassResolution, textures.Count, format, true, true)
+            {
+                name = GrassName,
+                filterMode = FilterMode.Trilinear,
+                anisoLevel = 4,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            for (var slice = 0; slice < textures.Count; slice++)
+            {
+                var target = RenderTexture.GetTemporary(GrassResolution, GrassResolution, 0, RenderTextureFormat.ARGB32,
+                                                        RenderTextureReadWrite.sRGB);
+
+                Graphics.Blit(textures[slice], target);
+
+                var previous = RenderTexture.active;
+                RenderTexture.active = target;
+
+                var readable = new Texture2D(GrassResolution, GrassResolution, TextureFormat.RGBA32, true, true);
+                readable.ReadPixels(new Rect(0f, 0f, GrassResolution, GrassResolution), 0, 0, false);
+
+                RenderTexture.active = previous;
+                RenderTexture.ReleaseTemporary(target);
+
+                Detail(readable);
+                readable.Apply(true, false);
+
+                if (format != TextureFormat.RGBA32)
+                    EditorUtility.CompressTexture(readable, format, TextureCompressionQuality.Fast);
+
+                for (var mip = 0; mip < readable.mipmapCount && mip < array.mipmapCount; mip++)
+                    array.SetPixelData(readable.GetPixelData<byte>(mip), mip, slice);
+
+                Object.DestroyImmediate(readable);
+            }
+
+            array.Apply(false, true);
+            AssetDatabase.AddObjectToAsset(array, data);
+            data.SetGrassTextures(array, textures.ToArray(), signature);
+            EditorUtility.SetDirty(data);
+        }
+
+        static void Detail(Texture2D readable)
+        {
+            var pixels = readable.GetPixels32(0);
+            var light = new float[pixels.Length];
+            var sum = 0f;
+            var count = 0;
+
+            for (var i = 0; i < pixels.Length; i++)
+            {
+                light[i] = ((Color)pixels[i]).linear.grayscale;
+
+                if (pixels[i].a < GrassSolid)
+                    continue;
+
+                sum += light[i];
+                count++;
+            }
+
+            var scale = GrassMeanDetail / Mathf.Max(count > 0 ? sum / count : 1f, 1e-3f);
+
+            for (var i = 0; i < pixels.Length; i++)
+            {
+                var value = (byte)Mathf.Clamp(Mathf.RoundToInt(light[i] * scale * 255f), 0, 255);
+
+                pixels[i] = new Color32(value, value, value, pixels[i].a);
+            }
+
+            readable.SetPixels32(pixels, 0);
         }
 
         static TextureFormat Pick(TextureFormat wanted)

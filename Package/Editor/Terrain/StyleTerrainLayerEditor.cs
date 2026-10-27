@@ -6,6 +6,13 @@ namespace HiddenBull.UrpStyle.Editor
     [CustomEditor(typeof(HBStyleTerrainLayer))]
     sealed class StyleTerrainLayerEditor : UnityEditor.Editor
     {
+        const string GrassTexture = "m_GrassTexture";
+
+        static readonly string[] s_GrassFields =
+        {
+            "m_GrassDensity", "m_GrassHeight", "m_GrassWidth", "m_GrassTip", "m_GrassTipStrength"
+        };
+
         static readonly GUIContent s_SourceLabel = new GUIContent("Unity Terrain Layer",
             "A Unity TerrainLayer to copy the textures, tiling, normal strength, smoothness and metallic from.");
 
@@ -13,7 +20,33 @@ namespace HiddenBull.UrpStyle.Editor
 
         public override void OnInspectorGUI()
         {
-            DrawDefaultInspector();
+            serializedObject.Update();
+
+            var property = serializedObject.GetIterator();
+
+            for (var enter = true; property.NextVisible(enter); enter = false)
+            {
+                if (property.propertyPath == "m_Script" || property.propertyPath == GrassTexture ||
+                    System.Array.IndexOf(s_GrassFields, property.propertyPath) >= 0)
+                    continue;
+
+                EditorGUILayout.PropertyField(property, true);
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Grass", EditorStyles.boldLabel);
+
+            var texture = serializedObject.FindProperty(GrassTexture);
+
+            EditorGUILayout.PropertyField(texture);
+
+            if (texture.hasMultipleDifferentValues || texture.objectReferenceValue != null)
+            {
+                foreach (var field in s_GrassFields)
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty(field));
+            }
+
+            serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Import", EditorStyles.boldLabel);

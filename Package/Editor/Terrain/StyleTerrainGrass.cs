@@ -112,6 +112,24 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             Upload(grass, pixels, x0, z0, x1 - x0 + 1, z1 - z0 + 1);
+            data.grassStamp++;
+        }
+
+        internal static void Clear(HBStyleTerrainData data)
+        {
+            var grass = data.grass;
+
+            if (grass == null)
+                return;
+
+            Undo.RegisterCompleteObjectUndo(new Object[] { grass, data }, "Clear Grass Painting");
+
+            grass.SetPixelData(new byte[grass.width * grass.height * Channels], 0);
+            grass.Apply(false, false);
+            data.GrassEdited();
+            data.grassStamp++;
+            EditorUtility.SetDirty(grass);
+            EditorUtility.SetDirty(data);
         }
 
         static void Mix(NativeArray<byte> pixels, int value, int share, float target, float amount)

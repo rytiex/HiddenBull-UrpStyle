@@ -69,6 +69,18 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Texture2DArray m_GrassArray;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D[] m_GrassTextures;
+
+        [SerializeField]
+        [HideInInspector]
+        string m_GrassSignature;
+
+        [SerializeField]
+        [HideInInspector]
         string m_TextureSignature;
 
         [SerializeField]
@@ -150,6 +162,30 @@ namespace HiddenBull.UrpStyle
         internal Texture2D grass => m_Grass;
 
         internal int grassVersion => m_GrassVersion;
+
+        internal Texture2DArray grassArray => m_GrassArray;
+
+        internal string grassSignature => m_GrassSignature;
+
+        [System.NonSerialized]
+        internal int grassStamp;
+
+        internal int GrassSlice(HBStyleTerrainLayer layer)
+        {
+            if (layer == null || layer.grassTexture == null || m_GrassArray == null || m_GrassTextures == null)
+                return -1;
+
+            var slice = System.Array.IndexOf(m_GrassTextures, layer.grassTexture);
+
+            return slice < m_GrassArray.depth ? slice : -1;
+        }
+
+        internal void SetGrassTextures(Texture2DArray array, Texture2D[] textures, string signature)
+        {
+            m_GrassArray = array;
+            m_GrassTextures = textures;
+            m_GrassSignature = signature;
+        }
 
         internal string textureSignature => m_TextureSignature;
 

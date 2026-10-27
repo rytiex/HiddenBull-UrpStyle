@@ -179,6 +179,7 @@ namespace HiddenBull.UrpStyle.Editor
             data.terrainData.SyncTexture(TerrainData.HolesTextureName);
             StyleTerrainRay.RefreshCollider(s_Terrain);
             StyleTerrainPreviewer.Restart(data);
+            data.grassStamp++;
             SceneView.RepaintAll();
         }
 
@@ -517,6 +518,7 @@ namespace HiddenBull.UrpStyle.Editor
             holes[underZ - z0, underX - x0] = fill;
 
             terrain.SetHolesDelayLOD(x0, z0, holes);
+            data.grassStamp++;
         }
 
         static float Amount(StyleTerrainBrushTool brush, bool shift, float range)

@@ -5,6 +5,7 @@
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainShade.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Atmosphere/StyleAtmosphere.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherSurface.hlsl"
@@ -18,11 +19,6 @@
 #define HB_TERRAIN_HIGHLIGHT_AMOUNT 0.45h
 #define HB_TERRAIN_LAYER_MAP        -1.5
 #define HB_DEBUG_TERRAIN_CURVATURE  14
-#define HB_TERRAIN_CURVE_SCALE      2.0
-#define HB_TERRAIN_CURVE_SHADE      0.5h
-#define HB_TERRAIN_MACRO_SHADE      0.175h
-#define HB_TERRAIN_MACRO_LARGE      24.0
-#define HB_TERRAIN_MACRO_SMALL      7.0
 #define HB_DEBUG_GRASS_DENSITY      15
 #define HB_GRASS_DEBUG_BARE         half3(0.18h, 0.18h, 0.18h)
 #define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
@@ -59,21 +55,6 @@ HBStyleData HB_TerrainStyle()
     style.brushAlbedo = half(HB_TERRAIN_ALBEDO_VARIATION);
     style.brushRelief = half(HB_TERRAIN_BRUSH_RELIEF);
     return style;
-}
-
-half HB_TerrainBend(float curvature)
-{
-    return half(clamp(curvature * HB_TERRAIN_CURVE_SCALE, -1.0, 1.0));
-}
-
-half HB_TerrainShade(float2 xzWS, half bend)
-{
-    half macro = half(HB_BrushField(xzWS / HB_TERRAIN_MACRO_LARGE) * 0.65
-                    + HB_BrushField(xzWS / HB_TERRAIN_MACRO_SMALL) * 0.35);
-    half shade = 1.0h - bend * half(HB_TERRAIN_CURVATURE) * HB_TERRAIN_CURVE_SHADE
-               + macro * half(HB_TERRAIN_MACRO) * HB_TERRAIN_MACRO_SHADE;
-
-    return max(shade, 0.0h);
 }
 
 half3 HB_RingColour(float level, float morph)

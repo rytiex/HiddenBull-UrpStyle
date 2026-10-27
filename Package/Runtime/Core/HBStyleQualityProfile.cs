@@ -26,6 +26,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Terrain levels: how fast the HB Style Terrain's triangle density drops with distance.")]
         HBStyleTerrainQuality m_Terrain = new HBStyleTerrainQuality();
 
+        [SerializeField]
+        [Tooltip("Grass levels: how far the HB Style Terrain's grass reaches and how thick it can grow.")]
+        HBStyleGrassQuality m_Grass = new HBStyleGrassQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -35,5 +39,7 @@ namespace HiddenBull.UrpStyle
         public HBStylePrecipitationQuality precipitation => m_Precipitation;
 
         public HBStyleTerrainQuality terrain => m_Terrain;
+
+        public HBStyleGrassQuality grass => m_Grass;
     }
 }

@@ -483,3 +483,20 @@ After the fixes (painted values + Set tools): debug variant 2106 / 57; forward u
 
 Editor measurement by the user after 5.1a (terrain, FPS hands camera, no grass drawn yet): 3.5 ms GPU,
 3.6 ms frame, 25 draw calls (2267 instances), 1.1 M triangles.
+
+### Step 5.1b: grass placement, cache, culling, drawing (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Budget |
+|---|---|---|---|
+| Grass forward (ground colour x detail, tip, terrain tone bands, one-tap shadow, package ambient) | 124 | 3 | 2000 / 30 — OK |
+| Grass vertex (blade unpack, cards, sway) | 101 | 3 | – |
+| Grass DepthOnly / DepthNormals fragment | 28 / 31 | 1 / 1 | – |
+| Grass Place compute (per newly reached / changed cell, height blend, ground colour, edge taper) | 560 | 21 | – |
+| Grass Cull compute (per visible cell, every frame) | 96 | 3 | – |
+
+The first grass forward build used URP's soft shadows: 281 slots / 32 reads, over the read budget; grass now takes
+one hardware-filtered shadow tap. Memory per camera at Ultra (80 m, 0.2 m, 8 m cells): blades 8.5 MB + two
+index lists 5.6 MB. Grass costs nothing on terrains whose layers have no Grass Texture.
+
+Editor measurement by the user after 5.1b at Ultra (grass meadow in view, FPS hands camera): 2.6 ms GPU,
+3.4 ms frame, ~296 FPS, 29 draw calls. Terrain Forward (debug) is now 2297 / 66 with the height blend.

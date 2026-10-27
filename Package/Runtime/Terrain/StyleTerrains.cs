@@ -26,6 +26,16 @@ namespace HiddenBull.UrpStyle
 
         static HBStyleTerrainQuality s_Quality;
 
+        static readonly HBStyleGrassQuality s_DefaultGrass = new HBStyleGrassQuality();
+
+        static HBStyleGrassQuality s_GrassQuality;
+
+        internal static HBStyleGrassQuality grassQuality
+        {
+            get => s_GrassQuality ?? s_DefaultGrass;
+            set => s_GrassQuality = value;
+        }
+
         internal static HBStyleTerrain highlightTerrain;
         internal static int highlightRow = -1;
         internal static bool layerMap;
@@ -58,14 +68,18 @@ namespace HiddenBull.UrpStyle
             return false;
         }
 
+        internal static int previewVersion { get; private set; }
+
         internal static void SetPreview(HBStyleTerrainData data, Texture control, HBStyleTerrainLayer[] layers)
         {
             s_Previews[data] = new StyleTerrainPreview(control, layers);
+            previewVersion++;
         }
 
         internal static void ClearPreview(HBStyleTerrainData data)
         {
             s_Previews.Remove(data);
+            previewVersion++;
         }
 
         internal static bool TryGetPreview(HBStyleTerrainData data, out StyleTerrainPreview preview)

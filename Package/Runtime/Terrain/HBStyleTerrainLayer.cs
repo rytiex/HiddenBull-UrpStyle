@@ -59,7 +59,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How much snow this ground holds. Snow fills the low parts of the texture first.")]
         float m_SnowCover = 1f;
 
-        [Header("Grass")]
+        [SerializeField]
+        [Tooltip("Picture of one tuft, cut out by its alpha. Grass grows on this layer only when it is set.")]
+        Texture2D m_GrassTexture;
+
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How thick grass grows on this layer: 0 for none, 1 for a tuft at every spot the quality level " +
@@ -79,12 +82,15 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [ColorUsage(false)]
-        [Tooltip("Colour of the grass tips. The roots take the colour of the ground under them.")]
-        Color m_GrassTip = new Color(0.75f, 0.85f, 0.35f);
+        [Tooltip("Colour the upper part of each tuft turns toward, by Tip Strength. The tuft itself takes the " +
+                 "colour of the ground under it; the grass texture only gives its shape and light and dark detail.")]
+        Color m_GrassTip = Color.white;
 
         [SerializeField]
-        [Tooltip("Picture of one tuft, cut out by its alpha. Leave empty for the package's own tuft.")]
-        Texture2D m_GrassTexture;
+        [Range(0f, 1f)]
+        [Tooltip("How far the tips take the Tip colour: 0 for off, so the grass is the ground's colour all the " +
+                 "way up, 1 for full Tip colour at the very top.")]
+        float m_GrassTipStrength;
 
         public Texture2D albedo
         {
@@ -174,6 +180,12 @@ namespace HiddenBull.UrpStyle
         {
             get => m_GrassTip;
             set => m_GrassTip = value;
+        }
+
+        public float grassTipStrength
+        {
+            get => m_GrassTipStrength;
+            set => m_GrassTipStrength = Mathf.Clamp01(value);
         }
 
         public Texture2D grassTexture

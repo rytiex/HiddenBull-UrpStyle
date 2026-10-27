@@ -701,6 +701,32 @@ shader and the sky:
     - **Look in 5.1b:** texture, root-to-tip colour (root from the ground, tip from the layer's Tip colour), key
       light + ambient + received shadows, and a simple wind sway. Gust sweep, variation, brush style and
       translucency stay in 5.2.
+    - **5.1b built (2026-10-27):** `StyleGrass` (owned by `HBStyleTerrain`) keeps per camera a ring of 8 m cells
+      (side = 8 m / spacing tufts); a cell is placed once by the `Place` kernel (same density / height rule as the
+      debug view, layer picked by weight, root colour from the layer albedo) and placed again only when the camera
+      reaches it or the terrain, paint, preview or layer settings change (at most 64 cells a frame, nearest first).
+      Every frame `Cull` keeps the blades in range and in the frustum, thins them past the near distance and
+      appends them to a near (12 vertices, crossed) and a far (6 vertices, camera-facing) list drawn with
+      `RenderPrimitivesIndirect`. Grass Texture slices live in a `Grass Tufts` array built with the layer
+      arrays. Quality: Grass section (distance, near distance, spacing per level). Debug > Grass/Cells.
+      **Deviation:** far cards go through the depth prepass too, because the full-screen fog reads the depth
+      texture; depth priming then gives depth-first drawing to all grass. Tip colour default is now white (it
+      tints the texture); layers made before keep their saved Tip colour.
+    - **5.1b fixes (user, 2026-10-27):** grass was black (procedural draws get no SH or per-object light data,
+      see 04 §1.17; now package ambient + global key light) and spilled onto sand / rock where the control map
+      still held some grass weight. Placement and Debug > Grass/Density now use the terrain's own height blend
+      (mask height on the hex-tiled layer UV, edge depth 0.2), so grass grows only where the grass layer shows.
+    - **5.1b look fixes (user, 2026-10-27):** grass takes its colour **from the ground** (user choice): placement
+      stores the height-blended albedo of the three picks at mip 3 times the terrain's macro and curvature shade;
+      the Grass Tufts array now holds greyscale detail (linear luminance normalised to a mean of 0.5, alpha kept),
+      so the texture gives only shape and light / dark. Lighting uses the terrain material's Diffuse Wrap,
+      Softness and Half Tone through the same tone bands. **Tip Strength** (0–1, default 0 = off) turns the upper
+      part toward the Tip colour. A layer's grass share now grows grass only through smoothstep(0.25, 0.75), which
+      pulls the grass edge in and stops the last small leaks. **Clear Grass Painting** button under the Brushes
+      tab, next to Clear Hand Painting.
+    - **Edge taper (user, 2026-10-27, no setting):** toward a border with a grassless layer the grass gets shorter
+      (down to 30 %) and sparser (down to 50 %), driven by the raw control share of grassy layers (0.5 → 0.95),
+      so a beach or rock edge has a soft fringe instead of a cut. The debug view follows the same rule.
 
 ## 10. Liquids — Keep look, Change structure
 

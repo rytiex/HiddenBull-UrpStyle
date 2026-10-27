@@ -115,6 +115,9 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
+            if (data.terrainData != null && StyleTerrainArrays.GrassSignature(data) != data.grassSignature)
+                StyleTerrainArrays.BuildGrass(data);
+
             var signature = StyleTerrainBaker.Signature(data);
 
             if (signature == entry.signature)
