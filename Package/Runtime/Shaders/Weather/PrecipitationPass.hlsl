@@ -7,6 +7,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
 
 TEXTURE2D(_HB_GroundHeightmap);
+TEXTURE2D_FLOAT(_HB_ShelterDrops);
 
 float4 _HB_PrecipitationOffset;
 float4 _HB_PrecipitationVelocity;
@@ -115,7 +116,7 @@ half HB_DropSheltered(float3 positionWS)
 
         if (all(uv > 0.0) && all(uv < 1.0))
         {
-            float depth = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDepth, sampler_PointClamp, uv, 0).r;
+            float depth = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDrops, sampler_PointClamp, uv, 0).r;
             float roof = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
             float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
 

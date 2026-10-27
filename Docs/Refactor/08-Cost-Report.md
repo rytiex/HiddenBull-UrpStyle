@@ -456,3 +456,16 @@ precipitation, shelter maps and wet surfaces. Build measurement stays in Phase 1
 | Sky (haze now painted) | 1054 | 14 | – | 1500 / 20 — OK |
 
 The full-screen pass runs once per pixel on the base camera; Lit gained ~130 slots of room.
+Confirmed by the user on 2026-10-27.
+
+## Phase 5 — Grass
+
+### Step 5.0: Weather Mask (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Notes |
+|---|---|---|---|
+| Shelter Masks compute (512², up to 16 domes) | 57 | 1 | Runs only when a mask is in reach |
+| Precipitation rain / snow / wind vertex | 204 / 191 / 292 | 3 / 3 / 3 | Unchanged; drops read `_HB_ShelterDrops` |
+| Lit / Terrain forward | – | – | Unchanged: masks arrive through the shelter map |
+
+Memory: two R32 512² maps (2 MB) per camera, allocated only once a mask has been in reach.

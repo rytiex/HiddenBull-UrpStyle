@@ -101,7 +101,7 @@ shader and the sky:
   each stroke takes its fog from the stroke-shifted neighbour in the depth texture, so outlines break into the
   farther, foggier side; it only adds fog). The horizon term now fades toward the painted sky gradient, so
   ridges meet the painted sky without a seam. The pass blends premultiplied (no colour copy); sky pixels are
-  skipped; overlay cameras are not fogged.
+  skipped; overlay cameras are not fogged. **Confirmed by the user on 2026-10-27.**
 
 ## 6. Sky — Change + New
 
@@ -139,6 +139,18 @@ shader and the sky:
   - **Interiors are protected by shelter only**; no `HBStyleWeatherZone` box in Phase 3. Spaces below terrain level
     are discussed with the Terrain phase; a box is added only if a real leak shows up. Environment zones for caves
     should not take over the Weather section (they blend per camera, so the view out of the cave would dry up too).
+  - **Weather Mask returns (user, 2026-10-27, built as step 5.0 before grass):** the pre-v1 `HBStyleWeatherMask`
+    as a dome (Radius) that keeps an area free of rain, snow and wetness. It is stamped into the shelter map as an
+    invisible roof, so surfaces, terrain, Moving bodies and precipitation respect it with no new surface-shader
+    cost. **Block Precipitation** (default on) also stops drops inside the dome; off keeps only the surfaces dry
+    while rain keeps falling (camp fire). Up to 16 masks nearest the camera count, as before.
+    **Transition** (user, 2026-10-27): Instant (like a roof) or Gradual (Play mode only: the dome grows from its
+    centre over the mask's own **Clear Time** and shrinks over its **Cover Time**; both show only for Gradual).
+    A Gradual mask that is turned off, deactivated or **deleted** keeps shrinking from where it was instead of
+    vanishing; leftovers of a deleted mask go when its scene unloads.
+    Built: a `Masks` kernel stamps the domes after the roof margin into the surface map and, for Block
+    Precipitation masks only, into a second drops map (`_HB_ShelterDrops`) that precipitation reads; it runs
+    only when a mask is in reach.
   - Cloud drift stays a Clouds style setting; the controller's wind does not move clouds.
   - Outside Play mode weather is **instant** (surfaces sit at the slider values); timings run in Play mode.
   - Snow and wetness never read `unity_RendererBounds` (broke under static batching); heights come from world
@@ -625,6 +637,31 @@ shader and the sky:
 - Keep the **wind gust white sweep** that travels across the grass (user loves it).
 - Brush pattern on blades and flowers. Grass benders (`HBStyleGrassBender`).
 - Respects camera culling mask; never drawn by overlay cameras.
+- **Decided 2026-10-27 (Phase 5 design talk):**
+  - **Source: layer + paint.** Each `HBStyleTerrainLayer` defines its grass (density, height, width, tip colour,
+    flowers), so grass follows the layer rules and layer painting by itself. A grass map on the terrain data raises
+    or lowers density and height on top of that, painted with a **Grass** palette in the Brushes tab.
+  - **Look:** GPU generation around the camera, crossed cards near and one card far; clump and meadow variation;
+    root colour taken from the ground under the blade; the white wind gust sweep; sway; brush style on blades.
+  - **Translucency:** tips glow against a low sun.
+  - **Flowers:** per layer share, height and colour.
+  - **Benders and weather:** `HBStyleGrassBender` bends grass (player, vehicle); snow shortens and whitens it,
+    rain wets it.
+  - **Steps**, each with a debug view and a user check: **5.0** Weather Mask (§7); **5.1** generation, drawing,
+    layer grass and the Grass brush (debug: density); **5.2** look (gust sweep, variation, brush style,
+    translucency); **5.3** flowers and benders; **5.4** weather on grass.
+  - **Optimisation (user, 2026-10-27)** — the pre-v1 grass placed the whole grid every frame and drew every
+    card twice; v1 instead:
+    - **Cached placement:** grass is placed per cell once and kept; only cells the camera newly reaches, or
+      cells whose paint / rules changed, are placed again. Each frame only the visible cells are picked (GPU
+      frustum culling + indirect draw). Far thinning with wider blades stays.
+    - **Per-blade work:** ground colour, snow / wetness / shelter, the gust phase and bender bending are worked
+      out once per blade (compute or vertex), not per pixel; the fragment keeps texture + light only.
+    - **No shadow casting:** grass is not drawn into the shadow map; it receives shadows and darkens toward the
+      root for depth.
+    - **Drawing:** near (crossed cards) depth first, then colour with ZTest Equal, so light is worked out once
+      per pixel in dense grass; far single cards in one pass. Card shapes fit the texture outline tightly to
+      cut empty pixels.
 
 ## 10. Liquids — Keep look, Change structure
 

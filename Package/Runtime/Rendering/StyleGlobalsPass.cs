@@ -78,9 +78,15 @@ namespace HiddenBull.UrpStyle
             if (kind == StyleCameraKind.Overlay && m_Shelter != null &&
                 m_Shelter.TryGetMap(cameraData.baseCamera, out var shelter))
             {
-                Bind(renderGraph, builder, shelter.depth, StyleShelterPass.depthId);
+                var depth = Bind(renderGraph, builder, shelter.depth, StyleShelterPass.depthId);
+
                 Bind(renderGraph, builder, shelter.under, StyleShelterPass.underId);
                 Bind(renderGraph, builder, shelter.far, StyleShelterPass.farDepthId);
+
+                if (shelter.drops != null && shelter.drops != shelter.depth)
+                    Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
+                else if (depth.IsValid())
+                    builder.SetGlobalTextureAfterPass(depth, StyleShelterPass.dropsId);
 
                 passData.noUnderside = shelter.under == null;
                 passData.bindShelter = true;
@@ -115,15 +121,16 @@ namespace HiddenBull.UrpStyle
             });
         }
 
-        static void Bind(RenderGraph renderGraph, IUnsafeRenderGraphBuilder builder, RTHandle texture, int id)
+        static TextureHandle Bind(RenderGraph renderGraph, IUnsafeRenderGraphBuilder builder, RTHandle texture, int id)
         {
             if (texture == null)
-                return;
+                return TextureHandle.nullHandle;
 
             var handle = renderGraph.ImportTexture(texture);
 
             builder.UseTexture(handle, AccessFlags.Read);
             builder.SetGlobalTextureAfterPass(handle, id);
+            return handle;
         }
 
         StyleCameraState CameraState(UniversalCameraData cameraData)

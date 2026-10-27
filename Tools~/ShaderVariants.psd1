@@ -264,6 +264,16 @@
             Reads = 0
         }
         @{
+            Name = 'Shelter Masks'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/StyleShelter.compute'
+            Entry = 'Masks'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Shelter Underside fragment'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
             Entry = 'HB_UndersideFragment'

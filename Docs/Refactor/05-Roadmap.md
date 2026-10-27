@@ -28,7 +28,12 @@ the pre-v1 Liquid Terrain editor UI was clearly better; study it and bring the t
 terrain is otherwise finished.
 
 **After Phase 4, before Phase 5 (user, 2026-10-25):** fog needs a couple of fixes — its silhouette feature and its
-brush feel were lost in the rebuild. Look at the pre-v1 fog first to see what produced them.
+brush feel were lost in the rebuild. Look at the pre-v1 fog first to see what produced them. Done with a
+full-screen atmosphere pass; confirmed by the user on 2026-10-27.
+
+**Phase 5 plan (user, 2026-10-27):** 5.0 Weather Mask back (dome stamped into the shelter map, Block
+Precipitation); 5.1 grass generation, drawing, per-layer grass and the Grass brush; 5.2 look; 5.3 flowers and
+benders; 5.4 weather on grass. Details in `03` §7 and §9.
 
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start

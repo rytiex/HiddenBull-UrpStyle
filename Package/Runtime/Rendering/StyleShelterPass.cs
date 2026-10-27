@@ -32,8 +32,11 @@ namespace HiddenBull.UrpStyle
             internal RTHandle dilated;
             internal RTHandle under;
             internal RTHandle far;
+            internal RTHandle masked;
+            internal RTHandle drops;
             internal RTHandle bound;
             internal RTHandle boundUnder;
+            internal RTHandle boundDrops;
             internal double lastUsed;
             internal Matrix4x4 viewProjection;
             internal Vector4 height;
@@ -48,6 +51,7 @@ namespace HiddenBull.UrpStyle
             internal RTHandle depth;
             internal RTHandle under;
             internal RTHandle far;
+            internal RTHandle drops;
             internal Matrix4x4 viewProjection;
             internal Vector4 height;
             internal Matrix4x4 farViewProjection;
@@ -110,6 +114,20 @@ namespace HiddenBull.UrpStyle
             internal int groups;
         }
 
+        class MaskData
+        {
+            internal ComputeShader compute;
+            internal int kernel;
+            internal TextureHandle source;
+            internal TextureHandle surface;
+            internal TextureHandle drops;
+            internal Matrix4x4 viewProjection;
+            internal Vector4 height;
+            internal Vector4 count;
+            internal Vector4[] masks;
+            internal int groups;
+        }
+
         class PreviewData
         {
             internal ComputeShader compute;
@@ -146,6 +164,12 @@ namespace HiddenBull.UrpStyle
         static readonly int s_FarDepthId = Shader.PropertyToID("_HB_ShelterFarDepth");
         static readonly int s_FarViewProjId = Shader.PropertyToID("_HB_ShelterFarViewProj");
         static readonly int s_FarHeightId = Shader.PropertyToID("_HB_ShelterFarHeight");
+        static readonly int s_DropsId = Shader.PropertyToID("_HB_ShelterDrops");
+        static readonly int s_DropsTargetId = Shader.PropertyToID("_HB_ShelterDropsTarget");
+        static readonly int s_MasksId = Shader.PropertyToID("_HB_ShelterMasks");
+        static readonly int s_MaskCountId = Shader.PropertyToID("_HB_ShelterMaskCount");
+
+        static readonly Vector4[] s_Masks = new Vector4[StyleWeatherMasks.Limit];
 
         readonly Dictionary<Camera, View> m_Views = new Dictionary<Camera, View>();
         readonly HashSet<Camera> m_Wanted = new HashSet<Camera>();
@@ -158,6 +182,7 @@ namespace HiddenBull.UrpStyle
         int m_HeightsKernel = -1;
         int m_DilateXKernel = -1;
         int m_DilateZKernel = -1;
+        int m_MasksKernel = -1;
         int m_Resolution = 512;
         RTHandle m_Preview;
 
@@ -185,6 +210,8 @@ namespace HiddenBull.UrpStyle
 
         internal static int farHeightId => s_FarHeightId;
 
+        internal static int dropsId => s_DropsId;
+
         internal bool TryGetMap(Camera camera, out Binding binding)
         {
             binding = default;
@@ -196,6 +223,7 @@ namespace HiddenBull.UrpStyle
             binding.depth = map.bound;
             binding.under = map.boundUnder;
             binding.far = map.farValid ? map.far : null;
+            binding.drops = map.boundDrops;
             binding.viewProjection = map.viewProjection;
             binding.height = map.height;
             binding.farViewProjection = map.farViewProjection;
@@ -214,6 +242,7 @@ namespace HiddenBull.UrpStyle
             m_HeightsKernel = Kernel(compute, "Heights");
             m_DilateXKernel = Kernel(compute, "DilateX");
             m_DilateZKernel = Kernel(compute, "DilateZ");
+            m_MasksKernel = Kernel(compute, "Masks");
         }
 
         static bool Needed() => StyleWeatherState.active || StyleDebug.view == StyleDebugView.WeatherShelter ||
@@ -365,6 +394,28 @@ namespace HiddenBull.UrpStyle
                              bound, s_TargetId, height, reach);
             }
 
+            var drops = bound;
+            var blocking = 0;
+            var masks = m_MasksKernel >= 0
+                ? StyleWeatherMasks.Collect(new Vector2(sky.origin.x, sky.origin.z), Extent * 0.5f, s_Masks,
+                                            out blocking)
+                : 0;
+
+            map.boundDrops = map.bound;
+
+            if (masks > 0)
+            {
+                map.bound = AcquireMasked(ref map.masked, resolution, "_HB_ShelterMasked");
+                map.boundDrops = AcquireMasked(ref map.drops, resolution, "_HB_ShelterMaskedDrops");
+
+                var surface = renderGraph.ImportTexture(map.bound);
+
+                drops = renderGraph.ImportTexture(map.boundDrops);
+
+                RecordMasks(renderGraph, bound, surface, drops, viewProjection, height, masks, blocking);
+                bound = surface;
+            }
+
             using (var builder = renderGraph.AddUnsafePass<BindData>("HB Style Shelter Bind", out var data))
             {
                 data.viewProjection = viewProjection;
@@ -376,6 +427,16 @@ namespace HiddenBull.UrpStyle
 
                 builder.UseTexture(bound, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(bound, s_DepthId);
+
+                if (masks > 0)
+                {
+                    builder.UseTexture(drops, AccessFlags.Read);
+                    builder.SetGlobalTextureAfterPass(drops, s_DropsId);
+                }
+                else
+                {
+                    builder.SetGlobalTextureAfterPass(bound, s_DropsId);
+                }
 
                 if (under.IsValid())
                 {
@@ -445,6 +506,8 @@ namespace HiddenBull.UrpStyle
                 m_Maps[stale].dilated?.Release();
                 m_Maps[stale].under?.Release();
                 m_Maps[stale].far?.Release();
+                m_Maps[stale].masked?.Release();
+                m_Maps[stale].drops?.Release();
                 m_Maps.Remove(stale);
             }
 
@@ -481,6 +544,57 @@ namespace HiddenBull.UrpStyle
             }
 
             return map.dilated;
+        }
+
+        static RTHandle AcquireMasked(ref RTHandle handle, int resolution, string name)
+        {
+            if (handle == null || handle.rt.width != resolution)
+            {
+                handle?.Release();
+                handle = RTHandles.Alloc(resolution, resolution, colorFormat: GraphicsFormat.R32_SFloat,
+                                         filterMode: FilterMode.Point, wrapMode: TextureWrapMode.Clamp,
+                                         enableRandomWrite: true, name: name);
+            }
+
+            return handle;
+        }
+
+        void RecordMasks(RenderGraph renderGraph, TextureHandle source, TextureHandle surface, TextureHandle drops,
+                         Matrix4x4 viewProjection, Vector4 height, int count, int blocking)
+        {
+            using var builder = renderGraph.AddComputePass<MaskData>("HB Style Shelter Masks", out var data,
+                                                                     profilingSampler);
+
+            data.compute = m_Compute;
+            data.kernel = m_MasksKernel;
+            data.source = source;
+            data.surface = surface;
+            data.drops = drops;
+            data.viewProjection = viewProjection;
+            data.height = height;
+            data.count = new Vector4(count, blocking, Extent / height.z, 0f);
+            data.masks ??= new Vector4[StyleWeatherMasks.Limit];
+            data.groups = ((int)height.z + 7) / 8;
+
+            Array.Copy(s_Masks, data.masks, StyleWeatherMasks.Limit);
+
+            builder.UseTexture(source, AccessFlags.Read);
+            builder.UseTexture(surface, AccessFlags.Write);
+            builder.UseTexture(drops, AccessFlags.Write);
+            builder.AllowPassCulling(false);
+            builder.SetRenderFunc(static (MaskData d, ComputeGraphContext context) =>
+            {
+                var cmd = context.cmd;
+
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_SourceId, d.source);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_TargetId, d.surface);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_DropsTargetId, d.drops);
+                cmd.SetComputeMatrixParam(d.compute, s_ViewProjId, d.viewProjection);
+                cmd.SetComputeVectorParam(d.compute, s_HeightId, d.height);
+                cmd.SetComputeVectorParam(d.compute, s_MaskCountId, d.count);
+                cmd.SetComputeVectorArrayParam(d.compute, s_MasksId, d.masks);
+                cmd.DispatchCompute(d.compute, d.kernel, d.groups, d.groups, 1);
+            });
         }
 
         static int Reach(float margin, int resolution)
@@ -728,6 +842,8 @@ namespace HiddenBull.UrpStyle
                 map.dilated?.Release();
                 map.under?.Release();
                 map.far?.Release();
+                map.masked?.Release();
+                map.drops?.Release();
             }
 
             m_Maps.Clear();

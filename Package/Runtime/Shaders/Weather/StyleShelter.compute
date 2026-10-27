@@ -2,8 +2,11 @@
 #pragma kernel Heights
 #pragma kernel DilateX
 #pragma kernel DilateZ
+#pragma kernel Masks
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+
+#define HB_MASK_LIMIT 16
 
 Texture2D<float> _HB_ShelterDepth;
 RWTexture2D<float4> _HB_ShelterPreview;
@@ -13,11 +16,14 @@ Texture2D<float> _HB_ShelterUnder;
 Texture2D<float2> _HB_ShelterCarry;
 RWTexture2D<float2> _HB_ShelterCarryTarget;
 RWTexture2D<float> _HB_ShelterTarget;
+RWTexture2D<float> _HB_ShelterDropsTarget;
 
 float4x4 _HB_ShelterViewProj;
 float4 _HB_ShelterHeight;
 float4 _HB_ShelterPreviewArea;
 float4 _HB_ShelterDilate;
+float4 _HB_ShelterMasks[HB_MASK_LIMIT];
+float4 _HB_ShelterMaskCount;
 
 #define HB_HEIGHT_SCALE   _HB_ShelterHeight.x
 #define HB_HEIGHT_BIAS    _HB_ShelterHeight.y
@@ -27,6 +33,9 @@ float4 _HB_ShelterDilate;
 #define HB_AREA_SIZE      _HB_ShelterPreviewArea.z
 #define HB_AREA_EYE       _HB_ShelterPreviewArea.w
 #define HB_REACH          ((int)_HB_ShelterDilate.x)
+#define HB_MASK_COUNT     ((int)_HB_ShelterMaskCount.x)
+#define HB_MASK_BLOCKING  ((int)_HB_ShelterMaskCount.y)
+#define HB_MASK_TEXEL     _HB_ShelterMaskCount.z
 
 #define HB_PREVIEW_RANGE  10.0
 #define HB_EMPTY_MARGIN   0.05
@@ -166,4 +175,52 @@ void DilateZ(uint3 id : SV_DispatchThreadID)
     }
 
     _HB_ShelterTarget[texel] = (highest - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE;
+}
+
+float2 HB_MaskTexel(float3 centre, int size)
+{
+    float2 uv = mul(_HB_ShelterViewProj, float4(centre.x, 0.0, centre.z, 1.0)).xy;
+#if UNITY_UV_STARTS_AT_TOP
+    uv.y = -uv.y;
+#endif
+    return (uv * 0.5 + 0.5) * size;
+}
+
+[numthreads(8, 8, 1)]
+void Masks(uint3 id : SV_DispatchThreadID)
+{
+    int size = (int)HB_RESOLUTION;
+    int2 texel = (int2)id.xy;
+
+    if (any(texel >= size))
+        return;
+
+    float source = _HB_ShelterSource.Load(int3(texel, 0));
+    float height = source * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
+    float surface = height;
+    float drops = height;
+    float2 here = (float2)texel + 0.5;
+
+    for (int i = 0; i < HB_MASK_LIMIT; i++)
+    {
+        if (i >= HB_MASK_COUNT)
+            break;
+
+        float4 mask = _HB_ShelterMasks[i];
+        float2 offset = (here - HB_MaskTexel(mask.xyz, size)) * HB_MASK_TEXEL;
+        float reach = mask.w * mask.w - dot(offset, offset);
+
+        if (reach <= 0.0)
+            continue;
+
+        float dome = mask.y + sqrt(reach);
+
+        surface = max(surface, dome);
+
+        if (i < HB_MASK_BLOCKING)
+            drops = max(drops, dome);
+    }
+
+    _HB_ShelterTarget[texel] = surface > height ? (surface - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
+    _HB_ShelterDropsTarget[texel] = drops > height ? (drops - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
 }
