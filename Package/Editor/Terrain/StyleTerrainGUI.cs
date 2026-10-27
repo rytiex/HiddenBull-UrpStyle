@@ -21,6 +21,7 @@ namespace HiddenBull.UrpStyle.Editor
         internal static readonly Color layersTint = new Color(0.4f, 0.85f, 0.45f);
         internal static readonly Color lookTint = new Color(0.7f, 0.55f, 0.95f);
         internal static readonly Color settingsTint = new Color(0.6f, 0.6f, 0.6f);
+        internal static readonly Color grassTint = new Color(0.6f, 0.85f, 0.25f);
 
         static readonly Color s_LabelBack = new Color(0.1f, 0.1f, 0.1f, 0.92f);
         static readonly char[] s_Breaks = { '_', ' ', '-', '.' };
@@ -169,6 +170,55 @@ namespace HiddenBull.UrpStyle.Editor
                 case StyleTerrainBrushTool.Terrace:
                     Ink(rect, 0.1f, 0.85f, 0.3f, 0.85f, 0.3f, 0.65f, 0.5f, 0.65f, 0.5f, 0.45f, 0.7f, 0.45f, 0.7f,
                         0.25f, 0.9f, 0.25f);
+                    break;
+
+                case StyleTerrainBrushTool.GrassDensity:
+                    Ink(rect, 0.1f, 0.85f, 0.9f, 0.85f);
+                    Ink(rect, 0.2f, 0.85f, 0.15f, 0.55f);
+                    Ink(rect, 0.35f, 0.85f, 0.38f, 0.45f);
+                    Ink(rect, 0.5f, 0.85f, 0.48f, 0.5f);
+                    Ink(rect, 0.65f, 0.85f, 0.68f, 0.45f);
+                    Ink(rect, 0.8f, 0.85f, 0.85f, 0.55f);
+                    Ink(rect, 0.5f, 0.32f, 0.5f, 0.08f);
+                    Ink(rect, 0.38f, 0.2f, 0.62f, 0.2f);
+                    break;
+
+                case StyleTerrainBrushTool.GrassHeight:
+                    Ink(rect, 0.1f, 0.85f, 0.9f, 0.85f);
+                    Ink(rect, 0.3f, 0.85f, 0.25f, 0.6f);
+                    Ink(rect, 0.45f, 0.85f, 0.45f, 0.25f);
+                    Ink(rect, 0.6f, 0.85f, 0.62f, 0.4f);
+                    Ink(rect, 0.8f, 0.6f, 0.8f, 0.1f);
+                    Ink(rect, 0.7f, 0.22f, 0.8f, 0.1f, 0.9f, 0.22f);
+                    break;
+
+                case StyleTerrainBrushTool.GrassSetDensity:
+                    Ink(rect, 0.1f, 0.85f, 0.9f, 0.85f);
+                    Ink(rect, 0.2f, 0.85f, 0.2f, 0.5f);
+                    Ink(rect, 0.4f, 0.85f, 0.4f, 0.5f);
+                    Ink(rect, 0.6f, 0.85f, 0.6f, 0.5f);
+                    Ink(rect, 0.8f, 0.85f, 0.8f, 0.5f);
+                    Ink(rect, 0.15f, 0.3f, 0.85f, 0.3f);
+                    Ink(rect, 0.15f, 0.18f, 0.85f, 0.18f);
+                    break;
+
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    Ink(rect, 0.1f, 0.85f, 0.9f, 0.85f);
+                    Ink(rect, 0.25f, 0.85f, 0.25f, 0.4f);
+                    Ink(rect, 0.45f, 0.85f, 0.45f, 0.4f);
+                    Ink(rect, 0.65f, 0.85f, 0.65f, 0.4f);
+                    Ink(rect, 0.1f, 0.3f, 0.9f, 0.3f);
+                    Ink(rect, 0.1f, 0.18f, 0.1f, 0.42f);
+                    Ink(rect, 0.9f, 0.18f, 0.9f, 0.42f);
+                    break;
+
+                case StyleTerrainBrushTool.GrassReset:
+                    Ink(rect, 0.1f, 0.85f, 0.9f, 0.85f);
+                    Ink(rect, 0.3f, 0.85f, 0.28f, 0.55f);
+                    Ink(rect, 0.5f, 0.85f, 0.5f, 0.5f);
+                    Ink(rect, 0.7f, 0.85f, 0.72f, 0.55f);
+                    Ink(rect, 0.75f, 0.3f, 0.65f, 0.15f, 0.45f, 0.12f, 0.3f, 0.22f, 0.25f, 0.38f);
+                    Ink(rect, 0.18f, 0.28f, 0.25f, 0.38f, 0.36f, 0.33f);
                     break;
 
                 default:

@@ -17,6 +17,8 @@ namespace HiddenBull.UrpStyle
 
     static class StyleTerrains
     {
+        internal const float GrassMostHeight = 3f;
+
         static readonly HBStyleTerrainQuality s_Default = new HBStyleTerrainQuality();
 
         static readonly Dictionary<HBStyleTerrainData, StyleTerrainPreview> s_Previews =

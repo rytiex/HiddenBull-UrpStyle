@@ -61,6 +61,14 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Texture2D m_Grass;
+
+        [SerializeField]
+        [HideInInspector]
+        int m_GrassVersion;
+
+        [SerializeField]
+        [HideInInspector]
         string m_TextureSignature;
 
         [SerializeField]
@@ -139,6 +147,10 @@ namespace HiddenBull.UrpStyle
 
         internal int handVersion => m_HandVersion;
 
+        internal Texture2D grass => m_Grass;
+
+        internal int grassVersion => m_GrassVersion;
+
         internal string textureSignature => m_TextureSignature;
 
         internal string bakeSignature
@@ -176,6 +188,17 @@ namespace HiddenBull.UrpStyle
         internal void HandEdited()
         {
             m_HandVersion++;
+        }
+
+        internal void SetGrass(Texture2D grass)
+        {
+            m_Grass = grass;
+            m_GrassVersion++;
+        }
+
+        internal void GrassEdited()
+        {
+            m_GrassVersion++;
         }
 
         internal void SetTextures(Texture2DArray albedo, Texture2DArray normal, Texture2DArray mask, string signature)

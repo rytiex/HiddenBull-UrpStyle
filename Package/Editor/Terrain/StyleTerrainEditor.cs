@@ -123,16 +123,14 @@ namespace HiddenBull.UrpStyle.Editor
             var painting = tab == BrushesTab && StyleTerrainBrush.armed &&
                            StyleTerrainBrush.tool == StyleTerrainBrushTool.PaintLayer;
 
-            if (painting && !EditorPrefs.GetBool(PreviewKey, true))
-                EditorPrefs.SetBool(PreviewKey, true);
-
             var wanted = EditorPrefs.GetBool(PreviewKey, true);
-            var preview = StyleTerrainStatus.Draw(data, wanted);
+            var shown = wanted || painting;
+            var preview = StyleTerrainStatus.Draw(data, shown);
 
-            if (preview != wanted)
+            if (preview != shown)
                 EditorPrefs.SetBool(PreviewKey, preview);
 
-            SetPreview(preview ? data : null);
+            SetPreview(preview || painting ? data : null);
 
             EditorGUILayout.Space(2f);
             DrawGuide(tab, data);

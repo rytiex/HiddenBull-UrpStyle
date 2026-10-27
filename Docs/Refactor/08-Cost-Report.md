@@ -470,3 +470,16 @@ Confirmed by the user on 2026-10-27.
 
 Memory: two R32 512² maps (2 MB) per camera, allocated only once a mask has been in reach.
 Confirmed by the user on 2026-10-27 (no visible frame-time change in the editor).
+
+### Step 5.1a: layer grass, grass map, Grass brush (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Notes |
+|---|---|---|---|
+| HB Terrain forward | 3069 | 148 | Unchanged: the grass map is read only by the debug view |
+| HB Terrain forward (debug, with Grass/Density) | 2094 | 57 | Was 1978 / 55 |
+
+Memory: the grass map (RGBA8, half the control resolution: 4 MB at 1024²) exists only once grass has been painted.
+After the fixes (painted values + Set tools): debug variant 2106 / 57; forward unchanged.
+
+Editor measurement by the user after 5.1a (terrain, FPS hands camera, no grass drawn yet): 3.5 ms GPU,
+3.6 ms frame, 25 draw calls (2267 instances), 1.1 M triangles.

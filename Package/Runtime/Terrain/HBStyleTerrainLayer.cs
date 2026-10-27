@@ -59,6 +59,33 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How much snow this ground holds. Snow fills the low parts of the texture first.")]
         float m_SnowCover = 1f;
 
+        [Header("Grass")]
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How thick grass grows on this layer: 0 for none, 1 for a tuft at every spot the quality level " +
+                 "allows (about every 20 cm at Ultra). The Grass brush thins or thickens it place by place.")]
+        float m_GrassDensity;
+
+        [SerializeField]
+        [Range(0.05f, 3f)]
+        [Tooltip("Height of the grass on this layer, in metres. The Grass brush makes it shorter or taller place " +
+                 "by place.")]
+        float m_GrassHeight = 0.4f;
+
+        [SerializeField]
+        [Range(0.05f, 2f)]
+        [Tooltip("Width of one tuft of grass, in metres.")]
+        float m_GrassWidth = 0.35f;
+
+        [SerializeField]
+        [ColorUsage(false)]
+        [Tooltip("Colour of the grass tips. The roots take the colour of the ground under them.")]
+        Color m_GrassTip = new Color(0.75f, 0.85f, 0.35f);
+
+        [SerializeField]
+        [Tooltip("Picture of one tuft, cut out by its alpha. Leave empty for the package's own tuft.")]
+        Texture2D m_GrassTexture;
+
         public Texture2D albedo
         {
             get => m_Albedo;
@@ -123,6 +150,36 @@ namespace HiddenBull.UrpStyle
         {
             get => m_SnowCover;
             set => m_SnowCover = Mathf.Clamp01(value);
+        }
+
+        public float grassDensity
+        {
+            get => m_GrassDensity;
+            set => m_GrassDensity = Mathf.Clamp01(value);
+        }
+
+        public float grassHeight
+        {
+            get => m_GrassHeight;
+            set => m_GrassHeight = Mathf.Clamp(value, 0.05f, 3f);
+        }
+
+        public float grassWidth
+        {
+            get => m_GrassWidth;
+            set => m_GrassWidth = Mathf.Clamp(value, 0.05f, 2f);
+        }
+
+        public Color grassTip
+        {
+            get => m_GrassTip;
+            set => m_GrassTip = value;
+        }
+
+        public Texture2D grassTexture
+        {
+            get => m_GrassTexture;
+            set => m_GrassTexture = value;
         }
     }
 }

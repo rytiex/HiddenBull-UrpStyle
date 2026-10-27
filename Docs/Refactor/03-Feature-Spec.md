@@ -662,6 +662,45 @@ shader and the sky:
     - **Drawing:** near (crossed cards) depth first, then colour with ZTest Equal, so light is worked out once
       per pixel in dense grass; far single cards in one pass. Card shapes fit the texture outline tightly to
       cut empty pixels.
+  - **Step 5.1 decisions (user, 2026-10-27):**
+    - **Grass brush = density + height only.** It thins / thickens, shortens / lengthens, or resets the grass of
+      layers that have grass; grass on a grassless spot comes from painting a grassy layer there. One two-channel
+      grass map on the terrain data (R density change, G height change, mid value = the layer's own value),
+      written directly while painting (no Bake), like hand paint.
+    - **Grass map resolution:** half the control map (1024 at the default 2048).
+    - **Quality distance / density, graded:** Ultra ~80 m with a tuft about every 20 cm, High ~60 m, Medium
+      ~45 m and a little sparser, Low ~30 m and sparse; grass thins and widens toward the end so no border shows.
+      All editable in the Quality profile.
+    - **No slope limit on grass:** slope already lives in the layer rules (a grassless rock layer on steep
+      ground takes the grass away).
+    - **Two parts:** **5.1a** layer Grass fields, grass map, Grass brush palette, and a **Grass Density** debug
+      view on the terrain (where grass will grow, in colour); **5.1b** GPU placement with the cell cache,
+      culling, drawing, quality, and a **Grass Cells** debug view. One user check after each.
+    - **5.1a built (2026-10-27):** Grass section on `HBStyleTerrainLayer` (Grass Density 0 by default, Height,
+      Width, Tip colour, Texture; the last three wait for 5.1b), the grass map as a sub-asset of the terrain data
+      (made on the first grass stroke), a Grass palette (Density, Height, Reset; Shift thins or shortens) and
+      Debug > Grass/Density (grey bare, yellow short to blue-green tall).
+    - **5.1a fixes (user, 2026-10-27):** the grass map now holds painted values, not multipliers (the label showed
+      199%): RGBA8, R density, G height (0–3 m), B and A how far each covers the layers (0 = the layers decide).
+      Thicken / Thin and Lengthen / Shorten paint toward full / none (slower rate), new **Set Density** and **Set
+      Height** tools paint one fixed value everywhere (value field in the Brush section), Reset fades the painted
+      share. Density still grows only on layers with Grass Density above 0. Old test maps are replaced on the
+      next stroke.
+    - **Terrain tool fixes (user, 2026-10-27):** the terrain collider is rebuilt after every sculpt / holes stroke
+      and undo (it kept the old heights until the scene was reopened, so the brush label stuck), and hits take
+      their height from the heightmap. Pick In Scene now reads the layer actually shown (preview or baked
+      control map) instead of matching the rules, so hand-painted layers and breakup patches are found.
+    - **5.1a confirmed by the user on 2026-10-27** (with the fixes above).
+  - **Step 5.1b decisions (user, 2026-10-27):**
+    - **No package tuft:** the user brings their own grass texture. A layer grows grass only when its Grass
+      Texture is set; without one the other Grass fields are hidden in the layer inspector and the layer counts
+      as grassless (density 0 for the debug view, the brush and placement). Grass Texture moves to the top of
+      the Grass section.
+    - **Near / far switch at about a third of the grass distance** (Ultra: crossed cards, two at 90°, up to
+      ~25 m, then one camera-facing card), dithered over ~3 m, per quality level in the Quality profile.
+    - **Look in 5.1b:** texture, root-to-tip colour (root from the ground, tip from the layer's Tip colour), key
+      light + ambient + received shadows, and a simple wind sway. Gust sweep, variation, brush style and
+      translucency stay in 5.2.
 
 ## 10. Liquids — Keep look, Change structure
 

@@ -11,8 +11,10 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 exactly where it stopped.
 
 **Status (2026-10-27):** Phases 0–4 are closed, and the fog fix (full-screen atmosphere pass with Fog Paint +
-Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9); nothing of the
-grass is built yet.
+Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9). Step 5.1a is
+built and confirmed (see "5.1a built" and "5.1a fixes" in 03 §9): layer Grass fields, the grass map (RGBA8:
+painted density, height and their shares), the Grass brush palette (`StyleTerrainGrass`) and Debug >
+Grass/Density.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -27,12 +29,13 @@ Read before doing anything (do not ask me what these answer):
    `git ls-tree -r 3d4a06c --name-only | grep -i grass` and read them with `git show 3d4a06c:<path>`
    (StyleGrass.compute kernel Place, StyleGrassPass.cs, StyleGrassVertex.hlsl for the gust sweep).
 
-**Next job: step 5.1 of Grass**: generation, drawing, per-layer grass and the Grass brush, with a density debug
-view. Follow the optimisation block in 03 §9 (cached per-cell placement, per-blade work, no shadow casting,
-near depth-first drawing). Start with a short design talk on the open points: the grass map format on the
-terrain data, the per-layer grass fields, cell size, and the budgets (01 §5: Grass ≤ 2000 slots / 30 reads,
-≤ 2 ms Ultra meadow). Then build it, run `Tools~/Check-All.ps1`, write the cost into 08, and give me one test
-list. After my check: 5.2 look, 5.3 flowers + benders, 5.4 weather on grass.
+**Next job: step 5.1b of Grass**: GPU placement with the cell cache, culling, drawing, quality and the Grass
+Cells debug view. The 5.1 design talk is done (03 §9, "Step 5.1 decisions") and so is the 5.1b one ("Step 5.1b
+decisions": grass only on layers with a Grass Texture, near/far at a third of the distance, basic light + sway); placement must use the same
+density / height rule as `TerrainGrass.hlsl` (`HB_TerrainGrass`) so the grass matches the debug view. Build
+5.1b, run `Tools~/Check-All.ps1`, write the cost into 08, and give me one test list. Follow the optimisation
+block in 03 §9 and the budgets in 01 §5 (Grass ≤ 2000 slots / 30 reads, ≤ 2 ms Ultra meadow). Then 5.2 look,
+5.3 flowers + benders, 5.4 weather on grass.
 
 Working rules:
 

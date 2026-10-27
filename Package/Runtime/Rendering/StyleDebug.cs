@@ -18,7 +18,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Weather/Precipitation")] WeatherPrecipitation = 11,
         [InspectorName("Terrain/Detail Rings")] TerrainRings = 12,
         [InspectorName("Terrain/Layers")] TerrainLayers = 13,
-        [InspectorName("Terrain/Curvature")] TerrainCurvature = 14
+        [InspectorName("Terrain/Curvature")] TerrainCurvature = 14,
+        [InspectorName("Grass/Density")] GrassDensity = 15
     }
 
     static class StyleDebug

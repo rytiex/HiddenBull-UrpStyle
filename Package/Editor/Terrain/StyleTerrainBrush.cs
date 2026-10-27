@@ -29,6 +29,7 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly float[] s_FootprintWeights = new float[(FootprintCells + 1) * (FootprintCells + 1)];
 
         static readonly Color s_Hole = new Color(1f, 0.35f, 0.3f, 1f);
+        static readonly Color s_Grass = new Color(0.55f, 0.85f, 0.3f, 1f);
         static readonly Color s_Grid = new Color(1f, 1f, 1f, 0.3f);
 
         static Material s_FootprintMaterial;
@@ -41,8 +42,30 @@ namespace HiddenBull.UrpStyle.Editor
         static double s_Stamped;
         static int s_Version = -1;
         static int s_HandVersion = -1;
+        static int s_GrassVersion = -1;
 
         internal static HBStyleTerrainLayer paintLayer;
+
+        internal static bool grassTool => IsGrass(tool);
+
+        internal static bool IsGrass(StyleTerrainBrushTool brush)
+        {
+            return brush == StyleTerrainBrushTool.GrassDensity || brush == StyleTerrainBrushTool.GrassHeight ||
+                   brush == StyleTerrainBrushTool.GrassReset || brush == StyleTerrainBrushTool.GrassSetDensity ||
+                   brush == StyleTerrainBrushTool.GrassSetHeight;
+        }
+
+        internal static float grassDensity
+        {
+            get => EditorPrefs.GetFloat(Key + "GrassDensity", 0.5f);
+            set => EditorPrefs.SetFloat(Key + "GrassDensity", Mathf.Clamp01(value));
+        }
+
+        internal static float grassHeight
+        {
+            get => EditorPrefs.GetFloat(Key + "GrassHeight", 0.4f);
+            set => EditorPrefs.SetFloat(Key + "GrassHeight", Mathf.Clamp(value, 0.05f, StyleTerrains.GrassMostHeight));
+        }
 
         internal static bool armed
         {
@@ -105,6 +128,7 @@ namespace HiddenBull.UrpStyle.Editor
             s_Terrain = terrain;
             s_Version = terrain.data != null ? terrain.data.version : -1;
             s_HandVersion = terrain.data != null ? terrain.data.handVersion : -1;
+            s_GrassVersion = terrain.data != null ? terrain.data.grassVersion : -1;
             SceneView.duringSceneGui += OnScene;
             Undo.undoRedoPerformed += OnUndo;
             SceneView.RepaintAll();
@@ -146,7 +170,14 @@ namespace HiddenBull.UrpStyle.Editor
                 s_HandVersion = data.handVersion;
             }
 
+            if (data.grass != null && data.grassVersion != s_GrassVersion)
+            {
+                data.grass.Apply(false, false);
+                s_GrassVersion = data.grassVersion;
+            }
+
             data.terrainData.SyncTexture(TerrainData.HolesTextureName);
+            StyleTerrainRay.RefreshCollider(s_Terrain);
             StyleTerrainPreviewer.Restart(data);
             SceneView.RepaintAll();
         }
@@ -280,6 +311,15 @@ namespace HiddenBull.UrpStyle.Editor
                     Undo.RegisterCompleteObjectUndo(data.terrainData, "Paint HB Style Terrain Holes");
                     return true;
 
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    Undo.RegisterCompleteObjectUndo(new Object[] { StyleTerrainGrass.Ensure(data), data },
+                                                    "Paint HB Style Terrain Grass");
+                    return true;
+
                 default:
                     Undo.RegisterCompleteObjectUndo(new Object[] { data.terrainData, data }, "Sculpt HB Style Terrain");
                     return true;
@@ -345,11 +385,27 @@ namespace HiddenBull.UrpStyle.Editor
                 case StyleTerrainBrushTool.Holes:
                     data.terrainData.SyncTexture(TerrainData.HolesTextureName);
                     data.terrainData.SyncHeightmap();
+                    StyleTerrainRay.RefreshCollider(s_Terrain);
                     EditorUtility.SetDirty(data.terrainData);
+                    break;
+
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    if (data.grass != null)
+                    {
+                        data.GrassEdited();
+                        EditorUtility.SetDirty(data.grass);
+                    }
+
+                    s_GrassVersion = data.grassVersion;
                     break;
 
                 default:
                     data.terrainData.SyncHeightmap();
+                    StyleTerrainRay.RefreshCollider(s_Terrain);
                     EditorUtility.SetDirty(data.terrainData);
                     s_Version = data.version;
                     break;
@@ -372,6 +428,15 @@ namespace HiddenBull.UrpStyle.Editor
 
                 case StyleTerrainBrushTool.Holes:
                     StampHoles(data, point, shift);
+                    return;
+
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    StyleTerrainGrass.Stamp(data, tool, point - s_Terrain.transform.position, size * 0.5f, hardness,
+                                            strength, shift, StyleTerrainShapes.current);
                     return;
             }
 
@@ -502,9 +567,63 @@ namespace HiddenBull.UrpStyle.Editor
                     StyleTerrainGUI.SceneLabel(point, name, shift ? $"Remove ({share})" : share, colour);
                     break;
 
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    StyleTerrainGUI.SceneLabel(point, GrassState(StyleTerrainGrass.Painted(data, local)),
+                                               GrassAction(shift), colour);
+                    break;
+
                 default:
                     StyleTerrainGUI.SceneLabel(point, ground, "Smooth", colour);
                     break;
+            }
+        }
+
+        static string GrassState(Vector4 painted)
+        {
+            var density = painted.z > 0f
+                ? $"Density {painted.x * 100f:0}% over {painted.z * 100f:0}%"
+                : "Density from the layers";
+            var height = painted.w > 0f
+                ? $"Height {painted.y:0.00} m over {painted.w * 100f:0}%"
+                : "Height from the layers";
+
+            switch (tool)
+            {
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                    return density;
+
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    return height;
+
+                default:
+                    return $"{density}, {height}";
+            }
+        }
+
+        static string GrassAction(bool shift)
+        {
+            switch (tool)
+            {
+                case StyleTerrainBrushTool.GrassDensity:
+                    return shift ? "Thin" : "Thicken";
+
+                case StyleTerrainBrushTool.GrassHeight:
+                    return shift ? "Shorten" : "Lengthen";
+
+                case StyleTerrainBrushTool.GrassSetDensity:
+                    return $"Set density to {grassDensity * 100f:0}%";
+
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    return $"Set height to {grassHeight:0.00} m";
+
+                default:
+                    return "Back to the layers";
             }
         }
 
@@ -715,6 +834,15 @@ namespace HiddenBull.UrpStyle.Editor
                     }
 
                     return s_Raise;
+
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                    return shift ? s_Lower : s_Grass;
+
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    return s_Grass;
 
                 default:
                     return s_Raise;

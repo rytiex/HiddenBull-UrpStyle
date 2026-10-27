@@ -35,12 +35,15 @@ namespace HiddenBull.UrpStyle
         static readonly int s_BrushId = Shader.PropertyToID("_HB_TerrainBrush");
         static readonly int s_StyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_VariationId = Shader.PropertyToID("_HB_TerrainVariation");
+        static readonly int s_GrassMapId = Shader.PropertyToID("_HB_GrassMap");
+        static readonly int s_LayerGrassId = Shader.PropertyToID("_HB_LayerGrass");
 
         static readonly List<HBStyleTerrain> s_Active = new List<HBStyleTerrain>();
 
         static Mesh s_Patch;
         static Mesh s_Quarter;
         static Texture2DArray s_EmptyArray;
+        static Texture2D s_UnpaintedGrass;
 
         [SerializeField]
         [Tooltip("Stores the terrain: heights, holes, layer maps and settings. Press New for a flat terrain, then " +
@@ -64,6 +67,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerST = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerLook = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerSurface = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerGrass = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
         readonly float[] m_OneWeight = new float[1];
@@ -435,6 +439,7 @@ namespace HiddenBull.UrpStyle
                     m_LayerST[index] = new Vector4(0.25f, 0.25f, 0f, 0f);
                     m_LayerLook[index] = new Vector4(1f, 1f, 1f, 1f);
                     m_LayerSurface[index] = new Vector4(0.2f, 0f, 1f, 1f);
+                    m_LayerGrass[index] = Vector4.zero;
                     continue;
                 }
 
@@ -445,11 +450,31 @@ namespace HiddenBull.UrpStyle
                                                layer.offset.y / size.y);
                 m_LayerLook[index] = new Vector4(tint.r, tint.g, tint.b, layer.normalStrength);
                 m_LayerSurface[index] = new Vector4(layer.smoothness, layer.metallic, layer.wetness, layer.snowCover);
+                m_LayerGrass[index] = new Vector4(layer.grassDensity, layer.grassHeight, layer.grassWidth, 0f);
             }
 
             block.SetVectorArray(s_LayerSTId, m_LayerST);
             block.SetVectorArray(s_LayerLookId, m_LayerLook);
             block.SetVectorArray(s_LayerSurfaceId, m_LayerSurface);
+            block.SetVectorArray(s_LayerGrassId, m_LayerGrass);
+            block.SetTexture(s_GrassMapId, m_Data.grass != null ? m_Data.grass : UnpaintedGrass());
+        }
+
+        static Texture2D UnpaintedGrass()
+        {
+            if (s_UnpaintedGrass == null)
+            {
+                s_UnpaintedGrass = new Texture2D(1, 1, TextureFormat.RGBA32, false, true)
+                {
+                    name = "HB Style Terrain Unpainted Grass",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+
+                s_UnpaintedGrass.SetPixels32(new[] { new Color32(0, 0, 0, 0) }, 0);
+                s_UnpaintedGrass.Apply(false, true);
+            }
+
+            return s_UnpaintedGrass;
         }
 
         float Highlight(Camera camera, int layers)

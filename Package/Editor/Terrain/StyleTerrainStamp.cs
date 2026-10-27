@@ -11,7 +11,12 @@ namespace HiddenBull.UrpStyle.Editor
         Holes,
         PaintLayer,
         Noise,
-        Terrace
+        Terrace,
+        GrassDensity,
+        GrassHeight,
+        GrassReset,
+        GrassSetDensity,
+        GrassSetHeight
     }
 
     sealed class StyleTerrainShape

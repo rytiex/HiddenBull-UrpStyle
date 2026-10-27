@@ -4,6 +4,7 @@
 #define HB_WEATHER
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Atmosphere/StyleAtmosphere.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherSurface.hlsl"
@@ -22,6 +23,11 @@
 #define HB_TERRAIN_MACRO_SHADE      0.175h
 #define HB_TERRAIN_MACRO_LARGE      24.0
 #define HB_TERRAIN_MACRO_SMALL      7.0
+#define HB_DEBUG_GRASS_DENSITY      15
+#define HB_GRASS_DEBUG_BARE         half3(0.18h, 0.18h, 0.18h)
+#define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
+#define HB_GRASS_DEBUG_TALL         half3(0.05h, 0.5h, 0.4h)
+#define HB_GRASS_DEBUG_TALLEST      1.0h
 
 struct HBTerrainAttributes
 {
@@ -78,7 +84,7 @@ half3 HB_RingColour(float level, float morph)
         half3(0.2h, 0.8h, 1.0h), half3(0.4h, 0.35h, 1.0h), half3(1.0h, 0.35h, 0.9h)
     };
 
-    uint index = (uint)level;
+    uint index = (uint)round(level);
 
     return lerp(colours[index % 6u], colours[(index + 1u) % 6u], half(morph));
 }
@@ -222,6 +228,15 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     {
         colour.rgb = strongest < 0 ? half3(0.5h, 0.5h, 0.5h) : HB_LayerColour(strongest);
         colour.rgb *= saturate(normalWS.y * 0.5h + 0.5h);
+    }
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_GRASS_DENSITY)
+    {
+        HBTerrainGrass grass = HB_TerrainGrass(HB_TerrainLocal(input.positionWS.xz) / HB_TERRAIN_SIZE.xz);
+        half3 hue = lerp(HB_GRASS_DEBUG_SHORT, HB_GRASS_DEBUG_TALL, saturate(grass.height / HB_GRASS_DEBUG_TALLEST));
+
+        colour.rgb = pow(lerp(HB_GRASS_DEBUG_BARE, hue, saturate(grass.density)), 2.2h)
+                   * saturate(normalWS.y * 0.5h + 0.5h);
     }
 #endif
 

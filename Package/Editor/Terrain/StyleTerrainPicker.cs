@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle.Editor
 {
@@ -249,8 +250,81 @@ namespace HiddenBull.UrpStyle.Editor
             s_Normal = data.terrainData.GetInterpolatedNormal(u, v);
             hoverSlope = data.terrainData.GetSteepness(u, v);
             hoverHeight = local.y;
-            s_Row = Match(data, hoverSlope, hoverHeight);
+            s_Row = Painted(data, u, v, out var row) ? row : Match(data, hoverSlope, hoverHeight);
             hovering = true;
+        }
+
+        static bool Painted(HBStyleTerrainData data, float u, float v, out int row)
+        {
+            row = -1;
+
+            Texture control = null;
+            var count = 0;
+            var live = StyleTerrains.TryGetPreview(data, out var preview) && preview.control != null;
+
+            if (live)
+            {
+                control = preview.control;
+                count = preview.layers.Length;
+            }
+            else if (data.control != null)
+            {
+                control = data.control;
+                count = data.controlLayers;
+            }
+
+            if (control == null || count == 0)
+                return false;
+
+            var resolution = control.width;
+            var x = Mathf.Clamp(Mathf.FloorToInt(u * resolution), 0, resolution - 1);
+            var z = Mathf.Clamp(Mathf.FloorToInt(v * resolution), 0, resolution - 1);
+            var slices = (count + 3) / 4;
+            var request = AsyncGPUReadback.Request(control, 0, x, 1, z, 1, 0, slices);
+
+            request.WaitForCompletion();
+
+            if (request.hasError)
+                return false;
+
+            var best = -1;
+            var strongest = 0;
+
+            for (var slice = 0; slice < slices; slice++)
+            {
+                var texel = request.GetData<Color32>(slice)[0];
+
+                for (var channel = 0; channel < 4 && slice * 4 + channel < count; channel++)
+                {
+                    if (texel[channel] <= strongest)
+                        continue;
+
+                    strongest = texel[channel];
+                    best = slice * 4 + channel;
+                }
+            }
+
+            if (best < 0)
+                return true;
+
+            if (live)
+            {
+                row = best < data.layerCount ? best : -1;
+                return true;
+            }
+
+            var layer = data.Layer(best);
+
+            for (var index = 0; index < data.layerCount; index++)
+            {
+                if (data.layers[index].layer == layer)
+                {
+                    row = index;
+                    break;
+                }
+            }
+
+            return true;
         }
 
         static int Match(HBStyleTerrainData data, float slope, float height)

@@ -17,9 +17,16 @@ namespace HiddenBull.UrpStyle.Editor
             StyleTerrainBrushTool.SetHeight, StyleTerrainBrushTool.Noise, StyleTerrainBrushTool.Terrace
         };
 
+        static readonly StyleTerrainBrushTool[] s_GrassTools =
+        {
+            StyleTerrainBrushTool.GrassDensity, StyleTerrainBrushTool.GrassHeight,
+            StyleTerrainBrushTool.GrassSetDensity, StyleTerrainBrushTool.GrassSetHeight, StyleTerrainBrushTool.GrassReset
+        };
+
         static readonly string[] s_Titles =
         {
-            "Raise / Lower", "Smooth", "Flatten", "Set Height", "Holes", "Paint Layer", "Noise", "Terrace"
+            "Raise / Lower", "Smooth", "Flatten", "Set Height", "Holes", "Paint Layer", "Noise", "Terrace",
+            "Grass Density", "Grass Height", "Reset Grass", "Set Grass Density", "Set Grass Height"
         };
 
         static readonly string[] s_Help =
@@ -31,7 +38,15 @@ namespace HiddenBull.UrpStyle.Editor
             "Drag to cut holes in the ground.",
             "Drag to paint this layer over the rules. The preview shows it at once; Bake keeps it.",
             "Drag to add natural bumps and dips; going over the same place again grows the same shapes.",
-            "Drag to pull the ground into flat steps of Step Height with steep but unbroken edges."
+            "Drag to pull the ground into flat steps of Step Height with steep but unbroken edges.",
+            "Drag to thicken the grass of the layers here. Only layers with Grass Density above 0 grow grass; " +
+            "Debug > Grass/Density shows the result.",
+            "Drag to make the grass of the layers here taller. Debug > Grass/Density shows height as colour, " +
+            "yellow short to blue-green tall.",
+            "Drag to bring density and height back to what the layers give.",
+            "Drag to give the grass here the same Density everywhere, whatever the layers say. Only layers with " +
+            "Grass Density above 0 grow grass.",
+            "Drag to give the grass here the same Height everywhere, whatever the layers say."
         };
 
         static readonly string[][] s_Hints =
@@ -43,6 +58,11 @@ namespace HiddenBull.UrpStyle.Editor
             new[] { "Shift", "fill" },
             new[] { "Shift", "remove hand paint" },
             new[] { "Shift", "turn over" },
+            new string[0],
+            new[] { "Shift", "thin" },
+            new[] { "Shift", "shorten" },
+            new string[0],
+            new string[0],
             new string[0]
         };
 
@@ -61,6 +81,21 @@ namespace HiddenBull.UrpStyle.Editor
         };
 
         static readonly GUIContent s_HolesName = new GUIContent("Holes", "Cut holes in the ground; Shift fills them.");
+
+        static readonly GUIContent[] s_GrassNames =
+        {
+            new GUIContent("Density", "Thicken the grass of the layers here; hold Shift to thin it."),
+            new GUIContent("Height", "Make the grass of the layers here taller; hold Shift to shorten it."),
+            new GUIContent("Set Density", "Give the grass here one density, set below."),
+            new GUIContent("Set Height", "Give the grass here one height, set below."),
+            new GUIContent("Reset", "Bring the grass back to what the layers give.")
+        };
+
+        static readonly GUIContent s_GrassDensityLabel = new GUIContent("Density",
+            "Density Set Density paints: 0 for none, 1 for a tuft at every spot the quality level allows.");
+
+        static readonly GUIContent s_GrassHeightLabel = new GUIContent("Height",
+            "Height Set Height paints, in metres.");
 
         static readonly GUIContent s_SizeLabel = new GUIContent("Size", "Brush diameter, in metres. [ and ] in the " +
                                                                         "Scene view change it.");
@@ -92,7 +127,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly List<string> s_Names = new List<string>();
 
-        static Color tint => surface ? StyleTerrainGUI.surfaceTint : StyleTerrainGUI.shapeTint;
+        static Color tint => StyleTerrainBrush.grassTool ? StyleTerrainGUI.grassTint
+                           : surface ? StyleTerrainGUI.surfaceTint : StyleTerrainGUI.shapeTint;
 
         static bool surface => StyleTerrainBrush.tool == StyleTerrainBrushTool.Holes ||
                                StyleTerrainBrush.tool == StyleTerrainBrushTool.PaintLayer;
@@ -122,6 +158,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             DrawShapePalette();
             DrawSurfacePalette(data);
+            DrawGrassPalette();
 
             if (StyleTerrainBrush.armed)
             {
@@ -241,6 +278,31 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.HelpBox("Add layers on the Layers tab to paint them here.", MessageType.None);
         }
 
+        static void DrawGrassPalette()
+        {
+            StyleTerrainGUI.Header("Grass", StyleTerrainGUI.grassTint);
+
+            var row = StyleTerrainGUI.TileRow();
+
+            for (var index = 0; index < s_GrassTools.Length; index++)
+            {
+                var rect = StyleTerrainGUI.Slot(row, index);
+                var picked = s_GrassTools[index];
+                var active = StyleTerrainBrush.armed && StyleTerrainBrush.tool == picked;
+
+                if (StyleTerrainGUI.Tile(rect, active, StyleTerrainGUI.grassTint, s_GrassNames[index]))
+                    Pick(picked, null, active);
+
+                if (Event.current.type != EventType.Repaint)
+                    continue;
+
+                var side = Mathf.Min(rect.width - 8f, StyleTerrainGUI.Picture(rect).height);
+
+                Handles.color = active ? Color.white : StyleTerrainGUI.grassTint;
+                StyleTerrainGUI.Glyph(picked, new Rect(rect.center.x - side * 0.5f, rect.y + 4f, side, side));
+            }
+        }
+
         static void Pick(StyleTerrainBrushTool picked, HBStyleTerrainLayer layer, bool active)
         {
             if (active)
@@ -289,6 +351,8 @@ namespace HiddenBull.UrpStyle.Editor
                     var height = StyleTerrainBrush.height;
                     var noise = StyleTerrainBrush.noiseSize;
                     var step = StyleTerrainBrush.terraceStep;
+                    var grassDensity = StyleTerrainBrush.grassDensity;
+                    var grassHeight = StyleTerrainBrush.grassHeight;
 
                     if (!holes)
                         strength = EditorGUILayout.Slider(s_StrengthLabel, strength, 0f, 1f);
@@ -311,6 +375,15 @@ namespace HiddenBull.UrpStyle.Editor
                         case StyleTerrainBrushTool.Terrace:
                             step = EditorGUILayout.FloatField(s_StepLabel, step);
                             break;
+
+                        case StyleTerrainBrushTool.GrassSetDensity:
+                            grassDensity = EditorGUILayout.Slider(s_GrassDensityLabel, grassDensity, 0f, 1f);
+                            break;
+
+                        case StyleTerrainBrushTool.GrassSetHeight:
+                            grassHeight = EditorGUILayout.Slider(s_GrassHeightLabel, grassHeight, 0.05f,
+                                                                 StyleTerrains.GrassMostHeight);
+                            break;
                     }
 
                     if (EditorGUI.EndChangeCheck())
@@ -321,6 +394,8 @@ namespace HiddenBull.UrpStyle.Editor
                         StyleTerrainBrush.height = height;
                         StyleTerrainBrush.noiseSize = noise;
                         StyleTerrainBrush.terraceStep = step;
+                        StyleTerrainBrush.grassDensity = grassDensity;
+                        StyleTerrainBrush.grassHeight = grassHeight;
                         StyleTerrainShapes.rotation = rotation;
                         SceneView.RepaintAll();
                     }

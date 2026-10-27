@@ -17,21 +17,26 @@ namespace HiddenBull.UrpStyle.Editor
             if (data == null || data.terrainData == null)
                 return false;
 
+            var origin = terrain.transform.position;
+
             if (terrain.TryGetComponent<TerrainCollider>(out var collider) && collider.enabled &&
                 collider.Raycast(ray, out var hit, RayLength))
             {
-                point = hit.point;
+                var size = data.size;
+                var u = Mathf.Clamp01((hit.point.x - origin.x) / size.x);
+                var v = Mathf.Clamp01((hit.point.z - origin.z) / size.z);
+
+                point = new Vector3(hit.point.x, origin.y + data.terrainData.GetInterpolatedHeight(u, v), hit.point.z);
                 return true;
             }
 
-            var origin = terrain.transform.position;
-            var size = data.size;
-            var box = new Bounds(origin + size * 0.5f, size + Vector3.one * 2f);
+            var bounds = data.size;
+            var box = new Bounds(origin + bounds * 0.5f, bounds + Vector3.one * 2f);
 
             if (!box.IntersectRay(ray, out var enter))
                 return false;
 
-            var step = Mathf.Max(size.x / (data.resolution - 1) * 0.5f, box.size.magnitude / MarchLimit);
+            var step = Mathf.Max(bounds.x / (data.resolution - 1) * 0.5f, box.size.magnitude / MarchLimit);
             var end = enter + box.size.magnitude;
             var previous = Mathf.Max(enter, 0f);
 
@@ -64,6 +69,17 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             return false;
+        }
+
+        internal static void RefreshCollider(HBStyleTerrain terrain)
+        {
+            if (terrain == null || !terrain.TryGetComponent<TerrainCollider>(out var collider))
+                return;
+
+            var data = collider.terrainData;
+
+            collider.terrainData = null;
+            collider.terrainData = data;
         }
 
         static bool Below(HBStyleTerrainData data, Vector3 origin, Vector3 point)
