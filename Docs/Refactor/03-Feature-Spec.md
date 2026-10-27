@@ -147,7 +147,7 @@ shader and the sky:
     **Transition** (user, 2026-10-27): Instant (like a roof) or Gradual (Play mode only: the dome grows from its
     centre over the mask's own **Clear Time** and shrinks over its **Cover Time**; both show only for Gradual).
     A Gradual mask that is turned off, deactivated or **deleted** keeps shrinking from where it was instead of
-    vanishing; leftovers of a deleted mask go when its scene unloads.
+    vanishing; leftovers of a deleted mask go when its scene unloads. **Confirmed by the user on 2026-10-27.**
     Built: a `Masks` kernel stamps the domes after the roof margin into the surface map and, for Block
     Precipitation masks only, into a second drops map (`_HB_ShelterDrops`) that precipitation reads; it runs
     only when a mask is in reach.

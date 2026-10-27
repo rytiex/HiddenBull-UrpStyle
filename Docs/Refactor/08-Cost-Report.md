@@ -469,3 +469,4 @@ Confirmed by the user on 2026-10-27.
 | Lit / Terrain forward | – | – | Unchanged: masks arrive through the shelter map |
 
 Memory: two R32 512² maps (2 MB) per camera, allocated only once a mask has been in reach.
+Confirmed by the user on 2026-10-27 (no visible frame-time change in the editor).

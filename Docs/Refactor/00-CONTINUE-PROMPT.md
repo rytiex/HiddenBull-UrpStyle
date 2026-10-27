@@ -11,19 +11,16 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 exactly where it stopped.
 
 **Status (2026-10-27):** Phases 0–4 are closed, and the fog fix (full-screen atmosphere pass with Fog Paint +
-Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9). Step 5.0
-Weather Mask is built (compiled offline, not run in Unity): `HBStyleWeatherMask`, `StyleWeatherMasks`, the
-`Masks` kernel in `StyleShelter.compute`, and the drops map in `StyleShelterPass`. If I report problems with it,
-fix those first.
+Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9); nothing of the
+grass is built yet.
 
 Read before doing anything (do not ask me what these answer):
 
 1. Your memory index `MEMORY.md` and the memories it links (in
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §9 Grass (the "Decided 2026-10-27" and "Optimisation" blocks) and §7
-   Weather (the "Weather Mask returns" bullet). Skim §8 Terrain, since grass reads terrain data
-   (`HBStyleTerrainLayer`, the terrain data store, the Brushes tab).
+3. `Docs/Refactor/03-Feature-Spec.md` §9 Grass (the "Decided 2026-10-27" and "Optimisation" blocks). Skim §8
+   Terrain, since grass reads terrain data (`HBStyleTerrainLayer`, the terrain data store, the Brushes tab).
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last two sections (current budgets).
 6. Old grass as reference only (look, not structure): find the files with
