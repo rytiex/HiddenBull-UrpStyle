@@ -38,6 +38,7 @@ CBUFFER_START(HBStyleFrame)
     float4 _HB_Fog;
     float4 _HB_FogScatter;
     float4 _HB_Horizon;
+    float4 _HB_FogPaint;
     float4 _HB_Debug;
 CBUFFER_END
 

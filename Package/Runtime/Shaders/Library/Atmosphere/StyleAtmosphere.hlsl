@@ -14,8 +14,11 @@
 #define HB_HORIZON_FALLOFF      _HB_Horizon.y
 #define HB_HORIZON_START        _HB_Horizon.z
 #define HB_HORIZON_LAYERS       _HB_Horizon.w
+#define HB_FOG_PAINT            _HB_FogPaint.x
+#define HB_FOG_SILHOUETTE       _HB_FogPaint.y
 
 #define HB_FOG_SCATTER_POWER    8.0h
+#define HB_FOG_SILHOUETTE_TILES 8.0
 
 #define HB_DEBUG_FOG_AMOUNT     7
 
@@ -106,9 +109,33 @@ half HB_SkyHaze(half3 direction)
     return haze;
 }
 
-half3 HB_FogColour(half3 direction)
+half HB_FogDomePaint(half3 direction)
 {
-    half3 colour = HB_SampleSkyLut(direction.y, HB_SKY_ROW, HB_LUT_FOG);
+    half paint = 0.0h;
+
+    if (HB_BRUSH_ATLAS_BOUND > 0.5h)
+        paint = half(HB_FOG_PAINT) * (1.0h - smoothstep(0.85h, 1.0h, abs(direction.y)));
+
+    return paint;
+}
+
+half3 HB_FogColourPainted(half3 direction, half4 atlas, half paint)
+{
+    half up = direction.y;
+    half tone = 1.0h;
+
+    UNITY_BRANCH
+    if (paint > 0.0h)
+    {
+        half stroke = (atlas.b * 2.0h - 1.0h) * half(HB_SKY_BRUSH) * paint;
+        half lift;
+
+        direction = HB_SkyPaintDirection(direction, atlas, half(HB_SKY_PAINT) * paint, lift);
+        up += lift + stroke * 0.32h;
+        tone += stroke * 0.5h;
+    }
+
+    half3 colour = HB_SampleSkyLut(up, HB_SKY_ROW, HB_LUT_FOG) * tone;
     half scattering = half(HB_FOG_SCATTERING);
 
     UNITY_BRANCH
@@ -117,10 +144,97 @@ half3 HB_FogColour(half3 direction)
         half towardSun = half(saturate(dot(float3(direction), _HB_SunDirection.xyz)));
         half scatter = PositivePow(towardSun, HB_FOG_SCATTER_POWER);
 
-        colour = lerp(colour, half3(_HB_SunColor.rgb), saturate(scatter * scattering));
+        colour = lerp(colour, half3(_HB_SunColor.rgb) * tone, saturate(scatter * scattering));
     }
 
     return colour;
+}
+
+half3 HB_FogColour(half3 direction)
+{
+    half paint = HB_FogDomePaint(direction);
+    half4 atlas = half4(0.5h, 0.5h, 0.5h, 1.0h);
+
+    UNITY_BRANCH
+    if (paint > 0.0h)
+        atlas = HB_SkyStroke(direction);
+
+    return HB_FogColourPainted(direction, atlas, paint);
+}
+
+half4 HB_FogStrokePlanes(float3 position, half3 blend, float lod)
+{
+    half4 sum = half4(0.0h, 0.0h, 0.0h, 0.0h);
+    half total = 0.0h;
+
+    UNITY_BRANCH
+    if (blend.x > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.zy, lod) * blend.x;
+        total += blend.x;
+    }
+
+    UNITY_BRANCH
+    if (blend.y > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xz, lod) * blend.y;
+        total += blend.y;
+    }
+
+    UNITY_BRANCH
+    if (blend.z > 0.02h)
+    {
+        sum += SAMPLE_TEXTURE2D_LOD(_HB_BrushAtlas, sampler_HB_BrushAtlas, position.xy, lod) * blend.z;
+        total += blend.z;
+    }
+
+    return sum * rcp(max(total, half(HB_EPSILON)));
+}
+
+half4 HB_FogWorldStroke(float3 positionWS, half3 blend, float tile, float lod)
+{
+    float level = log2(max(tile, 1e-3));
+    float base = floor(level);
+    float density = exp2(-base);
+
+    half4 fine = HB_FogStrokePlanes(positionWS * density, blend, lod);
+    half4 coarse = HB_FogStrokePlanes(positionWS * (density * 0.5), blend, lod);
+
+    return lerp(fine, coarse, half(level - base));
+}
+
+float HB_FogTileAngle()
+{
+    return TWO_PI / HB_SkyBrushTurns(max(HB_SKY_BRUSH_SCALE, 1e-3));
+}
+
+half HB_FogPaintStroke(float3 anchorWS, half3 direction, float span, half amount, out half4 atlas)
+{
+    atlas = half4(0.5h, 0.5h, 0.5h, 1.0h);
+
+    half paint = 0.0h;
+
+    UNITY_BRANCH
+    if (HB_BRUSH_ATLAS_BOUND > 0.5h && HB_FOG_PAINT > 0.0)
+    {
+        paint = half(HB_FOG_PAINT);
+        atlas = HB_FogWorldStroke(anchorWS, HB_TriplanarBlend(direction), span, HB_SKY_BRUSH_SMOOTH * 4.0);
+
+        half far = smoothstep(0.5h, 1.0h, amount * rcp(max(half(HB_FOG_MAX_OPACITY), half(HB_EPSILON))));
+
+        UNITY_BRANCH
+        if (far > 0.0h)
+        {
+            half dome = HB_FogDomePaint(direction);
+
+            if (dome > 0.0h)
+                atlas = lerp(atlas, HB_SkyStroke(direction), far);
+
+            paint = lerp(paint, dome, far);
+        }
+    }
+
+    return paint;
 }
 
 half3 HB_ApplyAtmosphere(half3 colour, float3 positionWS)

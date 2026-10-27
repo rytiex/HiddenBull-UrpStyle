@@ -430,3 +430,29 @@ User measurement before 4.5a: 2.6 ms GPU for the whole frame in the editor with 
 −440 slots against 4.5a (spots and running water were procedural, so reads are unchanged). Lit counts unchanged.
 User measurement: 3.7 ms GPU for the whole frame in the editor with rain falling (precipitation, shelter maps,
 wet Lit objects and wet terrain together), against 2.6 ms dry.
+
+### Phase 4 closed (2026-10-26)
+
+| Shader | Slots | Reads | Budget |
+|---|---|---|---|
+| HB Terrain forward (Full URP keywords) | 3205 | 151 | 4500 / 175 |
+| HB Terrain vertex / ShadowCaster vertex | 44 / 87 | 2 / 6 | – |
+| HB Terrain DepthOnly / DepthNormals fragment | 8 / 41 | 1 / 5 | – |
+| Terrain Layer Rules compute (editor only) | 364 | 10 | – |
+| Precipitation rain / snow / wind vertex (with ground fade) | 204 / 191 / 292 | 3 / 3 / 3 | – |
+| Precipitation far rain / snow fragment (with ground fade) | 220 / 208 | 2 / 2 | – |
+
+Editor measurements by the user (whole frame, terrain filling the view): 2.6 ms GPU dry, 3.7 ms GPU with rain,
+precipitation, shelter maps and wet surfaces. Build measurement stays in Phase 12.
+
+## Fog fix (after Phase 4): full-screen atmosphere pass (compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP Lit | Budget |
+|---|---|---|---|---|
+| Atmosphere full screen (fog, horizon, fog paint, silhouette) | 618 | 21 | – | 800 / 24 — OK |
+| Lit forward (all, triplanar) without in-shader atmosphere | 3467 | 135 | +2419 / +34 | 2550 / 60 — OK (was 2542 / 37) |
+| Lit forward (albedo only) | 1307 | 107 | +259 / +6 | 500 / 9 — OK |
+| HB Terrain forward | 3069 | 148 | +2021 / +47 | 4500 / 175 — OK |
+| Sky (haze now painted) | 1054 | 14 | – | 1500 / 20 — OK |
+
+The full-screen pass runs once per pixel on the base camera; Lit gained ~130 slots of room.

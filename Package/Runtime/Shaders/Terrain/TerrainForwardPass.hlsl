@@ -187,7 +187,6 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, true, wet);
 
-    colour.rgb = HB_ApplyAtmosphere(colour.rgb, input.positionWS);
 
     UNITY_BRANCH
     if (HB_TERRAIN_HIGHLIGHT >= 0.0)

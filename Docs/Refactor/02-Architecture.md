@@ -55,13 +55,15 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |
 | Cavity (screen-space, from depth-normals) | AfterRenderingPrePasses | cavity quality > Off |
-| Opaques (URP) — every surface shader applies atmosphere itself | — | — |
+| Opaques (URP) — no atmosphere in the surface shaders | — | — |
+| Atmosphere (full screen: fog, horizon, fog paint, silhouette, from depth) | AfterRenderingSkybox, before precipitation | atmosphere quality > Off |
 | Precipitation (procedural) | AfterRenderingSkybox | weather active |
 | Transparency (MBOIT + composite, refraction only if a refractive surface is visible) | BeforeRenderingTransparents | a transparent of ours is visible |
 | Underwater (full screen) | BeforeRenderingPostProcessing | camera is below/at a liquid surface |
 
-There is **no full-screen fog pass**: atmosphere is evaluated in each surface shader and the sky shader
-(depth priming makes opaque shading once per pixel).
+Since 2026-10-27 opaque surfaces are fogged by **one full-screen atmosphere pass** (it needs neighbouring depth
+for the Silhouette and keeps the cost out of every surface shader); the sky, clouds, precipitation and
+transparents still evaluate atmosphere in their own shaders.
 
 ### Depth priming
 

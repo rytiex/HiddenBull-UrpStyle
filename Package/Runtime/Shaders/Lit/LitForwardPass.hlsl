@@ -291,8 +291,6 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, brushed, wet);
 
-    colour.rgb = HB_ApplyAtmosphere(colour.rgb, inputData.positionWS);
-
 #if defined(HB_STYLE_DEBUG)
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {

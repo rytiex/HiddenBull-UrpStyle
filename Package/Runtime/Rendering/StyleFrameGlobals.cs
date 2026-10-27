@@ -50,6 +50,7 @@ namespace HiddenBull.UrpStyle
         public Vector4 _HB_Fog;
         public Vector4 _HB_FogScatter;
         public Vector4 _HB_Horizon;
+        public Vector4 _HB_FogPaint;
         public Vector4 _HB_Debug;
 
         internal static StyleFrameGlobals Resolve(HBStyleEnvironmentProfile profile, StyleSkyLut lut,
@@ -170,6 +171,7 @@ namespace HiddenBull.UrpStyle
                 current._HB_FogScatter = L(current._HB_FogScatter, other._HB_FogScatter, t);
                 current._HB_Horizon = L(current._HB_Horizon, other._HB_Horizon, t);
                 current._HB_Horizon.w = layers;
+                current._HB_FogPaint = L(current._HB_FogPaint, other._HB_FogPaint, t);
             }
         }
 
@@ -298,6 +300,7 @@ namespace HiddenBull.UrpStyle
             globals._HB_Horizon = new Vector4(Density(horizonStart, atmosphere.horizonEnd),
                                               atmosphere.horizonHeightFalloff, horizonStart,
                                               level.horizonLayers ? atmosphere.horizonLayers : 0f);
+            globals._HB_FogPaint = new Vector4(atmosphere.fogPaint, atmosphere.silhouette, 0f, 0f);
         }
 
         static float Density(float start, float end)

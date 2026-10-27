@@ -89,6 +89,7 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly Dictionary<string, string> s_Atmosphere = new Dictionary<string, string>
         {
             { "m_FogStart", "Fog" },
+            { "m_FogPaint", "Fog Painting" },
             { "m_HorizonStart", "Horizon" }
         };
 

@@ -90,6 +90,18 @@ shader and the sky:
 - Key light: **HB Style Sun writes the Light's colour and intensity** (Sky Light gradient, Moon Light, fade
   across the sun–moon swap, overcast dimming), so URP shaders and the lightmapper see the same light.
 - Done: no 3D textures, no history buffers, no full-screen fog pass; sky and terrain meet seamlessly.
+- **Revised 2026-10-27 (after Phase 4, user):** the rebuild had lost the old fog's **Paint** and **Silhouette**.
+  Decided: opaque surfaces are fogged by **one full-screen atmosphere pass** after the skybox (before
+  precipitation and transparents), reading the depth texture, instead of in every surface shader; Lit and Terrain
+  no longer apply atmosphere themselves (frees ~130 Lit slots). The sky, clouds, precipitation and later the
+  transparents keep the in-shader functions. Both features return as before, in the profile's Fog Painting
+  group: **Fog Paint** (0–1, default 1: fog colour broken by brush strokes with the sky's Sky Paint / Sky Brush,
+  laid in world space on the surface behind the fog and sized by distance, handing over to the sky's strokes
+  where the fog swallows the scene; the sky haze is painted the same way) and **Silhouette** (0–2, default 1:
+  each stroke takes its fog from the stroke-shifted neighbour in the depth texture, so outlines break into the
+  farther, foggier side; it only adds fog). The horizon term now fades toward the painted sky gradient, so
+  ridges meet the painted sky without a seam. The pass blends premultiplied (no colour copy); sky pixels are
+  skipped; overlay cameras are not fogged.
 
 ## 6. Sky — Change + New
 

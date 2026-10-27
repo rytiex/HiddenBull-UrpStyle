@@ -194,6 +194,26 @@
             Reads = 20
         }
         @{
+            Name = 'Atmosphere fullscreen'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Atmosphere/AtmospherePass.hlsl'
+            Entry = 'HB_AtmosphereFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 800
+            Reads = 24
+        }
+        @{
+            Name = 'Atmosphere fullscreen (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Atmosphere/AtmospherePass.hlsl'
+            Entry = 'HB_AtmosphereFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Lit Meta'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitMetaPass.hlsl'
             Entry = 'HB_MetaFragment'
