@@ -24,6 +24,13 @@
 #define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
 #define HB_GRASS_DEBUG_TALL         half3(0.05h, 0.5h, 0.4h)
 #define HB_GRASS_DEBUG_TALLEST      1.0h
+#define HB_GRASS_FAR_START          _HB_TerrainGrassFar.x
+#define HB_GRASS_FAR_END            _HB_TerrainGrassFar.y
+#define HB_GRASS_FAR_TIP            0.5h
+#define HB_GRASS_FAR_SPECK          0.9
+#define HB_GRASS_FAR_SPECK_FADE     0.5
+#define HB_GRASS_FAR_SPECK_TONE     0.5h
+#define HB_GRASS_FAR_SWEEP          0.25h
 
 struct HBTerrainAttributes
 {
@@ -84,6 +91,40 @@ half3 HB_LayerColour(int layer)
     return pow(colours[(uint)layer % 8u] * shade, 2.2h);
 }
 
+half3 HB_TerrainDistantGrass(HBTerrainSurface surface, float3 positionWS, float footprint)
+{
+    half3 albedo = surface.albedo;
+    float gap = distance(positionWS, HB_TERRAIN_CAMERA.xyz);
+
+    UNITY_BRANCH
+    if (HB_GRASS_FAR_END > 0.0 && surface.meadow > 0.0h && gap > HB_GRASS_FAR_START)
+    {
+        float2 xz = positionWS.xz;
+        float2 uv = HB_TerrainLocal(xz) / HB_TERRAIN_SIZE.xz;
+        half4 map = half4(SAMPLE_TEXTURE2D_LOD(_HB_GrassMap, sampler_LinearClamp, uv, 0));
+        half density = surface.meadow * (1.0h - map.b) + map.r * map.b;
+        half vary = surface.vary / surface.meadow;
+        half4 tip = surface.tip / surface.meadow;
+        half3 grass = lerp(albedo, tip.rgb, tip.a * HB_GRASS_FAR_TIP);
+        half speck = half(saturate(1.0 - footprint / HB_GRASS_FAR_SPECK_FADE));
+
+        float2 wind = float2(sin(HB_WIND_HEADING), cos(HB_WIND_HEADING));
+        float along = dot(xz, float2(-wind.y, wind.x));
+        float speed = HB_GRASS_GUST_SPEED + HB_GRASS_GUST_RISE * HB_WIND;
+        float ahead = (dot(xz, wind) - _Time.y * speed) / HB_GRASS_GUST_LONG;
+        float gust = HB_GrassNoise(float2(along / HB_GRASS_GUST_WIDE, ahead));
+        half streak = half(smoothstep(HB_GRASS_GUST_LOW, HB_GRASS_GUST_HIGH, gust * 0.65 + 0.175) * HB_WIND);
+        half fade = half(smoothstep(HB_GRASS_FAR_START, HB_GRASS_FAR_END, gap));
+
+        grass *= 1.0h + vary * half(HB_GrassClump(xz)) * HB_GRASS_CLUMP_TONE;
+        grass *= 1.0h + (half(HB_GrassNoise(xz / HB_GRASS_FAR_SPECK)) - 0.5h) * HB_GRASS_FAR_SPECK_TONE * speck;
+        grass *= 1.0h + streak * HB_GRASS_FAR_SWEEP;
+        albedo = lerp(albedo, grass, fade * saturate(density));
+    }
+
+    return albedo;
+}
+
 HBTerrainVaryings HB_TerrainForwardVertex(HBTerrainAttributes input)
 {
     HBTerrainVaryings output = (HBTerrainVaryings)0;
@@ -140,7 +181,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
         HBTerrainSurface layers = HB_TerrainLayerSurface(input.positionWS,
                                                          strokeOffset.xz * HB_TERRAIN_BRUSH_PAINT);
 
-        surfaceData.albedo = layers.albedo;
+        surfaceData.albedo = HB_TerrainDistantGrass(layers, input.positionWS, footprint);
         surfaceData.occlusion = layers.occlusion;
         surfaceData.smoothness = layers.smoothness;
         surfaceData.metallic = layers.metallic;

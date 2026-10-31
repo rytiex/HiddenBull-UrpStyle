@@ -112,7 +112,7 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             Upload(grass, pixels, x0, z0, x1 - x0 + 1, z1 - z0 + 1);
-            data.grassStamp++;
+            data.GrassPainted(new Vector4((x0 - 1) / scale, (z0 - 1) / scale, (x1 + 2) / scale, (z1 + 2) / scale));
         }
 
         internal static void Clear(HBStyleTerrainData data)

@@ -26,12 +26,12 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0.005f, 0.05f)]
         [Tooltip("Average size of a falling snow flake in metres; each flake varies around it.")]
-        float m_SnowSize = 0.015f;
+        float m_SnowSize = 0.025f;
 
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How strongly the falling snow flakes show (0 to 1).")]
-        float m_SnowOpacity = 0.95f;
+        float m_SnowOpacity = 1f;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -56,7 +56,8 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Tooltip("Skips the build-up in Play mode too: surfaces take the wetness, snow and shelter the weather " +
                  "calls for straight away. Use it for scenes that start already wet or snowed in. Weather Bodies " +
-                 "still wet and dry gradually as they leave or enter cover.")]
+                 "still wet and dry gradually as they leave or enter cover, and Weather Masks keep their own " +
+                 "Transition.")]
         bool m_Instant;
 
         [SerializeField]

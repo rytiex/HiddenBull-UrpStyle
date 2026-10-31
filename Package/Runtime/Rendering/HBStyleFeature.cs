@@ -89,6 +89,7 @@ namespace HiddenBull.UrpStyle
             m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass);
             StyleTerrains.quality = quality.terrain;
             StyleTerrains.grassQuality = quality.grass;
+            StyleTerrains.shelter = m_ShelterPass;
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)
@@ -157,6 +158,7 @@ namespace HiddenBull.UrpStyle
 
             m_ShelterPass?.Dispose();
             m_ShelterPass = null;
+            StyleTerrains.shelter = null;
 
             m_AtmospherePass?.Dispose();
             m_AtmospherePass = null;

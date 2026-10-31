@@ -18,6 +18,7 @@ namespace HiddenBull.UrpStyle
     static class StyleTerrains
     {
         internal const float GrassMostHeight = 3f;
+        internal const float GrassTallest = 1f;
 
         static readonly HBStyleTerrainQuality s_Default = new HBStyleTerrainQuality();
 
@@ -35,6 +36,8 @@ namespace HiddenBull.UrpStyle
             get => s_GrassQuality ?? s_DefaultGrass;
             set => s_GrassQuality = value;
         }
+
+        internal static StyleShelterPass shelter;
 
         internal static HBStyleTerrain highlightTerrain;
         internal static int highlightRow = -1;

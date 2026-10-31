@@ -6,7 +6,7 @@ Shader "Hidden/HB URP Style/Grass"
         {
             "RenderType" = "TransparentCutout"
             "RenderPipeline" = "UniversalPipeline"
-            "Queue" = "AlphaTest"
+            "Queue" = "Geometry-200"
         }
 
         Pass
@@ -28,6 +28,8 @@ Shader "Hidden/HB URP Style/Grass"
             #pragma fragment HB_GrassFragment
 
             #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile_fragment _ HB_STYLE_DEBUG
 
             #define HB_GRASS_FORWARD

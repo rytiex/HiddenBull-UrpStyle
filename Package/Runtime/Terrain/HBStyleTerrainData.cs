@@ -7,6 +7,8 @@ namespace HiddenBull.UrpStyle
                      menuName = "HiddenBull/URP Style/Terrain/Terrain Data")]
     public sealed class HBStyleTerrainData : ScriptableObject
     {
+        const int GrassMarks = 64;
+
         public const int MaxLayers = HBStyleTerrainLayerSet.MaxLayers;
 
         static readonly HBStyleTerrainLayerRule[] s_NoLayers = new HBStyleTerrainLayerRule[0];
@@ -66,22 +68,6 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [HideInInspector]
         int m_GrassVersion;
-
-        [SerializeField]
-        [HideInInspector]
-        Texture2DArray m_GrassArray;
-
-        [SerializeField]
-        [HideInInspector]
-        Texture2D[] m_GrassTextures;
-
-        [SerializeField]
-        [HideInInspector]
-        Vector4[] m_GrassShapes;
-
-        [SerializeField]
-        [HideInInspector]
-        float[] m_GrassTops;
 
         [SerializeField]
         [HideInInspector]
@@ -179,8 +165,6 @@ namespace HiddenBull.UrpStyle
 
         internal int grassVersion => m_GrassVersion;
 
-        internal Texture2DArray grassArray => m_GrassArray;
-
         internal Texture2DArray flowerArray => m_FlowerArray;
 
         internal string grassSignature => m_GrassSignature;
@@ -188,27 +172,11 @@ namespace HiddenBull.UrpStyle
         [System.NonSerialized]
         internal int grassStamp;
 
-        internal int GrassSlice(HBStyleTerrainLayer layer)
-        {
-            if (layer == null || layer.grassTexture == null || m_GrassArray == null || m_GrassTextures == null)
-                return -1;
+        [System.NonSerialized]
+        internal int grassPaint;
 
-            var slice = System.Array.IndexOf(m_GrassTextures, layer.grassTexture);
-
-            return slice < m_GrassArray.depth ? slice : -1;
-        }
-
-        internal Vector4 GrassShape(int slice)
-        {
-            return m_GrassShapes != null && slice >= 0 && slice < m_GrassShapes.Length
-                ? m_GrassShapes[slice]
-                : new Vector4(0f, 1f, 0f, 1f);
-        }
-
-        internal float GrassTop(int slice)
-        {
-            return m_GrassTops != null && slice >= 0 && slice < m_GrassTops.Length ? m_GrassTops[slice] : 1f;
-        }
+        [System.NonSerialized]
+        readonly Vector4[] m_GrassMarks = new Vector4[GrassMarks];
 
         internal int FlowerSlice(HBStyleTerrainLayer layer)
         {
@@ -226,13 +194,8 @@ namespace HiddenBull.UrpStyle
             m_FlowerTextures = textures;
         }
 
-        internal void SetGrassTextures(Texture2DArray array, Texture2D[] textures, Vector4[] shapes, float[] tops,
-                                       string signature)
+        internal void SetGrassSignature(string signature)
         {
-            m_GrassArray = array;
-            m_GrassTextures = textures;
-            m_GrassShapes = shapes;
-            m_GrassTops = tops;
             m_GrassSignature = signature;
         }
 
@@ -279,6 +242,28 @@ namespace HiddenBull.UrpStyle
         {
             m_Grass = grass;
             m_GrassVersion++;
+        }
+
+        internal void GrassPainted(Vector4 area)
+        {
+            m_GrassMarks[grassPaint % GrassMarks] = area;
+            grassPaint++;
+        }
+
+        internal bool GrassTouched(int seen, Vector4 area)
+        {
+            if (grassPaint - seen > GrassMarks)
+                return true;
+
+            for (var mark = seen; mark < grassPaint; mark++)
+            {
+                var painted = m_GrassMarks[mark % GrassMarks];
+
+                if (painted.x <= area.z && painted.z >= area.x && painted.y <= area.w && painted.w >= area.y)
+                    return true;
+            }
+
+            return false;
         }
 
         internal void GrassEdited()

@@ -146,6 +146,7 @@ namespace HiddenBull.UrpStyle
         static readonly Matrix4x4 s_FlipZ = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
         static readonly Quaternion s_Down = Quaternion.LookRotation(Vector3.down, Vector3.forward);
         static readonly ShaderTagId s_DepthOnlyTag = new ShaderTagId("DepthOnly");
+        static readonly RenderQueueRange s_Queues = new RenderQueueRange(1850, 2500);
 
         static readonly int s_DepthId = Shader.PropertyToID("_HB_ShelterDepth");
         static readonly int s_ViewProjId = Shader.PropertyToID("_HB_ShelterViewProj");
@@ -624,7 +625,7 @@ namespace HiddenBull.UrpStyle
             };
 
             data.list = renderGraph.CreateRendererList(new RendererListParams(
-                culling, drawing, new FilteringSettings(RenderQueueRange.opaque, cameraData.camera.cullingMask))
+                culling, drawing, new FilteringSettings(s_Queues, cameraData.camera.cullingMask))
             {
                 tagValues = tags,
                 stateBlocks = states,
@@ -698,7 +699,7 @@ namespace HiddenBull.UrpStyle
             drawing.overrideShaderPassIndex = 0;
 
             data.list = renderGraph.CreateRendererList(new RendererListParams(
-                sky.culling, drawing, new FilteringSettings(RenderQueueRange.opaque, cameraData.camera.cullingMask)));
+                sky.culling, drawing, new FilteringSettings(s_Queues, cameraData.camera.cullingMask)));
             data.skyView = sky.view;
             data.skyProjection = skyProjection;
             data.cameraView = cameraData.GetViewMatrix();

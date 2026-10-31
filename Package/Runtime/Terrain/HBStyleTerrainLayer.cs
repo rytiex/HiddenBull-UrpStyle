@@ -27,7 +27,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Min(0.01f)]
         [Tooltip("Size of one texture repeat on the ground, in metres.")]
-        Vector2 m_Size = new Vector2(4f, 4f);
+        Vector2 m_Size = Vector2.one;
 
         [SerializeField]
         [Tooltip("Shift of the texture repeat, in metres.")]
@@ -41,12 +41,12 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("Smoothness of the ground. With a mask map it multiplies the mask's smoothness.")]
-        float m_Smoothness = 0.2f;
+        float m_Smoothness = 1f;
 
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("Metallic of the ground. With a mask map it multiplies the mask's metallic.")]
-        float m_Metallic;
+        float m_Metallic = 1f;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -61,11 +61,11 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Tooltip("Large colour patches that break up this layer. Grass on it takes them too.")]
-        bool m_Variation;
+        bool m_Variation = true;
 
         [SerializeField]
         [Tooltip("Colour of the patches. Alpha is how strongly they show.")]
-        Color m_VariationColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        Color m_VariationColor = new Color(0.2f, 0.2f, 0.2f, 1f);
 
         [SerializeField]
         [Min(1f)]
@@ -90,37 +90,44 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("Extra light and dark shading across the patches.")]
-        float m_VariationShading = 0.35f;
+        float m_VariationShading;
 
         [SerializeField]
         [Tooltip("Off tints the layer with the colour's hue. On paints the colour over the layer.")]
         bool m_VariationPaint;
 
         [SerializeField]
-        [Tooltip("Picture of one tuft, cut out by its alpha. Grass grows on this layer only when it is set.")]
-        Texture2D m_GrassTexture;
-
-        [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How thick grass grows on this layer: 0 for none, 1 for a tuft at every spot the quality level " +
                  "allows (about every 20 cm at Ultra). The Grass brush thins or thickens it place by place.")]
-        float m_GrassDensity;
+        float m_GrassDensity = 1f;
 
         [SerializeField]
-        [Range(0.05f, 3f)]
+        [Range(0.05f, 1f)]
         [Tooltip("Height of the grass on this layer, in metres. The Grass brush makes it shorter or taller place " +
                  "by place.")]
-        float m_GrassHeight = 0.4f;
+        float m_GrassHeight = 0.095f;
 
         [SerializeField]
-        [Range(0.05f, 2f)]
-        [Tooltip("Width of one tuft of grass, in metres.")]
-        float m_GrassWidth = 0.35f;
+        [Range(0.05f, 1f)]
+        [Tooltip("Width of one grass leaf near the camera. 1 is 20 cm.")]
+        float m_GrassWidth = 0.25f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How far each grass leaf bends over: 0 stands straight, 1 droops back toward the ground.")]
+        float m_GrassCurl = 0.125f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("Breaks the grass into patches of taller, lighter and shorter, darker tufts. 0 keeps one height " +
+                 "and tone.")]
+        float m_GrassVariation = 0.5f;
 
         [SerializeField]
         [ColorUsage(false)]
-        [Tooltip("Colour the upper part of each tuft turns toward, by Tip Strength. The tuft itself takes the " +
-                 "colour of the ground under it; the grass texture only gives its shape and light and dark detail.")]
+        [Tooltip("Colour the upper part of each leaf turns toward, by Tip Strength. The leaf itself takes the " +
+                 "colour of the ground under it.")]
         Color m_GrassTip = Color.white;
 
         [SerializeField]
@@ -133,7 +140,7 @@ namespace HiddenBull.UrpStyle
         [Range(0f, 10f)]
         [Tooltip("How far from a layer without grass, in metres, this grass starts to get shorter and sparser, " +
                  "until none is left at the border. 0 ends it sharply.")]
-        float m_GrassTransition = 2f;
+        float m_GrassTransition = 1f;
 
         [SerializeField]
         [Tooltip("Picture of the flower heads, cut out by alpha. It may hold several flowers side by side; set how " +
@@ -282,13 +289,25 @@ namespace HiddenBull.UrpStyle
         public float grassHeight
         {
             get => m_GrassHeight;
-            set => m_GrassHeight = Mathf.Clamp(value, 0.05f, 3f);
+            set => m_GrassHeight = Mathf.Clamp(value, 0.05f, 1f);
         }
 
         public float grassWidth
         {
             get => m_GrassWidth;
-            set => m_GrassWidth = Mathf.Clamp(value, 0.05f, 2f);
+            set => m_GrassWidth = Mathf.Clamp(value, 0.05f, 1f);
+        }
+
+        public float grassCurl
+        {
+            get => m_GrassCurl;
+            set => m_GrassCurl = Mathf.Clamp01(value);
+        }
+
+        public float grassVariation
+        {
+            get => m_GrassVariation;
+            set => m_GrassVariation = Mathf.Clamp01(value);
         }
 
         public Color grassTip
@@ -331,12 +350,6 @@ namespace HiddenBull.UrpStyle
         {
             get => m_FlowerSize;
             set => m_FlowerSize = Mathf.Clamp(value, 0.02f, 1f);
-        }
-
-        public Texture2D grassTexture
-        {
-            get => m_GrassTexture;
-            set => m_GrassTexture = value;
         }
     }
 }

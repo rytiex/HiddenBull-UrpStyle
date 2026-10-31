@@ -39,13 +39,13 @@ namespace HiddenBull.UrpStyle.Editor
             "Drag to paint this layer over the rules. The preview shows it at once; Bake keeps it.",
             "Drag to add natural bumps and dips; going over the same place again grows the same shapes.",
             "Drag to pull the ground into flat steps of Step Height with steep but unbroken edges.",
-            "Drag to thicken the grass of the layers here. Only layers with a Grass Texture and a Grass Density " +
+            "Drag to thicken the grass of the layers here. Only layers with a Grass Density " +
             "above 0 grow grass; Debug > Grass/Density shows the result.",
             "Drag to make the grass of the layers here taller. Debug > Grass/Density shows height as colour, " +
             "yellow short to blue-green tall.",
             "Drag to bring density and height back to what the layers give.",
             "Drag to give the grass here the same Density everywhere, whatever the layers say. Only layers with " +
-            "a Grass Texture and a Grass Density above 0 grow grass.",
+            "a Grass Density above 0 grow grass.",
             "Drag to give the grass here the same Height everywhere, whatever the layers say."
         };
 
@@ -399,7 +399,7 @@ namespace HiddenBull.UrpStyle.Editor
 
                         case StyleTerrainBrushTool.GrassSetHeight:
                             grassHeight = EditorGUILayout.Slider(s_GrassHeightLabel, grassHeight, 0.05f,
-                                                                 StyleTerrains.GrassMostHeight);
+                                                                 StyleTerrains.GrassTallest);
                             break;
                     }
 

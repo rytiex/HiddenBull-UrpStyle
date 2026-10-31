@@ -34,6 +34,10 @@ float4 _HB_LayerSurface[16];
 float4 _HB_LayerVary[16];
 float4 _HB_LayerVaryShape[16];
 float4 _HB_LayerVarySize[16];
+float4 _HB_LayerGrass[16];
+float4 _HB_LayerGrassEdge[16];
+float4 _HB_LayerGrassTip[16];
+float4 _HB_TerrainGrassFar;
 float4 _HB_TerrainBrush;
 float4 _HB_TerrainStyle;
 float4 _HB_TerrainVariation;
@@ -78,6 +82,9 @@ struct HBTerrainSurface
     half wetness;
     half snowCover;
     half height;
+    half meadow;
+    half vary;
+    half4 tip;
     int strongest;
 };
 
@@ -266,6 +273,9 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
     surface.wetness = 0.0h;
     surface.snowCover = 0.0h;
     surface.height = 0.0h;
+    surface.meadow = 0.0h;
+    surface.vary = 0.0h;
+    surface.tip = half4(0.0h, 0.0h, 0.0h, 0.0h);
 
     UNITY_UNROLL
     for (int layer = 0; layer < 3; layer++)
@@ -287,6 +297,12 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
         surface.wetness += half(settings.z) * blend[layer];
         surface.snowCover += half(settings.w) * blend[layer];
         surface.height += mask[layer].b * blend[layer];
+
+        half grows = saturate(half(_HB_LayerGrass[ids[layer]].x)) * blend[layer];
+
+        surface.meadow += grows;
+        surface.vary += half(_HB_LayerGrassEdge[ids[layer]].y) * grows;
+        surface.tip += half4(_HB_LayerGrassTip[ids[layer]]) * grows;
     }
 
     surface.normalTS = normalize(surface.normalTS);

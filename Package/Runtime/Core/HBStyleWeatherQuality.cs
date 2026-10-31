@@ -44,7 +44,7 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Active weather level: shelter map size and detail reach. To turn the weather off, set Rain and " +
                  "Snow to 0 on the HB Style Environment Controller; falling rain and snow have their own " +
                  "Precipitation level.")]
-        HBStyleWeatherQualityLevel m_Level = HBStyleWeatherQualityLevel.High;
+        HBStyleWeatherQualityLevel m_Level = HBStyleWeatherQualityLevel.Ultra;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]

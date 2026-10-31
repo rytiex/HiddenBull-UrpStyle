@@ -2,11 +2,9 @@
 #define HB_TERRAIN_GRASS_INCLUDED
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassNoise.hlsl"
 
 TEXTURE2D(_HB_GrassMap);
-
-float4 _HB_LayerGrass[16];
-float4 _HB_LayerGrassEdge[16];
 
 #define HB_GRASS_MOST_HEIGHT 3.0h
 #define HB_GRASS_EDGE_LOW    0.25h
@@ -44,7 +42,32 @@ half HB_TerrainMaskHeight(float2 layerUV, int layer)
     return half(height);
 }
 
-HBTerrainGrass HB_TerrainGrassPick(float2 uv, half pick, out int layer, out half3 shares, out int3 ids)
+half4 HB_TerrainGrassMapTexel(int2 texel)
+{
+    half4 map = half4(LOAD_TEXTURE2D(_HB_GrassMap, texel));
+
+    map.rg *= map.ba;
+    return map;
+}
+
+half4 HB_TerrainGrassMap(float2 uv)
+{
+    uint width, height;
+    _HB_GrassMap.GetDimensions(width, height);
+
+    float2 texel = uv * float2(width, height) - 0.5;
+    int2 base = (int2)floor(texel);
+    int2 last = int2(width, height) - 1;
+    int2 low = clamp(base, 0, last);
+    int2 high = clamp(base + 1, 0, last);
+    half2 part = half2(texel - base);
+    half4 lower = lerp(HB_TerrainGrassMapTexel(low), HB_TerrainGrassMapTexel(int2(high.x, low.y)), part.x);
+    half4 upper = lerp(HB_TerrainGrassMapTexel(int2(low.x, high.y)), HB_TerrainGrassMapTexel(high), part.x);
+
+    return lerp(lower, upper, part.y);
+}
+
+HBTerrainGrass HB_TerrainGrassPick(float2 uv, float2 mapUV, half pick, out int layer, out half3 shares, out int3 ids)
 {
     half3 best;
     HB_TerrainPicks(uv, best, ids);
@@ -90,11 +113,11 @@ HBTerrainGrass HB_TerrainGrassPick(float2 uv, half pick, out int layer, out half
 
     layer = choice < grown.x ? ids.x : choice < grown.x + grown.y ? ids.y : ids.z;
 
-    half4 map = half4(SAMPLE_TEXTURE2D_LOD(_HB_GrassMap, sampler_LinearClamp, uv, 0));
+    half4 map = HB_TerrainGrassMap(mapUV);
 
     HBTerrainGrass result;
-    result.density = lerp(density, map.r * cover, map.b);
-    result.height = lerp(height / max(density, half(HB_EPSILON)), map.g * HB_GRASS_MOST_HEIGHT, map.a);
+    result.density = density * (1.0h - map.b) + map.r * cover;
+    result.height = height / max(density, half(HB_EPSILON)) * (1.0h - map.a) + map.g * HB_GRASS_MOST_HEIGHT;
     result.transition = transition / max(density, half(HB_EPSILON));
     return result;
 }
@@ -153,7 +176,7 @@ HBTerrainGrass HB_TerrainGrass(float2 uv)
     int layer;
     half3 shares;
     int3 ids;
-    HBTerrainGrass grass = HB_TerrainGrassPick(uv, 0.5h, layer, shares, ids);
+    HBTerrainGrass grass = HB_TerrainGrassPick(uv, uv, 0.5h, layer, shares, ids);
 
     HB_TerrainGrassFringe(uv, grass);
     return grass;

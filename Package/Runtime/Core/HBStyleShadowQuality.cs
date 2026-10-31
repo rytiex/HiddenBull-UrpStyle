@@ -56,7 +56,7 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Active shadow level. Off turns realtime shadows off. Low to Ultra write their distance, " +
                  "cascades and resolution into the active URP asset and drive the contact-hardening filter, " +
                  "which runs within 15 m of the camera on every level.")]
-        HBStyleQualityLevel m_Level = HBStyleQualityLevel.High;
+        HBStyleQualityLevel m_Level = HBStyleQualityLevel.Ultra;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]

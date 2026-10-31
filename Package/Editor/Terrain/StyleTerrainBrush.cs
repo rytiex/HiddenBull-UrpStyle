@@ -63,8 +63,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal static float grassHeight
         {
-            get => EditorPrefs.GetFloat(Key + "GrassHeight", 0.4f);
-            set => EditorPrefs.SetFloat(Key + "GrassHeight", Mathf.Clamp(value, 0.05f, StyleTerrains.GrassMostHeight));
+            get => EditorPrefs.GetFloat(Key + "GrassHeight", 0.1f);
+            set => EditorPrefs.SetFloat(Key + "GrassHeight", Mathf.Clamp(value, 0.05f, StyleTerrains.GrassTallest));
         }
 
         internal static bool armed

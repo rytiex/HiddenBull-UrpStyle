@@ -37,23 +37,23 @@ namespace HiddenBull.UrpStyle
     {
         [SerializeField]
         [Tooltip("Active grass level: how far grass reaches and how thick it can grow. Off draws no grass.")]
-        HBStyleGrassQualityLevel m_Level = HBStyleGrassQualityLevel.High;
+        HBStyleGrassQualityLevel m_Level = HBStyleGrassQualityLevel.Ultra;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]
-        HBStyleGrassLevel m_Low = new HBStyleGrassLevel(50f, 0.2f);
+        HBStyleGrassLevel m_Low = new HBStyleGrassLevel(45f, 0.2f);
 
         [SerializeField]
         [Tooltip("Settings used when the level is Medium.")]
-        HBStyleGrassLevel m_Medium = new HBStyleGrassLevel(75f, 0.15f);
+        HBStyleGrassLevel m_Medium = new HBStyleGrassLevel(50f, 0.15f);
 
         [SerializeField]
         [Tooltip("Settings used when the level is High.")]
-        HBStyleGrassLevel m_High = new HBStyleGrassLevel(100f, 0.125f);
+        HBStyleGrassLevel m_High = new HBStyleGrassLevel(75f, 0.125f);
 
         [SerializeField]
         [Tooltip("Settings used when the level is Ultra.")]
-        HBStyleGrassLevel m_Ultra = new HBStyleGrassLevel(150f, 0.1f);
+        HBStyleGrassLevel m_Ultra = new HBStyleGrassLevel(100f, 0.1f);
 
         public HBStyleGrassQualityLevel level
         {

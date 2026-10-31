@@ -13,12 +13,8 @@ namespace HiddenBull.UrpStyle.Editor
         const int AlbedoPass = 0;
         const int NormalPass = 1;
         const int MaskPass = 2;
-        const int GrassResolution = 512;
-        const int GrassVersion = 6;
-        const float GrassMeanDetail = 0.5f;
+        const int GrassVersion = 7;
         const byte GrassSolid = 128;
-        const int ShapeSteps = 32;
-        const float ShapeMargin = 1f / 32f;
         const int CoverageSteps = 12;
         const float CoverageMost = 16f;
         const string GrassName = "Grass Tufts";
@@ -137,30 +133,12 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var text = new StringBuilder();
 
-            text.Append(Version).Append(':').Append(GrassVersion).Append(':').Append(GrassResolution);
-
-            foreach (var texture in GrassTextures(data))
-                Append(text, texture);
+            text.Append(Version).Append(':').Append(GrassVersion);
 
             foreach (var texture in FlowerTextures(data))
                 Append(text, texture);
 
             return text.ToString();
-        }
-
-        static List<Texture2D> GrassTextures(HBStyleTerrainData data)
-        {
-            var textures = new List<Texture2D>();
-
-            for (var index = 0; index < data.layerCount; index++)
-            {
-                var layer = data.layers[index].layer;
-
-                if (layer != null && layer.grassTexture != null && !textures.Contains(layer.grassTexture))
-                    textures.Add(layer.grassTexture);
-            }
-
-            return textures;
         }
 
         static List<Texture2D> FlowerTextures(HBStyleTerrainData data)
@@ -171,8 +149,7 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 var layer = data.layers[index].layer;
 
-                if (layer != null && layer.grassTexture != null && layer.flowerTexture != null &&
-                    !textures.Contains(layer.flowerTexture))
+                if (layer != null && layer.flowerTexture != null && !textures.Contains(layer.flowerTexture))
                     textures.Add(layer.flowerTexture);
             }
 
@@ -236,156 +213,9 @@ namespace HiddenBull.UrpStyle.Editor
         internal static void BuildGrass(HBStyleTerrainData data)
         {
             BuildFlowers(data);
-
-            var textures = GrassTextures(data);
-            var signature = GrassSignature(data);
-
             StyleTerrainBaker.Remove(data, GrassName);
-
-            if (textures.Count == 0)
-            {
-                data.SetGrassTextures(null, new Texture2D[0], new Vector4[0], new float[0], signature);
-                EditorUtility.SetDirty(data);
-                return;
-            }
-
-            var format = Pick(TextureFormat.BC7);
-            var array = new Texture2DArray(GrassResolution, GrassResolution, textures.Count, format, true, true)
-            {
-                name = GrassName,
-                filterMode = FilterMode.Trilinear,
-                anisoLevel = 4,
-                wrapMode = TextureWrapMode.Repeat
-            };
-
-            var shapes = new Vector4[textures.Count];
-            var tops = new float[textures.Count];
-
-            for (var slice = 0; slice < textures.Count; slice++)
-            {
-                var target = RenderTexture.GetTemporary(GrassResolution, GrassResolution, 0, RenderTextureFormat.ARGB32,
-                                                        RenderTextureReadWrite.sRGB);
-
-                Graphics.Blit(textures[slice], target);
-
-                var previous = RenderTexture.active;
-                RenderTexture.active = target;
-
-                var readable = new Texture2D(GrassResolution, GrassResolution, TextureFormat.RGBA32, true, true);
-                readable.ReadPixels(new Rect(0f, 0f, GrassResolution, GrassResolution), 0, 0, false);
-
-                RenderTexture.active = previous;
-                RenderTexture.ReleaseTemporary(target);
-
-                FitShape(readable, out shapes[slice], out tops[slice]);
-                Detail(readable);
-                readable.Apply(true, false);
-                KeepCoverage(readable);
-
-                if (format != TextureFormat.RGBA32)
-                    EditorUtility.CompressTexture(readable, format, TextureCompressionQuality.Fast);
-
-                for (var mip = 0; mip < readable.mipmapCount && mip < array.mipmapCount; mip++)
-                    array.SetPixelData(readable.GetPixelData<byte>(mip), mip, slice);
-
-                Object.DestroyImmediate(readable);
-            }
-
-            array.Apply(false, true);
-            AssetDatabase.AddObjectToAsset(array, data);
-            data.SetGrassTextures(array, textures.ToArray(), shapes, tops, signature);
+            data.SetGrassSignature(GrassSignature(data));
             EditorUtility.SetDirty(data);
-        }
-
-        static void FitShape(Texture2D readable, out Vector4 shape, out float top)
-        {
-            var pixels = readable.GetPixels32(0);
-            var left = new float[GrassResolution];
-            var right = new float[GrassResolution];
-            var first = -1;
-            var last = -1;
-
-            for (var row = 0; row < GrassResolution; row++)
-            {
-                var from = -1;
-                var to = -1;
-
-                for (var column = 0; column < GrassResolution; column++)
-                {
-                    if (pixels[row * GrassResolution + column].a < GrassSolid)
-                        continue;
-
-                    from = from < 0 ? column : from;
-                    to = column;
-                }
-
-                if (from < 0)
-                {
-                    left[row] = last >= 0 ? left[row - 1] : 0f;
-                    right[row] = last >= 0 ? right[row - 1] : 0f;
-                    continue;
-                }
-
-                left[row] = Mathf.Max((float)from / GrassResolution - ShapeMargin, 0f);
-                right[row] = Mathf.Max(1f - (to + 1f) / GrassResolution - ShapeMargin, 0f);
-                first = first < 0 ? row : first;
-                last = row;
-            }
-
-            shape = new Vector4(0f, 1f, 0f, 1f);
-            top = 1f;
-
-            if (last < 0)
-                return;
-
-            for (var row = 0; row < first; row++)
-            {
-                left[row] = left[first];
-                right[row] = right[first];
-            }
-
-            top = Mathf.Min((last + 1f) / GrassResolution + ShapeMargin, 1f);
-
-            FitEdge(left, last, top, out var leftRoot, out var leftTip);
-            FitEdge(right, last, top, out var rightRoot, out var rightTip);
-
-            shape = new Vector4(leftRoot, 1f - rightRoot, leftTip, 1f - rightTip);
-        }
-
-        static void FitEdge(float[] limits, int last, float top, out float root, out float tip)
-        {
-            var best = -1f;
-
-            root = 0f;
-            tip = 0f;
-
-            for (var low = 0; low <= ShapeSteps; low++)
-            {
-                for (var high = 0; high <= ShapeSteps; high++)
-                {
-                    var from = (float)low / ShapeSteps;
-                    var to = (float)high / ShapeSteps;
-
-                    if (from + to <= best)
-                        continue;
-
-                    var fits = true;
-
-                    for (var row = 0; row <= last && fits; row++)
-                    {
-                        var along = (row + 0.5f) / GrassResolution / top;
-
-                        fits = Mathf.Lerp(from, to, along) <= limits[row];
-                    }
-
-                    if (!fits)
-                        continue;
-
-                    best = from + to;
-                    root = from;
-                    tip = to;
-                }
-            }
         }
 
         static void KeepCoverage(Texture2D readable)
@@ -430,36 +260,6 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             return (float)solid / pixels.Length;
-        }
-
-        static void Detail(Texture2D readable)
-        {
-            var pixels = readable.GetPixels32(0);
-            var light = new float[pixels.Length];
-            var sum = 0f;
-            var count = 0;
-
-            for (var i = 0; i < pixels.Length; i++)
-            {
-                light[i] = ((Color)pixels[i]).linear.grayscale;
-
-                if (pixels[i].a < GrassSolid)
-                    continue;
-
-                sum += light[i];
-                count++;
-            }
-
-            var scale = GrassMeanDetail / Mathf.Max(count > 0 ? sum / count : 1f, 1e-3f);
-
-            for (var i = 0; i < pixels.Length; i++)
-            {
-                var value = (byte)Mathf.Clamp(Mathf.RoundToInt(light[i] * scale * 255f), 0, 255);
-
-                pixels[i] = new Color32(value, value, value, pixels[i].a);
-            }
-
-            readable.SetPixels32(pixels, 0);
         }
 
         static TextureFormat Pick(TextureFormat wanted)

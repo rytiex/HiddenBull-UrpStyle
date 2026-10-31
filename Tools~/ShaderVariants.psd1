@@ -545,6 +545,16 @@
             Reads = 0
         }
         @{
+            Name = 'Grass Trail'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
+            Entry = 'Trail'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Grass Flowers Forward'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
             Entry = 'HB_GrassFragment'
@@ -561,6 +571,16 @@
             Stage = 'vs'
             Urp = 'Minimal'
             Defines = @('_HB_GRASS_FLOWERS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Forward (light list)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_GRASS_FORWARD', '_ADDITIONAL_LIGHTS')
             Slots = 0
             Reads = 0
         }

@@ -6,7 +6,6 @@ namespace HiddenBull.UrpStyle.Editor
     [CustomEditor(typeof(HBStyleTerrainLayer))]
     sealed class StyleTerrainLayerEditor : UnityEditor.Editor
     {
-        const string GrassTexture = "m_GrassTexture";
         const string FlowerTexture = "m_FlowerTexture";
         const string Variation = "m_Variation";
         const string FoldKey = "HiddenBull.UrpStyle.Terrain.Layer.";
@@ -23,7 +22,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_GrassFields =
         {
-            "m_GrassDensity", "m_GrassHeight", "m_GrassWidth", "m_GrassTip", "m_GrassTipStrength", "m_GrassTransition"
+            "m_GrassDensity", "m_GrassHeight", "m_GrassWidth", "m_GrassCurl", "m_GrassVariation", "m_GrassTip",
+            "m_GrassTipStrength", "m_GrassTransition"
         };
 
         static readonly string[] s_FlowerFields = { "m_FlowerVariants", "m_FlowerShare", "m_FlowerSize" };
@@ -60,19 +60,9 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             if (StyleTerrainGUI.Section("Grass", StyleTerrainGUI.grassTint, FoldKey + "Grass", true))
-            {
-                var texture = serializedObject.FindProperty(GrassTexture);
+                Fields(s_GrassFields);
 
-                EditorGUILayout.PropertyField(texture);
-
-                if (texture.hasMultipleDifferentValues || texture.objectReferenceValue != null)
-                    Fields(s_GrassFields);
-            }
-
-            var grown = serializedObject.FindProperty(GrassTexture);
-
-            if ((grown.hasMultipleDifferentValues || grown.objectReferenceValue != null) &&
-                StyleTerrainGUI.Section("Flowers", s_FlowerTint, FoldKey + "Flowers", false))
+            if (StyleTerrainGUI.Section("Flowers", s_FlowerTint, FoldKey + "Flowers", false))
             {
                 var flower = serializedObject.FindProperty(FlowerTexture);
 

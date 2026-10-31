@@ -112,7 +112,7 @@ namespace HiddenBull.UrpStyle
 
         static bool Instant(Dome dome)
         {
-            return StyleWeatherState.instant || !dome.gradual;
+            return !Application.isPlaying || !dome.gradual;
         }
 
         static float Toward(float value, float target, float step, float rise, float fall)

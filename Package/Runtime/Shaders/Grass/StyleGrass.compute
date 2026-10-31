@@ -1,27 +1,67 @@
 #pragma kernel Place
 #pragma kernel Cull
+#pragma kernel Trail
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainShade.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassInput.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherNoise.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
 
 RWStructuredBuffer<uint3> _HB_GrassBladesOut;
 StructuredBuffer<uint3> _HB_GrassBlades;
 StructuredBuffer<int4> _HB_GrassSlots;
 StructuredBuffer<int4> _HB_GrassJobs;
 StructuredBuffer<uint> _HB_GrassVisible;
-AppendStructuredBuffer<uint> _HB_GrassNear;
-AppendStructuredBuffer<uint> _HB_GrassFar;
-AppendStructuredBuffer<uint> _HB_GrassFlowers;
+AppendStructuredBuffer<HBGrassDrawn> _HB_GrassNear;
+AppendStructuredBuffer<HBGrassDrawn> _HB_GrassMid;
+AppendStructuredBuffer<HBGrassDrawn> _HB_GrassFar;
+AppendStructuredBuffer<HBGrassDrawn> _HB_GrassFlowers;
+TEXTURE2D(_HB_GrassTrail);
+RWTexture2D<float4> _HB_GrassTrailOut;
 
 float4 _HB_GrassPlanes[6];
+float4 _HB_GrassAir;
+float4 _HB_GrassClock;
+float4 _HB_GrassBenders[8];
+float4 _HB_GrassPresses[8];
+float4 _HB_GrassForms[8];
 float4 _HB_LayerFlower[16];
 
 #define HB_GRASS_SWAY_ROOM   2.0
-#define HB_GRASS_GROUND_MIP  3.0
+#define HB_GRASS_GROUND_FOOT 2.0
 #define HB_GRASS_SHAPE_STEP  4.0
 #define HB_GRASS_LEAST       0.02
+#define HB_GRASS_LEAST_PIXELS 0.35
+#define HB_GRASS_MAP_SHAKE   2.0
+#define HB_GRASS_DENSITY_SOFT 0.15
+#define HB_GRASS_WIND        _HB_GrassAir.x
+#define HB_GRASS_HEADING     _HB_GrassAir.y
+#define HB_GRASS_WET         _HB_GrassAir.z
+#define HB_GRASS_SNOW        _HB_GrassAir.w
+#define HB_GRASS_TIME        _HB_GrassClock.x
+#define HB_GRASS_STEP        _HB_GrassClock.y
+#define HB_GRASS_TRAIL_CLEAR _HB_GrassClock.z
+#define HB_GRASS_BENDERS     ((int)_HB_GrassCamera.w)
+#define HB_GRASS_BEND_LEAN   0.7
+#define HB_GRASS_BEND_DROP   0.35
+#define HB_GRASS_BEND_CORE   0.35
+#define HB_GRASS_BEND_TOP    1.0
+#define HB_GRASS_BEND_END    0.1
+#define HB_GRASS_PATCH_STEP  (1.0 / 7.0)
+#define HB_GRASS_PATCH_SHAKE 61.7
+#define HB_GRASS_GUST_LAG    2.5
+#define HB_GRASS_GUST_FINE   16.0
+#define HB_GRASS_GUST_SHORT  8.0
+#define HB_GRASS_LEAN_BASE   0.22
+#define HB_GRASS_LEAN_PRESS  0.45
+#define HB_GRASS_DRIFT       0.05
+#define HB_GRASS_DRIFT_IDLE  0.02
+#define HB_GRASS_SWAY_REACH  0.6
+#define HB_GRASS_SWAY_FADE   0.25
+#define HB_TRAIL_SIZE        256
+#define HB_TRAIL_SPAN        64.0
+#define HB_TRAIL_REST        1e-4
 #define HB_GRASS_HOLE        0.5
 #define HB_BLOOM_WIDE        9.0
 #define HB_BLOOM_FINE        2.6
@@ -85,22 +125,35 @@ void Place(uint3 id : SV_DispatchThreadID)
         int layer;
         half3 shares;
         int3 ids;
-        HBTerrainGrass grass = HB_TerrainGrassPick(uv, half(roll.y), layer, shares, ids);
+        uint mapWidth, mapHeight;
+        _HB_GrassMap.GetDimensions(mapWidth, mapHeight);
 
-        if (roll.x < grass.density)
+        float2 shake = (HB_GrassRandom(grid, 6u + level * 8u) - 0.5) * HB_GRASS_MAP_SHAKE / float2(mapWidth, mapHeight);
+        HBTerrainGrass grass = HB_TerrainGrassPick(uv, uv + shake, half(roll.y), layer, shares, ids);
+        float reach = 1.0 + HB_GRASS_DENSITY_SOFT;
+
+        if (roll.x < grass.density * reach)
             HB_TerrainGrassFringe(uv, grass);
 
-        if (roll.x < grass.density && grass.height > HB_GRASS_LEAST)
+        float grown = saturate((grass.density * reach - roll.x) / HB_GRASS_DENSITY_SOFT);
+        float tuft = grass.height * grown;
+
+        if (grown > 0.0 && tuft > HB_GRASS_LEAST)
         {
             float3 ground = float3(0.0, 0.0, 0.0);
+            float foot = HB_GRASS_SPACING * HB_GrassScale(level) * HB_GRASS_GROUND_FOOT;
+            uint texels, rows, slices;
+
+            _HB_LayerAlbedo.GetDimensions(texels, rows, slices);
 
             UNITY_UNROLL
             for (int pick = 0; pick < 3; pick++)
             {
                 float4 st = _HB_LayerST[ids[pick]];
 
+                float mip = log2(max(foot * max(st.x, st.y) * float(texels), 1.0));
                 float3 base = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, local * st.xy + st.zw,
-                                                         ids[pick], HB_GRASS_GROUND_MIP).rgb
+                                                         ids[pick], mip).rgb
                             * _HB_LayerLook[ids[pick]].rgb;
 
                 ground += HB_TerrainVary(half3(base), xz, ids[pick]) * shares[pick];
@@ -110,16 +163,106 @@ void Place(uint3 id : SV_DispatchThreadID)
             float3 normal = HB_TerrainShape(xz, HB_GRASS_SPACING * HB_GRASS_SHAPE_STEP, curvature);
             ground *= HB_TerrainShade(xz, HB_TerrainBend(curvature));
 
+            float clump = HB_GrassClump(xz) * _HB_LayerGrassEdge[layer].y;
             float rootHeight = HB_TerrainHeight(xz);
 
-            blade.x = asuint(rootHeight);
-            blade.y = HB_GrassPack(grass.height, _HB_LayerGrass[layer].z, (uint)layer, rand);
+            ground *= 1.0 + clump * HB_GRASS_CLUMP_TONE;
+
+            blade.x = HB_GrassPackRoot(rootHeight, normal);
+            blade.y = HB_GrassPack(tuft * (1.0 + clump * HB_GRASS_CLUMP_HEIGHT), _HB_LayerGrass[layer].z, (uint)layer,
+                                    rand);
             blade.z = HB_GrassPackColour(ground) | (HB_GrassBloom(xz, grid, level, _HB_LayerFlower[layer]) << 24u)
                     | (HB_GrassGroundMark(float3(xz.x, rootHeight, xz.y), normal) << 28u);
         }
     }
 
     _HB_GrassBladesOut[index] = blade;
+}
+
+float3 HB_GrassGust(float3 root, float seed, float gap, out float streak)
+{
+    float2 wind = float2(sin(HB_GRASS_HEADING), cos(HB_GRASS_HEADING));
+    float2 side = float2(-wind.y, wind.x);
+    float along = dot(root.xz, side);
+    float ahead = dot(root.xz, wind) + seed * HB_GRASS_GUST_LAG;
+    float speed = HB_GRASS_GUST_SPEED + HB_GRASS_GUST_RISE * HB_GRASS_WIND;
+
+    float wide = HB_GrassNoise(float2(along / HB_GRASS_GUST_WIDE,
+                                      (ahead - HB_GRASS_TIME * speed) / HB_GRASS_GUST_LONG));
+    float fine = HB_GrassNoise(float2(along / HB_GRASS_GUST_FINE + 7.3,
+                                      (ahead - HB_GRASS_TIME * speed * 1.6) / HB_GRASS_GUST_SHORT));
+
+    streak = smoothstep(HB_GRASS_GUST_LOW, HB_GRASS_GUST_HIGH, wide * 0.65 + fine * 0.35);
+    float lean = HB_GRASS_WIND * (HB_GRASS_LEAN_BASE + HB_GRASS_LEAN_PRESS * streak);
+
+    float drift = (HB_GRASS_DRIFT_IDLE + HB_GRASS_WIND * HB_GRASS_DRIFT)
+                * sin(HB_GRASS_TIME * (1.7 + seed) + seed * 31.0);
+    float2 push = wind * lean + side * drift;
+    float still = saturate((HB_GRASS_DISTANCE * HB_GRASS_SWAY_REACH - gap)
+                         / (HB_GRASS_DISTANCE * HB_GRASS_SWAY_FADE));
+
+    streak *= HB_GRASS_WIND;
+
+    return float3(push.x, -0.5 * lean * lean, push.y) * still;
+}
+
+float2 HB_GrassWeather(HBGrassBlade blade)
+{
+    float2 weather = float2(0.0, 0.0);
+
+    UNITY_BRANCH
+    if (HB_GRASS_WET > 0.0 || HB_GRASS_SNOW > 0.0)
+    {
+        float open = 1.0;
+
+        UNITY_BRANCH
+        if (HB_SHELTER_BOUND > 0.5)
+        {
+            float edge;
+            float2 uv = HB_ShelterUV(_HB_ShelterViewProj, blade.root.xz, edge);
+
+            if (edge > 0.0)
+            {
+                float depth = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDepth, sampler_PointClamp, uv, 0).r;
+                float roof = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
+                float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
+
+                open = roof > empty ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 1.0;
+            }
+        }
+
+        float4 surface = _HB_LayerSurface[blade.layer];
+        float patches = blade.patches + (frac(blade.rand * HB_GRASS_PATCH_SHAKE) - 0.5) * HB_GRASS_PATCH_STEP;
+        float delay = saturate(patches * HB_SNOW_PATCH_DELAY + 0.5 * HB_SNOW_DROP_DELAY);
+        float settled = saturate((HB_GRASS_SNOW * surface.w - delay * HB_SNOW_SPREAD) / (1.0 - HB_SNOW_SPREAD));
+        float snow = blade.snowy * saturate(settled * HB_SNOW_FADE_IN) * open;
+        float soaked = saturate((HB_GRASS_WET - saturate(patches * HB_WET_PATCH_DELAY) * HB_WET_SPREAD)
+                                / (1.0 - HB_WET_SPREAD));
+
+        weather = float2(soaked * open * (1.0 - snow) * surface.z, snow);
+    }
+
+    return weather;
+}
+
+HBGrassDrawn HB_GrassDraw(uint index, HBGrassBlade blade, float gap)
+{
+    float streak;
+    float3 sway = HB_GrassGust(blade.root, blade.rand, gap, streak);
+    float2 weather = HB_GrassWeather(blade);
+    float4 mark = float4(0.0, 0.0, 0.0, 0.0);
+
+    if (gap < HB_TRAIL_SPAN * 0.5)
+        mark = SAMPLE_TEXTURE2D_LOD(_HB_GrassTrail, sampler_LinearRepeat, blade.root.xz / HB_TRAIL_SPAN, 0);
+
+    sway += float3(mark.x, -mark.z, mark.y);
+
+    HBGrassDrawn drawn;
+    drawn.index = index;
+    drawn.motion = HB_GrassPackMotion(sway, streak);
+    drawn.state = HB_GrassPackState(weather.x, weather.y, mark.z / HB_GRASS_BEND_DROP,
+                                    (HB_GrassKeep(gap, blade.level) - blade.rand) / HB_GRASS_THIN_SOFT);
+    return drawn;
 }
 
 [numthreads(64, 1, 1)]
@@ -143,7 +286,7 @@ void Cull(uint3 id : SV_DispatchThreadID)
         return;
 
     float3 centre = blade.root + float3(0.0, blade.height * 0.5, 0.0);
-    float radius = max(blade.height * HB_GRASS_SWAY_ROOM, blade.width);
+    float radius = max(blade.height * HB_GRASS_SWAY_ROOM, blade.width) + HB_GRASS_SPACING * HB_GrassScale(blade.level);
 
     UNITY_UNROLL
     for (int plane = 0; plane < 6; plane++)
@@ -152,11 +295,80 @@ void Cull(uint3 id : SV_DispatchThreadID)
             return;
     }
 
-    if (blade.level == 0u)
-        _HB_GrassNear.Append(index);
-    else
-        _HB_GrassFar.Append(index);
+    bool bloom = blade.bloom > 0u && gap < HB_GRASS_DISTANCE * HB_BLOOM_REACH;
+    bool seen = blade.height >= gap * HB_GRASS_PIXEL * HB_GRASS_LEAST_PIXELS;
 
-    if (blade.bloom > 0u && gap < HB_GRASS_DISTANCE * HB_BLOOM_REACH)
-        _HB_GrassFlowers.Append(index);
+    if (!bloom && !seen)
+        return;
+
+    HBGrassDrawn drawn = HB_GrassDraw(index, blade, gap);
+
+    if (bloom)
+        _HB_GrassFlowers.Append(drawn);
+
+    if (!seen)
+        return;
+
+    float pixels = HB_GrassPixels(blade.height, gap);
+
+    if (blade.level > 0u || pixels < HB_GRASS_MID_PIXELS)
+        _HB_GrassFar.Append(drawn);
+    else if (gap < HB_GRASS_CLOSE && pixels >= HB_GRASS_CLOSE_PIXELS)
+        _HB_GrassNear.Append(drawn);
+    else
+        _HB_GrassMid.Append(drawn);
+}
+
+float4 HB_TrailStamp(float2 xz, int bender, float4 mark)
+{
+    float4 ball = _HB_GrassBenders[bender];
+    float4 press = _HB_GrassPresses[bender];
+    float4 form = _HB_GrassForms[bender];
+    float2 local = xz - ball.xz;
+    float2 axis = form.xy;
+    float span = dot(axis, axis);
+    float along = span > 0.0 ? dot(local, axis) / span : 0.0;
+    float2 away = local - axis * clamp(along, -1.0, 1.0);
+    float reach = length(away);
+    bool box = form.z > 0.5;
+    float ends = box && span > 0.0 ? saturate((1.0 - abs(along)) * sqrt(span) / HB_GRASS_BEND_END) : 1.0;
+    float touch = box ? saturate((ball.w - reach) / HB_GRASS_BEND_END) : saturate(1.0 - reach / ball.w);
+
+    if (touch * ends <= 0.0)
+        return mark;
+
+    float low = ball.y - form.w;
+    float height = saturate(1.0 - (low - HB_TerrainHeight(xz)) / HB_GRASS_BEND_TOP);
+    float strength = touch * touch * (3.0 - 2.0 * touch) * press.x * ends * height;
+
+    if (strength * HB_GRASS_BEND_DROP <= mark.z)
+        return mark;
+
+    float open = saturate(reach / (ball.w * HB_GRASS_BEND_CORE));
+    float2 push = away / max(reach, 1e-3) * (strength * open * HB_GRASS_BEND_LEAN);
+
+    return float4(push, strength * HB_GRASS_BEND_DROP, press.y);
+}
+
+[numthreads(8, 8, 1)]
+void Trail(uint3 id : SV_DispatchThreadID)
+{
+    float4 mark = LOAD_TEXTURE2D(_HB_GrassTrail, id.xy);
+
+    mark.xyz *= exp(-HB_GRASS_STEP * mark.w);
+
+    if (HB_GRASS_TRAIL_CLEAR > 0.5 || mark.z < HB_TRAIL_REST)
+        mark = float4(0.0, 0.0, 0.0, 0.0);
+
+    float texel = HB_TRAIL_SPAN / HB_TRAIL_SIZE;
+    int half_size = HB_TRAIL_SIZE / 2;
+    int2 anchor = (int2)floor(HB_GRASS_CAMERA.xz / texel);
+    int2 turned = ((int2)id.xy - anchor + half_size) & (HB_TRAIL_SIZE - 1);
+    float2 xz = (float2(anchor + turned - half_size) + 0.5) * texel;
+
+    UNITY_LOOP
+    for (int bender = 0; bender < HB_GRASS_BENDERS; bender++)
+        mark = HB_TrailStamp(xz, bender, mark);
+
+    _HB_GrassTrailOut[id.xy] = mark;
 }
