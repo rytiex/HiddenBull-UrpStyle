@@ -40,6 +40,10 @@ namespace HiddenBull.UrpStyle
         static readonly int s_DiffuseSoftnessId = Shader.PropertyToID("_DiffuseSoftness");
         static readonly int s_HalfToneId = Shader.PropertyToID("_HalfTone");
         static readonly int s_LayerGrassId = Shader.PropertyToID("_HB_LayerGrass");
+        static readonly int s_LayerGrassEdgeId = Shader.PropertyToID("_HB_LayerGrassEdge");
+        static readonly int s_LayerVaryId = Shader.PropertyToID("_HB_LayerVary");
+        static readonly int s_LayerVaryShapeId = Shader.PropertyToID("_HB_LayerVaryShape");
+        static readonly int s_LayerVarySizeId = Shader.PropertyToID("_HB_LayerVarySize");
 
         static readonly List<HBStyleTerrain> s_Active = new List<HBStyleTerrain>();
 
@@ -80,6 +84,12 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerSurface = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrass = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrassTip = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerGrassEdge = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerGrassShape = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerFlower = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerVary = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerVaryShape = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerVarySize = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly StyleGrass m_Grass = new StyleGrass();
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
@@ -106,9 +116,23 @@ namespace HiddenBull.UrpStyle
 
         internal Vector4[] layerGrassTip => m_LayerGrassTip;
 
+        internal Vector4[] layerGrassEdge => m_LayerGrassEdge;
+
+        internal Vector4[] layerGrassShape => m_LayerGrassShape;
+
+        internal Vector4[] layerFlower => m_LayerFlower;
+
+        internal Vector4[] layerVary => m_LayerVary;
+
+        internal Vector4[] layerVaryShape => m_LayerVaryShape;
+
+        internal Vector4[] layerVarySize => m_LayerVarySize;
+
         internal Vector4[] layerST => m_LayerST;
 
         internal Vector4[] layerLook => m_LayerLook;
+
+        internal Vector4[] layerSurface => m_LayerSurface;
 
         internal Texture emptyArray => EmptyArray();
 
@@ -495,6 +519,10 @@ namespace HiddenBull.UrpStyle
                     m_LayerSurface[index] = new Vector4(0.2f, 0f, 1f, 1f);
                     m_LayerGrass[index] = new Vector4(0f, 0f, 0f, -1f);
                     m_LayerGrassTip[index] = new Vector4(1f, 1f, 1f, 0f);
+                    m_LayerGrassEdge[index] = Vector4.zero;
+                    m_LayerGrassShape[index] = Vector4.zero;
+                    m_LayerFlower[index] = new Vector4(0f, 0f, -1f, 1f);
+                    m_LayerVary[index] = Vector4.zero;
                     continue;
                 }
 
@@ -511,6 +539,19 @@ namespace HiddenBull.UrpStyle
                 m_LayerGrass[index] = new Vector4(slice >= 0 ? layer.grassDensity : 0f, layer.grassHeight,
                                                   layer.grassWidth, slice);
                 m_LayerGrassTip[index] = new Vector4(tip.r, tip.g, tip.b, layer.grassTipStrength);
+                m_LayerGrassEdge[index] = new Vector4(layer.grassTransition, m_Data.GrassTop(slice), 0f, 0f);
+                m_LayerGrassShape[index] = m_Data.GrassShape(slice);
+
+                var vary = layer.variationColor.linear;
+
+                m_LayerVary[index] = new Vector4(vary.r, vary.g, vary.b, layer.variation ? layer.variationColor.a : 0f);
+                m_LayerVaryShape[index] = layer.variationShape;
+                m_LayerVarySize[index] = new Vector4(layer.variationSize, layer.variationPaint ? 1f : 0f, 0f, 0f);
+
+                var bloom = m_Data.FlowerSlice(layer);
+
+                m_LayerFlower[index] = new Vector4(bloom >= 0 ? layer.flowerShare : 0f, layer.flowerSize, bloom,
+                                                   layer.flowerVariants);
             }
 
             m_BoundControl = painted ? control : null;
@@ -520,6 +561,10 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_LayerLookId, m_LayerLook);
             block.SetVectorArray(s_LayerSurfaceId, m_LayerSurface);
             block.SetVectorArray(s_LayerGrassId, m_LayerGrass);
+            block.SetVectorArray(s_LayerGrassEdgeId, m_LayerGrassEdge);
+            block.SetVectorArray(s_LayerVaryId, m_LayerVary);
+            block.SetVectorArray(s_LayerVaryShapeId, m_LayerVaryShape);
+            block.SetVectorArray(s_LayerVarySizeId, m_LayerVarySize);
             block.SetTexture(s_GrassMapId, m_Data.grass != null ? m_Data.grass : UnpaintedGrass());
         }
 

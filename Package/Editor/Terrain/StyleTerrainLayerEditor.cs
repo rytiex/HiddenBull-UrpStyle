@@ -7,10 +7,31 @@ namespace HiddenBull.UrpStyle.Editor
     sealed class StyleTerrainLayerEditor : UnityEditor.Editor
     {
         const string GrassTexture = "m_GrassTexture";
+        const string FlowerTexture = "m_FlowerTexture";
+        const string Variation = "m_Variation";
+        const string FoldKey = "HiddenBull.UrpStyle.Terrain.Layer.";
+
+        static readonly Color s_VariationTint = new Color(0.95f, 0.8f, 0.3f);
+        static readonly Color s_FlowerTint = new Color(0.95f, 0.5f, 0.75f);
+
+        static readonly string[] s_TextureFields = { "m_Albedo", "m_Normal", "m_Mask", "m_Tint", "m_Size", "m_Offset" };
+
+        static readonly string[] s_SurfaceFields =
+        {
+            "m_NormalStrength", "m_Smoothness", "m_Metallic", "m_Wetness", "m_SnowCover"
+        };
 
         static readonly string[] s_GrassFields =
         {
-            "m_GrassDensity", "m_GrassHeight", "m_GrassWidth", "m_GrassTip", "m_GrassTipStrength"
+            "m_GrassDensity", "m_GrassHeight", "m_GrassWidth", "m_GrassTip", "m_GrassTipStrength", "m_GrassTransition"
+        };
+
+        static readonly string[] s_FlowerFields = { "m_FlowerVariants", "m_FlowerShare", "m_FlowerSize" };
+
+        static readonly string[] s_VariationFields =
+        {
+            "m_VariationColor", "m_VariationSize", "m_VariationWarp", "m_VariationDetail", "m_VariationContrast",
+            "m_VariationShading", "m_VariationPaint"
         };
 
         static readonly GUIContent s_SourceLabel = new GUIContent("Unity Terrain Layer",
@@ -22,34 +43,49 @@ namespace HiddenBull.UrpStyle.Editor
         {
             serializedObject.Update();
 
-            var property = serializedObject.GetIterator();
+            if (StyleTerrainGUI.Section("Textures", StyleTerrainGUI.shapeTint, FoldKey + "Textures", true))
+                Fields(s_TextureFields);
 
-            for (var enter = true; property.NextVisible(enter); enter = false)
+            if (StyleTerrainGUI.Section("Surface", StyleTerrainGUI.settingsTint, FoldKey + "Surface", true))
+                Fields(s_SurfaceFields);
+
+            if (StyleTerrainGUI.Section("Variation", s_VariationTint, FoldKey + "Variation", false))
             {
-                if (property.propertyPath == "m_Script" || property.propertyPath == GrassTexture ||
-                    System.Array.IndexOf(s_GrassFields, property.propertyPath) >= 0)
-                    continue;
+                var variation = serializedObject.FindProperty(Variation);
 
-                EditorGUILayout.PropertyField(property, true);
+                EditorGUILayout.PropertyField(variation);
+
+                if (variation.hasMultipleDifferentValues || variation.boolValue)
+                    Fields(s_VariationFields);
             }
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Grass", EditorStyles.boldLabel);
-
-            var texture = serializedObject.FindProperty(GrassTexture);
-
-            EditorGUILayout.PropertyField(texture);
-
-            if (texture.hasMultipleDifferentValues || texture.objectReferenceValue != null)
+            if (StyleTerrainGUI.Section("Grass", StyleTerrainGUI.grassTint, FoldKey + "Grass", true))
             {
-                foreach (var field in s_GrassFields)
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty(field));
+                var texture = serializedObject.FindProperty(GrassTexture);
+
+                EditorGUILayout.PropertyField(texture);
+
+                if (texture.hasMultipleDifferentValues || texture.objectReferenceValue != null)
+                    Fields(s_GrassFields);
+            }
+
+            var grown = serializedObject.FindProperty(GrassTexture);
+
+            if ((grown.hasMultipleDifferentValues || grown.objectReferenceValue != null) &&
+                StyleTerrainGUI.Section("Flowers", s_FlowerTint, FoldKey + "Flowers", false))
+            {
+                var flower = serializedObject.FindProperty(FlowerTexture);
+
+                EditorGUILayout.PropertyField(flower);
+
+                if (flower.hasMultipleDifferentValues || flower.objectReferenceValue != null)
+                    Fields(s_FlowerFields);
             }
 
             serializedObject.ApplyModifiedProperties();
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Import", EditorStyles.boldLabel);
+            if (!StyleTerrainGUI.Section("Import", StyleTerrainGUI.settingsTint, FoldKey + "Import", false))
+                return;
 
             m_Source = (TerrainLayer)EditorGUILayout.ObjectField(s_SourceLabel, m_Source, typeof(TerrainLayer), false);
 
@@ -61,6 +97,12 @@ namespace HiddenBull.UrpStyle.Editor
                     Copy(m_Source, serializedObject);
                 }
             }
+        }
+
+        void Fields(string[] names)
+        {
+            foreach (var field in names)
+                EditorGUILayout.PropertyField(serializedObject.FindProperty(field));
         }
 
         internal static void Copy(TerrainLayer source, SerializedObject target)

@@ -78,7 +78,7 @@ a level enum (Off / Low / Medium / High / Ultra) plus per-level parameters.
 | Module | Per-level parameters |
 |---|---|
 | Shadows | distance, cascades, resolution, softness, taps (contact-hardening reach is fixed at 15 m on every level) |
-| Grass | distance, density, translucency |
+| Grass | distance, near distance, spacing, translucency |
 | Precipitation | particle share, far layer, max triangles |
 | Liquid | wave texture size, caustics, foam detail, near displacement on/off |
 | Atmosphere | horizon layers on/off, sun inscatter on/off |

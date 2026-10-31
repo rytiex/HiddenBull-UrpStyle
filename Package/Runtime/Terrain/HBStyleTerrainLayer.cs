@@ -60,6 +60,43 @@ namespace HiddenBull.UrpStyle
         float m_SnowCover = 1f;
 
         [SerializeField]
+        [Tooltip("Large colour patches that break up this layer. Grass on it takes them too.")]
+        bool m_Variation;
+
+        [SerializeField]
+        [Tooltip("Colour of the patches. Alpha is how strongly they show.")]
+        Color m_VariationColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+
+        [SerializeField]
+        [Min(1f)]
+        [Tooltip("Size, in metres, of the variation patches.")]
+        float m_VariationSize = 10f;
+
+        [SerializeField]
+        [Range(0f, 2f)]
+        [Tooltip("How much the patch edges are warped.")]
+        float m_VariationWarp = 0.9f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("Fine detail inside the patches.")]
+        float m_VariationDetail = 0.35f;
+
+        [SerializeField]
+        [Range(1f, 8f)]
+        [Tooltip("How sharp the patch edges are.")]
+        float m_VariationContrast = 4f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("Extra light and dark shading across the patches.")]
+        float m_VariationShading = 0.35f;
+
+        [SerializeField]
+        [Tooltip("Off tints the layer with the colour's hue. On paints the colour over the layer.")]
+        bool m_VariationPaint;
+
+        [SerializeField]
         [Tooltip("Picture of one tuft, cut out by its alpha. Grass grows on this layer only when it is set.")]
         Texture2D m_GrassTexture;
 
@@ -91,6 +128,33 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How far the tips take the Tip colour: 0 for off, so the grass is the ground's colour all the " +
                  "way up, 1 for full Tip colour at the very top.")]
         float m_GrassTipStrength;
+
+        [SerializeField]
+        [Range(0f, 10f)]
+        [Tooltip("How far from a layer without grass, in metres, this grass starts to get shorter and sparser, " +
+                 "until none is left at the border. 0 ends it sharply.")]
+        float m_GrassTransition = 2f;
+
+        [SerializeField]
+        [Tooltip("Picture of the flower heads, cut out by alpha. It may hold several flowers side by side; set how " +
+                 "many with Flower Variants. Flowers grow on this layer only when it is set.")]
+        Texture2D m_FlowerTexture;
+
+        [SerializeField]
+        [Range(1, 8)]
+        [Tooltip("How many flowers sit side by side in the Flower Texture.")]
+        int m_FlowerVariants = 1;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How much of this layer is in flower. Flowers grow in patches, and each patch keeps mostly to one " +
+                 "kind.")]
+        float m_FlowerShare = 0.3f;
+
+        [SerializeField]
+        [Range(0.02f, 1f)]
+        [Tooltip("Size of the biggest flower heads, in metres.")]
+        float m_FlowerSize = 0.15f;
 
         public Texture2D albedo
         {
@@ -158,6 +222,57 @@ namespace HiddenBull.UrpStyle
             set => m_SnowCover = Mathf.Clamp01(value);
         }
 
+        public bool variation
+        {
+            get => m_Variation;
+            set => m_Variation = value;
+        }
+
+        public Color variationColor
+        {
+            get => m_VariationColor;
+            set => m_VariationColor = value;
+        }
+
+        public float variationSize
+        {
+            get => m_VariationSize;
+            set => m_VariationSize = Mathf.Max(value, 1f);
+        }
+
+        public float variationWarp
+        {
+            get => m_VariationWarp;
+            set => m_VariationWarp = Mathf.Clamp(value, 0f, 2f);
+        }
+
+        public float variationDetail
+        {
+            get => m_VariationDetail;
+            set => m_VariationDetail = Mathf.Clamp01(value);
+        }
+
+        public float variationContrast
+        {
+            get => m_VariationContrast;
+            set => m_VariationContrast = Mathf.Clamp(value, 1f, 8f);
+        }
+
+        public float variationShading
+        {
+            get => m_VariationShading;
+            set => m_VariationShading = Mathf.Clamp01(value);
+        }
+
+        internal Vector4 variationShape =>
+            new Vector4(m_VariationWarp, m_VariationDetail, m_VariationContrast, m_VariationShading);
+
+        public bool variationPaint
+        {
+            get => m_VariationPaint;
+            set => m_VariationPaint = value;
+        }
+
         public float grassDensity
         {
             get => m_GrassDensity;
@@ -186,6 +301,36 @@ namespace HiddenBull.UrpStyle
         {
             get => m_GrassTipStrength;
             set => m_GrassTipStrength = Mathf.Clamp01(value);
+        }
+
+        public float grassTransition
+        {
+            get => m_GrassTransition;
+            set => m_GrassTransition = Mathf.Clamp(value, 0f, 10f);
+        }
+
+        public Texture2D flowerTexture
+        {
+            get => m_FlowerTexture;
+            set => m_FlowerTexture = value;
+        }
+
+        public int flowerVariants
+        {
+            get => m_FlowerVariants;
+            set => m_FlowerVariants = Mathf.Clamp(value, 1, 8);
+        }
+
+        public float flowerShare
+        {
+            get => m_FlowerShare;
+            set => m_FlowerShare = Mathf.Clamp01(value);
+        }
+
+        public float flowerSize
+        {
+            get => m_FlowerSize;
+            set => m_FlowerSize = Mathf.Clamp(value, 0.02f, 1f);
         }
 
         public Texture2D grassTexture

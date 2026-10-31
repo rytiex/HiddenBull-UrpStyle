@@ -2,6 +2,7 @@
 #define HB_TERRAIN_INPUT_INCLUDED
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleCore.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Brush/StyleBrush.hlsl"
 
 CBUFFER_START(UnityPerMaterial)
     half4 _BaseColor;
@@ -30,6 +31,9 @@ float4 _HB_TerrainLayers;
 float4 _HB_LayerST[16];
 float4 _HB_LayerLook[16];
 float4 _HB_LayerSurface[16];
+float4 _HB_LayerVary[16];
+float4 _HB_LayerVaryShape[16];
+float4 _HB_LayerVarySize[16];
 float4 _HB_TerrainBrush;
 float4 _HB_TerrainStyle;
 float4 _HB_TerrainVariation;
@@ -185,6 +189,35 @@ void HB_TerrainHexSample(float2 uv, int layer, float2 uvDx, float2 uvDy, out hal
          + half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv3, layer, uvDx, uvDy)) * w.z;
 }
 
+half3 HB_TerrainVary(half3 colour, float2 xzWS, int layer)
+{
+    half4 vary = half4(_HB_LayerVary[layer]);
+    half3 result = colour;
+
+    UNITY_BRANCH
+    if (vary.a > 0.0h)
+    {
+        float4 shape = _HB_LayerVaryShape[layer];
+        float4 size = _HB_LayerVarySize[layer];
+        float2 p = xzWS / max(size.x, 0.1) + float2(layer * 7.13, 3.7);
+
+        p += float2(HB_BrushField(p * 0.9 + 3.1), HB_BrushField(p * 0.9 + 11.7)) * (0.5 * shape.x);
+
+        half large = half(HB_BrushField(p) * 0.3 + HB_BrushField(p * 2.3 + 17.0) * 0.2);
+        half fine = half(HB_BrushField(p * 6.1 + 41.0) * 0.5);
+        half drift = half(HB_BrushField(p * 0.37 + 71.0) * 0.5);
+        half patches = saturate((large + fine * half(shape.y)) * half(shape.z) + 0.5h);
+
+        half3 hue = vary.rgb / max(dot(vary.rgb, half3(0.299h, 0.587h, 0.114h)), 0.05h);
+        half3 varied = size.y > 0.5 ? lerp(colour, vary.rgb, patches * vary.a)
+                                    : colour * lerp(half3(1.0h, 1.0h, 1.0h), hue, patches * vary.a);
+
+        result = varied * (1.0h + (drift + fine * 0.5h) * (half(shape.w) * vary.a));
+    }
+
+    return result;
+}
+
 HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
 {
     float2 positionDx = ddx(positionWS.xz);
@@ -242,7 +275,11 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
         half2 tilt = (normal[layer].xy * 2.0h - 1.0h) * half(look.w);
         half3 normalTS = half3(tilt, sqrt(saturate(1.0h - dot(tilt, tilt))));
 
-        surface.albedo += albedo[layer].rgb * half3(look.rgb) * blend[layer];
+        UNITY_BRANCH
+        if (blend[layer] > 0.0h)
+            surface.albedo += HB_TerrainVary(albedo[layer].rgb * half3(look.rgb), positionWS.xz, ids[layer])
+                            * blend[layer];
+
         surface.normalTS += normalTS * blend[layer];
         surface.smoothness += mask[layer].a * half(settings.x) * blend[layer];
         surface.metallic += mask[layer].r * half(settings.y) * blend[layer];

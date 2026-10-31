@@ -10,13 +10,12 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-10-27):** Phases 0–4 are closed, and the fog fix (full-screen atmosphere pass with Fog Paint +
+**Status (2026-10-31):** Phases 0–4 are closed, and the fog fix (full-screen atmosphere pass with Fog Paint +
 Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9). Step 5.1a is
 built and confirmed (see "5.1a built" and "5.1a fixes" in 03 §9): layer Grass fields, the grass map (RGBA8:
 painted density, height and their shares), the Grass brush palette (`StyleTerrainGrass`) and Debug >
-Grass/Density. Step 5.1b is built (compiled offline, not run in Unity; see "5.1b built" in 03 §9): `StyleGrass`
-cell cache + `Grass/StyleGrass.compute` (Place, Cull) + `Grass/Grass.shader`, Grass quality section, Debug >
-Grass/Cells. If I report problems with it, fix those first.
+Grass/Density. Step 5.1b is built and confirmed (see "5.1b built" and its fixes in 03 §9): `StyleGrass` cell cache +
+`Grass/StyleGrass.compute` (Place, Cull) + `Grass/Grass.shader`, Grass quality section, Debug > Grass/Cells.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -31,11 +30,12 @@ Read before doing anything (do not ask me what these answer):
    `git ls-tree -r 3d4a06c --name-only | grep -i grass` and read them with `git show 3d4a06c:<path>`
    (StyleGrass.compute kernel Place, StyleGrassPass.cs, StyleGrassVertex.hlsl for the gust sweep).
 
-**Next job: after my 5.1b check, step 5.2 of Grass** (look): the white wind gust sweep, clump and meadow
-variation, brush style on blades, translucency. Start with a short design talk, then build it with a debug view,
-run `Tools~/Check-All.ps1`, write the cost into 08, and give me one test list. Follow the optimisation block in
-03 §9 (per-blade work in compute / vertex) and the budgets in 01 §5 (Grass ≤ 2000 slots / 30 reads, ≤ 2 ms
-Ultra meadow). Then 5.3 flowers + benders, 5.4 weather on grass.
+**Next job: after my check of 5.2c (near brush + translucency: built, compiled offline, not run in Unity; 5.2a + 5.2b
+confirmed), step 5.3 of Grass**: flowers and benders. Start with a short design talk, build it with a debug view,
+compile with `Tools~/Check-All.ps1 -Filter 'Grass*'` (never the full table for small changes), write the cost into
+08, and give me one test list. Then 5.4 weather on grass. Follow the
+optimisation block in 03 §9 (per-blade work in compute / vertex) and the budgets in 01 §5 (Grass ≤ 2000 slots /
+30 reads, ≤ 2 ms Ultra meadow).
 
 Working rules:
 

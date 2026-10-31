@@ -545,6 +545,26 @@
             Reads = 0
         }
         @{
+            Name = 'Grass Flowers Forward'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_GRASS_FORWARD', '_HB_GRASS_FLOWERS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Flowers vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_GRASS_FLOWERS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Terrain Layer Rules'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/Terrain/StyleTerrainRules.compute'
             Entry = 'Rules'

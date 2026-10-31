@@ -77,6 +77,22 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Vector4[] m_GrassShapes;
+
+        [SerializeField]
+        [HideInInspector]
+        float[] m_GrassTops;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2DArray m_FlowerArray;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D[] m_FlowerTextures;
+
+        [SerializeField]
+        [HideInInspector]
         string m_GrassSignature;
 
         [SerializeField]
@@ -165,6 +181,8 @@ namespace HiddenBull.UrpStyle
 
         internal Texture2DArray grassArray => m_GrassArray;
 
+        internal Texture2DArray flowerArray => m_FlowerArray;
+
         internal string grassSignature => m_GrassSignature;
 
         [System.NonSerialized]
@@ -180,10 +198,41 @@ namespace HiddenBull.UrpStyle
             return slice < m_GrassArray.depth ? slice : -1;
         }
 
-        internal void SetGrassTextures(Texture2DArray array, Texture2D[] textures, string signature)
+        internal Vector4 GrassShape(int slice)
+        {
+            return m_GrassShapes != null && slice >= 0 && slice < m_GrassShapes.Length
+                ? m_GrassShapes[slice]
+                : new Vector4(0f, 1f, 0f, 1f);
+        }
+
+        internal float GrassTop(int slice)
+        {
+            return m_GrassTops != null && slice >= 0 && slice < m_GrassTops.Length ? m_GrassTops[slice] : 1f;
+        }
+
+        internal int FlowerSlice(HBStyleTerrainLayer layer)
+        {
+            if (layer == null || layer.flowerTexture == null || m_FlowerArray == null || m_FlowerTextures == null)
+                return -1;
+
+            var slice = System.Array.IndexOf(m_FlowerTextures, layer.flowerTexture);
+
+            return slice < m_FlowerArray.depth ? slice : -1;
+        }
+
+        internal void SetFlowerTextures(Texture2DArray array, Texture2D[] textures)
+        {
+            m_FlowerArray = array;
+            m_FlowerTextures = textures;
+        }
+
+        internal void SetGrassTextures(Texture2DArray array, Texture2D[] textures, Vector4[] shapes, float[] tops,
+                                       string signature)
         {
             m_GrassArray = array;
             m_GrassTextures = textures;
+            m_GrassShapes = shapes;
+            m_GrassTops = tops;
             m_GrassSignature = signature;
         }
 

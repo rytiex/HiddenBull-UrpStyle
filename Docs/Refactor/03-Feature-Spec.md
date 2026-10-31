@@ -634,7 +634,7 @@ shader and the sky:
 - **Painted** onto the terrain: a grass map stores density and height (strength = height), like
   set-height on Unity terrain. Layers may define the default grass type; painting can add or remove.
 - GPU generated around the camera, crossed cards near, single card far, per-quality distance/density.
-- Keep the **wind gust white sweep** that travels across the grass (user loves it).
+- A **wind gust** travels across the grass as bowed lines that press it down (no whitening: user, 2026-10-31).
 - Brush pattern on blades and flowers. Grass benders (`HBStyleGrassBender`).
 - Respects camera culling mask; never drawn by overlay cameras.
 - **Decided 2026-10-27 (Phase 5 design talk):**
@@ -643,13 +643,13 @@ shader and the sky:
     or lowers density and height on top of that, painted with a **Grass** palette in the Brushes tab.
   - **Look:** GPU generation around the camera, crossed cards near and one card far; clump and meadow variation;
     root colour taken from the ground under the blade; the white wind gust sweep; sway; brush style on blades.
-  - **Translucency:** tips glow against a low sun.
+  - **Translucency:** see the Step 5.2 decisions.
   - **Flowers:** per layer share, height and colour.
   - **Benders and weather:** `HBStyleGrassBender` bends grass (player, vehicle); snow shortens and whitens it,
     rain wets it.
   - **Steps**, each with a debug view and a user check: **5.0** Weather Mask (§7); **5.1** generation, drawing,
-    layer grass and the Grass brush (debug: density); **5.2** look (gust sweep, variation, brush style,
-    translucency); **5.3** flowers and benders; **5.4** weather on grass.
+    layer grass and the Grass brush (debug: density); **5.2** look (gust sweep, variation, brush style);
+    **5.3** flowers and benders; **5.4** weather on grass.
   - **Optimisation (user, 2026-10-27)** — the pre-v1 grass placed the whole grid every frame and drew every
     card twice; v1 instead:
     - **Cached placement:** grass is placed per cell once and kept; only cells the camera newly reaches, or
@@ -727,6 +727,45 @@ shader and the sky:
     - **Edge taper (user, 2026-10-27, no setting):** toward a border with a grassless layer the grass gets shorter
       (down to 30 %) and sparser (down to 50 %), driven by the raw control share of grassy layers (0.5 → 0.95),
       so a beach or rock edge has a soft fringe instead of a cut. The debug view follows the same rule.
+    - **Grass Transition (user, 2026-10-31):** per-layer setting in metres (0–10, default 2, 0 = sharp), replaces
+      the fixed edge taper. Toward a layer without grass only: the mean grassy share of 8 control-map taps on
+      two rings (reach and half reach) gives the distance to the border, so the width no longer depends on the
+      rule softness. Between two grassy layers nothing tapers.
+      Grass gets shorter (to 30 %) and sparser (to none) over that width, so none is left at the border.
+    - **5.1b confirmed by the user on 2026-10-31** (with the fixes above).
+  - **Step 5.2 decisions (user, 2026-10-31):**
+    - **Gust:** travelling waves lean the grass, worked out per blade in the vertex stage; grows with the
+      controller's Wind; a very faint stir at Wind 0.
+    - **Variation:** clumps (~1.4 m, height and tone), meadow patches (~7–9 m, height and tone) at placement;
+      lean: cards tilt sideways, more when seen from above, far cards get a random turn (vertex).
+    - **Brush:** per pixel on near cards only, with the terrain's Look brush settings.
+    - **Translucency (user, 2026-10-31, on my recommendation):** kept, in 5.2c after the brush: tips glow against a
+      low sun; a Translucency value per Grass quality level, 0 at Low costs nothing.
+    - **Steps:** **5.2a** Grass Transition + gust (debug: Grass/Gust); **5.2b** clumps, meadow, lean; **5.2c** brush, translucency. The white sweep of the first plan is gone.
+    - **5.2a gust built (2026-10-31, rewritten after the first check):** the old sine product made blobs, too white
+      and mechanical. `HB_GrassGust` (vertex): streaks are lines across the wind, ~28 m apart, ~7 m wide, bowed by
+      slow noise, broken into stretches per row, moving down the wind faster with Wind. Sway: steady lean with
+      Wind + slow coherent + quick per-blade motion + a press when a streak passes, sideways drift, height-keeping
+      arc; no flutter. The whitening was removed by the user (2026-10-31): streaks show only
+      as lean. Sway fades past 60 % of the grass distance. Debug > Grass/Gust: red = lean, cyan = streak.
+    - **5.2b built (2026-10-31):** placement: Voronoi clumps (1.4 m, height x 0.7–1.25, tone ± 12 %), meadow noise
+      (9 m + 2.6 m, height ± 20 %, tone ± 10 %), blade height ± 10 %. Vertex: cards lean away from their root
+      (0.2 from the side, 0.85 from above), sink 6 %, far cards turn ± 0.8 rad, texture flips by seed. Debug >
+      Grass/Variation: tuft height factor as grey.
+    - **5.2a/b rework (user check, 2026-10-31):** regular lines still looked artificial, so gusts are now patches of
+      value noise drifting down the wind (45 x 20 m and 16 x 8 m, 3 m/s + 7 m/s x Wind), lagged per tuft; only
+      the upper part of the noise presses the grass. Lean eased to 0.12 from the side, 0.4 from above. Variation
+      is smooth noise at 4 m (height x 0.75–1.2, tone) and 24 m + 9 m (height, tone) instead of Voronoi clumps.
+      Grass Tufts mips keep the alpha coverage of mip 0 (far tufts were thinning out under the alpha cutoff).
+    - **Variation removed, whitening back at a fixed amount (user, 2026-10-31):** height and tone variation (clumps,
+      meadow, per-tuft height) and Debug > Grass/Variation are gone; it hurt the look. Lean, far turn and texture
+      flip stay. Mixing toward white in linear space washed the grass out even at 0.1, so gust patches now brighten
+      it instead: albedo x (1 + Wind x gust x height x 0.5), which keeps the hue.
+      **5.2a + 5.2b confirmed by the user on 2026-10-31.**
+    - **5.2c built (2026-10-31):** brush on near cards per pixel, with the terrain's Look brush size and breakup
+      amounts, fading out across the near / far band. Translucency: the old glow formula, multiplied by the grass
+      colour so it keeps the hue, fading with distance and shadow; Translucency per Grass quality level
+      (Low 0, Medium 0.5, High 0.75, Ultra 1). Quality profiles saved earlier read 0 until it is set.
 
 ## 10. Liquids — Keep look, Change structure
 

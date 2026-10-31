@@ -488,10 +488,10 @@ Editor measurement by the user after 5.1a (terrain, FPS hands camera, no grass d
 
 | Variant | Slots | Reads | Budget |
 |---|---|---|---|
-| Grass forward (ground colour x detail, tip, terrain tone bands, one-tap shadow, package ambient) | 124 | 3 | 2000 / 30 — OK |
-| Grass vertex (blade unpack, cards, sway) | 101 | 3 | – |
+| Grass forward (ground colour x detail, tip, gust brightening, near brush, translucency, tone bands, one-tap shadow, package ambient) | 675 | 6 | 2000 / 30 — OK |
+| Grass vertex (blade unpack, cards, lean, gust noise) | 197 | 3 | – |
 | Grass DepthOnly / DepthNormals fragment | 28 / 31 | 1 / 1 | – |
-| Grass Place compute (per newly reached / changed cell, height blend, ground colour, edge taper) | 560 | 21 | – |
+| Grass Place compute (per newly reached / changed cell, height blend, ground colour, Grass Transition) | 614 | 22 | – |
 | Grass Cull compute (per visible cell, every frame) | 96 | 3 | – |
 
 The first grass forward build used URP's soft shadows: 281 slots / 32 reads, over the read budget; grass now takes

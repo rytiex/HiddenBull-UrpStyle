@@ -15,20 +15,24 @@ namespace HiddenBull.UrpStyle
         const int MostSide = 64;
         const int GroupSize = 64;
         const int MostJobs = 64;
-        const float FarShare = 0.35f;
-        const float Dither = 3f;
-        const float FadeShare = 0.1f;
+        const float ThinStart = 200f;
+        const float BandShare = 0.3f;
+        const int MostRings = 8;
         const float TallestGrass = 3f;
         const double PruneSeconds = 10.0;
         const int NearVertices = 12;
         const int FarVertices = 6;
         const int NearCountOffset = 4;
         const int FarCountOffset = 20;
+        const int FlowerCountOffset = 36;
+        const int FlowerVertices = 12;
+        const float MovingWeather = 2f;
+        const int MostFlowers = 262144;
+        const string FlowerKeyword = "_HB_GRASS_FLOWERS";
 
         static readonly int s_GridId = Shader.PropertyToID("_HB_GrassGrid");
         static readonly int s_ReachId = Shader.PropertyToID("_HB_GrassReach");
         static readonly int s_CameraId = Shader.PropertyToID("_HB_GrassCamera");
-        static readonly int s_ModeId = Shader.PropertyToID("_HB_GrassMode");
         static readonly int s_PlanesId = Shader.PropertyToID("_HB_GrassPlanes");
         static readonly int s_BladesId = Shader.PropertyToID("_HB_GrassBlades");
         static readonly int s_BladesOutId = Shader.PropertyToID("_HB_GrassBladesOut");
@@ -37,10 +41,22 @@ namespace HiddenBull.UrpStyle
         static readonly int s_VisibleId = Shader.PropertyToID("_HB_GrassVisible");
         static readonly int s_NearId = Shader.PropertyToID("_HB_GrassNear");
         static readonly int s_FarId = Shader.PropertyToID("_HB_GrassFar");
+        static readonly int s_FlowersId = Shader.PropertyToID("_HB_GrassFlowers");
+        static readonly int s_BendersId = Shader.PropertyToID("_HB_GrassBenders");
+        static readonly int s_PressesId = Shader.PropertyToID("_HB_GrassPresses");
+        static readonly int s_FlowerHeadsId = Shader.PropertyToID("_HB_FlowerHeads");
+        static readonly int s_LayerFlowerId = Shader.PropertyToID("_HB_LayerFlower");
         static readonly int s_ListId = Shader.PropertyToID("_HB_GrassList");
         static readonly int s_TuftsId = Shader.PropertyToID("_HB_GrassTufts");
         static readonly int s_LayerGrassId = Shader.PropertyToID("_HB_LayerGrass");
+        static readonly int s_LayerGrassEdgeId = Shader.PropertyToID("_HB_LayerGrassEdge");
+        static readonly int s_LayerVaryId = Shader.PropertyToID("_HB_LayerVary");
+        static readonly int s_LayerVaryShapeId = Shader.PropertyToID("_HB_LayerVaryShape");
+        static readonly int s_LayerVarySizeId = Shader.PropertyToID("_HB_LayerVarySize");
         static readonly int s_LayerGrassTipId = Shader.PropertyToID("_HB_LayerGrassTip");
+        static readonly int s_LayerGrassShapeId = Shader.PropertyToID("_HB_LayerGrassShape");
+        static readonly int s_LayerSurfaceId = Shader.PropertyToID("_HB_LayerSurface");
+        static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
         static readonly int s_HeightmapId = Shader.PropertyToID("_HB_TerrainHeightmap");
         static readonly int s_HolesId = Shader.PropertyToID("_HB_TerrainHoles");
         static readonly int s_SizeId = Shader.PropertyToID("_HB_TerrainSize");
@@ -56,13 +72,11 @@ namespace HiddenBull.UrpStyle
         static readonly int s_TerrainStyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_TerrainVariationId = Shader.PropertyToID("_HB_TerrainVariation");
 
-        static readonly Vector4 s_NearMode = Vector4.zero;
-        static readonly Vector4 s_FarMode = new Vector4(1f, 0f, 0f, 0f);
-
         sealed class View
         {
             internal int side;
             internal int ring;
+            internal int rings;
             internal float spacing;
             internal int perSlot;
             internal int stamp;
@@ -73,6 +87,7 @@ namespace HiddenBull.UrpStyle
             internal GraphicsBuffer visible;
             internal GraphicsBuffer near;
             internal GraphicsBuffer far;
+            internal GraphicsBuffer flowers;
             internal GraphicsBuffer args;
             internal Vector2Int[] cells;
             internal int[] stamps;
@@ -81,6 +96,7 @@ namespace HiddenBull.UrpStyle
             internal Vector2Int[] order;
             internal MaterialPropertyBlock nearBlock;
             internal MaterialPropertyBlock farBlock;
+            internal MaterialPropertyBlock flowerBlock;
 
             internal void Release()
             {
@@ -90,6 +106,7 @@ namespace HiddenBull.UrpStyle
                 visible?.Release();
                 near?.Release();
                 far?.Release();
+                flowers?.Release();
                 args?.Release();
             }
         }
@@ -98,11 +115,14 @@ namespace HiddenBull.UrpStyle
         readonly List<Camera> m_Stale = new List<Camera>();
         readonly Plane[] m_Planes = new Plane[6];
         readonly Vector4[] m_PlaneData = new Vector4[6];
+        readonly Vector4[] m_Benders = new Vector4[HBStyleGrassBender.Limit];
+        readonly Vector4[] m_Presses = new Vector4[HBStyleGrassBender.Limit];
         readonly int[] m_Jobs = new int[MostJobs * 4];
 
         int[] m_Visible = new int[0];
         CommandBuffer m_Commands;
         Material m_Material;
+        Material m_FlowerMaterial;
         Shader m_Shader;
         ComputeShader m_Compute;
         int m_PlaceKernel = -1;
@@ -110,6 +130,12 @@ namespace HiddenBull.UrpStyle
 
         internal void Draw(ScriptableRenderContext context, Camera camera, HBStyleTerrain terrain)
         {
+            if (!StyleTerrains.grassQuality.enabled)
+            {
+                Release();
+                return;
+            }
+
             var data = terrain.data;
             var tufts = data.grassArray;
 
@@ -119,14 +145,15 @@ namespace HiddenBull.UrpStyle
             var level = StyleTerrains.grassQuality.current;
             var side = Mathf.Clamp(Mathf.RoundToInt(CellTarget / level.spacing), LeastSide, MostSide);
             var cell = side * level.spacing;
-            var reach = Mathf.CeilToInt(level.distance / cell);
-            var view = Acquire(camera, side, reach * 2 + 1, level.spacing);
+            var firstRing = level.spacing * ThinStart * 2f;
+            var reach = Mathf.CeilToInt(Mathf.Min(firstRing * (1f + BandShare * 0.5f), level.distance) / cell);
+            var rings = Mathf.Clamp(Mathf.CeilToInt(Mathf.Log(Mathf.Max(level.distance / firstRing, 1f), 2f)) + 1, 1,
+                                    MostRings);
+            var view = Acquire(camera, side, reach * 2 + 1, rings, level.spacing);
             var stamp = Stamp(terrain, level.spacing);
             var origin = terrain.transform.position;
             var size = data.size;
             var position = camera.transform.position;
-            var centre = new Vector2Int(Mathf.FloorToInt(position.x / cell), Mathf.FloorToInt(position.z / cell));
-            var near = Mathf.Min(level.nearDistance, level.distance);
 
             GeometryUtility.CalculateFrustumPlanes(camera, m_Planes);
 
@@ -134,50 +161,65 @@ namespace HiddenBull.UrpStyle
                 m_PlaneData[i] = new Vector4(m_Planes[i].normal.x, m_Planes[i].normal.y, m_Planes[i].normal.z,
                                              m_Planes[i].distance);
 
-            if (m_Visible.Length < view.ring * view.ring)
-                m_Visible = new int[view.ring * view.ring];
+            var slotCount = view.ring * view.ring * rings;
+
+            if (m_Visible.Length < slotCount)
+                m_Visible = new int[slotCount];
 
             var jobs = 0;
             var visible = 0;
 
-            foreach (var offset in view.order)
+            for (var ringIndex = 0; ringIndex < rings; ringIndex++)
             {
-                var spot = centre + offset;
-                var low = new Vector2(spot.x * cell, spot.y * cell);
+                var scale = 1 << ringIndex;
+                var width = cell * scale;
+                var outer = ringIndex + 1 >= rings ? level.distance : firstRing * scale * (1f + BandShare * 0.5f);
+                var inner = ringIndex > 0 ? firstRing * (scale >> 1) * (1f - BandShare * 0.5f) : -1f;
+                var centre = new Vector2Int(Mathf.FloorToInt(position.x / width),
+                                            Mathf.FloorToInt(position.z / width));
 
-                if (low.x > origin.x + size.x || low.y > origin.z + size.z || low.x + cell < origin.x ||
-                    low.y + cell < origin.z)
-                    continue;
-
-                var slot = Wrap(spot.x, view.ring) + Wrap(spot.y, view.ring) * view.ring;
-                var stale = !view.placed[slot] || view.cells[slot] != spot || view.stamps[slot] != stamp;
-
-                if (stale && jobs < MostJobs)
+                foreach (var offset in view.order)
                 {
-                    view.cells[slot] = spot;
-                    view.stamps[slot] = stamp;
-                    view.placed[slot] = true;
-                    view.table[slot * 4] = spot.x;
-                    view.table[slot * 4 + 1] = spot.y;
-                    m_Jobs[jobs * 4] = slot;
-                    m_Jobs[jobs * 4 + 1] = spot.x;
-                    m_Jobs[jobs * 4 + 2] = spot.y;
-                    jobs++;
+                    var spot = centre + offset;
+                    var low = new Vector2(spot.x * width, spot.y * width);
+
+                    if (low.x > origin.x + size.x || low.y > origin.z + size.z || low.x + width < origin.x ||
+                        low.y + width < origin.z)
+                        continue;
+
+                    var slot = ringIndex * view.ring * view.ring + Wrap(spot.x, view.ring) +
+                               Wrap(spot.y, view.ring) * view.ring;
+                    var stale = !view.placed[slot] || view.cells[slot] != spot || view.stamps[slot] != stamp;
+
+                    if (stale && jobs < MostJobs)
+                    {
+                        view.cells[slot] = spot;
+                        view.stamps[slot] = stamp;
+                        view.placed[slot] = true;
+                        view.table[slot * 4] = spot.x;
+                        view.table[slot * 4 + 1] = spot.y;
+                        view.table[slot * 4 + 2] = ringIndex;
+                        m_Jobs[jobs * 4] = slot;
+                        m_Jobs[jobs * 4 + 1] = spot.x;
+                        m_Jobs[jobs * 4 + 2] = spot.y;
+                        m_Jobs[jobs * 4 + 3] = ringIndex;
+                        jobs++;
+                    }
+
+                    if (!view.placed[slot] || view.cells[slot] != spot)
+                        continue;
+
+                    var box = Bounds(data, origin, low, width);
+                    var far = Vector3.Max(position - box.min, box.max - position);
+
+                    if (box.SqrDistance(position) > outer * outer || far.magnitude < inner)
+                        continue;
+
+                    if (!GeometryUtility.TestPlanesAABB(m_Planes, box))
+                        continue;
+
+                    m_Visible[visible++] = slot;
                 }
-
-                if (!view.placed[slot] || view.cells[slot] != spot)
-                    continue;
-
-                var nearest = new Vector2(Mathf.Clamp(position.x, low.x, low.x + cell),
-                                          Mathf.Clamp(position.z, low.y, low.y + cell));
-
-                if ((nearest - new Vector2(position.x, position.z)).sqrMagnitude > level.distance * level.distance)
-                    continue;
-
-                if (!GeometryUtility.TestPlanesAABB(m_Planes, Bounds(data, origin, low, cell)))
-                    continue;
-
-                m_Visible[visible++] = slot;
             }
 
             var cmd = m_Commands ??= new CommandBuffer { name = "HB Style Grass" };
@@ -189,10 +231,12 @@ namespace HiddenBull.UrpStyle
 
             cmd.SetBufferCounterValue(view.near, 0u);
             cmd.SetBufferCounterValue(view.far, 0u);
+            cmd.SetBufferCounterValue(view.flowers, 0u);
 
             var grid = new Vector4(level.spacing, view.side, view.perSlot, cell);
-            var reachData = new Vector4(level.distance, near, Dither, FarShare);
-            var cameraData = new Vector4(position.x, position.y, position.z, level.distance * FadeShare);
+            var reachData = new Vector4(level.distance, firstRing, BandShare, rings);
+            var benders = HBStyleGrassBender.Collect(position, level.distance, m_Benders, m_Presses);
+            var cameraData = new Vector4(position.x, position.y, position.z, benders);
 
             if (visible > 0)
             {
@@ -206,19 +250,30 @@ namespace HiddenBull.UrpStyle
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_VisibleId, view.visible);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_NearId, view.near);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_FarId, view.far);
+                cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_FlowersId, view.flowers);
                 cmd.DispatchCompute(m_Compute, m_CullKernel, Groups(view.perSlot), visible, 1);
             }
 
             cmd.CopyCounterValue(view.near, view.args, NearCountOffset);
             cmd.CopyCounterValue(view.far, view.args, FarCountOffset);
+            cmd.CopyCounterValue(view.flowers, view.args, FlowerCountOffset);
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
 
             if (visible == 0)
                 return;
 
-            Bind(view.nearBlock, view, view.near, s_NearMode, grid, reachData, cameraData, terrain, tufts);
-            Bind(view.farBlock, view, view.far, s_FarMode, grid, reachData, cameraData, terrain, tufts);
+            var style = terrain.grassStyle;
+
+            view.nearBlock.SetVectorArray(s_BendersId, m_Benders);
+            view.nearBlock.SetVectorArray(s_PressesId, m_Presses);
+            view.farBlock.SetVectorArray(s_BendersId, m_Benders);
+            view.farBlock.SetVectorArray(s_PressesId, m_Presses);
+            view.flowerBlock.SetVectorArray(s_BendersId, m_Benders);
+            view.flowerBlock.SetVectorArray(s_PressesId, m_Presses);
+
+            Bind(view.nearBlock, view, view.near, grid, reachData, cameraData, style, terrain, tufts);
+            Bind(view.farBlock, view, view.far, grid, reachData, cameraData, style, terrain, tufts);
 
             var bounds = new Bounds(new Vector3(position.x, origin.y + size.y * 0.5f, position.z),
                                     new Vector3(level.distance * 2f, size.y + TallestGrass * 2f, level.distance * 2f));
@@ -235,6 +290,17 @@ namespace HiddenBull.UrpStyle
             Graphics.RenderPrimitivesIndirect(parameters, MeshTopology.Triangles, view.args, 1, 0);
             parameters.matProps = view.farBlock;
             Graphics.RenderPrimitivesIndirect(parameters, MeshTopology.Triangles, view.args, 1, 1);
+
+            if (data.flowerArray == null)
+                return;
+
+            Bind(view.flowerBlock, view, view.flowers, grid, reachData, cameraData, style, terrain, tufts);
+            view.flowerBlock.SetTexture(s_FlowerHeadsId, data.flowerArray);
+            view.flowerBlock.SetVectorArray(s_LayerFlowerId, terrain.layerFlower);
+
+            parameters.material = m_FlowerMaterial;
+            parameters.matProps = view.flowerBlock;
+            Graphics.RenderPrimitivesIndirect(parameters, MeshTopology.Triangles, view.args, 1, 2);
         }
 
         static bool Grows(HBStyleTerrain terrain)
@@ -258,7 +324,10 @@ namespace HiddenBull.UrpStyle
             if (m_Material == null || m_Shader != shader)
             {
                 CoreUtils.Destroy(m_Material);
+                CoreUtils.Destroy(m_FlowerMaterial);
                 m_Material = CoreUtils.CreateEngineMaterial(shader);
+                m_FlowerMaterial = CoreUtils.CreateEngineMaterial(shader);
+                m_FlowerMaterial.EnableKeyword(FlowerKeyword);
                 m_Shader = shader;
             }
 
@@ -296,6 +365,11 @@ namespace HiddenBull.UrpStyle
                 for (var index = 0; index < terrain.boundLayers; index++)
                 {
                     hash = hash * 31 + terrain.layerGrass[index].GetHashCode();
+                    hash = hash * 31 + terrain.layerGrassEdge[index].GetHashCode();
+                    hash = hash * 31 + terrain.layerVary[index].GetHashCode();
+                    hash = hash * 31 + terrain.layerVaryShape[index].GetHashCode();
+                    hash = hash * 31 + terrain.layerVarySize[index].GetHashCode();
+                    hash = hash * 31 + terrain.layerFlower[index].GetHashCode();
                     hash = hash * 31 + terrain.layerLook[index].GetHashCode();
                     hash = hash * 31 + terrain.layerST[index].GetHashCode();
                 }
@@ -334,6 +408,11 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeVectorParam(m_Compute, s_TerrainStyleId, data.look.style);
             cmd.SetComputeVectorParam(m_Compute, s_TerrainVariationId, data.look.variation);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerGrassId, terrain.layerGrass);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerGrassEdgeId, terrain.layerGrassEdge);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerVaryId, terrain.layerVary);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerVaryShapeId, terrain.layerVaryShape);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerVarySizeId, terrain.layerVarySize);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerFlowerId, terrain.layerFlower);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerSTId, terrain.layerST);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerLookId, terrain.layerLook);
             cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_JobsId, view.jobs);
@@ -341,20 +420,23 @@ namespace HiddenBull.UrpStyle
             cmd.DispatchCompute(m_Compute, m_PlaceKernel, Groups(view.perSlot), jobs, 1);
         }
 
-        static void Bind(MaterialPropertyBlock block, View view, GraphicsBuffer list, Vector4 mode, Vector4 grid,
-                         Vector4 reach, Vector4 camera, HBStyleTerrain terrain, Texture tufts)
+        static void Bind(MaterialPropertyBlock block, View view, GraphicsBuffer list, Vector4 grid, Vector4 reach,
+                         Vector4 camera, Vector4 style, HBStyleTerrain terrain, Texture tufts)
         {
             block.SetBuffer(s_BladesId, view.blades);
             block.SetBuffer(s_SlotsId, view.slots);
             block.SetBuffer(s_ListId, list);
-            block.SetVector(s_ModeId, mode);
             block.SetVector(s_GridId, grid);
             block.SetVector(s_ReachId, reach);
             block.SetVector(s_CameraId, camera);
             block.SetTexture(s_TuftsId, tufts);
-            block.SetVector(s_StyleId, terrain.grassStyle);
+            block.SetVector(s_StyleId, style);
+            block.SetFloat(s_ReceiveWeatherId, MovingWeather);
             block.SetVectorArray(s_LayerGrassId, terrain.layerGrass);
             block.SetVectorArray(s_LayerGrassTipId, terrain.layerGrassTip);
+            block.SetVectorArray(s_LayerGrassEdgeId, terrain.layerGrassEdge);
+            block.SetVectorArray(s_LayerGrassShapeId, terrain.layerGrassShape);
+            block.SetVectorArray(s_LayerSurfaceId, terrain.layerSurface);
         }
 
         static Bounds Bounds(HBStyleTerrainData data, Vector3 origin, Vector2 low, float cell)
@@ -384,7 +466,7 @@ namespace HiddenBull.UrpStyle
             return new Bounds(centre, new Vector3(cell, top - bottom + TallestGrass, cell));
         }
 
-        View Acquire(Camera camera, int side, int ring, float spacing)
+        View Acquire(Camera camera, int side, int ring, int rings, float spacing)
         {
             var now = Time.realtimeSinceStartupAsDouble;
 
@@ -403,6 +485,7 @@ namespace HiddenBull.UrpStyle
             }
 
             if (m_Views.TryGetValue(camera, out var view) && view.side == side && view.ring == ring &&
+                view.rings == rings &&
                 Mathf.Approximately(view.spacing, spacing))
             {
                 view.lastUsed = now;
@@ -411,14 +494,16 @@ namespace HiddenBull.UrpStyle
 
             view?.Release();
 
-            var slots = ring * ring;
+            var slots = ring * ring * rings;
             var perSlot = side * side;
             var blades = slots * perSlot;
+            var nearBlades = ring * ring * perSlot;
 
             view = new View
             {
                 side = side,
                 ring = ring,
+                rings = rings,
                 spacing = spacing,
                 perSlot = perSlot,
                 lastUsed = now,
@@ -426,9 +511,11 @@ namespace HiddenBull.UrpStyle
                 slots = new GraphicsBuffer(GraphicsBuffer.Target.Structured, slots, sizeof(int) * 4),
                 jobs = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MostJobs, sizeof(int) * 4),
                 visible = new GraphicsBuffer(GraphicsBuffer.Target.Structured, slots, sizeof(uint)),
-                near = new GraphicsBuffer(GraphicsBuffer.Target.Append, blades, sizeof(uint)),
-                far = new GraphicsBuffer(GraphicsBuffer.Target.Append, blades, sizeof(uint)),
-                args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 2,
+                near = new GraphicsBuffer(GraphicsBuffer.Target.Append, nearBlades, sizeof(uint)),
+                far = new GraphicsBuffer(GraphicsBuffer.Target.Append, Mathf.Max(blades - nearBlades, perSlot),
+                                         sizeof(uint)),
+                flowers = new GraphicsBuffer(GraphicsBuffer.Target.Append, Mathf.Min(blades, MostFlowers), sizeof(uint)),
+                args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 3,
                                           GraphicsBuffer.IndirectDrawArgs.size),
                 cells = new Vector2Int[slots],
                 stamps = new int[slots],
@@ -436,13 +523,15 @@ namespace HiddenBull.UrpStyle
                 table = new int[slots * 4],
                 order = Order(ring / 2),
                 nearBlock = new MaterialPropertyBlock(),
-                farBlock = new MaterialPropertyBlock()
+                farBlock = new MaterialPropertyBlock(),
+                flowerBlock = new MaterialPropertyBlock()
             };
 
             view.args.SetData(new[]
             {
                 new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = NearVertices },
-                new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FarVertices }
+                new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FarVertices },
+                new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FlowerVertices }
             });
 
             m_Views[camera] = view;
@@ -488,6 +577,8 @@ namespace HiddenBull.UrpStyle
             Release();
             CoreUtils.Destroy(m_Material);
             m_Material = null;
+            CoreUtils.Destroy(m_FlowerMaterial);
+            m_FlowerMaterial = null;
             m_Shader = null;
             m_Compute = null;
             m_Commands?.Release();

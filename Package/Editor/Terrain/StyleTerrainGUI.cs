@@ -55,6 +55,39 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.Space(2f);
         }
 
+        internal static bool Section(string label, Color tint, string key, bool opened)
+        {
+            EditorGUILayout.Space(4f);
+
+            var open = SessionState.GetBool(key, opened);
+            var rect = EditorGUILayout.GetControlRect(false, HeaderHeight);
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(rect, new Color(tint.r, tint.g, tint.b, 0.12f));
+                EditorGUI.DrawRect(new Rect(rect.x, rect.y, 4f, rect.height), tint);
+            }
+
+            s_Heading ??= new GUIStyle(EditorStyles.boldLabel) { fontSize = 12, alignment = TextAnchor.MiddleLeft };
+
+            var title = rect;
+
+            title.xMin += 10f;
+            GUI.Label(title, (open ? "▾  " : "▸  ") + label, s_Heading);
+
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 0 &&
+                rect.Contains(Event.current.mousePosition))
+            {
+                open = !open;
+                SessionState.SetBool(key, open);
+                GUI.changed = true;
+                Event.current.Use();
+            }
+
+            EditorGUILayout.Space(2f);
+            return open;
+        }
+
         internal static void Frame(Rect rect, Color colour)
         {
             EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, 1f), colour);
