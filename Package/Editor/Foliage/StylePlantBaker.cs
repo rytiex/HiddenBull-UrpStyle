@@ -124,7 +124,7 @@ namespace HiddenBull.UrpStyle.Editor
                 SetMesh(filters[i], Store(mesh, $"{folder}/MESH_Plant_{plantName}_{i}.asset"), "Bake Plant");
             }
 
-            target.asset = WriteAsset(target, filters, $"{folder}/DATA_Plant_{plantName}.asset", plant.sway);
+            target.asset = WriteAsset(target, filters, folder, plantName, plant.sway);
 
             AssetDatabase.SaveAssets();
             SavePlant(target);
@@ -163,7 +163,8 @@ namespace HiddenBull.UrpStyle.Editor
                 StylePlantSystem.Add(plant);
         }
 
-        static HBStylePlantAsset WriteAsset(HBStylePlant target, List<MeshFilter> filters, string path, float sway)
+        static HBStylePlantAsset WriteAsset(HBStylePlant target, List<MeshFilter> filters, string folder,
+                                             string plantName, float sway)
         {
             var root = target.transform;
             var draws = new List<HBStylePlantDraw>();
@@ -209,6 +210,7 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
+            var path = $"{folder}/DATA_Plant_{plantName}.asset";
             var asset = AssetDatabase.LoadAssetAtPath<HBStylePlantAsset>(path);
 
             if (asset == null)
@@ -220,7 +222,9 @@ namespace HiddenBull.UrpStyle.Editor
             var centre = bounds.center;
             var sphere = new Vector4(centre.x, centre.y, centre.z, bounds.extents.magnitude + sway);
 
-            asset.Set(draws.ToArray(), asset.billboardMesh, asset.billboardMaterial, sphere);
+            var billboard = StyleBillboardBaker.Bake(draws, bounds, folder, plantName, sway);
+
+            asset.Set(draws.ToArray(), billboard.mesh, billboard.material, sphere);
             EditorUtility.SetDirty(asset);
 
             return asset;

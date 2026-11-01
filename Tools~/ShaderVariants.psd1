@@ -648,6 +648,147 @@
             Reads = 0
         }
         @{
+            Name = 'Billboard Forward'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardForwardPass.hlsl'
+            Entry = 'HB_BillboardFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 1500
+            Reads = 30
+        }
+        @{
+            Name = 'Billboard Forward (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardForwardPass.hlsl'
+            Entry = 'HB_BillboardFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardForwardPass.hlsl'
+            Entry = 'HB_BillboardVertex'
+            Stage = 'vs'
+            Urp = 'Full'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard ShadowCaster fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardShadowFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_SHADOW_CASTER')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard ShadowCaster vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_SHADOW_CASTER')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard DepthOnly fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard DepthOnly vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard DepthNormals fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardDepthNormalsFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_DEPTH_NORMALS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Billboard DepthNormals vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Entry = 'HB_BillboardDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_DEPTH_NORMALS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Capture vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Foliage/StylePlantCapture.hlsl'
+            Entry = 'HB_CaptureVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Capture top vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Foliage/StylePlantCapture.hlsl'
+            Entry = 'HB_CaptureTopVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Capture albedo'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Foliage/StylePlantCapture.hlsl'
+            Entry = 'HB_CaptureAlbedoFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Capture normal'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Foliage/StylePlantCapture.hlsl'
+            Entry = 'HB_CaptureNormalFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Capture top'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/Foliage/StylePlantCapture.hlsl'
+            Entry = 'HB_CaptureTopFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Plant Cull'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/StylePlant.compute'
             Entry = 'Cull'

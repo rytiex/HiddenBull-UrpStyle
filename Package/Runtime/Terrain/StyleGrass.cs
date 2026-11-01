@@ -176,9 +176,10 @@ namespace HiddenBull.UrpStyle
             var stamp = Stamp(terrain, level.spacing);
             var origin = terrain.transform.position;
             var size = data.size;
-            var position = camera.transform.position;
+            var viewer = StyleDebug.Viewer(camera);
+            var position = viewer.transform.position;
 
-            GeometryUtility.CalculateFrustumPlanes(camera, m_Planes);
+            GeometryUtility.CalculateFrustumPlanes(viewer, m_Planes);
 
             for (var i = 0; i < 6; i++)
                 m_PlaneData[i] = new Vector4(m_Planes[i].normal.x, m_Planes[i].normal.y, m_Planes[i].normal.z,

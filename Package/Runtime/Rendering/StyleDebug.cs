@@ -23,7 +23,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Grass/Cells")] GrassCells = 16,
         [InspectorName("Weather/Gust")] WeatherGust = 17,
         [InspectorName("Foliage/Canopy")] FoliageCanopy = 18,
-        [InspectorName("Foliage/Sway")] FoliageSway = 19
+        [InspectorName("Foliage/Sway")] FoliageSway = 19,
+        [InspectorName("Culling/Game Camera")] CullingGameCamera = 20
     }
 
     static class StyleDebug
@@ -46,6 +47,16 @@ namespace HiddenBull.UrpStyle
             StyleDebugView.WeatherSnow or StyleDebugView.TerrainRings or StyleDebugView.TerrainLayers or
             StyleDebugView.TerrainCurvature or StyleDebugView.GrassDensity or StyleDebugView.FoliageCanopy or
             StyleDebugView.FoliageSway;
+
+        internal static Camera Viewer(Camera camera)
+        {
+            if (view != StyleDebugView.CullingGameCamera || camera.cameraType != CameraType.SceneView)
+                return camera;
+
+            var game = StyleCameraStates.lastGameCamera;
+
+            return game != null ? game : camera;
+        }
 
         internal static bool IsPreviewCamera(Camera camera)
         {

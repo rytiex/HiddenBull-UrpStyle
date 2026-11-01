@@ -24,7 +24,9 @@ namespace HiddenBull.UrpStyle.Editor
             "Terrain: Detail Rings colours each detail ring of the HB Style Terrain (red is the nearest, " +
             "full-resolution ring) and blends into the next colour where a ring morphs into the coarser one.\n\n" +
             "Foliage: Canopy shows the normal leaves light by; Sway shows how far each point moves in full wind, " +
-            "black for nothing and white for 2 m. Magenta means the plant is not baked.");
+            "black for nothing and white for 2 m. Magenta means the plant is not baked.\n\n" +
+            "Culling: Game Camera makes the Scene view cull terrain, grass and GPU plants by the Game camera, so you " +
+            "can walk around and see what it leaves out. Normal renderers keep the Scene view's own culling.");
 
         static readonly GUIContent s_TerrainLabel = new GUIContent("Terrain Patches / Selection",
             "Terrain patches drawn for the Game camera this frame (view and shadow lists together) and the CPU time " +

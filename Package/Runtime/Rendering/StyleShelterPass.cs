@@ -80,7 +80,7 @@ namespace HiddenBull.UrpStyle
         class SkyData
         {
             internal RendererListHandle list;
-            internal bool plants;
+            internal bool near;
             internal int mask;
             internal Matrix4x4 skyView;
             internal Matrix4x4 skyProjection;
@@ -735,7 +735,7 @@ namespace HiddenBull.UrpStyle
         }
 
         void RecordTopDepth(RenderGraph renderGraph, ContextContainer frameData, string name, CullingResults culling,
-                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target, bool plants)
+                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target, bool near)
         {
             var cameraData = frameData.Get<UniversalCameraData>();
             var resourceData = frameData.Get<UniversalResourceData>();
@@ -762,7 +762,7 @@ namespace HiddenBull.UrpStyle
                 stateBlocks = states,
                 isPassTagName = false
             });
-            data.plants = plants;
+            data.near = near;
             data.mask = cameraData.camera.cullingMask;
             data.skyView = skyView;
             data.skyProjection = skyProjection;
@@ -781,8 +781,10 @@ namespace HiddenBull.UrpStyle
                 context.cmd.SetGlobalFloat(s_PassId, 1f);
                 context.cmd.DrawRendererList(d.list);
 
-                if (d.plants)
+                if (d.near)
                     StylePlantSystem.DrawShelter(context.cmd, d.mask, null);
+                else
+                    StylePlantSystem.DrawFarShelter(context.cmd, d.mask);
 
                 context.cmd.SetGlobalFloat(s_PassId, 0f);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.cameraView, d.cameraProjection, true);

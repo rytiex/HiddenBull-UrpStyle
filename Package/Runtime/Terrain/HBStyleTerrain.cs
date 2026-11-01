@@ -403,7 +403,8 @@ namespace HiddenBull.UrpStyle
                 return;
 
             var origin = transform.position;
-            var local = camera.transform.position - origin;
+            var viewer = StyleDebug.Viewer(camera);
+            var local = viewer.transform.position - origin;
             var size = m_Data.size;
 
             m_Tree.SetRanges(StyleTerrains.quality.current.detailRange);
@@ -414,7 +415,7 @@ namespace HiddenBull.UrpStyle
                 m_Ranges[level] = new Vector4(StyleTerrainTree.MorphStart(end), end, 0f, 0f);
             }
 
-            GeometryUtility.CalculateFrustumPlanes(camera, m_Planes);
+            GeometryUtility.CalculateFrustumPlanes(viewer, m_Planes);
 
             for (var i = 0; i < 6; i++)
             {
@@ -427,7 +428,7 @@ namespace HiddenBull.UrpStyle
             }
 
             m_Watch.Restart();
-            m_Tree.Select(local.x, local.y, local.z, m_LocalPlanes, camera.farClipPlane, m_Nodes);
+            m_Tree.Select(local.x, local.y, local.z, m_LocalPlanes, viewer.farClipPlane, m_Nodes);
             Fill(origin, m_Full, m_Quarters);
 
             m_Trail.Run(context, camera, this);
@@ -492,7 +493,9 @@ namespace HiddenBull.UrpStyle
             block.SetTexture(s_HolesId, holes != null ? holes : Texture2D.whiteTexture);
             block.SetVector(s_SizeId, new Vector4(size.x, size.y, size.z, m_Data.resolution));
             block.SetVector(s_OriginId, new Vector4(origin.x, origin.y, origin.z, m_Tree.leafSize));
-            block.SetVector(s_CameraId, (Vector4)camera.transform.position + new Vector4(0f, 0f, 0f,
+            var viewer = StyleDebug.Viewer(camera);
+
+            block.SetVector(s_CameraId, (Vector4)viewer.transform.position + new Vector4(0f, 0f, 0f,
                                                                                           StyleTerrainTree.PatchQuads));
             block.SetVectorArray(s_RangesId, m_Ranges);
             block.SetVector(s_BrushId, m_Data.look.brush);
