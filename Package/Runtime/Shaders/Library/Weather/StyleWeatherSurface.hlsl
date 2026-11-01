@@ -33,7 +33,9 @@
 #define HB_SNOW_SMOOTHNESS      0.2h
 #define HB_SNOW_SOFTEN          0.35h
 #define HB_SNOW_STEEP_CALM      1.4h
-#define HB_SNOW_EDGE_DELAY      0.35h
+#ifndef HB_SNOW_EDGE_DELAY
+    #define HB_SNOW_EDGE_DELAY  0.35h
+#endif
 #define HB_SNOW_BRUSH_DELAY     0.15h
 #define HB_SNOW_EDGE_WIDTH      0.2
 #define HB_SNOW_FLAT_OBJECT     0.1

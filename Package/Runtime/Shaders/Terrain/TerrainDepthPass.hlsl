@@ -4,10 +4,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
 
 #ifdef HB_SHADOW_CASTER
-    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-
-float3 _LightDirection;
-float3 _LightPosition;
+    #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Shadow/StyleShadowCaster.hlsl"
 #elif !defined(HB_DEPTH_NORMALS)
 float _HB_ShelterPass;
 #endif
@@ -42,14 +39,7 @@ HBTerrainDepthVaryings HB_TerrainDepthVertex(HBTerrainDepthAttributes input)
 #ifdef HB_SHADOW_CASTER
     float3 normalWS = HB_TerrainNormal(vertex.positionWS.xz);
 
-    #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-    float3 lightDirectionWS = normalize(_LightPosition - vertex.positionWS);
-    #else
-    float3 lightDirectionWS = _LightDirection;
-    #endif
-
-    output.positionCS = ApplyShadowClamping(
-        TransformWorldToHClip(ApplyShadowBias(vertex.positionWS, normalWS, lightDirectionWS)));
+    output.positionCS = HB_ShadowCasterPosition(vertex.positionWS, normalWS);
 #else
     output.positionCS = TransformWorldToHClip(vertex.positionWS);
 

@@ -82,56 +82,19 @@ struct Varyings
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
-void HB_InitializeInputData(Varyings input, half3 normalTS, out InputData inputData)
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleForwardInput.hlsl"
+
+#ifdef HB_WEATHER
+HBWeatherMaterial HB_LitWeatherMaterial()
 {
-    inputData = (InputData)0;
-
-    inputData.positionWS = input.positionWS;
-
-#ifdef _NORMALMAP
-    half3 viewDirWS = half3(input.normalWS.w, input.tangentWS.w, input.bitangentWS.w);
-    inputData.tangentToWorld = half3x3(input.tangentWS.xyz, input.bitangentWS.xyz, input.normalWS.xyz);
-    inputData.normalWS = TransformTangentToWorld(normalTS, inputData.tangentToWorld);
-#else
-    half3 viewDirWS = GetWorldSpaceNormalizeViewDir(inputData.positionWS);
-    inputData.normalWS = input.normalWS;
-#endif
-
-    inputData.normalWS = NormalizeNormalPerPixel(inputData.normalWS);
-    inputData.viewDirectionWS = SafeNormalize(viewDirWS);
-
-#if defined(REQUIRES_VERTEX_SHADOW_COORD_INTERPOLATOR)
-    inputData.shadowCoord = input.shadowCoord;
-#elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
-    inputData.shadowCoord = TransformWorldToShadowCoord(inputData.positionWS);
-#else
-    inputData.shadowCoord = float4(0, 0, 0, 0);
-#endif
-
-#ifdef _ADDITIONAL_LIGHTS_VERTEX
-    inputData.vertexLighting = input.vertexLight;
-#endif
-
-    inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+    HBWeatherMaterial material;
+    material.wetness = half(_Wetness);
+    material.snowCover = half(_SnowCover);
+    material.beads = half4(_DropDensity, _DropSize, _FlakeDensity, _FlakeSize);
+    material.beadLife = half2(_DropLife, _FlakeLife);
+    return material;
 }
-
-void HB_InitializeBakedGI(Varyings input, float2 lightmapShift, inout InputData inputData)
-{
-#if defined(_SCREEN_SPACE_IRRADIANCE)
-    inputData.bakedGI = SAMPLE_GI(_ScreenSpaceIrradiance, input.positionCS.xy);
-#elif defined(DYNAMICLIGHTMAP_ON)
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV + lightmapShift, input.dynamicLightmapUV, input.vertexSH,
-                                  inputData.normalWS);
-    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV + lightmapShift);
-#elif !defined(LIGHTMAP_ON) && (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2))
-    inputData.bakedGI = SAMPLE_GI(input.vertexSH, GetAbsolutePositionWS(inputData.positionWS), inputData.normalWS,
-                                  inputData.viewDirectionWS, input.positionCS.xy, input.probeOcclusion,
-                                  inputData.shadowMask);
-#else
-    inputData.bakedGI = SAMPLE_GI(input.staticLightmapUV + lightmapShift, input.vertexSH, inputData.normalWS);
-    inputData.shadowMask = SAMPLE_SHADOWMASK(input.staticLightmapUV + lightmapShift);
 #endif
-}
 
 Varyings HB_LitVertex(Attributes input)
 {
@@ -218,24 +181,9 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 
 #ifdef _HB_BRUSH
     half3 geometryNormalWS = HB_FacingNormal(surface);
-    half scale = max(half(_BrushScale), half(HB_EPSILON));
 
-    float3 strokeOffset = HB_BrushStrokeOffset(brush.spine, geometryNormalWS, scale * brush.growth);
-    float2 strokeScreen = HB_BrushScreenOffset(strokeOffset, input.positionWS, geometryNormalWS);
-
-    strokeShift = strokeOffset;
-    shift = HB_BrushUvShift(strokeScreen, uvDdx, uvDdy, HB_BRUSH_SEAM_FOOTPRINT) * _BrushPaint;
-
-    half toneStrokes = half(_ToneStrokes);
-
-    brush.offset = strokeOffset * toneStrokes;
-    brush.normalShift = half3(strokeScreen.x * ddx(geometryNormalWS) + strokeScreen.y * ddy(geometryNormalWS))
-                      * toneStrokes;
-
-    #ifdef LIGHTMAP_ON
-    lightmapShift = HB_BrushUvShift(strokeScreen, ddx(input.staticLightmapUV), ddy(input.staticLightmapUV),
-                                    HB_BRUSH_LIGHTMAP_SEAM) * (toneStrokes * half(_BakedStrokes));
-    #endif
+    strokeShift = HB_ResolveBrushShift(input, input.positionWS, geometryNormalWS, uvDdx, uvDdy, brush, shift,
+                                       lightmapShift);
 
     bool brushed = true;
 #else
@@ -251,8 +199,14 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     LODFadeCrossFade(input.positionCS);
 #endif
 
+#ifdef _NORMALMAP
+    half3 viewDirWS = half3(input.normalWS.w, input.tangentWS.w, input.bitangentWS.w);
+#else
+    half3 viewDirWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
+#endif
+
     InputData inputData;
-    HB_InitializeInputData(input, surfaceData.normalTS, inputData);
+    HB_InitializeInputData(input, input.normalWS.xyz, viewDirWS, surfaceData.normalTS, inputData);
 
 #if defined(_HB_TRIPLANAR) && defined(_NORMALMAP)
     inputData.normalWS = NormalizeNormalPerPixel(mappedNormalWS);
@@ -269,14 +223,8 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     HB_InitializeBakedGI(input, lightmapShift, inputData);
 
 #ifdef HB_WEATHER
-    HBWeatherMaterial weatherMaterial;
-    weatherMaterial.wetness = half(_Wetness);
-    weatherMaterial.snowCover = half(_SnowCover);
-    weatherMaterial.beads = half4(_DropDensity, _DropSize, _FlakeDensity, _FlakeSize);
-    weatherMaterial.beadLife = half2(_DropLife, _FlakeLife);
-
     HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, brush.coverage, surface.anchorOS,
-                                          weatherMaterial);
+                                          HB_LitWeatherMaterial());
 
     HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);

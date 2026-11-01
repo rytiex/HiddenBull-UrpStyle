@@ -6,8 +6,10 @@
 #define HB_NOISE_REACH          0.75
 #define HB_NOISE_STRETCH        1.5
 
-#define HB_SNOW_FULL_SLOPE      0.407h
-#define HB_SNOW_NO_SLOPE        0.174h
+#ifndef HB_SNOW_FULL_SLOPE
+    #define HB_SNOW_FULL_SLOPE  0.407h
+    #define HB_SNOW_NO_SLOPE    0.174h
+#endif
 #define HB_SNOW_SLOPE_EDGE      0.1h
 #define HB_SNOW_SLOPE_BRUSH     0.6h
 #define HB_SNOW_SPREAD          0.6h

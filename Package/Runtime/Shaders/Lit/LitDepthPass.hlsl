@@ -31,10 +31,7 @@
 #endif
 
 #ifdef HB_SHADOW_CASTER
-    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-
-float3 _LightDirection;
-float3 _LightPosition;
+    #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Shadow/StyleShadowCaster.hlsl"
 #elif !defined(HB_DEPTH_NORMALS)
     #define HB_SHELTER_MOVING 1.5
 
@@ -99,16 +96,7 @@ HBDepthVaryings HB_DepthVertex(HBDepthAttributes input)
     float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
 
 #ifdef HB_SHADOW_CASTER
-    float3 biasNormalWS = TransformObjectToWorldNormal(input.normalOS);
-
-    #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-    float3 lightDirectionWS = normalize(_LightPosition - positionWS);
-    #else
-    float3 lightDirectionWS = _LightDirection;
-    #endif
-
-    output.positionCS = ApplyShadowClamping(
-        TransformWorldToHClip(ApplyShadowBias(positionWS, biasNormalWS, lightDirectionWS)));
+    output.positionCS = HB_ShadowCasterPosition(positionWS, TransformObjectToWorldNormal(input.normalOS));
 #else
     output.positionCS = TransformWorldToHClip(positionWS);
 

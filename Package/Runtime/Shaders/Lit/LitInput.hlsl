@@ -77,8 +77,6 @@ SAMPLER(sampler_BrushMask);
 TEXTURE2D(_MaskMap);
 SAMPLER(sampler_MaskMap);
 
-#define HB_PAINT_EDGE_START 0.15h
-#define HB_PAINT_EDGE_END   0.35h
 #define HB_TRIPLANAR_CUTOFF 0.02h
 
 half HB_SampleBrushMask(float2 uv)
@@ -88,13 +86,6 @@ half HB_SampleBrushMask(float2 uv)
 #else
     return 1.0h;
 #endif
-}
-
-half HB_PaintKeep(half4 painted, half4 original)
-{
-    half difference = length(sqrt(max(painted.rgb, 0.0h)) - sqrt(max(original.rgb, 0.0h)));
-
-    return lerp(1.0h, 1.0h - smoothstep(HB_PAINT_EDGE_START, HB_PAINT_EDGE_END, difference), half(_BrushEdgeKeep));
 }
 
 void HB_ResolveSurfaceColour(half4 albedoAlpha, inout SurfaceData surfaceData)
@@ -128,7 +119,7 @@ void HB_InitializeSurfaceData(float2 uv, float2 shift, float2 uvDdx, float2 uvDd
 
     #ifdef _HB_BRUSH
     half4 original = SAMPLE_TEXTURE2D_GRAD(_BaseMap, sampler_BaseMap, uv, uvDdx, uvDdy);
-    half keep = HB_PaintKeep(painted, original);
+    half keep = HB_PaintKeep(painted, original, half(_BrushEdgeKeep));
 
     painted = half4(lerp(original.rgb, painted.rgb, keep), original.a);
     detailUV = uv + shift * keep;
@@ -273,7 +264,7 @@ void HB_InitializeTriplanarSurfaceData(HBTriplanar triplanar, float3 shift, out 
 
     #ifdef _HB_BRUSH
     half4 original = HB_SampleTriplanar(TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap), triplanar, float3(0.0, 0.0, 0.0));
-    half keep = HB_PaintKeep(painted, original);
+    half keep = HB_PaintKeep(painted, original, half(_BrushEdgeKeep));
 
     painted = half4(lerp(original.rgb, painted.rgb, keep), original.a);
     detail = shift * keep;

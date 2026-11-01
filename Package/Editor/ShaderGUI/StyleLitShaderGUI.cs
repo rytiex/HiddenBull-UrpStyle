@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle.Editor
 {
-    sealed class StyleLitShaderGUI : StyleShaderGUI
+    class StyleLitShaderGUI : StyleShaderGUI
     {
         static class Styles
         {
@@ -270,13 +270,13 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BaseColor;
         MaterialProperty m_TriplanarEnabled;
         MaterialProperty m_TriplanarSpace;
-        MaterialProperty m_BaseMapEnabled;
-        MaterialProperty m_BaseMap;
-        MaterialProperty m_NormalMapEnabled;
-        MaterialProperty m_BumpMap;
-        MaterialProperty m_BumpScale;
-        MaterialProperty m_MaskMapEnabled;
-        MaterialProperty m_MaskMap;
+        protected MaterialProperty m_BaseMapEnabled;
+        protected MaterialProperty m_BaseMap;
+        protected MaterialProperty m_NormalMapEnabled;
+        protected MaterialProperty m_BumpMap;
+        protected MaterialProperty m_BumpScale;
+        protected MaterialProperty m_MaskMapEnabled;
+        protected MaterialProperty m_MaskMap;
         MaterialProperty m_DiffuseWrap;
         MaterialProperty m_DiffuseSoftness;
         MaterialProperty m_HalfTone;
@@ -350,6 +350,18 @@ namespace HiddenBull.UrpStyle.Editor
 
             EditorGUI.BeginChangeCheck();
 
+            DrawSections(materialEditor);
+
+            CoreEditorUtils.DrawSplitter();
+
+            if (EditorGUI.EndChangeCheck())
+                ValidateTargets(materialEditor);
+        }
+
+        protected virtual GUIContent BrushSpaceLabel => Styles.BrushSpace;
+
+        protected virtual void DrawSections(MaterialEditor materialEditor)
+        {
             DrawSurface(materialEditor);
             DrawMaps(materialEditor);
             DrawShading(materialEditor);
@@ -360,11 +372,6 @@ namespace HiddenBull.UrpStyle.Editor
             DrawEmission(materialEditor);
             DrawWeather(materialEditor);
             DrawAdvanced(materialEditor);
-
-            CoreEditorUtils.DrawSplitter();
-
-            if (EditorGUI.EndChangeCheck())
-                ValidateTargets(materialEditor);
         }
 
         public override void ValidateMaterial(Material material)
@@ -412,79 +419,79 @@ namespace HiddenBull.UrpStyle.Editor
             material.renderQueue = (alphaClip ? (int)RenderQueue.AlphaTest : (int)RenderQueue.Geometry) + queueOffset;
         }
 
-        void FindProperties(MaterialProperty[] properties)
+        protected virtual void FindProperties(MaterialProperty[] properties)
         {
-            m_BaseColor = FindProperty("_BaseColor", properties);
-            m_TriplanarEnabled = FindProperty("_TriplanarEnabled", properties);
-            m_TriplanarSpace = FindProperty("_TriplanarSpace", properties);
-            m_BaseMapEnabled = FindProperty("_BaseMapEnabled", properties);
-            m_BaseMap = FindProperty("_BaseMap", properties);
-            m_NormalMapEnabled = FindProperty("_NormalMapEnabled", properties);
-            m_BumpMap = FindProperty("_BumpMap", properties);
-            m_BumpScale = FindProperty("_BumpScale", properties);
-            m_MaskMapEnabled = FindProperty("_MaskMapEnabled", properties);
-            m_MaskMap = FindProperty("_MaskMap", properties);
-            m_DiffuseWrap = FindProperty("_DiffuseWrap", properties);
-            m_DiffuseSoftness = FindProperty("_DiffuseSoftness", properties);
-            m_HalfTone = FindProperty("_HalfTone", properties);
-            m_BakedTones = FindProperty("_BakedTones", properties);
-            m_BakedSoftness = FindProperty("_BakedSoftness", properties);
-            m_BrushEnabled = FindProperty("_BrushEnabled", properties);
-            m_BrushObjectSpace = FindProperty("_BrushObjectSpace", properties);
-            m_BrushScale = FindProperty("_BrushScale", properties);
-            m_BrushPaint = FindProperty("_BrushPaint", properties);
-            m_BrushEdgeKeep = FindProperty("_BrushEdgeKeep", properties);
-            m_ToneStrokes = FindProperty("_ToneStrokes", properties);
-            m_BakedStrokes = FindProperty("_BakedStrokes", properties);
-            m_BrushRelief = FindProperty("_BrushRelief", properties);
-            m_BrushShading = FindProperty("_BrushShading", properties);
-            m_BrushAmbient = FindProperty("_BrushAmbient", properties);
-            m_BrushAlbedo = FindProperty("_BrushAlbedo", properties);
-            m_BrushMaskEnabled = FindProperty("_BrushMaskEnabled", properties);
-            m_BrushMask = FindProperty("_BrushMask", properties);
-            m_SpecularEnabled = FindProperty("_SpecularEnabled", properties);
-            m_Metallic = FindProperty("_Metallic", properties);
-            m_Smoothness = FindProperty("_Smoothness", properties);
-            m_RimEnabled = FindProperty("_RimEnabled", properties);
-            m_RimColor = FindProperty("_RimColor", properties);
-            m_RimPower = FindProperty("_RimPower", properties);
-            m_RimIntensity = FindProperty("_RimIntensity", properties);
-            m_SubsurfaceEnabled = FindProperty("_SubsurfaceEnabled", properties);
-            m_SkinMode = FindProperty("_SkinMode", properties);
-            m_SubsurfaceColor = FindProperty("_SubsurfaceColor", properties);
-            m_SubsurfaceStrength = FindProperty("_SubsurfaceStrength", properties);
-            m_SubsurfaceWidth = FindProperty("_SubsurfaceWidth", properties);
-            m_Transmission = FindProperty("_Transmission", properties);
-            m_TransmissionBend = FindProperty("_TransmissionBend", properties);
-            m_TransmissionFocus = FindProperty("_TransmissionFocus", properties);
-            m_TransmissionColor = FindProperty("_TransmissionColor", properties);
-            m_ThicknessMapEnabled = FindProperty("_ThicknessMapEnabled", properties);
-            m_ThicknessMap = FindProperty("_ThicknessMap", properties);
-            m_SheenColor = FindProperty("_SheenColor", properties);
-            m_SheenStrength = FindProperty("_SheenStrength", properties);
-            m_SheenPower = FindProperty("_SheenPower", properties);
-            m_Weave = FindProperty("_Weave", properties);
-            m_WeaveScale = FindProperty("_WeaveScale", properties);
-            m_EmissionEnabled = FindProperty("_EmissionEnabled", properties);
-            m_EmissionColor = FindProperty("_EmissionColor", properties);
-            m_EmissionMap = FindProperty("_EmissionMap", properties);
-            m_ReceiveWeather = FindProperty("_ReceiveWeather", properties);
-            m_Wetness = FindProperty("_Wetness", properties);
-            m_SnowCover = FindProperty("_SnowCover", properties);
-            m_DropDensity = FindProperty("_DropDensity", properties);
-            m_DropSize = FindProperty("_DropSize", properties);
-            m_DropLife = FindProperty("_DropLife", properties);
-            m_FlakeDensity = FindProperty("_FlakeDensity", properties);
-            m_FlakeSize = FindProperty("_FlakeSize", properties);
-            m_FlakeLife = FindProperty("_FlakeLife", properties);
-            m_AlphaClipEnabled = FindProperty("_AlphaClipEnabled", properties);
-            m_Cutoff = FindProperty("_Cutoff", properties);
-            m_ReceiveShadows = FindProperty("_ReceiveShadows", properties);
-            m_Cull = FindProperty("_Cull", properties);
-            m_QueueOffset = FindProperty("_QueueOffset", properties);
+            m_BaseColor = Optional("_BaseColor", properties);
+            m_TriplanarEnabled = Optional("_TriplanarEnabled", properties);
+            m_TriplanarSpace = Optional("_TriplanarSpace", properties);
+            m_BaseMapEnabled = Optional("_BaseMapEnabled", properties);
+            m_BaseMap = Optional("_BaseMap", properties);
+            m_NormalMapEnabled = Optional("_NormalMapEnabled", properties);
+            m_BumpMap = Optional("_BumpMap", properties);
+            m_BumpScale = Optional("_BumpScale", properties);
+            m_MaskMapEnabled = Optional("_MaskMapEnabled", properties);
+            m_MaskMap = Optional("_MaskMap", properties);
+            m_DiffuseWrap = Optional("_DiffuseWrap", properties);
+            m_DiffuseSoftness = Optional("_DiffuseSoftness", properties);
+            m_HalfTone = Optional("_HalfTone", properties);
+            m_BakedTones = Optional("_BakedTones", properties);
+            m_BakedSoftness = Optional("_BakedSoftness", properties);
+            m_BrushEnabled = Optional("_BrushEnabled", properties);
+            m_BrushObjectSpace = Optional("_BrushObjectSpace", properties);
+            m_BrushScale = Optional("_BrushScale", properties);
+            m_BrushPaint = Optional("_BrushPaint", properties);
+            m_BrushEdgeKeep = Optional("_BrushEdgeKeep", properties);
+            m_ToneStrokes = Optional("_ToneStrokes", properties);
+            m_BakedStrokes = Optional("_BakedStrokes", properties);
+            m_BrushRelief = Optional("_BrushRelief", properties);
+            m_BrushShading = Optional("_BrushShading", properties);
+            m_BrushAmbient = Optional("_BrushAmbient", properties);
+            m_BrushAlbedo = Optional("_BrushAlbedo", properties);
+            m_BrushMaskEnabled = Optional("_BrushMaskEnabled", properties);
+            m_BrushMask = Optional("_BrushMask", properties);
+            m_SpecularEnabled = Optional("_SpecularEnabled", properties);
+            m_Metallic = Optional("_Metallic", properties);
+            m_Smoothness = Optional("_Smoothness", properties);
+            m_RimEnabled = Optional("_RimEnabled", properties);
+            m_RimColor = Optional("_RimColor", properties);
+            m_RimPower = Optional("_RimPower", properties);
+            m_RimIntensity = Optional("_RimIntensity", properties);
+            m_SubsurfaceEnabled = Optional("_SubsurfaceEnabled", properties);
+            m_SkinMode = Optional("_SkinMode", properties);
+            m_SubsurfaceColor = Optional("_SubsurfaceColor", properties);
+            m_SubsurfaceStrength = Optional("_SubsurfaceStrength", properties);
+            m_SubsurfaceWidth = Optional("_SubsurfaceWidth", properties);
+            m_Transmission = Optional("_Transmission", properties);
+            m_TransmissionBend = Optional("_TransmissionBend", properties);
+            m_TransmissionFocus = Optional("_TransmissionFocus", properties);
+            m_TransmissionColor = Optional("_TransmissionColor", properties);
+            m_ThicknessMapEnabled = Optional("_ThicknessMapEnabled", properties);
+            m_ThicknessMap = Optional("_ThicknessMap", properties);
+            m_SheenColor = Optional("_SheenColor", properties);
+            m_SheenStrength = Optional("_SheenStrength", properties);
+            m_SheenPower = Optional("_SheenPower", properties);
+            m_Weave = Optional("_Weave", properties);
+            m_WeaveScale = Optional("_WeaveScale", properties);
+            m_EmissionEnabled = Optional("_EmissionEnabled", properties);
+            m_EmissionColor = Optional("_EmissionColor", properties);
+            m_EmissionMap = Optional("_EmissionMap", properties);
+            m_ReceiveWeather = Optional("_ReceiveWeather", properties);
+            m_Wetness = Optional("_Wetness", properties);
+            m_SnowCover = Optional("_SnowCover", properties);
+            m_DropDensity = Optional("_DropDensity", properties);
+            m_DropSize = Optional("_DropSize", properties);
+            m_DropLife = Optional("_DropLife", properties);
+            m_FlakeDensity = Optional("_FlakeDensity", properties);
+            m_FlakeSize = Optional("_FlakeSize", properties);
+            m_FlakeLife = Optional("_FlakeLife", properties);
+            m_AlphaClipEnabled = Optional("_AlphaClipEnabled", properties);
+            m_Cutoff = Optional("_Cutoff", properties);
+            m_ReceiveShadows = Optional("_ReceiveShadows", properties);
+            m_Cull = Optional("_Cull", properties);
+            m_QueueOffset = Optional("_QueueOffset", properties);
         }
 
-        void DrawSurface(MaterialEditor materialEditor)
+        protected void DrawSurface(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_BaseColor);
             var expanded = StyleMaterialHeader.Draw(Styles.Surface, "Surface", materialEditor, reset: reset);
@@ -555,7 +562,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawShading(MaterialEditor materialEditor)
+        protected void DrawShading(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_DiffuseWrap, m_DiffuseSoftness, m_HalfTone, m_BakedTones,
                                     m_BakedSoftness);
@@ -578,7 +585,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawBrush(MaterialEditor materialEditor)
+        protected void DrawBrush(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_BrushObjectSpace, m_BrushScale, m_BrushPaint, m_BrushEdgeKeep,
                                     m_ToneStrokes, m_BakedStrokes, m_BrushRelief, m_BrushShading, m_BrushAmbient,
@@ -587,7 +594,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (expanded)
             {
-                materialEditor.ShaderProperty(m_BrushObjectSpace, Styles.BrushSpace);
+                materialEditor.ShaderProperty(m_BrushObjectSpace, BrushSpaceLabel);
                 DrawRestPoseWarning(materialEditor, m_BrushObjectSpace);
 
                 materialEditor.ShaderProperty(m_BrushScale, Styles.BrushSize);
@@ -734,7 +741,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawWeather(MaterialEditor materialEditor)
+        protected void DrawWeather(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_ReceiveWeather, m_Wetness, m_SnowCover, m_DropDensity, m_DropSize,
                                     m_DropLife, m_FlakeDensity, m_FlakeSize, m_FlakeLife);
@@ -742,33 +749,16 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (expanded)
             {
-                var rect = EditorGUILayout.GetControlRect();
-                var value = Mathf.RoundToInt(m_ReceiveWeather.floatValue);
-                var index = value == MovingWeather ? 2 : value == StaticWeather ? 1 : 0;
+                var mixed = m_ReceiveWeather != null && m_ReceiveWeather.hasMixedValue;
+                var index = m_ReceiveWeather != null ? DrawReceiveWeather(materialEditor) : StaticWeather;
 
-                MaterialEditor.BeginProperty(rect, m_ReceiveWeather);
-                EditorGUI.showMixedValue = m_ReceiveWeather.hasMixedValue;
-                EditorGUI.BeginChangeCheck();
-
-                index = EditorGUI.Popup(rect, Styles.ReceiveWeather, index,
-                                        EditorGUIUtility.TrTempContent(Styles.ReceiveWeatherNames));
-
-                if (EditorGUI.EndChangeCheck())
-                {
-                    materialEditor.RegisterPropertyChangeUndo(Styles.ReceiveWeather.text);
-                    m_ReceiveWeather.floatValue = index == 2 ? MovingWeather : index;
-                }
-
-                EditorGUI.showMixedValue = false;
-                MaterialEditor.EndProperty();
-
-                if (index != 0 || m_ReceiveWeather.hasMixedValue)
+                if (index != 0 || mixed)
                     materialEditor.ShaderProperty(m_Wetness, Styles.Wetness);
 
-                if (index == 1 || m_ReceiveWeather.hasMixedValue)
+                if (index == 1 || mixed)
                     materialEditor.ShaderProperty(m_SnowCover, Styles.SnowCover);
 
-                if (index == 2 || m_ReceiveWeather.hasMixedValue)
+                if (index == 2 || mixed)
                 {
                     materialEditor.ShaderProperty(m_DropDensity, Styles.DropDensity);
                     materialEditor.ShaderProperty(m_DropSize, Styles.DropSize);
@@ -782,7 +772,32 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawAdvanced(MaterialEditor materialEditor)
+        int DrawReceiveWeather(MaterialEditor materialEditor)
+        {
+            var rect = EditorGUILayout.GetControlRect();
+            var value = Mathf.RoundToInt(m_ReceiveWeather.floatValue);
+            var index = value == MovingWeather ? 2 : value == StaticWeather ? 1 : 0;
+
+            MaterialEditor.BeginProperty(rect, m_ReceiveWeather);
+            EditorGUI.showMixedValue = m_ReceiveWeather.hasMixedValue;
+            EditorGUI.BeginChangeCheck();
+
+            index = EditorGUI.Popup(rect, Styles.ReceiveWeather, index,
+                                    EditorGUIUtility.TrTempContent(Styles.ReceiveWeatherNames));
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                materialEditor.RegisterPropertyChangeUndo(Styles.ReceiveWeather.text);
+                m_ReceiveWeather.floatValue = index == 2 ? MovingWeather : index;
+            }
+
+            EditorGUI.showMixedValue = false;
+            MaterialEditor.EndProperty();
+
+            return index;
+        }
+
+        protected void DrawAdvanced(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_AlphaClipEnabled, m_Cutoff, m_ReceiveShadows, m_Cull,
                                     m_QueueOffset);

@@ -50,9 +50,6 @@ float4 _HB_LayerFlower[16];
 #define HB_GRASS_BEND_END    0.1
 #define HB_GRASS_PATCH_STEP  (1.0 / 7.0)
 #define HB_GRASS_PATCH_SHAKE 61.7
-#define HB_GRASS_GUST_LAG    2.5
-#define HB_GRASS_GUST_FINE   16.0
-#define HB_GRASS_GUST_SHORT  8.0
 #define HB_GRASS_LEAN_BASE   0.22
 #define HB_GRASS_LEAN_PRESS  0.45
 #define HB_GRASS_DRIFT       0.05
@@ -183,16 +180,8 @@ float3 HB_GrassGust(float3 root, float seed, float gap, out float streak)
 {
     float2 wind = float2(sin(HB_GRASS_HEADING), cos(HB_GRASS_HEADING));
     float2 side = float2(-wind.y, wind.x);
-    float along = dot(root.xz, side);
-    float ahead = dot(root.xz, wind) + seed * HB_GRASS_GUST_LAG;
-    float speed = HB_GRASS_GUST_SPEED + HB_GRASS_GUST_RISE * HB_GRASS_WIND;
 
-    float wide = HB_GrassNoise(float2(along / HB_GRASS_GUST_WIDE,
-                                      (ahead - HB_GRASS_TIME * speed) / HB_GRASS_GUST_LONG));
-    float fine = HB_GrassNoise(float2(along / HB_GRASS_GUST_FINE + 7.3,
-                                      (ahead - HB_GRASS_TIME * speed * 1.6) / HB_GRASS_GUST_SHORT));
-
-    streak = smoothstep(HB_GRASS_GUST_LOW, HB_GRASS_GUST_HIGH, wide * 0.65 + fine * 0.35);
+    streak = HB_GustStreak(root.xz, seed, wind, HB_GRASS_WIND, HB_GRASS_TIME);
     float lean = HB_GRASS_WIND * (HB_GRASS_LEAN_BASE + HB_GRASS_LEAN_PRESS * streak);
 
     float drift = (HB_GRASS_DRIFT_IDLE + HB_GRASS_WIND * HB_GRASS_DRIFT)

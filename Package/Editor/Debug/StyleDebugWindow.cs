@@ -22,7 +22,9 @@ namespace HiddenBull.UrpStyle.Editor
             "covers it. Precipitation draws the falling rain and snow that a roof should hide in red instead of " +
             "hiding it, so the roof check can be seen.\n\n" +
             "Terrain: Detail Rings colours each detail ring of the HB Style Terrain (red is the nearest, " +
-            "full-resolution ring) and blends into the next colour where a ring morphs into the coarser one.");
+            "full-resolution ring) and blends into the next colour where a ring morphs into the coarser one.\n\n" +
+            "Foliage: Canopy shows the normal leaves light by; Sway shows how far each point moves in full wind, " +
+            "black for nothing and white for 2 m. Magenta means the plant is not baked.");
 
         static readonly GUIContent s_TerrainLabel = new GUIContent("Terrain Patches / Selection",
             "Terrain patches drawn for the Game camera this frame (view and shadow lists together) and the CPU time " +

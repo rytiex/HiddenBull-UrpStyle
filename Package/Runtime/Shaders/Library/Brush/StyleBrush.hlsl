@@ -18,6 +18,8 @@ SAMPLER(sampler_HB_BrushAtlas);
 #define HB_BRUSH_SPINE_RANGE     0.0625
 #define HB_BRUSH_SEAM_FOOTPRINT  0.25
 #define HB_BRUSH_LIGHTMAP_SEAM   0.02
+#define HB_PAINT_EDGE_START      0.15h
+#define HB_PAINT_EDGE_END        0.35h
 #define HB_BRUSH_FORM_RELIEF     0.55h
 
 #define HB_BRUSH_PLANE_CUTOFF    0.02h
@@ -396,6 +398,13 @@ float2 HB_BrushScreenOffset(float3 offset, float3 positionWS, half3 normalWS)
         return float2(0.0, 0.0);
 
     return float2(dot(offset, edgeY), dot(offset, edgeX)) / determinant;
+}
+
+half HB_PaintKeep(half4 painted, half4 original, half edgeKeep)
+{
+    half difference = length(sqrt(max(painted.rgb, 0.0h)) - sqrt(max(original.rgb, 0.0h)));
+
+    return lerp(1.0h, 1.0h - smoothstep(HB_PAINT_EDGE_START, HB_PAINT_EDGE_END, difference), edgeKeep);
 }
 
 float2 HB_BrushUvShift(float2 screen, float2 uvDdx, float2 uvDdy, float seam)

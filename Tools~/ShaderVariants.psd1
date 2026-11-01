@@ -184,6 +184,268 @@
             Reads = 0
         }
         @{
+            Name = 'Foliage Forward (all)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK')
+            Slots = 2500
+            Reads = 60
+        }
+        @{
+            Name = 'Foliage Forward (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantVertex'
+            Stage = 'vs'
+            Urp = 'Full'
+            Defines = @('_HB_BASE_MAP')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage ShadowCaster fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantShadowFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage ShadowCaster vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthOnly fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthOnly vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthNormals fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthNormalsFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthNormals vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Scene Selection fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantSceneFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENESELECTIONPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Scene Picking fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantSceneFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENEPICKINGPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Scene vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENESELECTIONPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Meta'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageMetaPass.hlsl'
+            Entry = 'HB_PlantMetaFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Forward (all)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK')
+            Slots = 2500
+            Reads = 60
+        }
+        @{
+            Name = 'Foliage Body Forward (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantVertex'
+            Stage = 'vs'
+            Urp = 'Full'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body ShadowCaster fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantShadowFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body ShadowCaster vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthOnly fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthOnly vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthNormals fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthNormalsFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthNormals vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Scene Selection fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantSceneFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENESELECTIONPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Scene Picking fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantSceneFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENEPICKINGPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Scene vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'HB_PLANT_SCENE', 'SCENESELECTIONPASS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Meta'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageMetaPass.hlsl'
+            Entry = 'HB_PlantMetaFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Sky'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Sky/SkyPass.hlsl'
             Entry = 'HB_SkyFragment'

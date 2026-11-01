@@ -127,14 +127,14 @@ half3 HB_TerrainDistantGrass(HBTerrainSurface surface, float3 positionWS, float 
 
         float2 wind = float2(sin(HB_WIND_HEADING), cos(HB_WIND_HEADING));
         float along = dot(xz, float2(-wind.y, wind.x));
-        float speed = HB_GRASS_GUST_SPEED + HB_GRASS_GUST_RISE * HB_WIND;
-        float ahead = (dot(xz, wind) - _Time.y * speed) / HB_GRASS_GUST_LONG;
-        float gust = HB_GrassNoise(float2(along / HB_GRASS_GUST_WIDE, ahead));
-        half streak = half(smoothstep(HB_GRASS_GUST_LOW, HB_GRASS_GUST_HIGH, gust * 0.65 + 0.175) * HB_WIND);
+        float speed = HB_GUST_SPEED + HB_GUST_RISE * HB_WIND;
+        float ahead = (dot(xz, wind) - _Time.y * speed) / HB_GUST_LONG;
+        float gust = HB_WindNoise(float2(along / HB_GUST_WIDE, ahead));
+        half streak = half(smoothstep(HB_GUST_LOW, HB_GUST_HIGH, gust * 0.65 + 0.175) * HB_WIND);
         half fade = half(smoothstep(HB_GRASS_FAR_START, HB_GRASS_FAR_END, gap));
 
         grass *= 1.0h + vary * half(HB_GrassClump(xz)) * HB_GRASS_CLUMP_TONE;
-        grass *= 1.0h + (half(HB_GrassNoise(xz / HB_GRASS_FAR_SPECK)) - 0.5h) * HB_GRASS_FAR_SPECK_TONE * speck;
+        grass *= 1.0h + (half(HB_WindNoise(xz / HB_GRASS_FAR_SPECK)) - 0.5h) * HB_GRASS_FAR_SPECK_TONE * speck;
         grass *= 1.0h + streak * HB_GRASS_FAR_SWEEP;
         albedo = lerp(albedo, grass, fade * saturate(density));
     }

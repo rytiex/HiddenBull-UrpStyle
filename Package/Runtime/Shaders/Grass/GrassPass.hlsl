@@ -85,7 +85,7 @@ float _HB_ShelterPass;
 #define HB_BLADE_TURN_LOOSE   0.25
 #define HB_BLADE_RIB          0.2h
 #define HB_DEBUG_GRASS_CELLS  16
-#define HB_DEBUG_GRASS_GUST   17
+#define HB_DEBUG_WEATHER_GUST 17
 
 #if defined(_HB_GRASS_FLOWERS)
 #define HB_GRASS_CLIP(cover) clip(cover)
@@ -244,7 +244,7 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     float facing = dot(across, right);
     float3 broad = across + right * ((facing < 0.0 ? -1.0 : 1.0) * (1.0 - abs(facing)) * HB_BLADE_THICKEN);
 
-    float heading = HB_GrassNoise(blade.root.xz / HB_BLADE_FLOW_SIZE) * HB_BLADE_FLOW_TURNS
+    float heading = HB_WindNoise(blade.root.xz / HB_BLADE_FLOW_SIZE) * HB_BLADE_FLOW_TURNS
                   + (roll.x - 0.5) * HB_BLADE_FLOW_SPREAD;
     float3 ahead = float3(cos(heading), 0.0, sin(heading));
     float rise = HB_BLADE_ROWS[joint];
@@ -417,7 +417,7 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
         colour = cellColour * lerp(0.6h, 1.0h, height);
     }
 
-    if (HB_DEBUG_VIEW == HB_DEBUG_GRASS_GUST)
+    if (HB_DEBUG_VIEW == HB_DEBUG_WEATHER_GUST)
         colour = half3(half(input.gust.x), half(input.gust.y), half(input.gust.y)) * lerp(0.6h, 1.0h, height);
 #endif
 
