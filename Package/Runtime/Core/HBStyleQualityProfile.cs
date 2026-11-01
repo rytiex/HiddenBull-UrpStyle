@@ -30,6 +30,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Grass levels: how far the HB Style Terrain's grass reaches and how thick it can grow.")]
         HBStyleGrassQuality m_Grass = new HBStyleGrassQuality();
 
+        [SerializeField]
+        [Tooltip("Anti aliasing levels: how carefully edges and pixel-sized details are smoothed.")]
+        HBStyleAntiAliasingQuality m_AntiAliasing = new HBStyleAntiAliasingQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -41,5 +45,7 @@ namespace HiddenBull.UrpStyle
         public HBStyleTerrainQuality terrain => m_Terrain;
 
         public HBStyleGrassQuality grass => m_Grass;
+
+        public HBStyleAntiAliasingQuality antiAliasing => m_AntiAliasing;
     }
 }

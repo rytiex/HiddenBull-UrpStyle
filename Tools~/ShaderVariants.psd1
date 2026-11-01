@@ -476,6 +476,16 @@
             Reads = 0
         }
         @{
+            Name = 'Anti Aliasing fullscreen'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AntiAliasing/AntiAliasingPass.hlsl'
+            Entry = 'HB_AntiAliasingFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 800
+            Reads = 40
+        }
+        @{
             Name = 'Lit Meta'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitMetaPass.hlsl'
             Entry = 'HB_MetaFragment'

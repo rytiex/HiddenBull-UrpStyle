@@ -1070,6 +1070,8 @@ namespace HiddenBull.UrpStyle
             group.farArguments = null;
             group.shadowArguments = null;
             group.capacity = 0;
+            group.count = 0;
+            group.drawCount = 0;
             group.shaped = true;
             group.dirty = true;
         }

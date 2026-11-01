@@ -100,6 +100,7 @@ half3 HB_ObjectSpaceNormal(half3 normalWS)
 HBBrushSpace HB_ResolveBrushSpace(float3 positionWS, half3 normalWS, half objectSpace, float3 anchorOS)
 {
     HBBrushSpace space;
+    ZERO_INITIALIZE(HBBrushSpace, space);
 
 #if defined(_HB_BRUSH_ANCHOR)
     if (objectSpace > 1.5h && any(anchorOS != 0.0))

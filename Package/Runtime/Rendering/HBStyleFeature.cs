@@ -35,12 +35,21 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         Shader m_AtmosphereShader;
 
+        [SerializeField]
+        [HideInInspector]
+        Shader m_AntiAliasingShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Material m_TerrainVariants;
+
         StyleCameraStates m_Cameras;
         StyleGlobalsPass m_GlobalsPass;
         StyleShelterPass m_ShelterPass;
         StyleDepthPyramidPass m_PyramidPass;
         StyleAtmospherePass m_AtmospherePass;
         StylePrecipitationPass m_PrecipitationPass;
+        StyleAntiAliasingPass m_AntiAliasingPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -79,6 +88,7 @@ namespace HiddenBull.UrpStyle
             m_PyramidPass = new StyleDepthPyramidPass();
             m_AtmospherePass = new StyleAtmospherePass();
             m_PrecipitationPass = new StylePrecipitationPass();
+            m_AntiAliasingPass = new StyleAntiAliasingPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -87,6 +97,8 @@ namespace HiddenBull.UrpStyle
             m_UndersideShader = Load(m_UndersideShader, StyleShelterPass.UndersidePath);
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
+            m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
+            m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
 #endif
@@ -106,7 +118,18 @@ namespace HiddenBull.UrpStyle
             StylePlantSystem.Setup(m_PlantCompute, m_PyramidPass);
             renderer.EnqueuePass(m_GlobalsPass);
 
-            if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)
+            var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
+
+            var antiAliasing = quality.antiAliasing;
+
+            if (kind != StyleCameraKind.Isolated && cameraData.resolveFinalTarget &&
+                antiAliasing.level != HBStyleQualityLevel.Off)
+            {
+                m_AntiAliasingPass.Setup(m_AntiAliasingShader, antiAliasing);
+                renderer.EnqueuePass(m_AntiAliasingPass);
+            }
+
+            if (kind != StyleCameraKind.Base)
                 return;
 
             m_Cameras.Touch(cameraData.camera);
@@ -126,7 +149,12 @@ namespace HiddenBull.UrpStyle
             m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
             renderer.EnqueuePass(m_PrecipitationPass);
 
-            StyleShadowSettings.Apply(GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset, shadows);
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+
+            if (pipeline != null)
+                pipeline.msaaSampleCount = 1;
+
+            StyleShadowSettings.Apply(pipeline, shadows);
         }
 
 #if UNITY_EDITOR
@@ -189,6 +217,9 @@ namespace HiddenBull.UrpStyle
 
             m_PrecipitationPass?.Dispose();
             m_PrecipitationPass = null;
+
+            m_AntiAliasingPass?.Dispose();
+            m_AntiAliasingPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

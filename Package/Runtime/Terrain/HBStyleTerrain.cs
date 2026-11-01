@@ -14,6 +14,9 @@ namespace HiddenBull.UrpStyle
     {
         internal const string ShaderPath = "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/Terrain.shader";
 
+        internal const string VariantsPath =
+            "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainVariants.mat";
+
         const float ShadowMargin = 64f;
         const float FallbackShadowDistance = 150f;
         const int BatchSize = 1023;
