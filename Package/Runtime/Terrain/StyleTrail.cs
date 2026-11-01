@@ -12,7 +12,7 @@ namespace HiddenBull.UrpStyle
         const int TileCount = Tiles * Tiles;
         const float TileSize = 2f;
         const int MostEntries = 16384;
-        const int StampSize = 3;
+        const int StampSize = HBStyleBender.StampSize;
         const float Reach = 30f;
         const float MostStep = 0.1f;
         const double Linger = 90.0;
@@ -189,8 +189,7 @@ namespace HiddenBull.UrpStyle
         void Visit(int bender, Vector2Int camera, bool fill)
         {
             var ball = m_Stamps[bender * StampSize];
-            var form = m_Stamps[bender * StampSize + 2];
-            var extent = ball.w + new Vector2(form.x, form.y).magnitude;
+            var extent = m_Stamps[bender * StampSize + 3].w;
             var x0 = Mathf.Max(Mathf.FloorToInt((ball.x - extent) / TileSize), camera.x - Tiles / 2);
             var x1 = Mathf.Min(Mathf.FloorToInt((ball.x + extent) / TileSize), camera.x + Tiles / 2);
             var z0 = Mathf.Max(Mathf.FloorToInt((ball.z - extent) / TileSize), camera.y - Tiles / 2);

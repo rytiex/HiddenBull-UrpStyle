@@ -11,7 +11,6 @@ namespace HiddenBull.UrpStyle.Editor
         SerializedProperty m_Length;
         SerializedProperty m_Axis;
         SerializedProperty m_Size;
-        SerializedProperty m_FreezeRotation;
         SerializedProperty m_Strength;
         SerializedProperty m_Trail;
 
@@ -22,7 +21,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_Length = serializedObject.FindProperty("m_Length");
             m_Axis = serializedObject.FindProperty("m_Axis");
             m_Size = serializedObject.FindProperty("m_Size");
-            m_FreezeRotation = serializedObject.FindProperty("m_FreezeRotation");
             m_Strength = serializedObject.FindProperty("m_Strength");
             m_Trail = serializedObject.FindProperty("m_Trail");
         }
@@ -50,7 +48,6 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.PropertyField(m_Size);
 
             EditorGUI.indentLevel--;
-            EditorGUILayout.PropertyField(m_FreezeRotation);
             EditorGUILayout.PropertyField(m_Strength);
             EditorGUILayout.PropertyField(m_Trail);
             serializedObject.ApplyModifiedProperties();

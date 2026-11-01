@@ -22,40 +22,39 @@ namespace HiddenBull.UrpStyle
     public sealed class HBStyleBender : MonoBehaviour
     {
         internal const int Limit = 256;
+        internal const int StampSize = 5;
 
         const float TrailFade = 3f;
         const float LeastTrail = 0.05f;
+        const float LeastRadius = 0.001f;
+        const float NoEdge = 1e-8f;
 
         static readonly List<HBStyleBender> s_Enabled = new List<HBStyleBender>();
         static readonly float[] s_Distances = new float[Limit];
 
         [SerializeField]
-        [Tooltip("The footprint pressed into the grass and the snow. It follows this object's position. The 256 " +
-                 "benders nearest the camera count, up to 30 m away.")]
+        [Tooltip("The footprint pressed into the grass and the snow. It follows this object's position, rotation " +
+                 "and scale the way a collider does. The 256 benders nearest the camera count, up to 30 m away.")]
         HBStyleBenderShape m_Shape = HBStyleBenderShape.Ball;
 
         [SerializeField]
         [Min(0.05f)]
-        [Tooltip("Radius in metres. It must reach the grass to bend it.")]
+        [Tooltip("Radius in metres before scale. It must reach the grass to bend it.")]
         float m_Radius = 1f;
 
         [SerializeField]
         [Min(0f)]
-        [Tooltip("Length in metres of the straight part, along Axis.")]
+        [Tooltip("Length in metres of the straight part before scale, along Axis.")]
         float m_Length = 2f;
 
         [SerializeField]
-        [Tooltip("The object's local axis the capsule lies along. With Freeze Rotation it is the world axis.")]
+        [Tooltip("The object's local axis the capsule lies along.")]
         HBStyleBenderAxis m_Axis = HBStyleBenderAxis.Z;
 
         [SerializeField]
         [Min(0.05f)]
-        [Tooltip("Width, height and length in metres. Length runs along this object's forward axis.")]
+        [Tooltip("Width, height and length in metres before scale, along this object's X, Y and Z axes.")]
         Vector3 m_Size = new Vector3(2f, 1f, 2f);
-
-        [SerializeField]
-        [Tooltip("Ignores this object's rotation, so the shape keeps its world direction while the object turns.")]
-        bool m_FreezeRotation;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -104,12 +103,6 @@ namespace HiddenBull.UrpStyle
             set => m_Axis = value;
         }
 
-        public bool freezeRotation
-        {
-            get => m_FreezeRotation;
-            set => m_FreezeRotation = value;
-        }
-
         public float trail
         {
             get => m_Trail;
@@ -127,7 +120,32 @@ namespace HiddenBull.UrpStyle
             s_Enabled.Remove(this);
         }
 
-        float Across => m_Shape == HBStyleBenderShape.Box ? m_Size.x * 0.5f : m_Radius;
+        Vector3 Scale
+        {
+            get
+            {
+                var scale = transform.lossyScale;
+
+                return new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            }
+        }
+
+        float ScaledRadius
+        {
+            get
+            {
+                var scale = Scale;
+
+                if (m_Shape == HBStyleBenderShape.Capsule)
+                    scale[(int)m_Axis] = 0f;
+
+                return Mathf.Max(m_Radius * Mathf.Max(scale.x, scale.y, scale.z), LeastRadius);
+            }
+        }
+
+        float ScaledLength => m_Length * Scale[(int)m_Axis];
+
+        Vector3 ScaledSize => Vector3.Scale(m_Size, Scale);
 
         float Extent
         {
@@ -136,30 +154,14 @@ namespace HiddenBull.UrpStyle
                 switch (m_Shape)
                 {
                     case HBStyleBenderShape.Box:
-                        return new Vector2(m_Size.x, m_Size.z).magnitude * 0.5f;
+                        return ScaledSize.magnitude * 0.5f;
 
                     case HBStyleBenderShape.Capsule:
-                        return m_Radius + m_Length * 0.5f;
+                        return ScaledRadius + ScaledLength * 0.5f;
 
                     default:
-                        return m_Radius;
+                        return ScaledRadius;
                 }
-            }
-        }
-
-        Quaternion Turn
-        {
-            get
-            {
-                if (m_FreezeRotation)
-                    return Quaternion.identity;
-
-                if (m_Shape == HBStyleBenderShape.Capsule)
-                    return transform.rotation;
-
-                var forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
-
-                return forward.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(forward) : Quaternion.identity;
             }
         }
 
@@ -181,41 +183,85 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        Vector4 Form()
+        void Stamp(Vector4[] stamps, int first, Vector3 position, float extent)
         {
-            if (m_Shape == HBStyleBenderShape.Ball)
-                return new Vector4(0f, 0f, 0f, m_Radius);
+            var rate = TrailFade / Mathf.Max(m_Trail, LeastTrail);
 
             if (m_Shape == HBStyleBenderShape.Box)
             {
-                var along = Turn * Vector3.forward * (m_Size.z * 0.5f);
-
-                return new Vector4(along.x, along.z, 1f, m_Size.y * 0.5f);
+                StampBox(stamps, first, position, rate, extent);
+                return;
             }
 
-            var half = Turn * Direction * (m_Length * 0.5f);
+            var radius = ScaledRadius;
+            var half = m_Shape == HBStyleBenderShape.Capsule
+                ? transform.rotation * Direction * (ScaledLength * 0.5f)
+                : Vector3.zero;
 
-            return new Vector4(half.x, half.z, 0f, Mathf.Abs(half.y) + m_Radius);
+            stamps[first] = new Vector4(position.x, position.y, position.z, radius);
+            stamps[first + 1] = new Vector4(m_Strength, rate, Mathf.Abs(half.y) + radius, 0f);
+            stamps[first + 2] = new Vector4(half.x, half.z, 0f, 0f);
+            stamps[first + 3] = new Vector4(0f, 0f, 0f, extent);
+        }
+
+        void StampBox(Vector4[] stamps, int first, Vector3 position, float rate, float extent)
+        {
+            var half = ScaledSize * 0.5f;
+            var rotation = transform.rotation;
+            var right = rotation * Vector3.right * half.x;
+            var up = rotation * Vector3.up * half.y;
+            var forward = rotation * Vector3.forward * half.z;
+            var spine = new Vector2(forward.x, forward.z);
+            var side = new Vector2(right.x, right.z);
+            var last = new Vector2(up.x, up.z);
+
+            if (side.sqrMagnitude > spine.sqrMagnitude)
+                (spine, side) = (side, spine);
+
+            if (last.sqrMagnitude > spine.sqrMagnitude)
+                (spine, last) = (last, spine);
+
+            var main = Edge(spine, spine, side, last);
+            var next = Edge(side, spine, side, last);
+            var end = Edge(last, spine, side, last);
+            var drop = Mathf.Abs(right.y) + Mathf.Abs(up.y) + Mathf.Abs(forward.y);
+
+            stamps[first] = new Vector4(position.x, position.y, position.z, main.z);
+            stamps[first + 1] = new Vector4(m_Strength, rate, drop, 1f);
+            stamps[first + 2] = new Vector4(spine.x, spine.y, main.x, main.y);
+            stamps[first + 3] = new Vector4(next.x, next.y, next.z, extent);
+            stamps[first + 4] = new Vector4(end.x, end.y, end.z, 0f);
+        }
+
+        static Vector3 Edge(Vector2 edge, Vector2 spine, Vector2 side, Vector2 last)
+        {
+            var line = edge.sqrMagnitude > NoEdge ? edge : spine;
+            var normal = new Vector2(-line.y, line.x).normalized;
+            var reach = Mathf.Abs(Vector2.Dot(spine, normal)) + Mathf.Abs(Vector2.Dot(side, normal)) +
+                        Mathf.Abs(Vector2.Dot(last, normal));
+
+            return new Vector3(normal.x, normal.y, reach);
         }
 
         void OnDrawGizmosSelected()
         {
             var direction = Direction;
-            var end = direction * (m_Length * 0.5f);
-            var cross = Vector3.Cross(direction, Vector3.one).normalized * m_Radius;
+            var radius = ScaledRadius;
+            var end = direction * (ScaledLength * 0.5f);
+            var cross = Vector3.Cross(direction, Vector3.one).normalized * radius;
 
             Gizmos.color = new Color(0.4f, 0.9f, 0.3f, 0.8f);
-            Gizmos.matrix = Matrix4x4.TRS(transform.position, Turn, Vector3.one);
+            Gizmos.matrix = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
 
             switch (m_Shape)
             {
                 case HBStyleBenderShape.Box:
-                    Gizmos.DrawWireCube(Vector3.zero, m_Size);
+                    Gizmos.DrawWireCube(Vector3.zero, ScaledSize);
                     break;
 
                 case HBStyleBenderShape.Capsule:
-                    Gizmos.DrawWireSphere(end, m_Radius);
-                    Gizmos.DrawWireSphere(-end, m_Radius);
+                    Gizmos.DrawWireSphere(end, radius);
+                    Gizmos.DrawWireSphere(-end, radius);
                     Side(cross, end);
                     Side(-cross, end);
                     Side(Vector3.Cross(direction, cross), end);
@@ -223,7 +269,7 @@ namespace HiddenBull.UrpStyle
                     break;
 
                 default:
-                    Gizmos.DrawWireSphere(Vector3.zero, m_Radius);
+                    Gizmos.DrawWireSphere(Vector3.zero, radius);
                     break;
             }
 
@@ -246,7 +292,8 @@ namespace HiddenBull.UrpStyle
 
                 var position = bender.transform.position;
                 var away = (position - camera).sqrMagnitude;
-                var limit = reach + bender.Extent;
+                var extent = bender.Extent;
+                var limit = reach + extent;
 
                 if (away > limit * limit)
                     continue;
@@ -271,10 +318,7 @@ namespace HiddenBull.UrpStyle
                     count++;
                 }
 
-                stamps[slot * 3] = new Vector4(position.x, position.y, position.z, bender.Across);
-                stamps[slot * 3 + 1] = new Vector4(bender.m_Strength,
-                                                   TrailFade / Mathf.Max(bender.m_Trail, LeastTrail));
-                stamps[slot * 3 + 2] = bender.Form();
+                bender.Stamp(stamps, slot * StampSize, position, extent);
                 s_Distances[slot] = away;
             }
 

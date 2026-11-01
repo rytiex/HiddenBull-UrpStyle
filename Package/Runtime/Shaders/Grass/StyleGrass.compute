@@ -48,6 +48,7 @@ float4 _HB_LayerFlower[16];
 #define HB_GRASS_BEND_CORE   0.35
 #define HB_GRASS_BEND_TOP    1.0
 #define HB_GRASS_BEND_END    0.1
+#define HB_TRAIL_STAMP       5u
 #define HB_GRASS_PATCH_STEP  (1.0 / 7.0)
 #define HB_GRASS_PATCH_SHAKE 61.7
 #define HB_GRASS_LEAN_BASE   0.22
@@ -311,27 +312,40 @@ void Cull(uint3 id : SV_DispatchThreadID)
         _HB_GrassMid.Append(drawn);
 }
 
+float HB_TrailInside(float2 local, float3 edge)
+{
+    return edge.z - abs(dot(local, edge.xy));
+}
+
 float4 HB_TrailStamp(float2 xz, uint bender, float4 mark)
 {
-    float4 ball = _HB_TrailStamps[bender * 3u];
-    float4 press = _HB_TrailStamps[bender * 3u + 1u];
-    float4 form = _HB_TrailStamps[bender * 3u + 2u];
+    uint first = bender * HB_TRAIL_STAMP;
+    float4 ball = _HB_TrailStamps[first];
+    float4 press = _HB_TrailStamps[first + 1u];
+    float4 form = _HB_TrailStamps[first + 2u];
     float2 local = xz - ball.xz;
     float2 axis = form.xy;
     float span = dot(axis, axis);
     float along = span > 0.0 ? dot(local, axis) / span : 0.0;
     float2 away = local - axis * clamp(along, -1.0, 1.0);
     float reach = length(away);
-    bool box = form.z > 0.5;
-    float ends = box && span > 0.0 ? saturate((1.0 - abs(along)) * sqrt(span) / HB_GRASS_BEND_END) : 1.0;
-    float touch = box ? saturate((ball.w - reach) / HB_GRASS_BEND_END) : saturate(1.0 - reach / ball.w);
+    float touch = saturate(1.0 - reach / ball.w);
 
-    if (touch * ends <= 0.0)
+    if (press.w > 0.5)
+    {
+        float inside = HB_TrailInside(local, float3(form.zw, ball.w));
+
+        inside = min(inside, HB_TrailInside(local, _HB_TrailStamps[first + 3u].xyz));
+        inside = min(inside, HB_TrailInside(local, _HB_TrailStamps[first + 4u].xyz));
+        touch = saturate(inside / HB_GRASS_BEND_END);
+    }
+
+    if (touch <= 0.0)
         return mark;
 
-    float low = ball.y - form.w;
+    float low = ball.y - press.z;
     float height = saturate(1.0 - (low - HB_TerrainHeight(xz)) / HB_GRASS_BEND_TOP);
-    float strength = touch * touch * (3.0 - 2.0 * touch) * press.x * ends * height;
+    float strength = touch * touch * (3.0 - 2.0 * touch) * press.x * height;
 
     if (strength * HB_GRASS_BEND_DROP <= mark.z)
         return mark;
