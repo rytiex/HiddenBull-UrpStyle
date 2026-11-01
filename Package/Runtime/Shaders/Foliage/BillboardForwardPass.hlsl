@@ -82,7 +82,7 @@ Varyings HB_BillboardVertex(Attributes input)
 
     VertexPositionInputs vertexInput = (VertexPositionInputs)0;
     vertexInput.positionWS = positionWS;
-    vertexInput.positionCS = TransformWorldToHClip(positionWS);
+    vertexInput.positionCS = HB_PlantClipPosition(positionWS);
 
     output.corner = input.corner;
     output.positionWS = positionWS;

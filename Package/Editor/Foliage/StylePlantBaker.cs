@@ -106,8 +106,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             var root = target.transform;
             var eggs = FitCanopy(filters, root, out var lowest, out var highest);
-            var folder = OutputFolder(target, filters[0].sharedMesh);
             var plantName = string.Join("_", target.name.Split(Path.GetInvalidFileNameChars()));
+            var folder = OutputFolder(target, filters[0].sharedMesh, plantName);
 
             Undo.RecordObject(target, "Bake Plant");
 
@@ -602,7 +602,7 @@ namespace HiddenBull.UrpStyle.Editor
             return existing;
         }
 
-        static string OutputFolder(HBStylePlant plant, Mesh mesh)
+        static string OutputFolder(HBStylePlant plant, Mesh mesh, string plantName)
         {
             var path = AssetDatabase.GetAssetPath(plant);
 
@@ -612,7 +612,16 @@ namespace HiddenBull.UrpStyle.Editor
             if (string.IsNullOrEmpty(path))
                 path = AssetDatabase.GetAssetPath(mesh);
 
-            return path.StartsWith("Assets/") ? Path.GetDirectoryName(path).Replace('\\', '/') : "Assets";
+            var parent = path.StartsWith("Assets/") ? Path.GetDirectoryName(path).Replace('\\', '/') : "Assets";
+            var folder = $"Billboard_{plantName}";
+
+            if (Path.GetFileName(parent) == folder)
+                return parent;
+
+            if (!AssetDatabase.IsValidFolder($"{parent}/{folder}"))
+                AssetDatabase.CreateFolder(parent, folder);
+
+            return $"{parent}/{folder}";
         }
     }
 }

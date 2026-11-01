@@ -50,16 +50,19 @@ HBBillboardDepthVaryings HB_BillboardDepthVertex(HBBillboardDepthAttributes inpu
 #ifdef HB_SHADOW_CASTER
     output.positionCS = HB_ShadowCasterPosition(positionWS, toward);
 #elif defined(HB_BILLBOARD_SHELTER)
-    if (_HB_ShelterPass > 0.5)
+    if (_HB_ShelterPass > HB_PLANT_OWN_SHELTER)
     {
         float2 offset = (input.corner - 0.5) * 2.0 * _BillboardRadius * length(GetObjectToWorldMatrix()._m00_m10_m20);
 
         positionWS = HB_BillboardTop() + float3(offset.x, 0.0, offset.y);
     }
 
-    output.positionCS = TransformWorldToHClip(positionWS);
+    output.positionCS = HB_PlantClipPosition(positionWS);
+
+    if (_HB_ShelterPass > 0.5 && _HB_ShelterPass < HB_PLANT_OWN_SHELTER)
+        output.positionCS = float4(0.0, 0.0, 0.0, 0.0);
 #else
-    output.positionCS = TransformWorldToHClip(positionWS);
+    output.positionCS = HB_PlantClipPosition(positionWS);
 #endif
 
     return output;

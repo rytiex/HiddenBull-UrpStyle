@@ -21,6 +21,7 @@ namespace HiddenBull.UrpStyle
         const float ReferenceView = 60f;
         const string ShelterPass = "DepthOnly";
         const int UndersidePlantPass = 1;
+        const float MovingWeather = 2f;
 
         [StructLayout(LayoutKind.Sequential)]
         struct InstanceData
@@ -119,6 +120,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_ViewId = Shader.PropertyToID("_HB_PlantView");
         static readonly int s_AirId = Shader.PropertyToID("_HB_PlantAir");
         static readonly int s_TimeId = Shader.PropertyToID("_Time");
+        static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
 
         static readonly Dictionary<HBStylePlantAsset, Group> s_Groups = new Dictionary<HBStylePlantAsset, Group>();
         static readonly List<Group> s_Order = new List<Group>();
@@ -478,6 +480,7 @@ namespace HiddenBull.UrpStyle
                 var bounds = mesh != null ? mesh.bounds : new Bounds();
 
                 Describe(group.blocks[index], local, bounds);
+                group.blocks[index].SetFloat(s_ReceiveWeatherId, MovingWeather);
                 Describe(group.skyBlocks[index], local, bounds);
 
                 if (billboard ? asset.billboarded : Usable(draws[index]))

@@ -109,7 +109,7 @@ Varyings HB_PlantVertex(Attributes input)
 
     VertexPositionInputs vertexInput = (VertexPositionInputs)0;
     vertexInput.positionWS = HB_PlantPosition(restWS, share, input.plantData.y);
-    vertexInput.positionCS = TransformWorldToHClip(vertexInput.positionWS);
+    vertexInput.positionCS = HB_PlantClipPosition(vertexInput.positionWS);
 
 #ifdef _NORMALMAP
     VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS, input.tangentOS);

@@ -25,6 +25,7 @@ namespace HiddenBull.UrpStyle
         const float Depth = 1000f;
         const float Near = 0.1f;
         const double FreshSeconds = 0.5;
+        const float PlantPass = 2f;
 
         sealed class Map
         {
@@ -780,6 +781,7 @@ namespace HiddenBull.UrpStyle
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.skyView, d.skyProjection, false);
                 context.cmd.SetGlobalFloat(s_PassId, 1f);
                 context.cmd.DrawRendererList(d.list);
+                context.cmd.SetGlobalFloat(s_PassId, PlantPass);
 
                 if (d.near)
                     StylePlantSystem.DrawShelter(context.cmd, d.mask, null);

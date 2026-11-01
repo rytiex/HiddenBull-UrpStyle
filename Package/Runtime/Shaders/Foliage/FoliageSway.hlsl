@@ -9,6 +9,8 @@
 #define HB_PLANT_IDLE       0.2
 #define HB_PLANT_FLUTTER    7.0
 
+#define HB_PLANT_OWN_SHELTER 1.5
+
 float HB_PlantGust(float3 restWS, float2 wind, float strength, float time)
 {
 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
@@ -42,6 +44,13 @@ float3 HB_PlantSway(float3 restWS, float share, float swayMetres)
 #endif
 
     return sway;
+}
+
+float4 HB_PlantClipPosition(float3 positionWS)
+{
+    precise float4 positionCS = mul(GetWorldToHClipMatrix(), float4(positionWS, 1.0));
+
+    return positionCS;
 }
 
 float3 HB_PlantPosition(float3 restWS, float share, float swayMetres)

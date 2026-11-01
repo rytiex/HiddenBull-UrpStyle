@@ -70,9 +70,14 @@ HBPlantDepthVaryings HB_PlantDepthVertex(HBPlantDepthAttributes input)
 #ifdef HB_SHADOW_CASTER
     output.positionCS = HB_ShadowCasterPosition(positionWS, TransformObjectToWorldNormal(input.normalOS));
 #elif defined(HB_DEPTH_NORMALS) || defined(HB_PLANT_SCENE)
-    output.positionCS = TransformWorldToHClip(positionWS);
+    output.positionCS = HB_PlantClipPosition(positionWS);
 #else
-    output.positionCS = TransformWorldToHClip(_HB_ShelterPass > 0.5 ? restWS : positionWS);
+    output.positionCS = HB_PlantClipPosition(_HB_ShelterPass > 0.5 ? restWS : positionWS);
+
+    #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+    if (_HB_ShelterPass > 0.5 && _HB_ShelterPass < HB_PLANT_OWN_SHELTER)
+        output.positionCS = float4(0.0, 0.0, 0.0, 0.0);
+    #endif
 #endif
 
 #ifdef HB_PLANT_UV
