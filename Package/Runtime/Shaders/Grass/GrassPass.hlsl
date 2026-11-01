@@ -71,6 +71,7 @@ float _HB_ShelterPass;
 #define HB_BLADE_SPREAD       2.0
 #define HB_BLADE_WIDEN        1.0
 #define HB_BLADE_THICKEN      0.5
+#define HB_BLADE_EDGE_ON      0.1
 #define HB_BLADE_SHORT        0.7
 #define HB_BLADE_FEWER_WIDE   0.13
 #define HB_BLADE_BEND_LOW     1.0
@@ -84,6 +85,15 @@ float _HB_ShelterPass;
 #define HB_BLADE_TURN         0.618034
 #define HB_BLADE_TURN_LOOSE   0.25
 #define HB_BLADE_RIB          0.2h
+#define HB_BLADE_LEAN_LOW     0.5
+#define HB_BLADE_LEAN_HIGH    0.9
+#define HB_BLADE_LEAN_MOST    0.12
+#define HB_BLADE_ABOVE_FROM   0.4
+#define HB_BLADE_ABOVE_TO     0.85
+#define HB_BLADE_ABOVE_CALM   0.6
+#define HB_BLADE_FLUTTER_MOST 0.15
+#define HB_BLADE_TONE         0.2
+#define HB_BLADE_ROUND        0.12
 #define HB_DEBUG_GRASS_CELLS  16
 #define HB_DEBUG_WEATHER_GUST 17
 
@@ -241,12 +251,20 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     float yaw = (blade.rand + float(leaf) * HB_BLADE_TURN + roll.w * HB_BLADE_TURN_LOOSE) * TWO_PI;
     float3 across = float3(cos(yaw), 0.0, sin(yaw));
     float3 right = normalize(cross(up, HB_GRASS_CAMERA - rootWS) + float3(1e-4, 0.0, 0.0));
+    float above = (HB_GRASS_CAMERA.y - rootWS.y) / max(gap, 1e-3);
+    float over = smoothstep(HB_BLADE_ABOVE_FROM, HB_BLADE_ABOVE_TO, above);
     float facing = dot(across, right);
-    float3 broad = across + right * ((facing < 0.0 ? -1.0 : 1.0) * (1.0 - abs(facing)) * HB_BLADE_THICKEN);
+    float turned = facing / (abs(facing) + HB_BLADE_EDGE_ON) * (1.0 - abs(facing));
+    float3 broad = across + right * (turned * HB_BLADE_THICKEN * (1.0 - over));
 
     float heading = HB_WindNoise(blade.root.xz / HB_BLADE_FLOW_SIZE) * HB_BLADE_FLOW_TURNS
                   + (roll.x - 0.5) * HB_BLADE_FLOW_SPREAD;
     float3 ahead = float3(cos(heading), 0.0, sin(heading));
+    float3 lay = float3(-across.z, 0.0, across.x);
+
+    lay *= dot(lay, ahead) < 0.0 ? -1.0 : 1.0;
+
+    float lean = min(lerp(HB_BLADE_LEAN_LOW, HB_BLADE_LEAN_HIGH, roll.y) * height, HB_BLADE_LEAN_MOST);
     float rise = HB_BLADE_ROWS[joint];
     float edge = joint == HB_BLADE_VERTICES - 1u ? 0.0 : (joint & 1u) == 0u ? -1.0 : 1.0;
     float bend = max(_HB_LayerGrassEdge[blade.layer].z * lerp(HB_BLADE_BEND_LOW, HB_BLADE_BEND_HIGH, roll.z),
@@ -256,15 +274,26 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     float wide = blade.width * HB_BLADE_WIDTH * (1.0 + HB_BLADE_WIDEN * gap / HB_GRASS_RING)
                * (1.0 + (HB_BLADE_MOST - leaves) * HB_BLADE_FEWER_WIDE) * (1.0 - rise * rise * rise);
     float flutter = sin(_Time.y * (2.3 + roll.w * 1.4) + roll.w * 19.0)
-                  * (HB_GRASS_IDLE + HB_GRASS_LEAN_QUICK * HB_WIND);
+                  * (HB_GRASS_IDLE + HB_GRASS_LEAN_QUICK * HB_WIND)
+                  * min(HB_BLADE_FLUTTER_MOST / max(height, 1e-3), 1.0);
     float3 sway = motion.sway + ahead * flutter;
 
     float3 positionWS = rootWS + broad * (edge * wide) + up * ((climb - HB_GRASS_SINK) * height)
-                      + ahead * (reach * height) + sway * (rise * rise * height);
+                      + ahead * (reach * height) + lay * (lean * rise) + sway * (rise * rise * height);
+    float tone = 0.0;
+
+#if defined(HB_GRASS_FORWARD)
+    float2 sun = normalize(_MainLightPosition.xz + 1e-4);
+    float toneTurn = roll.y * TWO_PI;
+
+    tone = (cos(toneTurn) * sun.x + sin(toneTurn) * sun.y) * HB_BLADE_TONE
+         + dot(across.xz, sun) * edge * HB_BLADE_ROUND;
+    tone *= saturate(pixels / HB_GRASS_MID_PIXELS) * (1.0 - over * HB_BLADE_ABOVE_CALM);
+#endif
 
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
-    output.uv = float4(edge, rise, rise, gap);
+    output.uv = float4(edge, tone, rise, gap);
     output.weather = float2(motion.wet, motion.snow);
     output.normalWS = blade.normal;
     output.ground = blade.ground;
@@ -367,7 +396,7 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
                        smoothstep(0.0h, HB_GRASS_ROOT_BLEND, height) * (1.0h - calm));
     float4 tip = _HB_LayerGrassTip[input.data.x];
     half tipShare = half(tip.w) * smoothstep(HB_GRASS_TIP_START, 1.0h, height);
-    half3 albedo = lerp(half3(input.ground), half3(tip.rgb), tipShare) * detail;
+    half3 albedo = lerp(half3(input.ground), half3(tip.rgb), tipShare) * detail * (1.0h + half(input.uv.y));
 
     albedo *= (1.0h + half(input.gust.y) * height * HB_GRASS_SWEEP) * (1.0h - half(input.gust.x) * HB_GRASS_PRESS_DARK);
 
