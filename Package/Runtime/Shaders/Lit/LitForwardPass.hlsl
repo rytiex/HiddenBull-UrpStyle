@@ -278,7 +278,7 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, brush.coverage, surface.anchorOS,
                                           weatherMaterial);
 
-    HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false);
+    HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 
@@ -295,7 +295,9 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(inputData.positionWS, inputData.normalWS);
-        colour.rgb = half3(open, open, open);
+        half cover = HB_ShelterCover(inputData.positionWS.xz);
+
+        colour.rgb = half3(open, open * cover, open * cover);
     }
 
     if (HB_DEBUG_VIEW == HB_DEBUG_WETNESS)

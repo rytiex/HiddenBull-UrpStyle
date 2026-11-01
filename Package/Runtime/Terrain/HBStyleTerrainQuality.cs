@@ -32,7 +32,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Tooltip("Active terrain level: how fast the triangle density drops with distance. The ground near the " +
                  "camera is always drawn at full resolution, so it matches the collider on every level.")]
-        HBStyleTerrainQualityLevel m_Level = HBStyleTerrainQualityLevel.Ultra;
+        HBStyleTerrainQualityLevel m_Level = HBStyleTerrainQualityLevel.High;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]

@@ -41,12 +41,12 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("Smoothness of the ground. With a mask map it multiplies the mask's smoothness.")]
-        float m_Smoothness = 1f;
+        float m_Smoothness;
 
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("Metallic of the ground. With a mask map it multiplies the mask's metallic.")]
-        float m_Metallic = 1f;
+        float m_Metallic;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -56,12 +56,18 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
+        [Tooltip("How much of that wet shows as shine: 1 for rock and mud under a film of water, 0 for ground " +
+                 "that only darkens.")]
+        float m_WetGloss = 1f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
         [Tooltip("How much snow this ground holds. Snow fills the low parts of the texture first.")]
         float m_SnowCover = 1f;
 
         [SerializeField]
         [Tooltip("Large colour patches that break up this layer. Grass on it takes them too.")]
-        bool m_Variation = true;
+        bool m_Variation;
 
         [SerializeField]
         [Tooltip("Colour of the patches. Alpha is how strongly they show.")]
@@ -99,8 +105,8 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How thick grass grows on this layer: 0 for none, 1 for a tuft at every spot the quality level " +
-                 "allows (about every 20 cm at Ultra). The Grass brush thins or thickens it place by place.")]
-        float m_GrassDensity = 1f;
+                 "allows (about every 10 cm at Ultra). The Grass brush thins or thickens it place by place.")]
+        float m_GrassDensity;
 
         [SerializeField]
         [Range(0.05f, 1f)]
@@ -221,6 +227,12 @@ namespace HiddenBull.UrpStyle
         {
             get => m_Wetness;
             set => m_Wetness = Mathf.Clamp01(value);
+        }
+
+        public float wetGloss
+        {
+            get => m_WetGloss;
+            set => m_WetGloss = Mathf.Clamp01(value);
         }
 
         public float snowCover

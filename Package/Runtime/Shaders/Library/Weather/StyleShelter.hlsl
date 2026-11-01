@@ -6,6 +6,7 @@
 TEXTURE2D_FLOAT(_HB_ShelterDepth);
 TEXTURE2D_FLOAT(_HB_ShelterUnder);
 TEXTURE2D_FLOAT(_HB_ShelterFarDepth);
+TEXTURE2D(_HB_ShelterCover);
 
 float4x4 _HB_ShelterViewProj;
 float4 _HB_ShelterHeight;
@@ -88,6 +89,23 @@ half HB_ShelterFarCovered(float2 uv, float y)
     float4 covered = roof > empty ? saturate((roof - y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 0.0;
 
     return half(lerp(lerp(covered.w, covered.z, blend.x), lerp(covered.x, covered.y, blend.x), blend.y));
+}
+
+half HB_ShelterCover(float2 xz)
+{
+    half cover = 1.0h;
+
+    UNITY_BRANCH
+    if (HB_SHELTER_BOUND > 0.5)
+    {
+        float edge;
+        float2 uv = HB_ShelterUV(_HB_ShelterViewProj, xz, edge);
+
+        if (edge > 0.0)
+            cover = half(SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).r);
+    }
+
+    return cover;
 }
 
 half HB_ShelterOpen(float3 positionWS, half3 normalWS)

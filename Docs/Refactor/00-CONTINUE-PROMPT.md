@@ -1,8 +1,8 @@
 # Continue Prompt — HiddenBull URP Style v1 Refactor
 
 Use this instead of `00-START-PROMPT.md` when a new chat (or another account) picks up the running rebuild.
-Paste everything below the line into the new chat. Keep the **Status** and **Next job** parts current at every
-step change.
+Paste everything below the line into the new chat. The **Status** and **Next job** parts are updated at every
+phase close, together with the docs.
 
 ---
 
@@ -10,32 +10,28 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-10-31):** Phases 0–4 are closed, and the fog fix (full-screen atmosphere pass with Fog Paint +
-Silhouette) is confirmed. Phase 5 Grass is designed, including its optimisation plan (03 §9). Step 5.1a is
-built and confirmed (see "5.1a built" and "5.1a fixes" in 03 §9): layer Grass fields, the grass map (RGBA8:
-painted density, height and their shares), the Grass brush palette (`StyleTerrainGrass`) and Debug >
-Grass/Density. Step 5.1b is built and confirmed (see "5.1b built" and its fixes in 03 §9): `StyleGrass` cell cache +
-`Grass/StyleGrass.compute` (Place, Cull) + `Grass/Grass.shader`, Grass quality section, Debug > Grass/Cells.
+**Status (2026-11-01):** Phases 0–5 are closed. Phase 5 Grass ended with real leaves in rings, flowers, benders
+(`HBStyleBender`, `StyleTrail`), weather on grass, Wet Gloss, pressed snow and the roof cover map; the final state
+is the first block of 03 §9, the costs are the last section of 08. The game has buildings that players build and
+tear down; vehicles use Moving, Static is only for what never moves.
 
 Read before doing anything (do not ask me what these answer):
 
 1. Your memory index `MEMORY.md` and the memories it links (in
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §9 Grass (the "Decided 2026-10-27" and "Optimisation" blocks). Skim §8
-   Terrain, since grass reads terrain data (`HBStyleTerrainLayer`, the terrain data store, the Brushes tab).
+3. `Docs/Refactor/03-Feature-Spec.md` §10 Liquids. Skim §8 Terrain and the first block of §9, since liquids read
+   terrain data and shore on grass.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last two sections (current budgets).
-6. Old grass as reference only (look, not structure): find the files with
-   `git ls-tree -r 3d4a06c --name-only | grep -i grass` and read them with `git show 3d4a06c:<path>`
-   (StyleGrass.compute kernel Place, StyleGrassPass.cs, StyleGrassVertex.hlsl for the gust sweep).
+6. `Docs/Refactor/06-Old-Package-Reference.md`. Old liquids as reference only (look, not structure): find the files
+   with `git ls-tree -r 3d4a06c --name-only | grep -i -E "liquid|water"` and read them with
+   `git show 3d4a06c:<path>`. Old-package water memories are lessons only; where they disagree, the docs win.
 
-**Next job: after my check of 5.2c (near brush + translucency: built, compiled offline, not run in Unity; 5.2a + 5.2b
-confirmed), step 5.3 of Grass**: flowers and benders. Start with a short design talk, build it with a debug view,
-compile with `Tools~/Check-All.ps1 -Filter 'Grass*'` (never the full table for small changes), write the cost into
-08, and give me one test list. Then 5.4 weather on grass. Follow the
-optimisation block in 03 §9 (per-blade work in compute / vertex) and the budgets in 01 §5 (Grass ≤ 2000 slots /
-30 reads, ≤ 2 ms Ultra meadow).
+**Next job: Phase 6 Liquids** (05, 03 §10). Start with a short design talk, split it into steps, build each with a
+debug view, compile with `Tools~/Check-All.ps1 -Filter '<name>*'` (never the full table for small changes), and give
+me one test list per step. Respect the budgets in 01 §5. Lit has 112 slots left under its budget, so anything that
+touches Lit must cut something first. The cost measurement happens once, in Phase 12.
 
 Working rules:
 
@@ -51,4 +47,4 @@ Working rules:
 - Simulate logic as C# with Unity's Roslyn csc (see the memories).
 - If Edit/Bash calls get no verdict from the safety classifier: write the full files into the scratchpad with
   Write, then copy them into `Package/` with a single `cp -r`.
-- At every step change, update the Status and Next job parts of `Docs/Refactor/00-CONTINUE-PROMPT.md`.
+- Update the docs, the cost report and this prompt only at phase close.

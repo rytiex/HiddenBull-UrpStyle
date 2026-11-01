@@ -33,6 +33,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayerSTId = Shader.PropertyToID("_HB_LayerST");
         static readonly int s_LayerLookId = Shader.PropertyToID("_HB_LayerLook");
         static readonly int s_LayerSurfaceId = Shader.PropertyToID("_HB_LayerSurface");
+        static readonly int s_LayerWetGlossId = Shader.PropertyToID("_HB_LayerWetGloss");
+        static readonly int s_GrassTrailId = Shader.PropertyToID("_HB_GrassTrail");
         static readonly int s_BrushId = Shader.PropertyToID("_HB_TerrainBrush");
         static readonly int s_StyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_VariationId = Shader.PropertyToID("_HB_TerrainVariation");
@@ -85,6 +87,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerST = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerLook = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerSurface = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly float[] m_LayerWetGloss = new float[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrass = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrassTip = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrassEdge = new Vector4[HBStyleTerrainData.MaxLayers];
@@ -93,6 +96,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerVaryShape = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVarySize = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly StyleGrass m_Grass = new StyleGrass();
+        readonly StyleTrail m_Trail = new StyleTrail();
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
         readonly float[] m_OneWeight = new float[1];
@@ -133,6 +137,8 @@ namespace HiddenBull.UrpStyle
         internal Vector4[] layerLook => m_LayerLook;
 
         internal Vector4[] layerSurface => m_LayerSurface;
+
+        internal float[] layerWetGloss => m_LayerWetGloss;
 
         internal Texture emptyArray => EmptyArray();
 
@@ -297,6 +303,7 @@ namespace HiddenBull.UrpStyle
             s_Active.Remove(this);
             RenderPipelineManager.beginCameraRendering -= Draw;
             m_Grass.Release();
+            m_Trail.Release();
         }
 
         void OnDestroy()
@@ -304,6 +311,7 @@ namespace HiddenBull.UrpStyle
             CoreUtils.Destroy(m_Material);
             m_Material = null;
             m_Grass.Dispose();
+            m_Trail.Dispose();
         }
 
 #if UNITY_EDITOR
@@ -422,11 +430,13 @@ namespace HiddenBull.UrpStyle
             m_Tree.Select(local.x, local.y, local.z, m_LocalPlanes, camera.farClipPlane, m_Nodes);
             Fill(origin, m_Full, m_Quarters);
 
+            m_Trail.Run(context, camera, this);
+
             var block = Block(camera, origin, size);
             var bounds = new Bounds(origin + size * 0.5f, size + Vector3.up * 2f);
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
-            m_Grass.Draw(context, camera, this);
+            m_Grass.Draw(context, camera, this, m_Trail.Map(camera));
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             var shadowDistance = pipeline != null ? pipeline.shadowDistance : FallbackShadowDistance;
@@ -489,6 +499,7 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_StyleId, m_Data.look.style);
             block.SetVector(s_VariationId, m_Data.look.variation);
             block.SetVector(s_GrassFarId, GrassFar());
+            block.SetTexture(s_GrassTrailId, m_Trail.Map(camera));
             BindLayers(block, camera);
 
             return block;
@@ -530,6 +541,7 @@ namespace HiddenBull.UrpStyle
                     m_LayerST[index] = new Vector4(0.25f, 0.25f, 0f, 0f);
                     m_LayerLook[index] = new Vector4(1f, 1f, 1f, 1f);
                     m_LayerSurface[index] = new Vector4(0.2f, 0f, 1f, 1f);
+                    m_LayerWetGloss[index] = 1f;
                     m_LayerGrass[index] = Vector4.zero;
                     m_LayerGrassTip[index] = new Vector4(1f, 1f, 1f, 0f);
                     m_LayerGrassEdge[index] = Vector4.zero;
@@ -545,6 +557,7 @@ namespace HiddenBull.UrpStyle
                                                layer.offset.y / size.y);
                 m_LayerLook[index] = new Vector4(tint.r, tint.g, tint.b, layer.normalStrength);
                 m_LayerSurface[index] = new Vector4(layer.smoothness, layer.metallic, layer.wetness, layer.snowCover);
+                m_LayerWetGloss[index] = layer.wetGloss;
                 var tip = layer.grassTip.linear;
 
                 m_LayerGrass[index] = new Vector4(layer.grassDensity, layer.grassHeight, layer.grassWidth, 0f);
@@ -569,6 +582,7 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_LayerSTId, m_LayerST);
             block.SetVectorArray(s_LayerLookId, m_LayerLook);
             block.SetVectorArray(s_LayerSurfaceId, m_LayerSurface);
+            block.SetFloatArray(s_LayerWetGlossId, m_LayerWetGloss);
             block.SetVectorArray(s_LayerGrassId, m_LayerGrass);
             block.SetVectorArray(s_LayerGrassEdgeId, m_LayerGrassEdge);
             block.SetVectorArray(s_LayerGrassTipId, m_LayerGrassTip);

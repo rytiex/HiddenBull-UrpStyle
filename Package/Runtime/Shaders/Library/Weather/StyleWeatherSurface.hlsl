@@ -211,6 +211,11 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     UNITY_BRANCH
     if (wet > 0.0h || cover > 0.0h)
     {
+        half uncovered = HB_ShelterCover(positionWS.xz);
+
+        wet *= uncovered;
+        cover *= uncovered;
+
         float3 boundsMin = ground ? positionWS - 1e3 : unity_RendererBounds_Min.xyz;
         float3 boundsMax = ground ? positionWS + 1e3 : unity_RendererBounds_Max.xyz;
         float3 size = max(boundsMax - boundsMin, 1e-3);
@@ -439,7 +444,8 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half brushCoverag
     UNITY_BRANCH
     if ((body & HB_BODY_TRACKED) == 0u)
     {
-        half open = HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0 ? HB_ShelterOpen(positionWS, normalWS) : 0.0h;
+        half open = HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0
+                  ? HB_ShelterOpen(positionWS, normalWS) * HB_ShelterCover(positionWS.xz) : 0.0h;
 
         wet = half(HB_SURFACE_WET) * open;
         snow = half(HB_SURFACE_SNOW) * open;
@@ -490,7 +496,7 @@ half3 HB_RainRipples(float3 positionWS, half3 normalWS, HBWeather weather)
     return any(bend != 0.0h) ? SafeNormalize(normalWS + bend) : normalWS;
 }
 
-void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS, bool ground)
+void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS, bool ground, half shine)
 {
     UNITY_BRANCH
     if (weather.wet > 0.0h || weather.snow > 0.0h || weather.flow > 0.0h)
@@ -506,8 +512,8 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         else
             surfaceData.albedo = PositivePow(max(surfaceData.albedo, 0.0h), 1.0h + wet)
                                * (1.0h - HB_WET_DARKEN * wet) * (1.0h - HB_FLOW_DARKEN * flow);
-        surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet);
-        surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow);
+        surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet * shine);
+        surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow * shine);
 
         surfaceData.albedo = lerp(surfaceData.albedo, HB_SNOW_ALBEDO, snow);
         surfaceData.smoothness = lerp(surfaceData.smoothness, HB_SNOW_SMOOTHNESS, snow);

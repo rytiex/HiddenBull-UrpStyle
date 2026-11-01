@@ -3,6 +3,7 @@
 #pragma kernel DilateX
 #pragma kernel DilateZ
 #pragma kernel Masks
+#pragma kernel Uncover
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
@@ -17,6 +18,9 @@ Texture2D<float2> _HB_ShelterCarry;
 RWTexture2D<float2> _HB_ShelterCarryTarget;
 RWTexture2D<float> _HB_ShelterTarget;
 RWTexture2D<float> _HB_ShelterDropsTarget;
+Texture2D<float2> _HB_ShelterCoverFrom;
+RWTexture2D<float2> _HB_ShelterCoverState;
+RWTexture2D<float> _HB_ShelterCover;
 
 float4x4 _HB_ShelterViewProj;
 float4 _HB_ShelterHeight;
@@ -24,6 +28,7 @@ float4 _HB_ShelterPreviewArea;
 float4 _HB_ShelterDilate;
 float4 _HB_ShelterMasks[HB_MASK_LIMIT];
 float4 _HB_ShelterMaskCount;
+float4 _HB_ShelterCoverStep;
 
 #define HB_HEIGHT_SCALE   _HB_ShelterHeight.x
 #define HB_HEIGHT_BIAS    _HB_ShelterHeight.y
@@ -36,6 +41,8 @@ float4 _HB_ShelterMaskCount;
 #define HB_MASK_COUNT     ((int)_HB_ShelterMaskCount.x)
 #define HB_MASK_BLOCKING  ((int)_HB_ShelterMaskCount.y)
 #define HB_MASK_TEXEL     _HB_ShelterMaskCount.z
+#define HB_COVER_SHIFT    ((int2)_HB_ShelterCoverStep.xy)
+#define HB_COVER_STEP     _HB_ShelterCoverStep.z
 
 #define HB_PREVIEW_RANGE  10.0
 #define HB_EMPTY_MARGIN   0.05
@@ -43,6 +50,7 @@ float4 _HB_ShelterMaskCount;
 #define HB_UNDER_EMPTY    0.05
 #define HB_OVERHANG_CLEAR 0.5
 #define HB_NONE           -1e6
+#define HB_COVER_CLEAR    0.5
 
 [numthreads(8, 8, 1)]
 void Preview(uint3 id : SV_DispatchThreadID)
@@ -223,4 +231,38 @@ void Masks(uint3 id : SV_DispatchThreadID)
 
     _HB_ShelterTarget[texel] = surface > height ? (surface - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
     _HB_ShelterDropsTarget[texel] = drops > height ? (drops - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
+}
+
+[numthreads(8, 8, 1)]
+void Uncover(uint3 id : SV_DispatchThreadID)
+{
+    int size = (int)HB_RESOLUTION;
+    int2 texel = (int2)id.xy;
+
+    if (any(texel >= size))
+        return;
+
+    float top = HB_TopHeight(texel, size);
+    float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
+
+    if (top <= lowest + HB_EMPTY_MARGIN)
+        top = HB_NONE;
+
+    int2 from = texel + HB_COVER_SHIFT;
+    float2 state = float2(1.0, top);
+
+    if (all(from >= 0) && all(from < size))
+        state = _HB_ShelterCoverFrom.Load(int3(from, 0));
+
+    float age = state.x;
+
+    if (top > state.y + HB_COVER_CLEAR)
+        age = 1.0;
+    else if (top < state.y - HB_COVER_CLEAR)
+        age = 0.0;
+
+    age = saturate(age + HB_COVER_STEP);
+
+    _HB_ShelterCoverState[texel] = float2(age, top);
+    _HB_ShelterCover[texel] = age;
 }

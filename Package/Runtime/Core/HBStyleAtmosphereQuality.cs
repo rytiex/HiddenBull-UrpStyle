@@ -25,7 +25,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Tooltip("Active atmosphere level. Off turns the fog and aerial perspective off; Low to Ultra pick " +
                  "which optional terms run.")]
-        HBStyleQualityLevel m_Level = HBStyleQualityLevel.Ultra;
+        HBStyleQualityLevel m_Level = HBStyleQualityLevel.High;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]

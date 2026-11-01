@@ -86,8 +86,9 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Min(0.1f)]
-        [Tooltip("Seconds until an object with an HB Style Weather Body that leaves cover is as wet and snowy as " +
-                 "its surroundings. Leaving the weather again it dries and melts over Dry Time and Melt Time.")]
+        [Tooltip("Seconds until a place that loses its roof, or an object with an HB Style Weather Body that " +
+                 "leaves cover, is as wet and snowy as its surroundings. Leaving the weather again a body dries " +
+                 "and melts over Dry Time and Melt Time.")]
         float m_UncoverTime = 5f;
 
         public Color rainColor => m_RainColor;

@@ -37,6 +37,10 @@ namespace HiddenBull.UrpStyle
             internal RTHandle bound;
             internal RTHandle boundUnder;
             internal RTHandle boundDrops;
+            internal RTHandle coverState;
+            internal RTHandle coverNext;
+            internal RTHandle cover;
+            internal Matrix4x4 coverViewProjection;
             internal double lastUsed;
             internal Matrix4x4 viewProjection;
             internal Vector4 height;
@@ -52,6 +56,7 @@ namespace HiddenBull.UrpStyle
             internal RTHandle under;
             internal RTHandle far;
             internal RTHandle drops;
+            internal RTHandle cover;
             internal Matrix4x4 viewProjection;
             internal Vector4 height;
             internal Matrix4x4 farViewProjection;
@@ -97,6 +102,7 @@ namespace HiddenBull.UrpStyle
             internal Matrix4x4 farViewProjection;
             internal Vector4 farHeight;
             internal bool noUnderside;
+            internal bool noCover;
             internal bool hasFar;
         }
 
@@ -125,6 +131,19 @@ namespace HiddenBull.UrpStyle
             internal Vector4 height;
             internal Vector4 count;
             internal Vector4[] masks;
+            internal int groups;
+        }
+
+        class UncoverData
+        {
+            internal ComputeShader compute;
+            internal int kernel;
+            internal TextureHandle top;
+            internal TextureHandle from;
+            internal TextureHandle state;
+            internal TextureHandle cover;
+            internal Vector4 height;
+            internal Vector4 step;
             internal int groups;
         }
 
@@ -169,6 +188,10 @@ namespace HiddenBull.UrpStyle
         static readonly int s_DropsTargetId = Shader.PropertyToID("_HB_ShelterDropsTarget");
         static readonly int s_MasksId = Shader.PropertyToID("_HB_ShelterMasks");
         static readonly int s_MaskCountId = Shader.PropertyToID("_HB_ShelterMaskCount");
+        static readonly int s_CoverId = Shader.PropertyToID("_HB_ShelterCover");
+        static readonly int s_CoverFromId = Shader.PropertyToID("_HB_ShelterCoverFrom");
+        static readonly int s_CoverStateId = Shader.PropertyToID("_HB_ShelterCoverState");
+        static readonly int s_CoverStepId = Shader.PropertyToID("_HB_ShelterCoverStep");
 
         static readonly Vector4[] s_Masks = new Vector4[StyleWeatherMasks.Limit];
 
@@ -184,6 +207,7 @@ namespace HiddenBull.UrpStyle
         int m_DilateXKernel = -1;
         int m_DilateZKernel = -1;
         int m_MasksKernel = -1;
+        int m_UncoverKernel = -1;
         int m_Resolution = 512;
         RTHandle m_Preview;
 
@@ -213,6 +237,8 @@ namespace HiddenBull.UrpStyle
 
         internal static int dropsId => s_DropsId;
 
+        internal static int coverId => s_CoverId;
+
         internal bool TryGetMap(Camera camera, out Binding binding)
         {
             binding = default;
@@ -225,6 +251,7 @@ namespace HiddenBull.UrpStyle
             binding.under = map.boundUnder;
             binding.far = map.farValid ? map.far : null;
             binding.drops = map.boundDrops;
+            binding.cover = map.cover;
             binding.viewProjection = map.viewProjection;
             binding.height = map.height;
             binding.farViewProjection = map.farViewProjection;
@@ -244,6 +271,7 @@ namespace HiddenBull.UrpStyle
             m_DilateXKernel = Kernel(compute, "DilateX");
             m_DilateZKernel = Kernel(compute, "DilateZ");
             m_MasksKernel = Kernel(compute, "Masks");
+            m_UncoverKernel = Kernel(compute, "Uncover");
         }
 
         static bool Needed() => StyleWeatherState.active || StyleDebug.view == StyleDebugView.WeatherShelter ||
@@ -395,6 +423,10 @@ namespace HiddenBull.UrpStyle
                              bound, s_TargetId, height, reach);
             }
 
+            var cover = m_UncoverKernel >= 0
+                ? RecordUncover(renderGraph, map, bound, viewProjection, height)
+                : TextureHandle.nullHandle;
+
             var drops = bound;
             var blocking = 0;
             var masks = m_MasksKernel >= 0
@@ -424,6 +456,7 @@ namespace HiddenBull.UrpStyle
                 data.farViewProjection = map.farViewProjection;
                 data.farHeight = map.farHeight;
                 data.noUnderside = !under.IsValid();
+                data.noCover = !cover.IsValid();
                 data.hasFar = far.IsValid();
 
                 builder.UseTexture(bound, AccessFlags.Read);
@@ -445,6 +478,12 @@ namespace HiddenBull.UrpStyle
                     builder.SetGlobalTextureAfterPass(under, s_UnderId);
                 }
 
+                if (cover.IsValid())
+                {
+                    builder.UseTexture(cover, AccessFlags.Read);
+                    builder.SetGlobalTextureAfterPass(cover, s_CoverId);
+                }
+
                 if (far.IsValid())
                 {
                     builder.UseTexture(far, AccessFlags.Read);
@@ -457,6 +496,9 @@ namespace HiddenBull.UrpStyle
                 {
                     if (d.noUnderside)
                         context.cmd.SetGlobalTexture(s_UnderId, Texture2D.blackTexture);
+
+                    if (d.noCover)
+                        context.cmd.SetGlobalTexture(s_CoverId, Texture2D.whiteTexture);
 
                     context.cmd.SetGlobalMatrix(s_ViewProjId, d.viewProjection);
                     context.cmd.SetGlobalVector(s_HeightId, d.height);
@@ -509,6 +551,9 @@ namespace HiddenBull.UrpStyle
                 m_Maps[stale].far?.Release();
                 m_Maps[stale].masked?.Release();
                 m_Maps[stale].drops?.Release();
+                m_Maps[stale].coverState?.Release();
+                m_Maps[stale].coverNext?.Release();
+                m_Maps[stale].cover?.Release();
                 m_Maps.Remove(stale);
             }
 
@@ -558,6 +603,86 @@ namespace HiddenBull.UrpStyle
             }
 
             return handle;
+        }
+
+        static RTHandle AcquireCover(ref RTHandle handle, int resolution, GraphicsFormat format, FilterMode filter,
+                                     string name)
+        {
+            if (handle == null || handle.rt.width != resolution)
+            {
+                handle?.Release();
+                handle = RTHandles.Alloc(resolution, resolution, colorFormat: format, filterMode: filter,
+                                         wrapMode: TextureWrapMode.Clamp, enableRandomWrite: true, name: name);
+            }
+
+            return handle;
+        }
+
+        static Vector2 CoverShift(Matrix4x4 from, Matrix4x4 to, int resolution)
+        {
+            var moved = (from.GetColumn(3) - to.GetColumn(3)) * 0.5f * resolution;
+
+            return new Vector2(Mathf.Round(moved.x),
+                               Mathf.Round(SystemInfo.graphicsUVStartsAtTop ? -moved.y : moved.y));
+        }
+
+        TextureHandle RecordUncover(RenderGraph renderGraph, Map map, TextureHandle top, Matrix4x4 viewProjection,
+                                    Vector4 height)
+        {
+            var resolution = (int)height.z;
+            var keep = map.coverState != null && map.coverState.rt.width == resolution;
+            var settings = StyleEnvironment.targetProfile.weather;
+            var rate = Application.isPlaying ? Time.deltaTime * settings.speed : float.PositiveInfinity;
+            var shift = keep
+                ? CoverShift(map.coverViewProjection, viewProjection, resolution)
+                : new Vector2(resolution, resolution);
+
+            AcquireCover(ref map.coverState, resolution, GraphicsFormat.R32G32_SFloat, FilterMode.Point,
+                         "_HB_ShelterCoverState");
+            AcquireCover(ref map.coverNext, resolution, GraphicsFormat.R32G32_SFloat, FilterMode.Point,
+                         "_HB_ShelterCoverNext");
+            AcquireCover(ref map.cover, resolution, GraphicsFormat.R16_SFloat, FilterMode.Bilinear,
+                         "_HB_ShelterCover");
+
+            var from = renderGraph.ImportTexture(map.coverState);
+            var state = renderGraph.ImportTexture(map.coverNext);
+            var cover = renderGraph.ImportTexture(map.cover);
+
+            using var builder = renderGraph.AddComputePass<UncoverData>("HB Style Shelter Uncover", out var data,
+                                                                        profilingSampler);
+
+            data.compute = m_Compute;
+            data.kernel = m_UncoverKernel;
+            data.top = top;
+            data.from = from;
+            data.state = state;
+            data.cover = cover;
+            data.height = height;
+            data.step = new Vector4(shift.x, shift.y, Mathf.Min(rate / settings.uncoverTime, 1f), 0f);
+            data.groups = (resolution + 7) / 8;
+
+            builder.UseTexture(data.top, AccessFlags.Read);
+            builder.UseTexture(data.from, AccessFlags.Read);
+            builder.UseTexture(data.state, AccessFlags.Write);
+            builder.UseTexture(data.cover, AccessFlags.Write);
+            builder.AllowPassCulling(false);
+            builder.SetRenderFunc(static (UncoverData d, ComputeGraphContext context) =>
+            {
+                var cmd = context.cmd;
+
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_SourceId, d.top);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverFromId, d.from);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverStateId, d.state);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverId, d.cover);
+                cmd.SetComputeVectorParam(d.compute, s_HeightId, d.height);
+                cmd.SetComputeVectorParam(d.compute, s_CoverStepId, d.step);
+                cmd.DispatchCompute(d.compute, d.kernel, d.groups, d.groups, 1);
+            });
+
+            (map.coverState, map.coverNext) = (map.coverNext, map.coverState);
+            map.coverViewProjection = viewProjection;
+
+            return cover;
         }
 
         void RecordMasks(RenderGraph renderGraph, TextureHandle source, TextureHandle surface, TextureHandle drops,
@@ -845,6 +970,9 @@ namespace HiddenBull.UrpStyle
                 map.far?.Release();
                 map.masked?.Release();
                 map.drops?.Release();
+                map.coverState?.Release();
+                map.coverNext?.Release();
+                map.cover?.Release();
             }
 
             m_Maps.Clear();

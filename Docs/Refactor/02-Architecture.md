@@ -51,7 +51,7 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Pass | Event | Runs when |
 |---|---|---|
 | Globals (frame CBUFFER, environment, brush, quality) | BeforeRenderingShadows (must be before shadow casters) | always |
-| Shelter (top-down sky depth, near + far, with margin dilation) | BeforeRenderingShadows | weather active |
+| Shelter (top-down sky depth, near + far, with margin dilation, timed cover map) | BeforeRenderingShadows | weather active |
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |
 | Cavity (screen-space, from depth-normals) | AfterRenderingPrePasses | cavity quality > Off |
@@ -78,7 +78,7 @@ a level enum (Off / Low / Medium / High / Ultra) plus per-level parameters.
 | Module | Per-level parameters |
 |---|---|
 | Shadows | distance, cascades, resolution, softness, taps (contact-hardening reach is fixed at 15 m on every level) |
-| Grass | distance, near distance, spacing, translucency |
+| Grass | distance, spacing (Off, Low to Ultra) |
 | Precipitation | particle share, far layer, max triangles |
 | Liquid | wave texture size, caustics, foam detail, near displacement on/off |
 | Atmosphere | horizon layers on/off, sun inscatter on/off |
@@ -142,7 +142,8 @@ HBStyleTerrain (component)
 
 1. `HBStyleEnvironmentController` resolves environment (profile + zones + API transitions) → globals struct.
 2. Feature Globals pass uploads one CBUFFER (environment, brush, quality, weather state, time).
-3. Shelter pass updates near/far sky-depth maps for the base camera (dilated by the roof margin).
+3. Shelter pass updates near/far sky-depth maps for the base camera (dilated by the roof margin) and the cover map
+   that fades weather in where a roof was removed.
 4. Terrain/grass/billboard computes cull into indirect args.
 5. Opaque shaders: Surface → Lighting (+Shadow, Brush, Weather, Cavity) → Atmosphere.
 6. Transparents via OIT; precipitation; underwater.

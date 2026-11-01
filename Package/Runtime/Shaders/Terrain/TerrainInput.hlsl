@@ -31,6 +31,7 @@ float4 _HB_TerrainLayers;
 float4 _HB_LayerST[16];
 float4 _HB_LayerLook[16];
 float4 _HB_LayerSurface[16];
+float _HB_LayerWetGloss[16];
 float4 _HB_LayerVary[16];
 float4 _HB_LayerVaryShape[16];
 float4 _HB_LayerVarySize[16];
@@ -80,6 +81,7 @@ struct HBTerrainSurface
     half metallic;
     half occlusion;
     half wetness;
+    half wetGloss;
     half snowCover;
     half height;
     half meadow;
@@ -271,6 +273,7 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
     surface.metallic = 0.0h;
     surface.occlusion = 0.0h;
     surface.wetness = 0.0h;
+    surface.wetGloss = 0.0h;
     surface.snowCover = 0.0h;
     surface.height = 0.0h;
     surface.meadow = 0.0h;
@@ -295,6 +298,7 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
         surface.metallic += mask[layer].r * half(settings.y) * blend[layer];
         surface.occlusion += mask[layer].g * blend[layer];
         surface.wetness += half(settings.z) * blend[layer];
+        surface.wetGloss += half(_HB_LayerWetGloss[ids[layer]]) * blend[layer];
         surface.snowCover += half(settings.w) * blend[layer];
         surface.height += mask[layer].b * blend[layer];
 

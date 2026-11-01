@@ -26,13 +26,13 @@ Legend: **Keep** = the old look/behaviour was approved, rebuild it cleanly. **Ch
 ## 3. Brush — Change ("felt everywhere")
 
 The brush is the signature of the style. One global atlas + one world scale, read by **every** shader that
-draws the world: Lit, Foliage, Terrain, Grass, Billboard, Liquid foam/shore, Sky and Clouds, Shadows edges,
+draws the world: Lit, Foliage, Terrain, Billboard, Liquid foam/shore, Sky and Clouds, Shadows edges,
 Particles, Decals, Shader Graph nodes.
 
 - ≤ 2 triplanar planes, 1–2 octaves; stroke offset of textures (painted look) + normal shift + albedo/tone
   variation; Object / World / Rest Pose spaces; distance growth instead of fade where it looks better.
 - A short per-shader table in docs: which brush terms each family uses.
-- Done: brush visible on grass blades and flowers (was missing), on terrain, sky and water foam.
+- Done: brush visible on terrain, sky and water foam. Grass and flowers have none: the user removed it on 2026-10-31.
 
 ## 4. Lit / Foliage / Billboard / Particle / Decal — Keep + Change
 
@@ -318,7 +318,22 @@ shader and the sky:
   snow timing state, Weather and Precipitation quality levels, cloud response.
 - Overcast light (decided 2026-10-24): at full overcast 30 % of the direct sun remains and the ambient rises by
   75 %, so a rainy sky no longer darkens the scene to ambient only.
-- **Do not** reintroduce per-texel local accumulation (rejected, see pitfalls).
+- **Roof removal (user, 2026-11-01, built in Phase 5):** the game this package serves has buildings that players
+  put up and tear down, so a removed roof must not drop snow and wetness at once. Vehicles use Moving; Static is
+  only for what never moves. Moving Lit is not drawn into the shelter map, so only built things count here.
+  The `Uncover` kernel in `StyleShelter.compute` keeps a per-camera cover map over the 160 m near shelter map:
+  for each texel the time since it was uncovered (0 to 1) and the last top height, carried along by whole texels as
+  the map follows the camera. Rules: the top falls more than 0.5 m = the place was just uncovered, start from 0,
+  however short the roof stood; the top rises more than 0.5 m = a new surface, open at once; otherwise the value
+  rises over Uncover Time x Speed. It reads the top before Weather Masks, which have their own timer. It ignores
+  the Instant setting and is instant only outside Play mode. Surfaces multiply the global wetness and snow by this
+  value **before** the patch logic, so a bared place fills in patches like a fresh fall; rain ripples start at
+  once. Grass reads it per tuft in `Cull`, Moving Lit without a Weather Body multiplies its openness by it, Weather
+  Bodies keep their own timer. On flat ground snow is complete at about 0.52 of the value and wetness at about 0.8,
+  so at the default 5 s snow is done after about 2.6 s. Debug > Weather/Shelter shows the map in red. Uncover Time
+  now covers roofs too, not only Weather Bodies. A Static object that moves leaves a fading dry trail.
+- **Do not** reintroduce per-texel local accumulation (rejected, see pitfalls). The cover map is not that: it
+  stores no snow or wetness, only how long ago a place lost its roof; the amounts stay global.
 - Done: no indoor leaks in the sandbox houses; ≤ 0.3 ms shelter, ≤ 0.5 ms precipitation at Ultra.
 
 ## 8. Terrain — New (own system)
@@ -625,18 +640,56 @@ shader and the sky:
     exactly as under roofs (+24 slots, +1 read in the precipitation shaders). Only the terrain under the camera
     counts.
   - **Phase 4 closed (2026-10-26)** by the user after the precipitation fix.
+  - **Added in Phase 5 (user, 2026-11-01):** **Wet Gloss** per layer (0–1, default 1) scales the wet and running-water
+    shine on terrain and the wet film on grass; Wetness still darkens. **Pressed snow:** terrain reads the bender
+    trail map under snow within 32 m and darkens 35 % where it is pressed. **Distant grass:** from half the grass
+    Distance on, the terrain draws the grass tone, speck and gust itself (`HB_TerrainDistantGrass`). **Layer defaults:**
+    Size 1, Smoothness 0, Metallic 0, Wetness 1, Wet Gloss 1, Snow Cover 1, Variation off (colour 0.2 grey, alpha 1,
+    Shading 0), Grass Density 0, Height 0.095, Width 0.25, Curl 0.125, Variation 0.5, Transition 1, no default
+    textures (the user assigns them). All Quality levels default to High, never Ultra.
   - Gameplay query (user's footsteps; lands with layers in 4.2): `HBStyleTerrain` returns the strongest
     `HBStyleTerrainLayer` at a world point, and on request the point's 3 layers with weights, from a CPU copy of
     the control maps; 4.1 already brings height and normal queries.
 
 ## 9. Grass — Change
 
-- **Painted** onto the terrain: a grass map stores density and height (strength = height), like
-  set-height on Unity terrain. Layers may define the default grass type; painting can add or remove.
-- GPU generated around the camera, crossed cards near, single card far, per-quality distance/density.
-- A **wind gust** travels across the grass as bowed lines that press it down (no whitening: user, 2026-10-31).
-- Brush pattern on blades and flowers. Grass benders (`HBStyleGrassBender`).
+- **Painted** onto the terrain: each layer defines its grass, and a grass map raises or lowers density and height on
+  top, like set-height on Unity terrain.
+- GPU generated around the camera as real leaves, never cards; per-quality Distance and Spacing.
+- A **wind gust** travels across the grass as drifting patches that press it down (no whitening: user, 2026-10-31).
+- Flowers. Benders (`HBStyleBender`) press grass and snow. Grass has no brush pattern (removed by the user).
 - Respects camera culling mask; never drawn by overlay cameras.
+- **Final state (Phase 5 closed by the user on 2026-11-01). This block is binding; every block after it is the history
+  of how it was reached, and where they disagree this one wins:**
+  - **Rings:** `StyleGrass` keeps per camera up to 8 rings of 8 m cells; spacing and width double per ring, the first
+    ring ends at Spacing x 200 x 2. Density falls as 1/r² from Spacing x 200 by per-tuft shrink. A cell is placed once
+    and placed again only when the camera reaches it or paint, rules or layer settings change (at most 64 a frame;
+    a brush stroke refreshes only the painted cells). Quality holds only Distance + Spacing, plus Off: Low 45 / 0.2,
+    Medium 50 / 0.15, High 75 / 0.125, Ultra 100 / 0.1.
+  - **Leaves:** three indexed lists by tuft pixel height: close (8 leaves x 5 triangles, 12 px and up within 0.3 of the
+    first ring), mid (5 x 3, 5 px and up), far (3 x 3, every other ring). Tufts under 0.35 px are skipped. Cards, Grass
+    Texture, the grass array and the fitted card shape are gone: density alone grows grass (GrassVersion 7 drops the old
+    sub-asset on Bake). Leaf lean follows an 8 m direction field; width grows with distance without a cap; edge-on
+    leaves stretch in view space; curl is per layer. HBStyleFeature forces Depth Priming, so fragments shade once.
+  - **Per-tuft work in `Cull`:** wind, weather and bend are stored in the list element (index, motion, state); only leaf
+    flutter stays in the vertex stage. `Place` stores root height + normal, height, width, layer, seed, ground colour,
+    flower, snow patch and slope, so grass snow matches the ground at zero per-frame cost.
+  - **Look:** colour comes from the ground, light follows the ground normal, root shade 0.85, per-layer Variation scales
+    leaves 0.4 to 2 x. Additional lights without shadows. Removed by the user: clump tone, card variation, brush on
+    grass, translucency.
+  - **Weather:** wet darkens 30 % and adds a sky film scaled by the layer's Wet Gloss; snow whitens from the root, the
+    shelter map is read per tuft, a bared place fills gradually through the cover map (§7).
+  - **Flowers:** stem + head from the atlas, patches of one kind, a mark on the cached tuft, a fourth draw list.
+  - **Benders:** `HBStyleBender` (renamed from `HBStyleGrassBender`, GUID kept, nothing to re-add): Ball, Capsule or
+    Box, Strength, Trail seconds. The 256 nearest within 30 m count. The trail lives in `StyleTrail`, owned by
+    `HBStyleTerrain`, so it works with grass Off or no grass: ping-pong 256² maps over 64 m, per camera, made only when
+    a bender is near and freed 90 s after the last one. Texels that wrap with the camera are cleared. Stamps are binned
+    on the CPU into 32 x 32 tiles of 2 m, so one trail texel loops only over the benders that touch its tile. Pressed
+    grass darkens 30 %, loses up to half its height, and pressed snow darkens 35 % on grass and terrain.
+  - **Debug:** Grass/Density, Grass/Cells, Grass/Gust (pressed in red). Weather/Shelter, Wetness, Snow and all Terrain
+    views hide grass so the ground reads clearly (`StyleDebug.hidesGrass`).
+  - **Open, not decided:** ThinStart 150 instead of 200 (see 08, Phase 5 close); Hi-Z occlusion is the main optimisation
+    grass lacks.
 - **Decided 2026-10-27 (Phase 5 design talk):**
   - **Source: layer + paint.** Each `HBStyleTerrainLayer` defines its grass (density, height, width, tip colour,
     flowers), so grass follows the layer rules and layer painting by itself. A grass map on the terrain data raises

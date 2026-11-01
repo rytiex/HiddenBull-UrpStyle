@@ -23,6 +23,7 @@ float4 _HB_LayerFlower[16];
 
 float4 _HB_LayerGrassTip[16];
 float4 _HB_LayerGrassEdge[16];
+float _HB_LayerWetGloss[16];
 float4 _HB_GrassStyle;
 float _HB_ShelterPass;
 
@@ -376,7 +377,8 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     half snow = half(input.weather.y);
 
     albedo *= 1.0h - HB_GRASS_WET_DARKEN * half(input.weather.x);
-    albedo = lerp(albedo, HB_GRASS_SNOW_COLOUR, saturate(snow * (HB_GRASS_SNOW_ROOT - HB_GRASS_SNOW_TIP * height)));
+    albedo = lerp(albedo, HB_GRASS_SNOW_COLOUR * (1.0h - half(input.gust.x) * HB_SNOW_PRESS_DARK),
+                  saturate(snow * (HB_GRASS_SNOW_ROOT - HB_GRASS_SNOW_TIP * height)));
 
     half3 normalWS = half3(normalize(input.normalWS));
 
@@ -402,7 +404,8 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
         half horizon = smoothstep(-HB_GRASS_FILM_HORIZON, HB_GRASS_FILM_HORIZON, mirror.y);
         half3 sky = lerp(HB_GradientAmbient(mirror), HB_SkySample(mirror, max(mirror.y, 0.0h)), horizon);
 
-        colour += sky * lerp(HB_GRASS_FILM_SPEC, HB_GRASS_FILM_GRAZE, fresnel) * wet;
+        colour += sky * lerp(HB_GRASS_FILM_SPEC, HB_GRASS_FILM_GRAZE, fresnel) * wet
+                * half(_HB_LayerWetGloss[input.data.x]);
     }
 
 #if defined(HB_STYLE_DEBUG)

@@ -13,6 +13,9 @@
 #define HB_GRASS_GUST_LONG    20.0
 #define HB_GRASS_GUST_LOW     0.45
 #define HB_GRASS_GUST_HIGH    0.8
+#define HB_GRASS_BEND_DROP    0.35
+#define HB_TRAIL_SPAN         64.0
+#define HB_SNOW_PRESS_DARK    0.35h
 
 float HB_GrassNoise(float2 position)
 {

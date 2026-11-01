@@ -23,6 +23,7 @@ Read this before touching the related system. Each entry: **symptom → cause �
 | 1.14 | Transparents break with MSAA | OIT targets are not MSAA-resolved | MSAA unsupported; document. |
 | 1.15 | Cascade-shaped light leak on huge triangles | Shadow pancaking clamps per vertex | Set Directional Light → Shadows → Near Plane = 1 (user's choice; do not add ZClip changes unless asked). |
 | 1.16 | Shadow artefact looked like a lightmap leak | Our contact filter returned lit when its blocker search found nothing at contact points | For any "leak", first ask whether it survives turning the realtime sun off; compare Attenuation vs Unfiltered debug views. |
+| 1.18 | Removed roof: red in Debug > Weather/Shelter but snow popped in | The cover timer forgave short cover to protect moving cars, and snow is complete at about half the value, so short roof toggles started past that point | Moving Lit is not in the shelter map, so every drop in the top height restarts from 0. Compare the debug value with the weather curve, not only with time. |
 | 1.17 | Grass drawn with `RenderPrimitivesIndirect` was pitch black | Procedural draws get no per-object data: `SampleSH` and `GetMainLight().distanceAttenuation` (unity_LightData) read 0 | In procedural shaders use `_MainLightColor` / `_MainLightPosition` and the package ambient (`HB_GradientAmbient` / `HB_ResolveAmbient`), never per-object SH or light data. |
 
 ## 2. Shader authoring traps
@@ -71,7 +72,7 @@ Read this before touching the related system. Each entry: **symptom → cause �
 
 | Area | Rejected | Why / what was chosen |
 |---|---|---|
-| Weather | Per-texel **local accumulation** memory (snow/wet history per shelter texel) | Cracks on spheres/slopes, moving objects lost snow; "daha da kötü". Global state + shelter + cover/uncover fade was kept. |
+| Weather | Per-texel **local accumulation** memory (snow/wet history per shelter texel) | Cracks on spheres/slopes, moving objects lost snow; "daha da kötü". Global state + shelter + cover/uncover fade was kept. The Phase 5 cover map is allowed: it stores only time since a roof was removed, no amounts. |
 | Weather | Single-read pre-filtered sky exposure | Not accepted at the time (look risk). |
 | Fog | More incremental fog tweaks; APV in fog | Every patch broke another light mode. v1: analytic atmosphere, decided. |
 | Water | Distance-phased surf lines / displaced surf | Shown twice as "mavi çizgiler"; foam is texture only. |

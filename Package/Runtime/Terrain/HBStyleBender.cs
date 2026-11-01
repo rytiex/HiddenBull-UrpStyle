@@ -3,14 +3,14 @@ using UnityEngine;
 
 namespace HiddenBull.UrpStyle
 {
-    public enum HBStyleGrassBenderShape
+    public enum HBStyleBenderShape
     {
         Ball,
         Capsule,
         Box
     }
 
-    public enum HBStyleGrassBenderAxis
+    public enum HBStyleBenderAxis
     {
         X,
         Y,
@@ -18,21 +18,21 @@ namespace HiddenBull.UrpStyle
     }
 
     [ExecuteAlways]
-    [AddComponentMenu("HiddenBull/HB Style/Terrain/HB Style Grass Bender")]
-    public sealed class HBStyleGrassBender : MonoBehaviour
+    [AddComponentMenu("HiddenBull/HB Style/Terrain/HB Style Bender")]
+    public sealed class HBStyleBender : MonoBehaviour
     {
-        internal const int Limit = 8;
+        internal const int Limit = 256;
 
         const float TrailFade = 3f;
         const float LeastTrail = 0.05f;
 
-        static readonly List<HBStyleGrassBender> s_Enabled = new List<HBStyleGrassBender>();
+        static readonly List<HBStyleBender> s_Enabled = new List<HBStyleBender>();
         static readonly float[] s_Distances = new float[Limit];
 
         [SerializeField]
-        [Tooltip("The footprint pressed into the grass. It follows this object's position. The 8 benders nearest the " +
-                 "camera count, up to 30 m away.")]
-        HBStyleGrassBenderShape m_Shape = HBStyleGrassBenderShape.Ball;
+        [Tooltip("The footprint pressed into the grass and the snow. It follows this object's position. The 256 " +
+                 "benders nearest the camera count, up to 30 m away.")]
+        HBStyleBenderShape m_Shape = HBStyleBenderShape.Ball;
 
         [SerializeField]
         [Min(0.05f)]
@@ -46,7 +46,7 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Tooltip("The object's local axis the capsule lies along. With Freeze Rotation it is the world axis.")]
-        HBStyleGrassBenderAxis m_Axis = HBStyleGrassBenderAxis.Z;
+        HBStyleBenderAxis m_Axis = HBStyleBenderAxis.Z;
 
         [SerializeField]
         [Min(0.05f)]
@@ -80,7 +80,7 @@ namespace HiddenBull.UrpStyle
             set => m_Strength = Mathf.Clamp01(value);
         }
 
-        public HBStyleGrassBenderShape shape
+        public HBStyleBenderShape shape
         {
             get => m_Shape;
             set => m_Shape = value;
@@ -98,7 +98,7 @@ namespace HiddenBull.UrpStyle
             set => m_Size = Vector3.Max(value, Vector3.one * 0.05f);
         }
 
-        public HBStyleGrassBenderAxis axis
+        public HBStyleBenderAxis axis
         {
             get => m_Axis;
             set => m_Axis = value;
@@ -127,7 +127,7 @@ namespace HiddenBull.UrpStyle
             s_Enabled.Remove(this);
         }
 
-        float Across => m_Shape == HBStyleGrassBenderShape.Box ? m_Size.x * 0.5f : m_Radius;
+        float Across => m_Shape == HBStyleBenderShape.Box ? m_Size.x * 0.5f : m_Radius;
 
         float Extent
         {
@@ -135,10 +135,10 @@ namespace HiddenBull.UrpStyle
             {
                 switch (m_Shape)
                 {
-                    case HBStyleGrassBenderShape.Box:
+                    case HBStyleBenderShape.Box:
                         return new Vector2(m_Size.x, m_Size.z).magnitude * 0.5f;
 
-                    case HBStyleGrassBenderShape.Capsule:
+                    case HBStyleBenderShape.Capsule:
                         return m_Radius + m_Length * 0.5f;
 
                     default:
@@ -154,7 +154,7 @@ namespace HiddenBull.UrpStyle
                 if (m_FreezeRotation)
                     return Quaternion.identity;
 
-                if (m_Shape == HBStyleGrassBenderShape.Capsule)
+                if (m_Shape == HBStyleBenderShape.Capsule)
                     return transform.rotation;
 
                 var forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
@@ -169,10 +169,10 @@ namespace HiddenBull.UrpStyle
             {
                 switch (m_Axis)
                 {
-                    case HBStyleGrassBenderAxis.X:
+                    case HBStyleBenderAxis.X:
                         return Vector3.right;
 
-                    case HBStyleGrassBenderAxis.Y:
+                    case HBStyleBenderAxis.Y:
                         return Vector3.up;
 
                     default:
@@ -183,10 +183,10 @@ namespace HiddenBull.UrpStyle
 
         Vector4 Form()
         {
-            if (m_Shape == HBStyleGrassBenderShape.Ball)
+            if (m_Shape == HBStyleBenderShape.Ball)
                 return new Vector4(0f, 0f, 0f, m_Radius);
 
-            if (m_Shape == HBStyleGrassBenderShape.Box)
+            if (m_Shape == HBStyleBenderShape.Box)
             {
                 var along = Turn * Vector3.forward * (m_Size.z * 0.5f);
 
@@ -209,11 +209,11 @@ namespace HiddenBull.UrpStyle
 
             switch (m_Shape)
             {
-                case HBStyleGrassBenderShape.Box:
+                case HBStyleBenderShape.Box:
                     Gizmos.DrawWireCube(Vector3.zero, m_Size);
                     break;
 
-                case HBStyleGrassBenderShape.Capsule:
+                case HBStyleBenderShape.Capsule:
                     Gizmos.DrawWireSphere(end, m_Radius);
                     Gizmos.DrawWireSphere(-end, m_Radius);
                     Side(cross, end);
@@ -235,7 +235,7 @@ namespace HiddenBull.UrpStyle
             Gizmos.DrawLine(offset - end, offset + end);
         }
 
-        internal static int Collect(Vector3 camera, float reach, Vector4[] benders, Vector4[] presses, Vector4[] forms)
+        internal static int Collect(Vector3 camera, float reach, Vector4[] stamps)
         {
             var count = 0;
 
@@ -271,9 +271,10 @@ namespace HiddenBull.UrpStyle
                     count++;
                 }
 
-                benders[slot] = new Vector4(position.x, position.y, position.z, bender.Across);
-                presses[slot] = new Vector4(bender.m_Strength, TrailFade / Mathf.Max(bender.m_Trail, LeastTrail));
-                forms[slot] = bender.Form();
+                stamps[slot * 3] = new Vector4(position.x, position.y, position.z, bender.Across);
+                stamps[slot * 3 + 1] = new Vector4(bender.m_Strength,
+                                                   TrailFade / Mathf.Max(bender.m_Trail, LeastTrail));
+                stamps[slot * 3 + 2] = bender.Form();
                 s_Distances[slot] = away;
             }
 

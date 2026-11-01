@@ -17,7 +17,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_SurfaceFields =
         {
-            "m_NormalStrength", "m_Smoothness", "m_Metallic", "m_Wetness", "m_SnowCover"
+            "m_NormalStrength", "m_Smoothness", "m_Metallic", "m_Wetness", "m_WetGloss", "m_SnowCover"
         };
 
         static readonly string[] s_GrassFields =

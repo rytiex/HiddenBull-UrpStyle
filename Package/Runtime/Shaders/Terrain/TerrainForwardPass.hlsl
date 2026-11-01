@@ -91,6 +91,23 @@ half3 HB_LayerColour(int layer)
     return pow(colours[(uint)layer % 8u] * shade, 2.2h);
 }
 
+TEXTURE2D(_HB_GrassTrail);
+
+half HB_TerrainPress(float3 positionWS)
+{
+    half press = 0.0h;
+
+    UNITY_BRANCH
+    if (distance(positionWS, HB_TERRAIN_CAMERA.xyz) < HB_TRAIL_SPAN * 0.5)
+    {
+        float2 uv = positionWS.xz / HB_TRAIL_SPAN;
+
+        press = half(saturate(SAMPLE_TEXTURE2D_LOD(_HB_GrassTrail, sampler_LinearRepeat, uv, 0).z / HB_GRASS_BEND_DROP));
+    }
+
+    return press;
+}
+
 half3 HB_TerrainDistantGrass(HBTerrainSurface surface, float3 positionWS, float footprint)
 {
     half3 albedo = surface.albedo;
@@ -172,6 +189,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
     int strongest = -1;
     half wetness = 1.0h;
+    half wetGloss = 1.0h;
     half snowCover = 1.0h;
     half groundHeight = 0.5h;
 
@@ -189,6 +207,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
         normalWS = HB_TerrainNormalToWorld(layers.normalTS, normalWS);
         strongest = layers.strongest;
         wetness = layers.wetness;
+        wetGloss = layers.wetGloss;
         snowCover = layers.snowCover;
         groundHeight = 1.0h - layers.height;
     }
@@ -199,7 +218,12 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     HBWeather weather = HB_ResolveSurfaceWeather(input.positionWS, normalWS, brush.coverage, wetness, snowCover,
                                                  true, groundHeight);
 
-    HB_ApplyWeather(weather, surfaceData, normalWS, true);
+    HB_ApplyWeather(weather, surfaceData, normalWS, true, wetGloss);
+
+    UNITY_BRANCH
+    if (weather.snow > 0.0h)
+        surfaceData.albedo *= 1.0h - HB_TerrainPress(input.positionWS) * weather.snow * HB_SNOW_PRESS_DARK;
+
     HB_SoftenBrushUnderSnow(weather.snow, style);
 
     half wet = max(weather.wet, weather.flow);
@@ -213,7 +237,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     inputData.bakedGI = SampleSH(normalWS);
     inputData.shadowMask = half4(1.0h, 1.0h, 1.0h, 1.0h);
 
-    half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, true, wet);
+    half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, true, wet * wetGloss);
 
 
     UNITY_BRANCH
@@ -234,7 +258,9 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(input.positionWS, normalWS);
-        colour.rgb = half3(open, open, open);
+        half cover = HB_ShelterCover(input.positionWS.xz);
+
+        colour.rgb = half3(open, open * cover, open * cover);
     }
 
     if (HB_DEBUG_VIEW == HB_DEBUG_WETNESS)

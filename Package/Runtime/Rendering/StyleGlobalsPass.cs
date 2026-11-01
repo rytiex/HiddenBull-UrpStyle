@@ -32,6 +32,7 @@ namespace HiddenBull.UrpStyle
             public bool resetShelter;
             public bool bindShelter;
             public bool noUnderside;
+            public bool noCover;
             public StyleShelterPass.Binding shelter;
         }
 
@@ -82,6 +83,7 @@ namespace HiddenBull.UrpStyle
 
                 Bind(renderGraph, builder, shelter.under, StyleShelterPass.underId);
                 Bind(renderGraph, builder, shelter.far, StyleShelterPass.farDepthId);
+                Bind(renderGraph, builder, shelter.cover, StyleShelterPass.coverId);
 
                 if (shelter.drops != null && shelter.drops != shelter.depth)
                     Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
@@ -89,6 +91,7 @@ namespace HiddenBull.UrpStyle
                     builder.SetGlobalTextureAfterPass(depth, StyleShelterPass.dropsId);
 
                 passData.noUnderside = shelter.under == null;
+                passData.noCover = shelter.cover == null;
                 passData.bindShelter = true;
                 passData.shelter = shelter;
             }
@@ -106,6 +109,9 @@ namespace HiddenBull.UrpStyle
                 {
                     if (data.noUnderside)
                         context.cmd.SetGlobalTexture(StyleShelterPass.underId, Texture2D.blackTexture);
+
+                    if (data.noCover)
+                        context.cmd.SetGlobalTexture(StyleShelterPass.coverId, Texture2D.whiteTexture);
 
                     context.cmd.SetGlobalMatrix(StyleShelterPass.viewProjectionId, data.shelter.viewProjection);
                     context.cmd.SetGlobalVector(StyleShelterPass.heightId, data.shelter.height);

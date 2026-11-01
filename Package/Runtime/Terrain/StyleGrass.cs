@@ -29,13 +29,8 @@ namespace HiddenBull.UrpStyle
         const float MovingWeather = 2f;
         const int MostFlowers = 262144;
         const int DrawnSize = sizeof(uint) * 3;
-        const int TrailSize = 256;
-        const int TrailGroups = TrailSize / 8;
-        const float TrailReach = 30f;
         const float CloseShare = 0.3f;
         const float SpareTufts = 1.25f;
-        const float MostStep = 0.1f;
-        const double TrailLinger = 30.0;
         const string FlowerKeyword = "_HB_GRASS_FLOWERS";
 
         static readonly ushort[] s_NearLeaf = { 0, 1, 2, 2, 1, 3, 2, 3, 4, 4, 3, 5, 4, 5, 6 };
@@ -55,13 +50,9 @@ namespace HiddenBull.UrpStyle
         static readonly int s_MidId = Shader.PropertyToID("_HB_GrassMid");
         static readonly int s_FarId = Shader.PropertyToID("_HB_GrassFar");
         static readonly int s_FlowersId = Shader.PropertyToID("_HB_GrassFlowers");
-        static readonly int s_BendersId = Shader.PropertyToID("_HB_GrassBenders");
-        static readonly int s_PressesId = Shader.PropertyToID("_HB_GrassPresses");
-        static readonly int s_FormsId = Shader.PropertyToID("_HB_GrassForms");
         static readonly int s_AirId = Shader.PropertyToID("_HB_GrassAir");
         static readonly int s_ClockId = Shader.PropertyToID("_HB_GrassClock");
         static readonly int s_TrailId = Shader.PropertyToID("_HB_GrassTrail");
-        static readonly int s_TrailOutId = Shader.PropertyToID("_HB_GrassTrailOut");
         static readonly int s_TimeId = Shader.PropertyToID("_Time");
         static readonly int s_FlowerHeadsId = Shader.PropertyToID("_HB_FlowerHeads");
         static readonly int s_LayerFlowerId = Shader.PropertyToID("_HB_LayerFlower");
@@ -73,6 +64,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayerVarySizeId = Shader.PropertyToID("_HB_LayerVarySize");
         static readonly int s_LayerGrassTipId = Shader.PropertyToID("_HB_LayerGrassTip");
         static readonly int s_LayerSurfaceId = Shader.PropertyToID("_HB_LayerSurface");
+        static readonly int s_LayerWetGlossId = Shader.PropertyToID("_HB_LayerWetGloss");
         static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
         static readonly int s_HeightmapId = Shader.PropertyToID("_HB_TerrainHeightmap");
         static readonly int s_HolesId = Shader.PropertyToID("_HB_TerrainHoles");
@@ -111,11 +103,6 @@ namespace HiddenBull.UrpStyle
             internal GraphicsBuffer nearArgs;
             internal GraphicsBuffer midArgs;
             internal GraphicsBuffer farArgs;
-            internal RenderTexture trail;
-            internal RenderTexture trailNext;
-            internal double trailStamp;
-            internal double trailUntil;
-            internal bool trailReady;
             internal Vector2Int[] cells;
             internal int[] stamps;
             internal int[] painted;
@@ -141,9 +128,6 @@ namespace HiddenBull.UrpStyle
                 nearArgs?.Release();
                 midArgs?.Release();
                 farArgs?.Release();
-
-                Free(trail);
-                Free(trailNext);
             }
         }
 
@@ -151,9 +135,6 @@ namespace HiddenBull.UrpStyle
         readonly List<Camera> m_Stale = new List<Camera>();
         readonly Plane[] m_Planes = new Plane[6];
         readonly Vector4[] m_PlaneData = new Vector4[6];
-        readonly Vector4[] m_Benders = new Vector4[HBStyleGrassBender.Limit];
-        readonly Vector4[] m_Presses = new Vector4[HBStyleGrassBender.Limit];
-        readonly Vector4[] m_Forms = new Vector4[HBStyleGrassBender.Limit];
         readonly int[] m_Jobs = new int[MostJobs * 4];
 
         int[] m_Visible = new int[0];
@@ -167,18 +148,8 @@ namespace HiddenBull.UrpStyle
         ComputeShader m_Compute;
         int m_PlaceKernel = -1;
         int m_CullKernel = -1;
-        int m_TrailKernel = -1;
 
-        static void Free(RenderTexture map)
-        {
-            if (map == null)
-                return;
-
-            map.Release();
-            CoreUtils.Destroy(map);
-        }
-
-        internal void Draw(ScriptableRenderContext context, Camera camera, HBStyleTerrain terrain)
+        internal void Draw(ScriptableRenderContext context, Camera camera, HBStyleTerrain terrain, Texture trail)
         {
             if (!StyleTerrains.grassQuality.enabled)
             {
@@ -186,7 +157,7 @@ namespace HiddenBull.UrpStyle
                 return;
             }
 
-            if (StyleDebug.view == StyleDebugView.GrassDensity)
+            if (StyleDebug.hidesGrass)
                 return;
 
             var data = terrain.data;
@@ -295,10 +266,7 @@ namespace HiddenBull.UrpStyle
 
             var grid = new Vector4(level.spacing, view.side, view.perSlot, PixelSlope(camera));
             var reachData = new Vector4(level.distance, firstRing, BandShare, rings);
-            var benders = HBStyleGrassBender.Collect(position, TrailReach, m_Benders, m_Presses, m_Forms);
-            var cameraData = new Vector4(position.x, position.y, position.z, benders);
-
-            Trail(cmd, view, terrain, benders, cameraData);
+            var cameraData = new Vector4(position.x, position.y, position.z, 0f);
 
             if (visible > 0)
             {
@@ -308,10 +276,11 @@ namespace HiddenBull.UrpStyle
                 cmd.SetComputeVectorParam(m_Compute, s_CameraId, cameraData);
                 cmd.SetComputeVectorParam(m_Compute, s_RootsId, Roots(terrain));
                 cmd.SetComputeVectorArrayParam(m_Compute, s_PlanesId, m_PlaneData);
+                cmd.SetComputeVectorParam(m_Compute, s_ClockId, new Vector4(Shader.GetGlobalVector(s_TimeId).y, 0f));
                 cmd.SetComputeVectorParam(m_Compute, s_AirId, Air());
                 cmd.SetComputeVectorArrayParam(m_Compute, s_LayerSurfaceId, terrain.layerSurface);
                 Shelter(cmd, camera);
-                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, s_TrailId, view.trail);
+                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, s_TrailId, trail);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_BladesId, view.blades);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_SlotsId, view.slots);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_VisibleId, view.visible);
@@ -405,10 +374,9 @@ namespace HiddenBull.UrpStyle
                 m_Compute = compute;
                 m_PlaceKernel = compute.HasKernel("Place") ? compute.FindKernel("Place") : -1;
                 m_CullKernel = compute.HasKernel("Cull") ? compute.FindKernel("Cull") : -1;
-                m_TrailKernel = compute.HasKernel("Trail") ? compute.FindKernel("Trail") : -1;
             }
 
-            return m_PlaceKernel >= 0 && m_CullKernel >= 0 && m_TrailKernel >= 0 && SystemInfo.supportsComputeShaders;
+            return m_PlaceKernel >= 0 && m_CullKernel >= 0 && SystemInfo.supportsComputeShaders;
         }
 
         static int Stamp(HBStyleTerrain terrain, float spacing)
@@ -490,43 +458,15 @@ namespace HiddenBull.UrpStyle
             cmd.DispatchCompute(m_Compute, m_PlaceKernel, Groups(view.perSlot), jobs, 1);
         }
 
-        void Trail(CommandBuffer cmd, View view, HBStyleTerrain terrain, int benders, Vector4 camera)
-        {
-            var now = Time.realtimeSinceStartupAsDouble;
-            var step = Mathf.Min((float)(now - view.trailStamp), MostStep);
-            var clock = new Vector4(Shader.GetGlobalVector(s_TimeId).y, step, view.trailReady ? 0f : 1f, 0f);
-
-            view.trailStamp = now;
-            view.trailUntil = benders > 0 ? now + TrailLinger : view.trailUntil;
-            cmd.SetComputeVectorParam(m_Compute, s_ClockId, clock);
-
-            if (view.trailReady && now > view.trailUntil)
-                return;
-
-            var data = terrain.data;
-            var origin = terrain.transform.position;
-            var size = data.size;
-
-            cmd.SetComputeVectorParam(m_Compute, s_CameraId, camera);
-            cmd.SetComputeVectorParam(m_Compute, s_SizeId, new Vector4(size.x, size.y, size.z, data.resolution));
-            cmd.SetComputeVectorParam(m_Compute, s_OriginId, new Vector4(origin.x, origin.y, origin.z, 0f));
-            cmd.SetComputeVectorArrayParam(m_Compute, s_BendersId, m_Benders);
-            cmd.SetComputeVectorArrayParam(m_Compute, s_PressesId, m_Presses);
-            cmd.SetComputeVectorArrayParam(m_Compute, s_FormsId, m_Forms);
-            cmd.SetComputeTextureParam(m_Compute, m_TrailKernel, s_HeightmapId, data.terrainData.heightmapTexture);
-            cmd.SetComputeTextureParam(m_Compute, m_TrailKernel, s_TrailId, view.trail);
-            cmd.SetComputeTextureParam(m_Compute, m_TrailKernel, s_TrailOutId, view.trailNext);
-            cmd.DispatchCompute(m_Compute, m_TrailKernel, TrailGroups, TrailGroups, 1);
-            (view.trail, view.trailNext) = (view.trailNext, view.trail);
-            view.trailReady = true;
-        }
-
         void Shelter(CommandBuffer cmd, Camera camera)
         {
             if (StyleTerrains.shelter != null && StyleTerrains.shelter.TryGetMap(camera, out var map) &&
                 map.depth != null)
             {
+                Texture cover = map.cover != null ? map.cover.rt : Texture2D.whiteTexture;
+
                 cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.depthId, map.depth);
+                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.coverId, cover);
                 cmd.SetComputeMatrixParam(m_Compute, StyleShelterPass.viewProjectionId, map.viewProjection);
                 cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.heightId, map.height);
                 cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, StyleShelterPass.State(false));
@@ -534,6 +474,7 @@ namespace HiddenBull.UrpStyle
             }
 
             cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.depthId, Texture2D.blackTexture);
+            cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.coverId, Texture2D.whiteTexture);
             cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, Vector4.zero);
         }
 
@@ -562,6 +503,7 @@ namespace HiddenBull.UrpStyle
             block.SetFloat(s_ReceiveWeatherId, MovingWeather);
             block.SetVectorArray(s_LayerGrassTipId, terrain.layerGrassTip);
             block.SetVectorArray(s_LayerGrassEdgeId, terrain.layerGrassEdge);
+            block.SetFloatArray(s_LayerWetGlossId, terrain.layerWetGloss);
         }
 
         static Bounds Bounds(HBStyleTerrainData data, Vector3 origin, Vector2 low, float cell)
@@ -665,34 +607,19 @@ namespace HiddenBull.UrpStyle
                 nearBlock = new MaterialPropertyBlock(),
                 midBlock = new MaterialPropertyBlock(),
                 farBlock = new MaterialPropertyBlock(),
-                flowerBlock = new MaterialPropertyBlock(),
-                trail = TrailMap(),
-                trailNext = TrailMap()
+                flowerBlock = new MaterialPropertyBlock()
             };
 
-            view.args.SetData(new[] { new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FlowerVertices } });
+            view.args.SetData(new[]
+            {
+                new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FlowerVertices }
+            });
             view.nearArgs.SetData(new[] { LeafArgs(s_NearLeaf, NearLeaves) });
             view.midArgs.SetData(new[] { LeafArgs(s_FarLeaf, MidLeaves) });
             view.farArgs.SetData(new[] { LeafArgs(s_FarLeaf, FarLeaves) });
 
             m_Views[camera] = view;
             return view;
-        }
-
-        static RenderTexture TrailMap()
-        {
-            var map = new RenderTexture(TrailSize, TrailSize, 0, RenderTextureFormat.ARGBHalf,
-                                        RenderTextureReadWrite.Linear)
-            {
-                name = "HB Style Grass Trail",
-                enableRandomWrite = true,
-                wrapMode = TextureWrapMode.Repeat,
-                filterMode = FilterMode.Bilinear,
-                hideFlags = HideFlags.HideAndDontSave
-            };
-
-            map.Create();
-            return map;
         }
 
         static int Tufts(float inner, float outer, float full, float spacing)

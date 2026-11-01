@@ -27,7 +27,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Tooltip("How many falling rain drops and snow flakes are drawn. Off draws no falling rain or snow; wet " +
                  "and snowy surfaces stay.")]
-        HBStyleQualityLevel m_Level = HBStyleQualityLevel.Ultra;
+        HBStyleQualityLevel m_Level = HBStyleQualityLevel.High;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]

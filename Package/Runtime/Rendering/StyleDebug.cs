@@ -40,6 +40,10 @@ namespace HiddenBull.UrpStyle
         internal static int terrainPatches;
         internal static double terrainSelectMs;
 
+        internal static bool hidesGrass => view is StyleDebugView.WeatherShelter or StyleDebugView.WeatherWetness or
+            StyleDebugView.WeatherSnow or StyleDebugView.TerrainRings or StyleDebugView.TerrainLayers or
+            StyleDebugView.TerrainCurvature or StyleDebugView.GrassDensity;
+
         internal static bool IsPreviewCamera(Camera camera)
         {
             return camera.cameraType == (previewGameCamera ? CameraType.Game : CameraType.SceneView);

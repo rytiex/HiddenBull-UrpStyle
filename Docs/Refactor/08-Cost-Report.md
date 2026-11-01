@@ -500,3 +500,47 @@ index lists 5.6 MB. Grass costs nothing on terrains whose layers have no Grass T
 
 Editor measurement by the user after 5.1b at Ultra (grass meadow in view, FPS hands camera): 2.6 ms GPU,
 3.4 ms frame, ~296 FPS, 29 draw calls. Terrain Forward (debug) is now 2297 / 66 with the height blend.
+
+### Phase 5 closed (2026-11-01): final offline costs (compiled offline; the user confirmed the look in Unity)
+
+This replaces the 5.1b table: cards are gone, grass draws real leaves.
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Lit forward (all, UV) | 3387 | 128 | 2339 / 27 | 2550 / 60 — OK |
+| Lit forward (all, triplanar) | 3486 | 136 | 2438 / 35 | 2550 / 60 — OK, 112 slots left |
+| Lit forward (all, UV, moving) | 3359 | 128 | 2311 / 27 | 2550 / 60 — OK |
+| Lit forward (all, triplanar, moving) | 3456 | 136 | 2408 / 35 | 2550 / 60 — OK |
+| Lit forward (weather only) | 2628 | 119 | 1580 / 18 | – |
+| Terrain forward | 4054 | 151 | 3006 / 50 | 4500 / 175 — OK |
+| Terrain forward (debug) | 3397 | 74 | – | – |
+| Grass forward | 355 | 5 | – | 2000 / 30 — OK |
+| Grass forward (light list) | 205 | 5 | – | – |
+| Grass forward (debug) | 179 | 5 | – | – |
+| Grass vertex | 263 | 3 | – | – |
+| Grass DepthOnly / DepthNormals fragment | 2 / 5 | 0 / 0 | – | – |
+| Grass Flowers forward / vertex | 341 / 169 | 6 / 3 | – | – |
+| Grass Place compute (per placed cell) | 1826 | 25 | – | – |
+| Grass Cull compute (per visible cell, every frame) | 330 | 6 | – | – |
+| Grass Trail compute (only while a bender is near, plus 90 s) | 106 | 7 | – | – |
+| Shelter Uncover compute (per camera, while weather is active) | 40 | 2 | – | – |
+
+Memory: cover map 4.5 MB per camera at shelter resolution 512 (18 MB at 1024); trail maps 1 MB per camera, only near
+benders. Ultra stores 3.55 M tufts at 12 bytes = about 43 MB of blades per camera (computed, not measured).
+
+User measurements in the editor at Ultra, 100 m, Spacing 0.1 (not a build):
+
+| Case | GPU |
+|---|---|
+| Grass off / on, clear | 3.2 / 5.3 ms (grass 2.1 ms, budget 2 ms) |
+| Grass in rain (scene without grass 4.0 ms) | grass 3.2 ms |
+| Grass in snow (scene without grass 3.9 ms) | grass 2.5 ms |
+| Distance 70 → 1000 m | +0.8 ms |
+| Additional lights on grass | about 0.1 ms |
+| Everything on, rain + snow, final look | 5.5 ms GPU, 6.0 ms frame, 165 FPS |
+
+The rain and snow rows came before the last Cull changes, so treat them as older numbers. Spacing is the biggest knob,
+Distance is cheap. Leaf count by pixel height changed no ms, so vertices are not the bottleneck. Taller grass costs more, so the pixels
+are the likely cost (not measured). Tufts drawn at Ultra, 100 m: ThinStart 200: 530 k drawn, 3.55 M stored; 150: 339 k,
+2.08 M; 120: 237 k, 1.98 M. ThinStart stays 200 until the final measurement. The binding number comes from a build in
+Phase 12.

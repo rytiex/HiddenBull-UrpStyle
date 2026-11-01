@@ -37,7 +37,7 @@ namespace HiddenBull.UrpStyle
     {
         [SerializeField]
         [Tooltip("Active grass level: how far grass reaches and how thick it can grow. Off draws no grass.")]
-        HBStyleGrassQualityLevel m_Level = HBStyleGrassQualityLevel.Ultra;
+        HBStyleGrassQualityLevel m_Level = HBStyleGrassQualityLevel.High;
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]
