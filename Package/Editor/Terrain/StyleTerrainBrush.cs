@@ -31,6 +31,7 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly Color s_Hole = new Color(1f, 0.35f, 0.3f, 1f);
         static readonly Color s_Grass = new Color(0.55f, 0.85f, 0.3f, 1f);
         static readonly Color s_Grid = new Color(1f, 1f, 1f, 0.3f);
+        static readonly Color s_Plant = new Color(0.3f, 0.85f, 0.6f, 1f);
 
         static Material s_FootprintMaterial;
         static HBStyleTerrain s_Terrain;
@@ -47,6 +48,14 @@ namespace HiddenBull.UrpStyle.Editor
         internal static HBStyleTerrainLayer paintLayer;
 
         internal static bool grassTool => IsGrass(tool);
+
+        internal static bool plantTool => tool == StyleTerrainBrushTool.PlantPaint;
+
+        internal static int plantType
+        {
+            get => SessionState.GetInt(Key + "PlantType", 0);
+            set => SessionState.SetInt(Key + "PlantType", value);
+        }
 
         internal static bool IsGrass(StyleTerrainBrushTool brush)
         {
@@ -321,8 +330,19 @@ namespace HiddenBull.UrpStyle.Editor
                                                     "Paint HB Style Terrain Grass");
                     return true;
 
+                case StyleTerrainBrushTool.PlantPaint:
+                    if (data.plants == null || plantType >= data.plants.types.Count)
+                        return false;
+
+                    Undo.RegisterCompleteObjectUndo(data.plants, "Paint HB Style Terrain Plants");
+                    return true;
+
                 default:
-                    Undo.RegisterCompleteObjectUndo(new Object[] { data.terrainData, data }, "Sculpt HB Style Terrain");
+                    var sculpted = data.plants != null
+                        ? new Object[] { data.terrainData, data, data.plants }
+                        : new Object[] { data.terrainData, data };
+
+                    Undo.RegisterCompleteObjectUndo(sculpted, "Sculpt HB Style Terrain");
                     return true;
             }
         }
@@ -353,7 +373,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var data = s_Terrain != null ? s_Terrain.data : null;
 
-            if (!s_Stroking || data == null || tool == StyleTerrainBrushTool.Holes ||
+            if (!s_Stroking || data == null || tool == StyleTerrainBrushTool.Holes || plantTool ||
                 EditorApplication.timeSinceStartup - s_Stamped < HoldInterval)
                 return;
 
@@ -404,6 +424,12 @@ namespace HiddenBull.UrpStyle.Editor
                     s_GrassVersion = data.grassVersion;
                     break;
 
+                case StyleTerrainBrushTool.PlantPaint:
+                    if (data.plants != null)
+                        EditorUtility.SetDirty(data.plants);
+
+                    break;
+
                 default:
                     data.terrainData.SyncHeightmap();
                     StyleTerrainRay.RefreshCollider(s_Terrain);
@@ -438,6 +464,11 @@ namespace HiddenBull.UrpStyle.Editor
                 case StyleTerrainBrushTool.GrassSetHeight:
                     StyleTerrainGrass.Stamp(data, tool, point - s_Terrain.transform.position, size * 0.5f, hardness,
                                             strength, shift, StyleTerrainShapes.current);
+                    return;
+
+                case StyleTerrainBrushTool.PlantPaint:
+                    StyleTerrainPlanter.Stamp(data, plantType, point - s_Terrain.transform.position, size * 0.5f,
+                                              hardness, shift, StyleTerrainShapes.current);
                     return;
             }
 
@@ -486,6 +517,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleTerrainStamp.Apply(heights, source, settings);
             terrain.SetHeightsDelayLOD(x0, z0, heights);
             data.UpdateBounds(x0, z0, width, length);
+            StyleTerrainPlanter.Follow(data, x0 * spacing, z0 * spacing, x1 * spacing, z1 * spacing);
         }
 
         static void StampHoles(HBStyleTerrainData data, Vector3 point, bool fill)
@@ -578,10 +610,25 @@ namespace HiddenBull.UrpStyle.Editor
                                                GrassAction(shift), colour);
                     break;
 
+                case StyleTerrainBrushTool.PlantPaint:
+                    StyleTerrainGUI.SceneLabel(point, PlantName(data), shift ? "Erase" : "Paint", colour);
+                    break;
+
                 default:
                     StyleTerrainGUI.SceneLabel(point, ground, "Smooth", colour);
                     break;
             }
+        }
+
+        static string PlantName(HBStyleTerrainData data)
+        {
+            var plants = data.plants;
+
+            if (plants == null || plantType < 0 || plantType >= plants.types.Count ||
+                plants.types[plantType].prefab == null)
+                return "No plant";
+
+            return plants.types[plantType].prefab.name;
         }
 
         static string GrassState(Vector4 painted)
@@ -845,6 +892,9 @@ namespace HiddenBull.UrpStyle.Editor
                 case StyleTerrainBrushTool.GrassSetDensity:
                 case StyleTerrainBrushTool.GrassSetHeight:
                     return s_Grass;
+
+                case StyleTerrainBrushTool.PlantPaint:
+                    return shift ? s_Lower : s_Plant;
 
                 default:
                     return s_Raise;

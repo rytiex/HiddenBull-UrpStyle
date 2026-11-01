@@ -65,10 +65,20 @@ namespace HiddenBull.UrpStyle
             public bool valid;
         }
 
+        internal sealed class Placed
+        {
+            public HBStylePlantAsset asset;
+            public int layer;
+            public Matrix4x4[] worlds = System.Array.Empty<Matrix4x4>();
+            public Matrix4x4[] inverses = System.Array.Empty<Matrix4x4>();
+            public int count;
+        }
+
         sealed class Group
         {
             public HBStylePlantAsset asset;
             public readonly List<HBStylePlant> members = new List<HBStylePlant>();
+            public readonly List<Placed> placed = new List<Placed>();
             public InstanceData[] instances = new InstanceData[MinCapacity];
             public ProbeData[] probes = new ProbeData[MinCapacity];
             public Vector3[] positions = new Vector3[MinCapacity];
@@ -99,6 +109,8 @@ namespace HiddenBull.UrpStyle
             public Counts counts;
             public Bounds bounds;
             public int layer;
+
+            public bool empty => members.Count == 0 && placed.Count == 0;
 
             public bool drawable => asset != null && asset.valid && drawCount > 0 && count > 0;
         }
@@ -217,6 +229,35 @@ namespace HiddenBull.UrpStyle
             Drop(group);
         }
 
+        internal static void Add(Placed placed)
+        {
+            if (placed.asset == null)
+                return;
+
+            Hook();
+
+            var group = Acquire(placed.asset, placed.layer);
+
+            group.placed.Add(placed);
+            group.dirty = true;
+        }
+
+        internal static void Remove(Placed placed)
+        {
+            if (placed.asset == null || !s_Groups.TryGetValue(placed.asset, out var group) ||
+                !group.placed.Remove(placed))
+                return;
+
+            group.dirty = true;
+            Drop(group);
+        }
+
+        internal static void Touch(Placed placed)
+        {
+            if (placed.asset != null && s_Groups.TryGetValue(placed.asset, out var group))
+                group.dirty = true;
+        }
+
         internal static void Rebuild(HBStylePlantAsset asset)
         {
             if (asset == null || !s_Groups.TryGetValue(asset, out var group))
@@ -241,7 +282,7 @@ namespace HiddenBull.UrpStyle
 
         static void Drop(Group group)
         {
-            if (group.members.Count > 0)
+            if (!group.empty)
                 return;
 
             Release(group);
@@ -354,7 +395,7 @@ namespace HiddenBull.UrpStyle
 
             foreach (var group in s_Order)
             {
-                if (group.asset == null || !group.asset.valid || group.members.Count == 0)
+                if (group.asset == null || !group.asset.valid || group.empty)
                     continue;
 
                 Refresh(group);
@@ -537,7 +578,12 @@ namespace HiddenBull.UrpStyle
 
             var sphere = group.asset.sphere;
 
-            Reserve(group, group.members.Count);
+            var total = group.members.Count;
+
+            foreach (var placed in group.placed)
+                total += placed.count;
+
+            Reserve(group, total);
 
             var least = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
             var most = new Vector3(float.MinValue, float.MinValue, float.MinValue);
@@ -552,6 +598,12 @@ namespace HiddenBull.UrpStyle
 
                 Place(group, count++, transform.localToWorldMatrix, transform.worldToLocalMatrix, sphere, ref least,
                       ref most);
+            }
+
+            foreach (var placed in group.placed)
+            {
+                for (var index = 0; index < placed.count; index++)
+                    Place(group, count++, placed.worlds[index], placed.inverses[index], sphere, ref least, ref most);
             }
 
             group.count = count;

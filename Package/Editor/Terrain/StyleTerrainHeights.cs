@@ -102,6 +102,7 @@ namespace HiddenBull.UrpStyle.Editor
         static void Finish(HBStyleTerrainData data, TerrainData terrain)
         {
             data.Assign(terrain);
+            StyleTerrainPlanter.FollowAll(data);
 
             EditorUtility.SetDirty(terrain);
             EditorUtility.SetDirty(data);

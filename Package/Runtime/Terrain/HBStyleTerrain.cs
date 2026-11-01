@@ -97,6 +97,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerVarySize = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly StyleGrass m_Grass = new StyleGrass();
         readonly StyleTrail m_Trail = new StyleTrail();
+        readonly StyleTerrainPlants m_Plants = new StyleTerrainPlants();
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
         readonly float[] m_OneWeight = new float[1];
@@ -304,6 +305,7 @@ namespace HiddenBull.UrpStyle
             RenderPipelineManager.beginCameraRendering -= Draw;
             m_Grass.Release();
             m_Trail.Release();
+            m_Plants.Release();
         }
 
         void OnDestroy()
@@ -404,6 +406,9 @@ namespace HiddenBull.UrpStyle
 
             var origin = transform.position;
             var viewer = StyleDebug.Viewer(camera);
+
+            m_Plants.Sync(m_Data.plants, origin);
+
             var local = viewer.transform.position - origin;
             var size = m_Data.size;
 

@@ -22,6 +22,7 @@ namespace HiddenBull.UrpStyle.Editor
         internal static readonly Color lookTint = new Color(0.7f, 0.55f, 0.95f);
         internal static readonly Color settingsTint = new Color(0.6f, 0.6f, 0.6f);
         internal static readonly Color grassTint = new Color(0.6f, 0.85f, 0.25f);
+        internal static readonly Color plantTint = new Color(0.3f, 0.75f, 0.55f);
 
         static readonly Color s_LabelBack = new Color(0.1f, 0.1f, 0.1f, 0.92f);
         static readonly char[] s_Breaks = { '_', ' ', '-', '.' };
@@ -252,6 +253,12 @@ namespace HiddenBull.UrpStyle.Editor
                     Ink(rect, 0.7f, 0.85f, 0.72f, 0.55f);
                     Ink(rect, 0.75f, 0.3f, 0.65f, 0.15f, 0.45f, 0.12f, 0.3f, 0.22f, 0.25f, 0.38f);
                     Ink(rect, 0.18f, 0.28f, 0.25f, 0.38f, 0.36f, 0.33f);
+                    break;
+
+                case StyleTerrainBrushTool.PlantPaint:
+                    Ink(rect, 0.1f, 0.88f, 0.9f, 0.88f);
+                    Ink(rect, 0.5f, 0.88f, 0.5f, 0.62f);
+                    Ink(rect, 0.2f, 0.62f, 0.5f, 0.12f, 0.8f, 0.62f, 0.2f, 0.62f);
                     break;
 
                 default:

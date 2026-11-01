@@ -16,7 +16,8 @@ namespace HiddenBull.UrpStyle.Editor
         GrassHeight,
         GrassReset,
         GrassSetDensity,
-        GrassSetHeight
+        GrassSetHeight,
+        PlantPaint
     }
 
     sealed class StyleTerrainShape

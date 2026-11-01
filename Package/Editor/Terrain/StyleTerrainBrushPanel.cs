@@ -26,7 +26,7 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly string[] s_Titles =
         {
             "Raise / Lower", "Smooth", "Flatten", "Set Height", "Holes", "Paint Layer", "Noise", "Terrace",
-            "Grass Density", "Grass Height", "Reset Grass", "Set Grass Density", "Set Grass Height"
+            "Grass Density", "Grass Height", "Reset Grass", "Set Grass Density", "Set Grass Height", "Paint Plants"
         };
 
         static readonly string[] s_Help =
@@ -46,7 +46,9 @@ namespace HiddenBull.UrpStyle.Editor
             "Drag to bring density and height back to what the layers give.",
             "Drag to give the grass here the same Density everywhere, whatever the layers say. Only layers with " +
             "a Grass Density above 0 grow grass.",
-            "Drag to give the grass here the same Height everywhere, whatever the layers say."
+            "Drag to give the grass here the same Height everywhere, whatever the layers say.",
+            "Drag to place this plant. Going over the same place again adds nothing, and Min Distance keeps the " +
+            "plants apart."
         };
 
         static readonly string[][] s_Hints =
@@ -63,7 +65,8 @@ namespace HiddenBull.UrpStyle.Editor
             new[] { "Shift", "shorten" },
             new string[0],
             new string[0],
-            new string[0]
+            new string[0],
+            new[] { "Shift", "erase" }
         };
 
         static readonly string[] s_Sizing = { "[  ]", "brush size" };
@@ -131,7 +134,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly List<string> s_Names = new List<string>();
 
-        static Color tint => StyleTerrainBrush.grassTool ? StyleTerrainGUI.grassTint
+        static Color tint => StyleTerrainBrush.plantTool ? StyleTerrainGUI.plantTint
+                           : StyleTerrainBrush.grassTool ? StyleTerrainGUI.grassTint
                            : surface ? StyleTerrainGUI.surfaceTint : StyleTerrainGUI.shapeTint;
 
         static bool surface => StyleTerrainBrush.tool == StyleTerrainBrushTool.Holes ||
@@ -154,8 +158,13 @@ namespace HiddenBull.UrpStyle.Editor
             if (tool == StyleTerrainBrushTool.PaintLayer)
                 title = "Paint " + Caption(data, StyleTerrainBrush.paintLayer);
 
+            if (tool == StyleTerrainBrushTool.PlantPaint)
+                title = "Paint " + StyleTerrainPlantPanel.Caption(data);
+
+            var forced = tool != StyleTerrainBrushTool.Holes && tool != StyleTerrainBrushTool.PlantPaint;
+
             StyleTerrainGUI.Guide(tint, title, s_Help[index], tool, s_Hints[index], s_Sizing,
-                                  tool == StyleTerrainBrushTool.Holes ? null : s_Forcing, s_Stopping);
+                                  forced ? s_Forcing : null, s_Stopping);
         }
 
         internal static void Draw(HBStyleTerrainData data)
@@ -163,10 +172,14 @@ namespace HiddenBull.UrpStyle.Editor
             DrawShapePalette();
             DrawSurfacePalette(data);
             DrawGrassPalette();
+            StyleTerrainPlantPanel.DrawPalette(data);
 
             if (StyleTerrainBrush.armed)
             {
                 DrawBrush();
+
+                if (StyleTerrainBrush.plantTool)
+                    StyleTerrainPlantPanel.DrawSettings(data);
 
                 if (StyleTerrainBrush.tool != StyleTerrainBrushTool.Holes)
                     DrawShapes();
@@ -198,6 +211,8 @@ namespace HiddenBull.UrpStyle.Editor
                     SceneView.RepaintAll();
                 }
             }
+
+            StyleTerrainPlantPanel.DrawClear(data);
         }
 
         static void DrawShapePalette()
@@ -371,7 +386,7 @@ namespace HiddenBull.UrpStyle.Editor
                     var grassDensity = StyleTerrainBrush.grassDensity;
                     var grassHeight = StyleTerrainBrush.grassHeight;
 
-                    if (!holes)
+                    if (!holes && !StyleTerrainBrush.plantTool)
                         strength = EditorGUILayout.Slider(s_StrengthLabel, strength, 0f, 1f);
 
                     if (round)

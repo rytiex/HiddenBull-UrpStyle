@@ -109,6 +109,10 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         int m_Version;
 
+        [SerializeField]
+        [HideInInspector]
+        HBStyleTerrainPlants m_Plants;
+
         public TerrainData terrainData => m_Terrain;
 
         public Vector3 size => m_Terrain != null ? m_Terrain.size : Vector3.zero;
@@ -122,6 +126,8 @@ namespace HiddenBull.UrpStyle
         internal float[] patchMax => m_PatchMax;
 
         internal int version => m_Version;
+
+        internal HBStyleTerrainPlants plants => m_Plants;
 
         internal bool valid => m_Terrain != null && m_Patches > 0 && m_PatchMin != null && m_PatchMax != null &&
                                m_PatchMin.Length == m_Patches * m_Patches && m_PatchMax.Length == m_PatchMin.Length &&
@@ -264,6 +270,11 @@ namespace HiddenBull.UrpStyle
             }
 
             return false;
+        }
+
+        internal void SetPlants(HBStyleTerrainPlants plants)
+        {
+            m_Plants = plants;
         }
 
         internal void GrassEdited()
