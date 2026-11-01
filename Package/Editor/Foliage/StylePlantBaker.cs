@@ -124,8 +124,13 @@ namespace HiddenBull.UrpStyle.Editor
                 SetMesh(filters[i], Store(mesh, $"{folder}/MESH_Plant_{plantName}_{i}.asset"), "Bake Plant");
             }
 
+            target.asset = WriteAsset(target, filters, $"{folder}/DATA_Plant_{plantName}.asset", plant.sway);
+
             AssetDatabase.SaveAssets();
             SavePlant(target);
+
+            if (plant != target)
+                StylePlantSystem.Add(plant);
         }
 
         internal static bool CanClear(HBStylePlant plant)
@@ -151,7 +156,97 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             target.bakedMeshes.Clear();
+            target.asset = null;
             SavePlant(target);
+
+            if (plant != target)
+                StylePlantSystem.Add(plant);
+        }
+
+        static HBStylePlantAsset WriteAsset(HBStylePlant target, List<MeshFilter> filters, string path, float sway)
+        {
+            var root = target.transform;
+            var draws = new List<HBStylePlantDraw>();
+            var bounds = new Bounds();
+
+            foreach (var filter in filters)
+            {
+                var renderer = filter.GetComponent<MeshRenderer>();
+                var materials = renderer.sharedMaterials;
+
+                if (!Shown(renderer, root) || !System.Array.TrueForAll(materials, IsPlant))
+                    continue;
+
+                var local = ToRoot(root, filter.transform);
+
+                for (var subMesh = 0; subMesh < filter.sharedMesh.subMeshCount; subMesh++)
+                {
+                    var material = SubMeshMaterial(materials, subMesh);
+
+                    material.enableInstancing = true;
+                    EditorUtility.SetDirty(material);
+
+                    draws.Add(new HBStylePlantDraw
+                    {
+                        mesh = filter.sharedMesh,
+                        submesh = subMesh,
+                        material = material,
+                        local = local,
+                        shadows = renderer.shadowCastingMode
+                    });
+                }
+
+                var mesh = filter.sharedMesh.bounds;
+
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var point = mesh.center + Vector3.Scale(mesh.extents, Corner(corner));
+
+                    if (draws.Count == filter.sharedMesh.subMeshCount && corner == 0)
+                        bounds = new Bounds(local.MultiplyPoint3x4(point), Vector3.zero);
+                    else
+                        bounds.Encapsulate(local.MultiplyPoint3x4(point));
+                }
+            }
+
+            var asset = AssetDatabase.LoadAssetAtPath<HBStylePlantAsset>(path);
+
+            if (asset == null)
+            {
+                asset = ScriptableObject.CreateInstance<HBStylePlantAsset>();
+                AssetDatabase.CreateAsset(asset, path);
+            }
+
+            var centre = bounds.center;
+            var sphere = new Vector4(centre.x, centre.y, centre.z, bounds.extents.magnitude + sway);
+
+            asset.Set(draws.ToArray(), asset.billboardMesh, asset.billboardMaterial, sphere);
+            EditorUtility.SetDirty(asset);
+
+            return asset;
+        }
+
+        static Vector3 Corner(int corner)
+        {
+            return new Vector3((corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f,
+                               (corner & 4) == 0 ? -1f : 1f);
+        }
+
+        static bool Shown(MeshRenderer renderer, Transform root)
+        {
+            if (!renderer.enabled)
+                return false;
+
+            for (var parent = renderer.transform; parent != null; parent = parent.parent)
+            {
+                if (!parent.gameObject.activeSelf)
+                    return false;
+
+                if (parent == root)
+                    break;
+            }
+
+            return true;
         }
 
         static HBStylePlant Target(HBStylePlant plant)

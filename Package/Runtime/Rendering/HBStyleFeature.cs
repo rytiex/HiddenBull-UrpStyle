@@ -17,6 +17,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        ComputeShader m_PlantCompute;
+
+        [SerializeField]
+        [HideInInspector]
         Shader m_UndersideShader;
 
         [SerializeField]
@@ -72,6 +76,7 @@ namespace HiddenBull.UrpStyle
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
+            m_PlantCompute = Load(m_PlantCompute, StylePlantSystem.ComputePath);
             m_UndersideShader = Load(m_UndersideShader, StyleShelterPass.UndersidePath);
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
@@ -90,6 +95,7 @@ namespace HiddenBull.UrpStyle
             StyleTerrains.quality = quality.terrain;
             StyleTerrains.grassQuality = quality.grass;
             StyleTerrains.shelter = m_ShelterPass;
+            StylePlantSystem.Setup(m_PlantCompute);
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)

@@ -11,6 +11,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleTones.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Brush/StyleBrush.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWind.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageInstancing.hlsl"
 
 CBUFFER_START(UnityPerMaterial)
     float4 _BaseMap_ST;
@@ -80,6 +81,15 @@ float HB_PlantShare(float3 plantData)
     return HB_PlantBaked(plantData) ? plantData.x : HB_PLANT_UNBAKED;
 }
 
+float HB_PlantGust(float3 restWS, float2 wind, float strength, float time)
+{
+#ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+    return hb_PlantStreak;
+#else
+    return HB_GustStreak(restWS.xz, 0.0, wind, strength, time);
+#endif
+}
+
 float3 HB_PlantSway(float3 restWS, float share, float swayMetres)
 {
     float strength = HB_WIND;
@@ -90,7 +100,7 @@ float3 HB_PlantSway(float3 restWS, float share, float swayMetres)
     float moving = HB_PLANT_IDLE + (1.0 - HB_PLANT_IDLE) * strength;
     float reach = max(share, 0.0);
 
-    float streak = HB_GustStreak(restWS.xz, 0.0, wind, strength, time);
+    float streak = HB_PlantGust(restWS, wind, strength, time);
     float lean = strength * (HB_PLANT_LEAN_BASE + HB_PLANT_LEAN_PRESS * streak);
     float rock = moving * HB_PLANT_ROCK * sin(time * HB_PLANT_ROCK_SPEED + wave);
     float2 push = (wind * (lean + rock) + side * rock) * (reach * reach * swayMetres);

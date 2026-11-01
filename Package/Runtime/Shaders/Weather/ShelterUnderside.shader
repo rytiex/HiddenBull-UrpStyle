@@ -22,6 +22,26 @@ Shader "Hidden/HB URP Style/Shelter Underside"
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "UndersidePlant"
+
+            ZWrite On
+            ZTest GEqual
+            Cull Off
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_UndersidePlantVertex
+            #pragma fragment HB_UndersideFragment
+
+            #define HB_UNDERSIDE_PLANT
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl"
+            ENDHLSL
+        }
     }
 
     Fallback Off

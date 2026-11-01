@@ -103,7 +103,7 @@ Shader "HB URP Style/Foliage"
             #pragma multi_compile_fragment _ HB_STYLE_DEBUG
 
             #pragma multi_compile_instancing
-            #pragma instancing_options renderinglayer
+            #pragma instancing_options renderinglayer procedural:HB_PlantInstancingSetup
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl"
@@ -124,7 +124,7 @@ Shader "HB URP Style/Foliage"
             Cull [_Cull]
 
             HLSLPROGRAM
-            #pragma target 3.5
+            #pragma target 4.5
 
             #pragma vertex HB_PlantDepthVertex
             #pragma fragment HB_PlantShadowFragment
@@ -135,6 +135,7 @@ Shader "HB URP Style/Foliage"
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
             #pragma multi_compile_instancing
+            #pragma instancing_options procedural:HB_PlantInstancingSetup
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #define HB_SHADOW_CASTER
@@ -155,7 +156,7 @@ Shader "HB URP Style/Foliage"
             Cull [_Cull]
 
             HLSLPROGRAM
-            #pragma target 3.5
+            #pragma target 4.5
 
             #pragma vertex HB_PlantDepthVertex
             #pragma fragment HB_PlantDepthFragment
@@ -165,6 +166,7 @@ Shader "HB URP Style/Foliage"
 
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma multi_compile_instancing
+            #pragma instancing_options procedural:HB_PlantInstancingSetup
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl"
@@ -183,7 +185,7 @@ Shader "HB URP Style/Foliage"
             Cull [_Cull]
 
             HLSLPROGRAM
-            #pragma target 3.5
+            #pragma target 4.5
 
             #pragma vertex HB_PlantDepthVertex
             #pragma fragment HB_PlantDepthNormalsFragment
@@ -194,6 +196,7 @@ Shader "HB URP Style/Foliage"
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
             #pragma multi_compile_instancing
+            #pragma instancing_options procedural:HB_PlantInstancingSetup
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #define HB_DEPTH_NORMALS

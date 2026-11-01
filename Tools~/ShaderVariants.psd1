@@ -546,6 +546,138 @@
             Reads = 0
         }
         @{
+            Name = 'Foliage Forward (all) (GPU)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 2500
+            Reads = 60
+        }
+        @{
+            Name = 'Foliage vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantVertex'
+            Stage = 'vs'
+            Urp = 'Full'
+            Defines = @('_HB_BASE_MAP', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage ShadowCaster vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', '_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthOnly vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage DepthNormals vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', '_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body Forward (all) (GPU)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 2500
+            Reads = 60
+        }
+        @{
+            Name = 'Foliage Body vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageForwardPass.hlsl'
+            Entry = 'HB_PlantVertex'
+            Stage = 'vs'
+            Urp = 'Full'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body ShadowCaster vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHADOW_CASTER', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthOnly vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Foliage Body DepthNormals vertex (GPU)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageDepthPass.hlsl'
+            Entry = 'HB_PlantDepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_DEPTH_NORMALS', 'HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Cull'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/StylePlant.compute'
+            Entry = 'Cull'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Sky'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/StylePlant.compute'
+            Entry = 'Sky'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Shelter Underside plant vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
+            Entry = 'HB_UndersidePlantVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_UNDERSIDE_PLANT')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Shelter Underside fragment'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
             Entry = 'HB_UndersideFragment'

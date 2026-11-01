@@ -32,6 +32,29 @@ HBUndersideVaryings HB_UndersideVertex(HBUndersideAttributes input)
     return output;
 }
 
+#ifdef HB_UNDERSIDE_PLANT
+
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliagePlantData.hlsl"
+
+StructuredBuffer<HBPlantInstance> _HB_PlantInstances;
+StructuredBuffer<HBPlantVisible> _HB_PlantVisible;
+
+float4x4 _HB_PlantLocal;
+
+HBUndersideVaryings HB_UndersidePlantVertex(HBUndersideAttributes input, uint instance : SV_InstanceID)
+{
+    float4x4 world = HB_PlantWorld(_HB_PlantInstances[_HB_PlantVisible[instance].index]);
+    float4x4 objectToWorld = mul(world, _HB_PlantLocal);
+
+    HBUndersideVaryings output;
+    output.positionCS = TransformWorldToHClip(mul(objectToWorld, float4(input.positionOS.xyz, 1.0)).xyz);
+    output.facing = half(normalize(mul((float3x3)objectToWorld, input.normalOS)).y);
+
+    return output;
+}
+
+#endif
+
 half4 HB_UndersideFragment(HBUndersideVaryings input) : SV_Target
 {
     clip(HB_FACING_DOWN - input.facing);

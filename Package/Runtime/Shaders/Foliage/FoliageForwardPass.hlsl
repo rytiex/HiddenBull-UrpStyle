@@ -165,7 +165,7 @@ void HB_PlantDebug(half3 normalWS, float3 restWS, float sway, inout half4 colour
     if (HB_DEBUG_VIEW == HB_DEBUG_WEATHER_GUST)
     {
         float2 wind = float2(sin(HB_WIND_HEADING), cos(HB_WIND_HEADING));
-        half streak = half(HB_GustStreak(restWS.xz, 0.0, wind, HB_WIND, _Time.y));
+        half streak = half(HB_PlantGust(restWS, wind, HB_WIND, _Time.y));
 
         colour.rgb = half3(0.0h, streak, streak);
     }

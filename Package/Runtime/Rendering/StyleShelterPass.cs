@@ -80,6 +80,8 @@ namespace HiddenBull.UrpStyle
         class SkyData
         {
             internal RendererListHandle list;
+            internal bool plants;
+            internal int mask;
             internal Matrix4x4 skyView;
             internal Matrix4x4 skyProjection;
             internal Matrix4x4 cameraView;
@@ -89,6 +91,8 @@ namespace HiddenBull.UrpStyle
         class UnderData
         {
             internal RendererListHandle list;
+            internal Material plants;
+            internal int mask;
             internal Matrix4x4 skyView;
             internal Matrix4x4 skyProjection;
             internal Matrix4x4 cameraView;
@@ -202,6 +206,7 @@ namespace HiddenBull.UrpStyle
 
         ComputeShader m_Compute;
         Shader m_UndersideShader;
+        Material m_UndersideMaterial;
         int m_PreviewKernel = -1;
         int m_HeightsKernel = -1;
         int m_DilateXKernel = -1;
@@ -264,6 +269,7 @@ namespace HiddenBull.UrpStyle
         internal void Setup(ComputeShader compute, Shader underside, HBStyleWeatherQuality quality)
         {
             m_UndersideShader = underside;
+            m_UndersideMaterial ??= underside != null ? CoreUtils.CreateEngineMaterial(underside) : null;
             m_Resolution = (int)quality.current.shelterResolution;
             m_Compute = compute;
             m_PreviewKernel = Kernel(compute, "Preview");
@@ -274,7 +280,7 @@ namespace HiddenBull.UrpStyle
             m_UncoverKernel = Kernel(compute, "Uncover");
         }
 
-        static bool Needed() => StyleWeatherState.active || StyleDebug.view == StyleDebugView.WeatherShelter ||
+        internal static bool Needed() => StyleWeatherState.active || StyleDebug.view == StyleDebugView.WeatherShelter ||
                                 StyleDebug.previewShelter;
 
         void Prepare(ScriptableRenderContext context, Camera camera)
@@ -370,7 +376,7 @@ namespace HiddenBull.UrpStyle
             map.height = height;
 
             RecordTopDepth(renderGraph, frameData, "HB Style Shelter Depth", sky.culling, sky.view, skyProjection,
-                           depth);
+                           depth, true);
 
             var far = map.farValid ? renderGraph.ImportTexture(map.far) : TextureHandle.nullHandle;
 
@@ -381,7 +387,7 @@ namespace HiddenBull.UrpStyle
                 far = renderGraph.ImportTexture(AcquireFar(map));
 
                 RecordTopDepth(renderGraph, frameData, "HB Style Shelter Far", sky.farCulling, sky.farView,
-                               farProjection, far);
+                               farProjection, far, false);
 
                 map.farViewProjection = farProjection * sky.farView;
                 map.farHeight = HeightParams(sky.farOrigin.y, FarResolution);
@@ -729,7 +735,7 @@ namespace HiddenBull.UrpStyle
         }
 
         void RecordTopDepth(RenderGraph renderGraph, ContextContainer frameData, string name, CullingResults culling,
-                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target)
+                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target, bool plants)
         {
             var cameraData = frameData.Get<UniversalCameraData>();
             var resourceData = frameData.Get<UniversalResourceData>();
@@ -756,6 +762,8 @@ namespace HiddenBull.UrpStyle
                 stateBlocks = states,
                 isPassTagName = false
             });
+            data.plants = plants;
+            data.mask = cameraData.camera.cullingMask;
             data.skyView = skyView;
             data.skyProjection = skyProjection;
             data.cameraView = cameraData.GetViewMatrix();
@@ -772,6 +780,10 @@ namespace HiddenBull.UrpStyle
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.skyView, d.skyProjection, false);
                 context.cmd.SetGlobalFloat(s_PassId, 1f);
                 context.cmd.DrawRendererList(d.list);
+
+                if (d.plants)
+                    StylePlantSystem.DrawShelter(context.cmd, d.mask, null);
+
                 context.cmd.SetGlobalFloat(s_PassId, 0f);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.cameraView, d.cameraProjection, true);
             });
@@ -825,6 +837,8 @@ namespace HiddenBull.UrpStyle
 
             data.list = renderGraph.CreateRendererList(new RendererListParams(
                 sky.culling, drawing, new FilteringSettings(s_Queues, cameraData.camera.cullingMask)));
+            data.plants = m_UndersideMaterial;
+            data.mask = cameraData.camera.cullingMask;
             data.skyView = sky.view;
             data.skyProjection = skyProjection;
             data.cameraView = cameraData.GetViewMatrix();
@@ -840,6 +854,7 @@ namespace HiddenBull.UrpStyle
                 context.cmd.ClearRenderTarget(RTClearFlags.Depth, Color.clear, 0f, 0u);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.skyView, d.skyProjection, false);
                 context.cmd.DrawRendererList(d.list);
+                StylePlantSystem.DrawShelter(context.cmd, d.mask, d.plants);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.cameraView, d.cameraProjection, true);
             });
         }
@@ -958,6 +973,9 @@ namespace HiddenBull.UrpStyle
         public void Dispose()
         {
             RenderPipelineManager.beginCameraRendering -= Prepare;
+
+            CoreUtils.Destroy(m_UndersideMaterial);
+            m_UndersideMaterial = null;
 
             m_Views.Clear();
             m_Wanted.Clear();
