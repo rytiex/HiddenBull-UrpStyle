@@ -1,6 +1,8 @@
 #ifndef HB_FOLIAGE_INSTANCING_INCLUDED
 #define HB_FOLIAGE_INSTANCING_INCLUDED
 
+static float hb_PlantLift = 0.0;
+
 #if defined(UNITY_PROCEDURAL_INSTANCING_ENABLED)
 
 #ifndef LOD_FADE_CROSSFADE
@@ -62,6 +64,7 @@ void HB_PlantInstancingSetup()
 
     unity_LODFade = float4(visible.fade, visible.fade, 0.0, 0.0);
     hb_PlantStreak = visible.gust;
+    hb_PlantLift = visible.lift;
 
 #if !defined(PROBE_VOLUMES_L1) && !defined(PROBE_VOLUMES_L2)
     HBPlantProbe probe = _HB_PlantProbes[visible.index];

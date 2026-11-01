@@ -1,0 +1,51 @@
+#pragma kernel Base
+#pragma kernel Down
+
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleOcclusion.hlsl"
+
+Texture2D<float> _HB_PyramidDepth;
+RWTexture2D<float> _HB_PyramidAtlas;
+
+float4 _HB_PyramidSizes;
+float4 _HB_PyramidEye;
+float4 _HB_PyramidStep;
+
+[numthreads(8, 8, 1)]
+void Base(uint3 id : SV_DispatchThreadID)
+{
+    uint2 size = (uint2)_HB_PyramidSizes.zw;
+
+    if (any(id.xy >= size))
+        return;
+
+    float2 scale = _HB_PyramidSizes.xy / _HB_PyramidSizes.zw;
+    uint2 first = (uint2)floor(id.xy * scale);
+    uint2 last = min((uint2)ceil((id.xy + 1.0) * scale), (uint2)_HB_PyramidSizes.xy) - 1u;
+    float farthest = 0.0;
+
+    for (uint y = first.y; y <= last.y; y++)
+    {
+        for (uint x = first.x; x <= last.x; x++)
+        {
+            float depth = _HB_PyramidDepth.Load(int3(x, y, 0));
+            float eye = 1.0 / (_HB_PyramidEye.x * depth + _HB_PyramidEye.y);
+
+            farthest = max(farthest, eye < HB_OCCLUSION_CLOSEST ? HB_OCCLUSION_OPEN : eye);
+        }
+    }
+
+    _HB_PyramidAtlas[id.xy] = farthest;
+}
+
+[numthreads(8, 8, 1)]
+void Down(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= (uint2)_HB_PyramidSizes.zw))
+        return;
+
+    uint2 from = (uint2)_HB_PyramidStep.xy + id.xy * 2u;
+    float top = max(_HB_PyramidAtlas[from], _HB_PyramidAtlas[from + uint2(1u, 0u)]);
+    float bottom = max(_HB_PyramidAtlas[from + uint2(0u, 1u)], _HB_PyramidAtlas[from + uint2(1u, 1u)]);
+
+    _HB_PyramidAtlas[(uint2)_HB_PyramidStep.zw + id.xy] = max(top, bottom);
+}

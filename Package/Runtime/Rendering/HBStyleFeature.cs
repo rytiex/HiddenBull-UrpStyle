@@ -21,6 +21,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        ComputeShader m_PyramidCompute;
+
+        [SerializeField]
+        [HideInInspector]
         Shader m_UndersideShader;
 
         [SerializeField]
@@ -34,6 +38,7 @@ namespace HiddenBull.UrpStyle
         StyleCameraStates m_Cameras;
         StyleGlobalsPass m_GlobalsPass;
         StyleShelterPass m_ShelterPass;
+        StyleDepthPyramidPass m_PyramidPass;
         StyleAtmospherePass m_AtmospherePass;
         StylePrecipitationPass m_PrecipitationPass;
         HBStyleQualityProfile m_DefaultQuality;
@@ -71,12 +76,14 @@ namespace HiddenBull.UrpStyle
             m_Cameras = new StyleCameraStates();
             m_GlobalsPass = new StyleGlobalsPass();
             m_ShelterPass = new StyleShelterPass();
+            m_PyramidPass = new StyleDepthPyramidPass();
             m_AtmospherePass = new StyleAtmospherePass();
             m_PrecipitationPass = new StylePrecipitationPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
             m_PlantCompute = Load(m_PlantCompute, StylePlantSystem.ComputePath);
+            m_PyramidCompute = Load(m_PyramidCompute, StyleDepthPyramidPass.ComputePath);
             m_UndersideShader = Load(m_UndersideShader, StyleShelterPass.UndersidePath);
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
@@ -95,7 +102,8 @@ namespace HiddenBull.UrpStyle
             StyleTerrains.quality = quality.terrain;
             StyleTerrains.grassQuality = quality.grass;
             StyleTerrains.shelter = m_ShelterPass;
-            StylePlantSystem.Setup(m_PlantCompute);
+            StyleTerrains.pyramid = m_PyramidPass;
+            StylePlantSystem.Setup(m_PlantCompute, m_PyramidPass);
             renderer.EnqueuePass(m_GlobalsPass);
 
             if (StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType) != StyleCameraKind.Base)
@@ -105,6 +113,12 @@ namespace HiddenBull.UrpStyle
 
             m_ShelterPass.Setup(m_ShelterCompute, m_UndersideShader, quality.weather);
             renderer.EnqueuePass(m_ShelterPass);
+
+            if (StylePlantSystem.active || StyleTerrains.growing)
+            {
+                m_PyramidPass.Setup(m_PyramidCompute);
+                renderer.EnqueuePass(m_PyramidPass);
+            }
 
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
@@ -165,6 +179,10 @@ namespace HiddenBull.UrpStyle
             m_ShelterPass?.Dispose();
             m_ShelterPass = null;
             StyleTerrains.shelter = null;
+            StyleTerrains.pyramid = null;
+
+            m_PyramidPass?.Dispose();
+            m_PyramidPass = null;
 
             m_AtmospherePass?.Dispose();
             m_AtmospherePass = null;

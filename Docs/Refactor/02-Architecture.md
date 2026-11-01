@@ -9,7 +9,8 @@ HBStyleEnvironmentProfile   --->  HBStyleEnvironmentController --> StyleFrameGlo
                                   (time, weather, profile)
 HBStyleQualityProfile       --->  HBStyleFeature (renderer)   --> pass scheduler (per camera, base only)
 HBStyleTerrainLayer (+Liquid)     HBStyleTerrain / Liquid     --> terrain + liquid clipmap draw
-HBStyleBillboardAsset             HBStyleBillboard            --> GPU instancing system
+HBStylePlantAsset                 HBStylePlant                --> StylePlantSystem (GPU instancing)
+HBStyleTerrainPlants (sub-asset)  HBStyleTerrain              --> StylePlantSystem + StyleTerrainColliders
                                   HBStyleEnvironmentZone      --> CPU profile blend (no Volume stack)
 ```
 
@@ -28,6 +29,12 @@ Surface   : per-shader-family inputs (Lit, Foliage, Terrain, Grass, Liquid, Bill
 
 A shader includes only the modules it uses; features inside a module are `shader_feature_local` and cost
 nothing when off. **Modules never include each other in cycles; Surface → modules → Core.**
+
+Shared pieces added in Phase 7, so that Lit, Foliage and Terrain stay free of each other:
+`Library/Lighting/StyleForwardInput.hlsl` (input data, baked GI, brush shift),
+`Library/Shadow/StyleShadowCaster.hlsl`, `Library/Weather/StyleWind.hlsl` (gust and noise, grass + foliage),
+`Library/Core/StyleOcclusion.hlsl` (Hi-Z test, compute only).
+`Shaders/Foliage/FoliageSway.hlsl` is the sway shared by Foliage and Billboard.
 
 ## 2. Renderer feature: `HBStyleFeature`
 
@@ -54,8 +61,10 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Shelter (top-down sky depth, near + far, with margin dilation, timed cover map) | BeforeRenderingShadows | weather active |
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |
+| Plant culling (compute, outside the pass list) | `beginCameraRendering` | GPU plants exist |
 | Cavity (screen-space, from depth-normals) | AfterRenderingPrePasses | cavity quality > Off |
 | Opaques (URP) — no atmosphere in the surface shaders | — | — |
+| Depth pyramid (Hi-Z, `StyleDepthPyramidPass`, read the next frame) | AfterRenderingSkybox | GPU plants or grass |
 | Atmosphere (full screen: fog, horizon, fog paint, silhouette, from depth) | AfterRenderingSkybox, before precipitation | atmosphere quality > Off |
 | Precipitation (procedural) | AfterRenderingSkybox | weather active |
 | Transparency (MBOIT + composite, refraction only if a refractive surface is visible) | BeforeRenderingTransparents | a transparent of ours is visible |
@@ -126,7 +135,8 @@ HBStyleTerrain (component)
  ├─ layers: HBStyleTerrainLayer[] (albedo/normal/mask, tiling, rules, weather limits, grass type)
  ├─ control maps (texture array, top-3 picks per pixel)  ← painted + rule-baked
  ├─ grass map (density/height channel, painted)
- ├─ plant instances (billboard system)                   ← painted
+ ├─ plants: HBStyleTerrainPlants sub-asset (types + records with stable ids) ← painted
+ │    └─ StyleTerrainColliders: hidden static colliders, built once in Play Mode, one HBStylePlantBody each
  ├─ liquid: HBStyleLiquidLayer[] + level map (sea level + painted lakes/rivers)
  └─ collider: hidden TerrainData + TerrainCollider synced from the heightmap (fast, robust physics)
 ```
@@ -144,7 +154,7 @@ HBStyleTerrain (component)
 2. Feature Globals pass uploads one CBUFFER (environment, brush, quality, weather state, time).
 3. Shelter pass updates near/far sky-depth maps for the base camera (dilated by the roof margin) and the cover map
    that fades weather in where a roof was removed.
-4. Terrain/grass/billboard computes cull into indirect args.
+4. Plant, terrain and grass computes cull into indirect args, using last frame's depth pyramid.
 5. Opaque shaders: Surface → Lighting (+Shadow, Brush, Weather, Cavity) → Atmosphere.
 6. Transparents via OIT; precipitation; underwater.
 

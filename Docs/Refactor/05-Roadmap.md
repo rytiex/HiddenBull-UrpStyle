@@ -12,8 +12,8 @@ written down in `Docs/`.
 | **3 Weather** | Shelter near/far with roof margin dilation; weather zone (indoor box); surfaces (Static/Moving) in Lit; precipitation (procedural, soft snow dots, budgets); presets and API transitions; `HBStyleSun` renamed to `HBStyleEnvironmentController`, which holds rain / snow / wind / wind heading next to the time of day; the profile's Weather section holds style only (timings, rain colour, Cloud Response); rain and snow raise cloud coverage and overcast. Rebuilt in six steps after the first batch failed (2026-10-24): shelter map + debug view, wetness, snow, rain details, Moving drops and flakes, precipitation (6a near layer, 6b far layer, 6c splashes (removed), 6d wind streaks); one test per step | No indoor leaks in sandbox houses; timings; budgets met |
 | **4 Terrain** | `HBStyleTerrain`: heightmap asset, clipmap rendering, hidden TerrainData collider, import from Unity TerrainData; layers on component; rule bake + hand paint; editing overlay (sculpt, paint) ; curvature; weather on terrain (terrain does not shelter itself, ripples on flat ground) | Sandbox scenes moved to our terrain; no basemap artefacts; cost report |
 | **5 Grass** | Painted grass map (density + height); GPU generated leaves; wind gust; flowers; benders; weather on grass; gradual weather after a roof is removed | Paint grass on/off and height; ≤ 2 ms Ultra meadow (measured 2.1 ms in the editor) |
+| **7 Foliage + Billboards** (ran before 6) | Foliage and Foliage Body shaders, Bake Plant (canopy + billboard), Sway + Flutter, always-Static weather; `StylePlantSystem` (compute cull, view and shadow lists, cross-fade, FOV distances, picking, counter); sun-view shadow atlas; Hi-Z occlusion for plants and grass; Plants palette on our terrain; colliders; harvest API | Merged and separate bushes look the same; tall bushes not black |
 | **6 Liquids** | Liquid layers (water/lava/acid); terrain level map (sea + lakes + rivers); visual waves (baked wave textures), near-only displacement by quality; depth gradient, caustics, foam, crest; pools; cutters; floaters; height query; underwater with exact waterline | Approved look preserved; cost report; waterline seamless |
-| **7 Foliage + Billboards** | Design discussion first (open points in `03` §4 Foliage); foliage canopy data, translucency, back-side softening, up-face snow, wind; billboard system (GPU instancing, compute cull, cross-fade, FOV distances, picking, counter); plant painting on our terrain into the billboard system | Merged and separate bushes look the same; tall bushes not black |
 | **8 Transparency** | MBOIT with Tinted / Refractive / Alpha / Premultiply / Additive; skip when none visible; refraction optimisation; colored shadows; particles | ≤ 0.6 ms without refraction; tinted glass reads as glass |
 | **9 Cavity + Decal** | Screen-space cavity pass; decal shader | Edge highlights on props/buildings ≤ 0.4 ms |
 | **10 Texture Studio** | Shared framework (fullscreen, presets everywhere, GPU generation); Terrain import/edit; Grass & per-flower presets; Liquid/Cloud presets | Fast generation, consistent UI |
@@ -37,6 +37,11 @@ benders; 5.4 weather on grass. Details in `03` §7 and §9.
 
 **Phase 5 closed (user, 2026-11-01).** Final state in `03` §9, costs in `08`. Grass moved from cards to real leaves on
 the way; the phase also brought Wet Gloss, pressed snow, a bender trail independent of grass and the roof cover map.
+
+**Phase 7 closed (user, 2026-11-01).** The user moved it ahead of Phase 6, so the phase numbers stay and the table
+shows the order of work. Final state in `03` §4, costs in `08`. Phase 7 ended with no mid LOD: dense mesh trees are
+avoided by hand for now (path written in `03` §4). Colliders, harvest and the billboard leaf light fix were compiled
+offline and not run in Unity at close, so the first Phase 6 session in the sandbox should glance at them.
 
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start

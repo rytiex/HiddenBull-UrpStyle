@@ -25,6 +25,11 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | 1.16 | Shadow artefact looked like a lightmap leak | Our contact filter returned lit when its blocker search found nothing at contact points | For any "leak", first ask whether it survives turning the realtime sun off; compare Attenuation vs Unfiltered debug views. |
 | 1.18 | Removed roof: red in Debug > Weather/Shelter but snow popped in | The cover timer forgave short cover to protect moving cars, and snow is complete at about half the value, so short roof toggles started past that point | Moving Lit is not in the shelter map, so every drop in the top height restarts from 0. Compare the debug value with the weather curve, not only with time. |
 | 1.17 | Grass drawn with `RenderPrimitivesIndirect` was pitch black | Procedural draws get no per-object data: `SampleSH` and `GetMainLight().distanceAttenuation` (unity_LightData) read 0 | In procedural shaders use `_MainLightColor` / `_MainLightPosition` and the package ambient (`HB_GradientAmbient` / `HB_ResolveAmbient`), never per-object SH or light data. |
+| 1.19 | Grey clear colour through leaves | Depth Priming is Forced, so forward runs ZTest Equal. A branch after `TransformWorldToHClip` turned fxc's `mad` into a precise mul + add, and the two clip positions stopped being bit-identical | Every plant pass uses `HB_PlantPosition` / `HB_PlantClipPosition` (precise). Check the `.asm` of each pass after touching them |
+| 1.20 | Round shelter and a snow reset under a plant at the billboard switch | `Graphics.RenderMeshIndirect` draws enter the shelter CullBox results and the Underside override too | Every RenderParams or indirect shader must handle `_HB_ShelterPass`: 1 = renderer list (procedural draws collapse), 2 = the system's own sky and far draws |
+| 1.21 | Billboard leaves lit from the wrong side, ground shadow right | For GPU plants `unity_WorldToObject` is set only in the vertex stage | Fragment code in GPU plants must not rely on `unity_WorldToObject`; use `TransformObjectToWorldDir` |
+| 1.22 | Grass flicker while moving with a first-person hand in view | Hi-Z tests last frame's depth, and the hand turns with the camera | Depth closer than 1.5 m is never an occluder (`HB_OCCLUSION_CLOSEST`); boxes grow by camera travel |
+| 1.23 | Compute "property not set" naming a kernel after adding a kernel | Kernel indices cached by C# that ran before the shader changed | Look kernels up on every Ready, no static cache |
 
 ## 2. Shader authoring traps
 
@@ -41,6 +46,9 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
   shelter at rest level without waves.
 - `half` precision: world positions and depths in `float`.
 - Compile editor-only `.shader` files offline too.
+- A missing mesh channel is not zero: an absent TEXCOORD3 reads from elsewhere. Test only a value the bake sets on
+  purpose (uv3.z > 0.5), never x or y.
+- Water, glass and anything see-through must stay out of opaque depth, or Hi-Z hides what is behind it.
 
 ## 3. C# / Unity API traps (Unity 6000.4)
 
@@ -85,6 +93,10 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | Shader Graph | A base/template graph | Node library only. |
 | Brush | "Minimum Detail" setting | Destroyed fine detail, no FPS gain. |
 | Temporal | A temporal accumulation layer | Dropped. |
+| Plants | A separate plant Raycast call next to `Physics.Raycast` | Hidden static colliders, plain `Physics.Raycast` + `HBStylePlantBody`. |
+| Plants | Collider streaming (Collider Distance, cells, a focus component) | Built and removed in one day: far rays passed through plants and a server needed focus points. All colliders are built once. |
+| Foliage | Translucency with baked Thickness | Removed in the test; a fixed shade light keeps tall bushes from going black. |
+| Foliage | Reusing Lit passes through hooks | Breaks "a shader includes only the modules it uses". Foliage owns its passes. |
 | UI | Inspector warnings the user did not ask for | e.g. no "moving object uses Static weather" warning. |
 
 ## 6. Process lessons

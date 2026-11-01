@@ -7,14 +7,26 @@ namespace HiddenBull.UrpStyle
     {
         readonly List<StylePlantSystem.Placed> m_Placed = new List<StylePlantSystem.Placed>();
         readonly List<int> m_Counts = new List<int>();
+        readonly Dictionary<uint, Spot> m_Spots = new Dictionary<uint, Spot>();
+        readonly HashSet<uint> m_Gone = new HashSet<uint>();
+        readonly StyleTerrainColliders m_Colliders = new StyleTerrainColliders();
+
+        struct Spot
+        {
+            internal int type;
+            internal int index;
+        }
 
         HBStyleTerrainPlants m_Source;
         int m_Version = -1;
         Vector3 m_Origin;
 
-        internal void Sync(HBStyleTerrainPlants source, Vector3 origin)
+        internal IReadOnlyCollection<uint> harvested => m_Gone;
+
+        internal void Sync(HBStyleTerrain terrain, HBStyleTerrainPlants source, Vector3 origin)
         {
-            if (source == m_Source && origin == m_Origin && (source == null || source.version == m_Version))
+            if (source == m_Source && origin == m_Origin &&
+                (source == null || (source.version == m_Version && Current(source))))
                 return;
 
             m_Source = source;
@@ -28,6 +40,51 @@ namespace HiddenBull.UrpStyle
 
             m_Version = source.version;
             Build(source, origin);
+
+            if (Application.isPlaying)
+                m_Colliders.Build(terrain, source.types, m_Placed);
+        }
+
+        internal bool Harvest(uint id)
+        {
+            if (!m_Gone.Add(id))
+                return false;
+
+            if (m_Spots.TryGetValue(id, out var spot))
+                StylePlantSystem.Hide(m_Placed[spot.type], spot.index, true);
+
+            m_Colliders.Show(id, false);
+
+            return true;
+        }
+
+        internal bool Restore(uint id)
+        {
+            if (!m_Gone.Remove(id))
+                return false;
+
+            if (m_Spots.TryGetValue(id, out var spot))
+                StylePlantSystem.Hide(m_Placed[spot.type], spot.index, false);
+
+            m_Colliders.Show(id, true);
+
+            return true;
+        }
+
+        bool Current(HBStyleTerrainPlants source)
+        {
+            var types = source.types;
+
+            if (types.Count != m_Placed.Count)
+                return false;
+
+            for (var index = 0; index < m_Placed.Count; index++)
+            {
+                if (!ReferenceEquals(m_Placed[index].asset, types[index].asset))
+                    return false;
+            }
+
+            return true;
         }
 
         internal void Release()
@@ -35,6 +92,8 @@ namespace HiddenBull.UrpStyle
             foreach (var placed in m_Placed)
                 StylePlantSystem.Remove(placed);
 
+            m_Colliders.Release();
+            m_Spots.Clear();
             m_Placed.Clear();
             m_Source = null;
             m_Version = -1;
@@ -54,6 +113,7 @@ namespace HiddenBull.UrpStyle
                 m_Placed.Add(new StylePlantSystem.Placed());
 
             Count(source);
+            m_Spots.Clear();
 
             for (var index = 0; index < types.Count; index++)
                 Prepare(m_Placed[index], types[index], m_Counts[index]);
@@ -66,7 +126,7 @@ namespace HiddenBull.UrpStyle
                 var placed = m_Placed[record.type];
 
                 if (placed.asset != null)
-                    Fill(placed, types[record.type].prefab.transform, record, origin);
+                    Fill(placed, record.type, types[record.type].prefab.transform, record, origin);
             }
 
             foreach (var placed in m_Placed)
@@ -108,15 +168,20 @@ namespace HiddenBull.UrpStyle
 
             placed.worlds = new Matrix4x4[capacity];
             placed.inverses = new Matrix4x4[capacity];
+            placed.ids = new uint[capacity];
+            placed.gone = new bool[capacity];
         }
 
-        static void Fill(StylePlantSystem.Placed placed, Transform root, HBStylePlantRecord record, Vector3 origin)
+        void Fill(StylePlantSystem.Placed placed, int type, Transform root, HBStylePlantRecord record, Vector3 origin)
         {
             var turn = Quaternion.Euler(0f, record.yaw, 0f) * root.localRotation;
             var world = Matrix4x4.TRS(origin + record.position, turn, root.localScale * record.size);
 
             placed.worlds[placed.count] = world;
             placed.inverses[placed.count] = world.inverse;
+            placed.ids[placed.count] = record.id;
+            placed.gone[placed.count] = m_Gone.Contains(record.id);
+            m_Spots[record.id] = new Spot { type = type, index = placed.count };
             placed.count++;
         }
     }

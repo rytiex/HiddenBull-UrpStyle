@@ -231,6 +231,10 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
                                     : HB_BrushShadowPosition(inputData.positionWS, positionDx, positionDy,
                                                              inputData.normalWS, mainDirection);
 
+#ifdef HB_SHADOW_LIFT
+    shadowPosition += _MainLightPosition.xyz * HB_SHADOW_LIFT;
+#endif
+
     inputData.shadowCoord = HB_ShadowCoordAt(shadowPosition, inputData.shadowCoord);
 
     Light mainLight = GetMainLight();

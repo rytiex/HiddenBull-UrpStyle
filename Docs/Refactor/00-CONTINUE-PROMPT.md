@@ -10,10 +10,12 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-01):** Phases 0–5 are closed. Phase 5 Grass ended with real leaves in rings, flowers, benders
-(`HBStyleBender`, `StyleTrail`), weather on grass, Wet Gloss, pressed snow and the roof cover map; the final state
-is the first block of 03 §9, the costs are the last section of 08. The game has buildings that players build and
-tear down; vehicles use Moving, Static is only for what never moves.
+**Status (2026-11-01):** Phases 0–5 and 7 are closed; Phase 7 ran first by my choice, so 6 is next. Phase 5 Grass final
+state is the first block of 03 §9. Phase 7 brought Foliage, Foliage Body, Bake Plant, GPU plants with billboards, the
+sun-view shadow atlas, Hi-Z for plants and grass, the Plants palette, colliders and harvest; the final state is 03 §4,
+the costs are the last section of 08. Colliders, harvest and the billboard leaf light fix were compiled offline, not
+yet run in Unity. The game has buildings that players build and tear down; vehicles use Moving, Static is only for
+what never moves.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -21,9 +23,9 @@ Read before doing anything (do not ask me what these answer):
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
 3. `Docs/Refactor/03-Feature-Spec.md` §10 Liquids. Skim §8 Terrain and the first block of §9, since liquids read
-   terrain data and shore on grass.
+   terrain data and shore on grass, and the Hi-Z point in §4: water must stay out of opaque depth.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
-5. `Docs/Refactor/08-Cost-Report.md`: only the last two sections (current budgets).
+5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 6. `Docs/Refactor/06-Old-Package-Reference.md`. Old liquids as reference only (look, not structure): find the files
    with `git ls-tree -r 3d4a06c --name-only | grep -i -E "liquid|water"` and read them with
    `git show 3d4a06c:<path>`. Old-package water memories are lessons only; where they disagree, the docs win.

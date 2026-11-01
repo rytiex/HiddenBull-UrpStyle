@@ -45,30 +45,80 @@ Particles, Decals, Shader Graph nodes.
 - `DisableBatching = True` where shaders read per-renderer data (bounds, object space).
 - Every cbuffer variable is declared in Properties (SRP Batcher + GPU Resident Drawer compatibility).
 
-### Foliage — Change
-Problems to solve: merged meshes, translucency and self-shadowing looked bad; canopy from renderer bounds
-broke with batching/merging.
-- **Bake canopy data into the mesh** (editor tool / import step): canopy normal (from a fitted proxy shape
-  per plant cluster) and thickness into vertex attributes. Works for merged meshes, static batching and GPU
-  instancing. Runtime no longer reads renderer bounds for lighting.
-- Translucency from baked thickness, light from behind all day, strongest at low sun; snowy leaves stop
-  glowing.
-- Self-shadow softening on the back side so tall bushes do not go black.
-- Snow on the up-facing side of leaves only (no two-sided snow).
-- Wind with rest-space anchor (brush/weather do not slide).
-- Open points for Phase 7 (from the reverted first build, 2026-10-24):
-  - A canopy normal baked in object space is wrong once static batching merges rotated plants: batching moves
-    positions, normals and tangents into world space but leaves UV channels as they are.
-  - Plants merged at runtime that were never baked get no canopy data at all.
-  - Baking by hand per plant model is a chore; an import-time bake (like the brush anchor postprocessor) is an option.
-  - How merged meshes and the billboard system work together needs its own discussion.
-  - Speckled, dithered-looking patches on some stem / branch cards in the test; not measured, cause unknown.
+### Foliage — Done (Phase 7)
+Two shaders with their own forward, depth, meta and Scene passes on Library modules (no Lit base):
+`HB URP Style/Foliage` for leaves, `HB URP Style/Foliage Body` for trunks (normal map, mask map G occlusion, own
+tangents, no flutter).
 
-### Billboard system — Keep (worked well)
-- GPU instancing, compute culling (frustum + sun-extruded shadow casters), mesh near / 8-view billboard far,
-  dithered cross-fade, FOV-aware distances (60° reference), probe lighting, editor picking, inspector counter.
-- Works with terrain plant painting of our own terrain (not Unity trees); plant painting moves to Phase 7 with
-  the billboard system.
+- **Bake Plant** (one button on `HBStylePlant`, `Editor/Foliage/StylePlantBaker.cs`) writes mesh copies
+  `MESH_Plant_<Name>_<i>.asset` into `<model folder>/Billboard_<Name>/`. Leaves keep the canopy normal in the tangent
+  channel, which survives static batching, so leaves have no normal map. uv3 is (share, Sway metres, 1) on leaf and
+  body; z > 0.5 is the baked mark. A missing TEXCOORD3 is not zero, so never test x or y. The canopy comes from
+  mean-shift clusters with one egg per cluster. The baker tells leaves from body by shader.
+- An unbaked plant uses its own normals and no wind, and shows magenta in the debug view. Runtime lighting never reads
+  renderer bounds. **Clear Bake** restores the original meshes; the `MESH_Plant_*` files stay on disk.
+- Light: translucency and Thickness were removed in the test. A fixed shade light (`HB_ExtraLight` 0.15) keeps tall
+  bushes from going black.
+- Wind: Sway in metres on `HBStylePlant` (baked, the inspector warns when it differs from the mesh), Flutter on the
+  leaf material. Gust and noise are shared with grass through `Library/Weather/StyleWind.hlsl`. GPU plants take one
+  gust per plant from the compute pass. Picking and Selection Outline follow the sway (`HB_PLANT_SCENE`).
+- Weather: foliage is always Static, there is no Receive Weather. Leaf snow reads the upward side of the leaf, the same
+  on both faces, and slope is off; only shelter and cover decide.
+- Debug: Foliage/Canopy, Foliage/Sway (metres / 2), Weather/Gust (shared with grass).
+
+### GPU plants and billboards — Done (Phase 7)
+- `HBStylePlant` holds a `HBStylePlantAsset` (`DATA_Plant_<Name>`). `StylePlantSystem` runs in `beginCameraRendering`:
+  compute `Cull` fills view lists (near, far) and shadow lists (shadowNear, shadowFar), `Sky` fills the shelter list,
+  and `Graphics.RenderMeshIndirect` draws them. View draws use ShadowCasting Off, shadow draws ShadowsOnly.
+- Distances on the plant, for a 60° lens (zooming in pushes them away): **Switch Distance** 25 m, **Cull Distance**
+  300 m, **Shadow Mesh Distance** 20 m. Plants past the URP shadow distance cast nothing. Off-screen plants still
+  cast. A selected plant draws its own renderers, and a renderer with any Lit submesh stays a normal renderer.
+- Billboard: dithered cross-fade from 8 baked views (512 px tiles). No Brush. Snow and wind run on it, Hidden shader
+  `Hidden/HB URP Style/Foliage Billboard` whose materials come from the bake only.
+- Billboard shadow: a card that faces the sun, with `_ShadowAtlas` holding 8×8 hemi-octahedral sun views as distance
+  fields; three frames blend, so the shadow turns smoothly over the day.
+- Canopy self-shadow: the view card and the shadow card cross at the tree centre, so `HBPlantVisible.lift` moves the
+  main light shadow lookup toward the sun (`HB_SHADOW_LIFT`). Main light only.
+- Shelter: plants draw into the top and underside maps; billboards are flat discs in the far map. A plant past Cull
+  Distance keeps its shelter. Weather Masks stay near-map only.
+- **Hi-Z occlusion:** `StyleDepthPyramidPass` builds a per-camera atlas of farthest eye depth after the skybox, the next
+  frame's `HB_BoxHidden` (`Library/Core/StyleOcclusion.hlsl`) tests boxes against it. Only view lists are cut, so hidden
+  plants still cast shadows. Grass uses the same test through its `Occlude` kernel, then indirect `Cull`. Terrain does
+  not use it. Depth closer than 1.5 m is never an occluder (first-person hands turn with the camera). Debug
+  Culling/Game Camera shows the result from the Scene view. Transparents are safe because they are not in opaque
+  depth.
+- **Known limits:** no mid LOD between mesh and billboard, so dense mesh trees stay expensive; keep their count in
+  mind. The researched path for later: `MeshLodUtility.GenerateMeshLods` for bodies, own leaf-island thinning in Bake
+  Plant (keep 1 in 3, scale by √3), shadow pass on the mid mesh. A LOD Group on a plant draws every LOD. Plants with the
+  same name share `Billboard_<Name>` files. Prefab root scale or rotation edits reach painted plants at the next
+  paint. A wall closer than 1.5 m does not occlude. Two renderers with the feature turn Hi-Z off. Grass `Occlude`
+  appends cells in thread order. A group keeps its first member's layer.
+
+### Plants on the terrain — Done (Phase 7c)
+- **Plants palette** in the terrain Brushes tab (`StyleTerrainPlantPanel`, `StyleTerrainPlanter`): Density, Min
+  Distance, Size range, Rotation per plant; **Single Click** places one plant and ignores Density and Min Distance;
+  Shift erases. Spots are deterministic per cell, so repainting adds nothing. Sculpting moves plants (editor only).
+  Replacing the Prefab of a type keeps the placed plants. Brush only, no Layer rules.
+- Data: `HBStyleTerrainPlants` sub-asset with a type list and records with stable ids (`m_NextId`). Ids are the same on
+  every machine. `StyleTerrainPlants` feeds `StylePlantSystem.Placed` lists. Large record lists grow the terrain asset.
+- **Colliders:** every painted plant whose prefab has a Box, Sphere, Capsule or Mesh collider gets hidden static copies,
+  built once at load in Play Mode (`StyleTerrainColliders`), each with `HBStylePlantBody` (`terrain`, `prefab`, `id`,
+  `Harvest()`). There is no distance setting, no streaming and no focus component, so a plain `Physics.Raycast` hits
+  plants at any range and a server with no camera works the same. The count is chosen by which prefabs have colliders:
+  leave them off small plants, prefer Capsule over Mesh Collider.
+- **Harvest:** `HBStyleTerrain.Harvest(id)`, `Restore(id)`, `harvested`. Harvest shrinks one GPU slot in place and turns
+  that plant's colliders off. State is runtime only; the game saves `harvested` and calls `Harvest` again on load.
+
+```csharp
+if (Physics.Raycast(ray, out var hit) && hit.collider.TryGetComponent<HBStylePlantBody>(out var plant))
+    plant.Harvest();
+```
+
+- Multiplayer: send `plant.id`, every machine calls `terrain.Harvest(id)`; a late joiner receives `terrain.harvested`.
+  `HBStyleTerrain.Update` builds plant data without a camera. Dedicated server build, and MeshCollider Read/Write in a
+  build, are untested.
+- `HBStyleBender` works like a collider: position, all-axis rotation and lossy scale follow the Transform, the box
+  footprint is its straight-down silhouette.
 
 ### Particle — Keep: Alpha / Premultiply / Additive, flipbook blending, lit option, OIT.
 ### Decal — Keep: URP DBuffer projector in style.
@@ -880,4 +930,5 @@ shaders appear under `HB URP Style/`.
 ## 16. Runtime API
 
 - `HBStyleRenderSettings` (quality levels at runtime), `HBStyleEnvironment` (profile, weather, time),
-  `HBStyleLiquid` height/depth/surface queries, terrain height query.
+  `HBStyleLiquid` height/depth/surface queries, terrain height query, `HBStyleTerrain.Harvest` / `Restore` /
+  `harvested` (see §4 Plants on the terrain).

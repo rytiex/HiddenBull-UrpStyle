@@ -92,7 +92,7 @@ half4 HB_BillboardNormal(float2 corner, float3 frame)
     half4 second = SAMPLE_TEXTURE2D(_NormalAtlas, sampler_NormalAtlas, HB_BillboardAtlasUV(corner, frame.y));
     half4 mixed = lerp(first, second, half(frame.z));
 
-    return half4(NormalizeNormalPerPixel(TransformObjectToWorldNormal(float3(mixed.rgb * 2.0h - 1.0h))), mixed.a);
+    return half4(TransformObjectToWorldDir(float3(mixed.rgb * 2.0h - 1.0h)), mixed.a);
 }
 
 #endif

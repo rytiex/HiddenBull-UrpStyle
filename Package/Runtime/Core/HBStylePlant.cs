@@ -33,7 +33,7 @@ namespace HiddenBull.UrpStyle
             {
                 m_Asset = value;
 
-                if (isActiveAndEnabled)
+                if (isActiveAndEnabled && !Previewed())
                     StylePlantSystem.Add(this);
             }
         }

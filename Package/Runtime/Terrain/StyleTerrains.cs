@@ -38,10 +38,13 @@ namespace HiddenBull.UrpStyle
         }
 
         internal static StyleShelterPass shelter;
+        internal static StyleDepthPyramidPass pyramid;
 
         internal static HBStyleTerrain highlightTerrain;
         internal static int highlightRow = -1;
         internal static bool layerMap;
+
+        internal static bool growing => grassQuality.enabled && HBStyleTerrain.active.Count > 0;
 
         internal static HBStyleTerrainQuality quality
         {

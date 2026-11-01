@@ -226,11 +226,8 @@ namespace HiddenBull.UrpStyle
             if (compute == null || !SystemInfo.supportsComputeShaders)
                 return false;
 
-            if (m_Compute != compute)
-            {
-                m_Compute = compute;
-                m_Kernel = compute.HasKernel("Trail") ? compute.FindKernel("Trail") : -1;
-            }
+            m_Compute = compute;
+            m_Kernel = compute.HasKernel("Trail") ? compute.FindKernel("Trail") : -1;
 
             if (m_Kernel < 0)
                 return false;

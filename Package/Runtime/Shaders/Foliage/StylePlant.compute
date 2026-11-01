@@ -2,6 +2,7 @@
 #pragma kernel Sky
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWind.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleOcclusion.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliagePlantData.hlsl"
 
 StructuredBuffer<HBPlantInstance> _HB_PlantInstances;
@@ -18,6 +19,7 @@ float4 _HB_PlantSun;
 float4 _HB_PlantView;
 float4 _HB_PlantAir;
 float4 _HB_PlantShade;
+float4 _HB_PlantExtent;
 
 #define HB_PLANT_SHADOW_REACH 2.0
 #define HB_PLANT_LOW_SUN      0.25
@@ -48,12 +50,13 @@ bool HB_PlantCasts(float4 sphere, float away)
     return HB_PlantSeen(sphere, sphere.xyz + _HB_PlantSun.xyz * reach);
 }
 
-HBPlantVisible HB_PlantEntry(uint index, float fade, float gust)
+HBPlantVisible HB_PlantEntry(uint index, float fade, float gust, float lift)
 {
     HBPlantVisible entry;
     entry.index = index;
     entry.fade = fade;
     entry.gust = gust;
+    entry.lift = lift;
     return entry;
 }
 
@@ -68,13 +71,20 @@ void Cull(uint3 id : SV_DispatchThreadID)
     HBPlantInstance instance = _HB_PlantInstances[index];
 
     float4 sphere = instance.sphere;
+
+    if (sphere.w <= 0.0)
+        return;
+
     float away = length(sphere.xyz - _HB_PlantEye.xyz);
     float seen = away * _HB_PlantView.x;
 
     if (seen >= _HB_PlantRanges.y)
         return;
 
-    bool visible = HB_PlantSeen(sphere, sphere.xyz);
+    float3 extent = float3(dot(abs(instance.row0.xyz), _HB_PlantExtent.xyz),
+                           dot(abs(instance.row1.xyz), _HB_PlantExtent.xyz),
+                           dot(abs(instance.row2.xyz), _HB_PlantExtent.xyz));
+    bool visible = HB_PlantSeen(sphere, sphere.xyz) && !HB_BoxHidden(sphere.xyz, extent);
     bool casting = HB_PlantCasts(sphere, away);
 
     if (!visible && !casting)
@@ -83,16 +93,15 @@ void Cull(uint3 id : SV_DispatchThreadID)
     float2 wind = float2(sin(_HB_PlantAir.y), cos(_HB_PlantAir.y));
     float2 root = float2(instance.row0.w, instance.row2.w);
     float gust = HB_GustStreak(root, 0.0, wind, _HB_PlantAir.x, _HB_PlantAir.z);
+    float shade = saturate((_HB_PlantShade.x - seen) * _HB_PlantShade.y);
 
     if (casting)
     {
-        float shade = saturate((_HB_PlantShade.x - seen) * _HB_PlantShade.y);
-
         if (shade > 0.0)
-            _HB_PlantShadowNear.Append(HB_PlantEntry(index, shade, gust));
+            _HB_PlantShadowNear.Append(HB_PlantEntry(index, shade, gust, 0.0));
 
         if (shade < 1.0)
-            _HB_PlantShadowFar.Append(HB_PlantEntry(index, shade > 0.0 ? -shade : 1.0, gust));
+            _HB_PlantShadowFar.Append(HB_PlantEntry(index, shade > 0.0 ? -shade : 1.0, gust, 0.0));
     }
 
     if (!visible)
@@ -101,7 +110,7 @@ void Cull(uint3 id : SV_DispatchThreadID)
     float mesh = saturate((_HB_PlantRanges.x - seen) * _HB_PlantRanges.z);
 
     if (mesh > 0.0)
-        _HB_PlantNear.Append(HB_PlantEntry(index, mesh, gust));
+        _HB_PlantNear.Append(HB_PlantEntry(index, mesh, gust, (1.0 - shade) * sphere.w));
 
     if (mesh >= 1.0)
         return;
@@ -109,7 +118,7 @@ void Cull(uint3 id : SV_DispatchThreadID)
     float fade = mesh > 0.0 ? -mesh : saturate((_HB_PlantRanges.y - seen) * _HB_PlantRanges.w);
 
     if (fade != 0.0)
-        _HB_PlantFar.Append(HB_PlantEntry(index, fade, gust));
+        _HB_PlantFar.Append(HB_PlantEntry(index, fade, gust, sphere.w));
 }
 
 [numthreads(64, 1, 1)]
@@ -123,6 +132,6 @@ void Sky(uint3 id : SV_DispatchThreadID)
     float4 sphere = _HB_PlantInstances[index].sphere;
     float2 gap = abs(sphere.xz - _HB_PlantEye.xz) - sphere.w;
 
-    if (max(gap.x, gap.y) < _HB_PlantView.y)
-        _HB_PlantSky.Append(HB_PlantEntry(index, 1.0, 0.0));
+    if (sphere.w > 0.0 && max(gap.x, gap.y) < _HB_PlantView.y)
+        _HB_PlantSky.Append(HB_PlantEntry(index, 1.0, 0.0, 0.0));
 }

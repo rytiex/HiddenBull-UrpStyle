@@ -17,6 +17,7 @@ struct HBPlantVisible
     uint index;
     float fade;
     float gust;
+    float lift;
 };
 
 float4x4 HB_PlantWorld(HBPlantInstance instance)

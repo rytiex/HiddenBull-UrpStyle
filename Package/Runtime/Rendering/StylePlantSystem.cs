@@ -14,7 +14,8 @@ namespace HiddenBull.UrpStyle
         const int ThreadGroup = 64;
         const int ArgumentStride = 5;
         const int MinCapacity = 64;
-        const int VisibleStride = sizeof(uint) + sizeof(float) * 2;
+        const int VisibleStride = sizeof(uint) + sizeof(float) * 3;
+        const float GoneScale = 1e-6f;
         const float FadeShare = 0.1f;
         const float MinFade = 0.5f;
         const float BoundsMargin = 1f;
@@ -54,6 +55,7 @@ namespace HiddenBull.UrpStyle
             public uint index;
             public float fade;
             public float gust;
+            public float lift;
         }
 
         internal struct Counts
@@ -74,12 +76,16 @@ namespace HiddenBull.UrpStyle
             public int layer;
             public Matrix4x4[] worlds = System.Array.Empty<Matrix4x4>();
             public Matrix4x4[] inverses = System.Array.Empty<Matrix4x4>();
+            public uint[] ids = System.Array.Empty<uint>();
+            public bool[] gone = System.Array.Empty<bool>();
+            public int first = -1;
             public int count;
         }
 
         sealed class Group
         {
             public HBStylePlantAsset asset;
+            public Vector4 extent;
             public readonly List<HBStylePlant> members = new List<HBStylePlant>();
             public readonly List<Placed> placed = new List<Placed>();
             public InstanceData[] instances = new InstanceData[MinCapacity];
@@ -145,6 +151,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_AirId = Shader.PropertyToID("_HB_PlantAir");
         static readonly int s_TimeId = Shader.PropertyToID("_Time");
         static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
+        static readonly int s_ExtentId = Shader.PropertyToID("_HB_PlantExtent");
 
         static readonly Dictionary<HBStylePlantAsset, Group> s_Groups = new Dictionary<HBStylePlantAsset, Group>();
         static readonly List<Group> s_Order = new List<Group>();
@@ -152,6 +159,7 @@ namespace HiddenBull.UrpStyle
         static readonly Vector4[] s_PlaneVectors = new Vector4[6];
 
         static ComputeShader s_Compute;
+        static StyleDepthPyramidPass s_Pyramid;
         static CommandBuffer s_Commands;
         static int s_CullKernel = -1;
         static int s_SkyKernel = -1;
@@ -163,6 +171,8 @@ namespace HiddenBull.UrpStyle
         static bool ready => s_Compute != null && s_CullKernel >= 0 && SystemInfo.supportsComputeShaders;
 
         internal static bool drawing => ready;
+
+        internal static bool active => s_Order.Count > 0;
 
         internal static IEnumerable<HBStylePlant> members
         {
@@ -176,11 +186,12 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static void Setup(ComputeShader compute)
+        internal static void Setup(ComputeShader compute, StyleDepthPyramidPass pyramid)
         {
             var changed = compute != s_Compute;
 
             s_Compute = compute;
+            s_Pyramid = pyramid;
             s_CullKernel = compute != null && compute.HasKernel("Cull") ? compute.FindKernel("Cull") : -1;
             s_SkyKernel = compute != null && compute.HasKernel("Sky") ? compute.FindKernel("Sky") : -1;
 
@@ -269,6 +280,26 @@ namespace HiddenBull.UrpStyle
         {
             if (placed.asset != null && s_Groups.TryGetValue(placed.asset, out var group))
                 group.dirty = true;
+        }
+
+        internal static void Hide(Placed placed, int index, bool hidden)
+        {
+            placed.gone[index] = hidden;
+
+            if (placed.asset == null || placed.first < 0 || !s_Groups.TryGetValue(placed.asset, out var group) ||
+                group.dirty || group.instanceBuffer == null)
+                return;
+
+            var slot = placed.first + index;
+            var least = group.bounds.min;
+            var most = group.bounds.max;
+
+            Place(group, slot, placed.worlds[index], placed.inverses[index], group.asset.sphere, ref least, ref most);
+
+            if (hidden)
+                Collapse(group, slot);
+
+            group.instanceBuffer.SetData(group.instances, slot, slot, 1);
         }
 
         internal static void Rebuild(HBStylePlantAsset asset)
@@ -406,6 +437,8 @@ namespace HiddenBull.UrpStyle
                 StyleEnvironment.weather.z, StyleEnvironment.windHeading * Mathf.Deg2Rad,
                 Shader.GetGlobalVector(s_TimeId).y, 0f));
 
+            StyleDepthPyramidPass.Bind(s_Pyramid, s_Commands, s_Compute, s_CullKernel, camera, viewer, eye);
+
             var drawn = false;
 
             foreach (var group in s_Order)
@@ -489,6 +522,9 @@ namespace HiddenBull.UrpStyle
             group.shaped = false;
 
             var asset = group.asset;
+
+            group.extent = Extent(asset);
+
             var draws = asset.draws;
             var count = draws.Length + 1;
             var arguments = new uint[count * ArgumentStride];
@@ -624,8 +660,17 @@ namespace HiddenBull.UrpStyle
 
             foreach (var placed in group.placed)
             {
+                placed.first = count;
+
                 for (var index = 0; index < placed.count; index++)
-                    Place(group, count++, placed.worlds[index], placed.inverses[index], sphere, ref least, ref most);
+                {
+                    Place(group, count, placed.worlds[index], placed.inverses[index], sphere, ref least, ref most);
+
+                    if (placed.gone[index])
+                        Collapse(group, count);
+
+                    count++;
+                }
             }
 
             group.count = count;
@@ -657,6 +702,32 @@ namespace HiddenBull.UrpStyle
             group.bounds = new Bounds((least + most) * 0.5f, most - least + Vector3.one * BoundsMargin);
         }
 
+        static Vector4 Extent(HBStylePlantAsset asset)
+        {
+            var sphere = asset.sphere;
+            var centre = (Vector3)sphere;
+            var most = Vector3.zero;
+
+            foreach (var draw in asset.draws)
+            {
+                if (draw.mesh == null)
+                    continue;
+
+                var bounds = draw.mesh.bounds;
+
+                for (var corner = 0; corner < 8; corner++)
+                {
+                    var pick = new Vector3((corner & 1) * 2 - 1, (corner & 2) - 1, (corner & 4) / 2 - 1);
+                    var point = draw.local.MultiplyPoint3x4(bounds.center + Vector3.Scale(bounds.extents, pick));
+                    var away = point - centre;
+
+                    most = Vector3.Max(most, new Vector3(Mathf.Abs(away.x), Mathf.Abs(away.y), Mathf.Abs(away.z)));
+                }
+            }
+
+            return most + Vector3.one * Mathf.Max(sphere.w - most.magnitude, 0f);
+        }
+
         static void Place(Group group, int index, Matrix4x4 world, Matrix4x4 inverse, Vector4 sphere,
                           ref Vector3 least, ref Vector3 most)
         {
@@ -679,6 +750,17 @@ namespace HiddenBull.UrpStyle
             group.positions[index] = centre;
             least = Vector3.Min(least, centre - Vector3.one * radius);
             most = Vector3.Max(most, centre + Vector3.one * radius);
+        }
+
+        static void Collapse(Group group, int slot)
+        {
+            ref var instance = ref group.instances[slot];
+            var shrink = new Vector4(GoneScale, GoneScale, GoneScale, 1f);
+
+            instance.row0 = Vector4.Scale(instance.row0, shrink);
+            instance.row1 = Vector4.Scale(instance.row1, shrink);
+            instance.row2 = Vector4.Scale(instance.row2, shrink);
+            instance.sphere.w = 0f;
         }
 
         static ProbeData Pack(SphericalHarmonicsL2 sh, Vector4 occlusion)
@@ -751,6 +833,7 @@ namespace HiddenBull.UrpStyle
             s_Commands.SetComputeVectorParam(s_Compute, s_ShadeId, new Vector4(
                 shade, 1f / Mathf.Max(shade * FadeShare, MinFade), 0f, 0f));
 
+            s_Commands.SetComputeVectorParam(s_Compute, s_ExtentId, group.extent);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_InstancesId, group.instanceBuffer);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_NearId, group.near);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_FarId, group.far);

@@ -544,3 +544,50 @@ Distance is cheap. Leaf count by pixel height changed no ms, so vertices are not
 are the likely cost (not measured). Tufts drawn at Ultra, 100 m: ThinStart 200: 530 k drawn, 3.55 M stored; 150: 339 k,
 2.08 M; 120: 237 k, 1.98 M. ThinStart stays 200 until the final measurement. The binding number comes from a build in
 Phase 12.
+
+## Phase 7 — Foliage + Billboards
+
+### Phase 7 closed (2026-11-01): final offline costs (compiled offline; 7a, 7b and Hi-Z confirmed by the user in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Foliage forward (all) | 3206 | 122 | 2158 / 21 | 2500 / 60 — OK |
+| Foliage forward (all, GPU) | 3252 | 128 | 2204 / 27 | 2500 / 60 — OK |
+| Foliage Body forward (all) | 3194 | 124 | 2146 / 23 | 2500 / 60 — OK |
+| Foliage Body forward (all, GPU) | 3243 | 129 | 2195 / 28 | 2500 / 60 — OK |
+| Foliage / Body forward (debug) | 1484 / 1492 | 20 / 22 | – | – |
+| Foliage / Body vertex | 142 / 135 | 0 / 0 | – | – |
+| Foliage / Body vertex (GPU, gust from compute) | 110 / 105 | 8 / 8 | – | – |
+| Foliage / Body ShadowCaster vertex (GPU) | 100 / 91 | 8 / 8 | – | – |
+| Foliage DepthOnly fragment | 21 | 1 | – | – |
+| Billboard forward | 2086 | 126 | 1038 / 25 | 1500 / 30 — OK |
+| Billboard forward (debug) | 851 | 35 | – | – |
+| Billboard vertex | 157 | 8 | – | – |
+| Billboard ShadowCaster fragment / vertex | 30 / 208 | 5 / 8 | – | – |
+| Billboard DepthOnly fragment / vertex | 30 / 167 | 4 / 8 | – | – |
+| Billboard DepthNormals fragment / vertex | 45 / 154 | 9 / 8 | – | – |
+| Plant Cull compute (per plant, per camera) | 371 | 5 | – | – |
+| Plant Sky compute | 20 | 2 | – | – |
+| Depth Pyramid Base / Down compute | 42 / 21 | 1 / 4 | – | – |
+| Grass Occlude compute (per visible cell, every frame) | 164 | 3 | – | – |
+| Grass Cull compute | 330 | 6 | – | – |
+| Grass forward | 355 | 5 | – | 2000 / 30 — OK |
+| Lit forward (all, triplanar) | 3486 | 136 | 2438 / 35 | 2550 / 60 — OK, 112 slots left |
+| Terrain forward | 4054 | 151 | 3006 / 50 | 4500 / 175 — OK |
+
+Lit, Terrain and Grass did not change in this phase. Depth pyramid memory: an R32 atlas per camera at 1.5 × the base
+size, where the base is half the camera target rounded down to a power of two: 768 × 512 = 2.4 MB at 1080p (computed).
+Colliders add no shader cost: one hidden GameObject per collider of a painted prefab, built once at load.
+
+User measurements in the editor, 176 mesh trees, 1.13 M triangles per pass, Switch Distance 45 (not a build):
+
+| Case | Frame |
+|---|---|
+| Main Light Per Pixel, before shadow lists | 19.2 ms |
+| Main Light Disabled, same angle (also removes lighting) | 6.2 ms |
+| Switch Distance 10, before shadow lists | 6.4 ms |
+| Main Light Per Pixel, with shadow lists | 10 ms |
+
+Hi-Z simulation, not a Unity measurement: a wall caught 16.9 % of the trees fully behind it with a sphere + 4 texels,
+76.6 % with the final box and 5×5 scan; 0 false hides in 1.2 M random boxes; near-wall parallax errors are gone from
+1.2 m on. The ms gain of Hi-Z and the collider count limit in a real scene are measured in Phase 12.

@@ -809,6 +809,26 @@
             Reads = 0
         }
         @{
+            Name = 'Depth Pyramid Base'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleDepthPyramid.compute'
+            Entry = 'Base'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Depth Pyramid Down'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleDepthPyramid.compute'
+            Entry = 'Down'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Shelter Underside plant vertex'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
             Entry = 'HB_UndersidePlantVertex'
@@ -1073,6 +1093,16 @@
             Name = 'Grass Place'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
             Entry = 'Place'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Occlude'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
+            Entry = 'Occlude'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()

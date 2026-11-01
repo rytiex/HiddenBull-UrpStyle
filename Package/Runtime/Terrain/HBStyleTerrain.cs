@@ -172,6 +172,18 @@ namespace HiddenBull.UrpStyle
             }
         }
 
+        public IReadOnlyCollection<uint> harvested => m_Plants.harvested;
+
+        public bool Harvest(uint id)
+        {
+            return m_Plants.Harvest(id);
+        }
+
+        public bool Restore(uint id)
+        {
+            return m_Plants.Restore(id);
+        }
+
         public bool TryGetHeight(Vector3 position, out float height)
         {
             height = 0f;
@@ -299,6 +311,12 @@ namespace HiddenBull.UrpStyle
             Bind();
         }
 
+        void Update()
+        {
+            if (Application.isPlaying && m_Data != null && m_Data.valid)
+                m_Plants.Sync(this, m_Data.plants, transform.position);
+        }
+
         void OnDisable()
         {
             s_Active.Remove(this);
@@ -413,7 +431,7 @@ namespace HiddenBull.UrpStyle
             var origin = transform.position;
             var viewer = StyleDebug.Viewer(camera);
 
-            m_Plants.Sync(m_Data.plants, origin);
+            m_Plants.Sync(this, m_Data.plants, origin);
 
             var local = viewer.transform.position - origin;
             var size = m_Data.size;

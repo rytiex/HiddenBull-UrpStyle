@@ -12,6 +12,7 @@
 #define HB_PLANT_SHADE_SHADOW 0.35h
 
 #define HB_HAS_EXTRA_LIGHT
+#define HB_SHADOW_LIFT hb_PlantLift
 
 half3 HB_ExtraLight(Light light, InputData inputData, SurfaceData surfaceData, half3 normalWS)
 {
