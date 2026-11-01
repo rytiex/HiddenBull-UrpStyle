@@ -23,6 +23,7 @@ CBUFFER_START(UnityPerMaterial)
     float _BillboardTop;
     float _BillboardRadius;
     float _BillboardSway;
+    float _ShadowSize;
     float _Frames;
     half _Cutoff;
     half _DiffuseWrap;
@@ -39,22 +40,6 @@ SAMPLER(sampler_NormalAtlas);
 
 #define HB_BILLBOARD_REACH 0.75
 
-float3 HB_BillboardFacing(float3 centerWS)
-{
-#ifdef HB_SHADOW_CASTER
-    #if _CASTING_PUNCTUAL_LIGHT_SHADOW
-    float3 toward = _LightPosition - centerWS;
-    #else
-    float3 toward = _LightDirection;
-    #endif
-
-    if (dot(toward.xz, toward.xz) > 1e-4)
-        return toward;
-#endif
-
-    return GetCameraPositionWS() - centerWS;
-}
-
 float3 HB_BillboardPosition(float2 corner, out float3 toward, out float3 frame)
 {
     float4x4 objectToWorld = GetObjectToWorldMatrix();
@@ -63,7 +48,7 @@ float3 HB_BillboardPosition(float2 corner, out float3 toward, out float3 frame)
                           length(objectToWorld._m02_m12_m22));
     float3 up = normalize(objectToWorld._m01_m11_m21);
 
-    toward = HB_BillboardFacing(centerWS);
+    toward = GetCameraPositionWS() - centerWS;
     toward -= up * dot(toward, up);
     toward = dot(toward, toward) > 1e-8 ? normalize(toward) : normalize(objectToWorld._m02_m12_m22);
 

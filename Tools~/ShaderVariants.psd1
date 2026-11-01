@@ -680,7 +680,7 @@
         }
         @{
             Name = 'Billboard ShadowCaster fragment'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardShadowPass.hlsl'
             Entry = 'HB_BillboardShadowFragment'
             Stage = 'ps'
             Urp = 'Minimal'
@@ -690,8 +690,8 @@
         }
         @{
             Name = 'Billboard ShadowCaster vertex'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl'
-            Entry = 'HB_BillboardDepthVertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardShadowPass.hlsl'
+            Entry = 'HB_BillboardShadowVertex'
             Stage = 'vs'
             Urp = 'Minimal'
             Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup', 'HB_SHADOW_CASTER')

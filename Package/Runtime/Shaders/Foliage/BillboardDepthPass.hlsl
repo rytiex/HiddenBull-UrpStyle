@@ -4,7 +4,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardInput.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
 
-#if !defined(HB_SHADOW_CASTER) && !defined(HB_DEPTH_NORMALS)
+#ifndef HB_DEPTH_NORMALS
     #define HB_BILLBOARD_SHELTER
 #endif
 
@@ -27,9 +27,7 @@ struct HBBillboardDepthVaryings
     float3 frame      : TEXCOORD1;
     float4 positionCS : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
-#ifndef HB_SHADOW_CASTER
     UNITY_VERTEX_OUTPUT_STEREO
-#endif
 };
 
 HBBillboardDepthVaryings HB_BillboardDepthVertex(HBBillboardDepthAttributes input)
@@ -38,18 +36,14 @@ HBBillboardDepthVaryings HB_BillboardDepthVertex(HBBillboardDepthAttributes inpu
 
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
-#ifndef HB_SHADOW_CASTER
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-#endif
 
     float3 toward;
     float3 positionWS = HB_BillboardPosition(input.corner, toward, output.frame);
 
     output.corner = input.corner;
 
-#ifdef HB_SHADOW_CASTER
-    output.positionCS = HB_ShadowCasterPosition(positionWS, toward);
-#elif defined(HB_BILLBOARD_SHELTER)
+#ifdef HB_BILLBOARD_SHELTER
     if (_HB_ShelterPass > HB_PLANT_OWN_SHELTER)
     {
         float2 offset = (input.corner - 0.5) * 2.0 * _BillboardRadius * length(GetObjectToWorldMatrix()._m00_m10_m20);
@@ -74,18 +68,7 @@ void HB_BillboardDepthClip(HBBillboardDepthVaryings input)
     LODFadeCrossFade(input.positionCS);
 }
 
-#if defined(HB_SHADOW_CASTER)
-
-half4 HB_BillboardShadowFragment(HBBillboardDepthVaryings input) : SV_TARGET
-{
-    UNITY_SETUP_INSTANCE_ID(input);
-
-    HB_BillboardDepthClip(input);
-
-    return 0;
-}
-
-#elif defined(HB_DEPTH_NORMALS)
+#ifdef HB_DEPTH_NORMALS
 
 half4 HB_BillboardDepthNormalsFragment(HBBillboardDepthVaryings input) : SV_TARGET
 {

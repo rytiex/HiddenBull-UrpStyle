@@ -91,6 +91,10 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.PropertyField(m_Asset.FindProperty("m_SwitchDistance"));
 
             EditorGUILayout.PropertyField(m_Asset.FindProperty("m_CullDistance"));
+
+            using (new EditorGUI.DisabledScope(!asset.billboarded))
+                EditorGUILayout.PropertyField(m_Asset.FindProperty("m_ShadowMeshDistance"));
+
             m_Asset.ApplyModifiedProperties();
         }
 
@@ -124,7 +128,9 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.HelpBox(
                 $"GPU copies of this plant ({counts.total}):\n" +
                 $"Meshes: {counts.meshes}   Billboards: {counts.billboards}   Not drawn: {hidden}\n" +
-                $"Triangles: {counts.triangles:N0} per pass (the Statistics window does not count GPU draws).",
+                $"Triangles: {counts.triangles:N0} per pass (the Statistics window does not count GPU draws).\n" +
+                $"Shadow meshes: {counts.shadowMeshes}   Shadow billboards: {counts.shadowBillboards}\n" +
+                $"Shadow triangles: {counts.shadowTriangles:N0} per cascade.",
                 MessageType.None);
         }
     }

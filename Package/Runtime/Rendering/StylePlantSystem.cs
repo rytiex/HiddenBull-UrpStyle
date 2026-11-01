@@ -61,7 +61,10 @@ namespace HiddenBull.UrpStyle
             public int total;
             public int meshes;
             public int billboards;
+            public int shadowMeshes;
+            public int shadowBillboards;
             public long triangles;
+            public long shadowTriangles;
             public bool valid;
         }
 
@@ -91,12 +94,16 @@ namespace HiddenBull.UrpStyle
             public GraphicsBuffer near;
             public GraphicsBuffer far;
             public GraphicsBuffer sky;
+            public GraphicsBuffer shadowNear;
+            public GraphicsBuffer shadowFar;
             public GraphicsBuffer everyone;
             public GraphicsBuffer arguments;
             public GraphicsBuffer skyArguments;
             public GraphicsBuffer farArguments;
+            public GraphicsBuffer shadowArguments;
             public MaterialPropertyBlock[] blocks;
             public MaterialPropertyBlock[] skyBlocks;
+            public MaterialPropertyBlock[] shadowBlocks;
             public int[] shelterPasses;
             public int capacity;
             public int count;
@@ -104,6 +111,8 @@ namespace HiddenBull.UrpStyle
             public bool dirty = true;
             public bool shaped = true;
             public bool reading;
+            public int shadowMeshes;
+            public int shadowBillboards;
             public long meshTriangles;
             public long billboardTriangles;
             public Counts counts;
@@ -121,6 +130,9 @@ namespace HiddenBull.UrpStyle
         static readonly int s_NearId = Shader.PropertyToID("_HB_PlantNear");
         static readonly int s_FarId = Shader.PropertyToID("_HB_PlantFar");
         static readonly int s_SkyId = Shader.PropertyToID("_HB_PlantSky");
+        static readonly int s_ShadowNearId = Shader.PropertyToID("_HB_PlantShadowNear");
+        static readonly int s_ShadowFarId = Shader.PropertyToID("_HB_PlantShadowFar");
+        static readonly int s_ShadeId = Shader.PropertyToID("_HB_PlantShade");
         static readonly int s_LocalId = Shader.PropertyToID("_HB_PlantLocal");
         static readonly int s_LocalInverseId = Shader.PropertyToID("_HB_PlantLocalInverse");
         static readonly int s_BoundsCenterId = Shader.PropertyToID("_HB_PlantBoundsCenter");
@@ -144,6 +156,7 @@ namespace HiddenBull.UrpStyle
         static int s_CullKernel = -1;
         static int s_SkyKernel = -1;
         static bool s_Hooked;
+        static bool s_Casting;
         static HBStylePlantAsset s_Watched;
         static double s_WatchUntil;
 
@@ -210,7 +223,7 @@ namespace HiddenBull.UrpStyle
 
             member.registered = null;
 
-            if (asset == null || !s_Groups.TryGetValue(asset, out var group))
+            if (asset is null || !s_Groups.TryGetValue(asset, out var group))
                 return;
 
             var slot = member.slot;
@@ -244,7 +257,7 @@ namespace HiddenBull.UrpStyle
 
         internal static void Remove(Placed placed)
         {
-            if (placed.asset == null || !s_Groups.TryGetValue(placed.asset, out var group) ||
+            if (placed.asset is null || !s_Groups.TryGetValue(placed.asset, out var group) ||
                 !group.placed.Remove(placed))
                 return;
 
@@ -382,6 +395,8 @@ namespace HiddenBull.UrpStyle
             var shadowDistance = pipeline != null && pipeline.supportsMainLightShadows ? pipeline.shadowDistance : 0f;
             var travel = sun != null ? sun.transform.forward : Vector3.down;
 
+            s_Casting = sun != null && shadowDistance > 0f;
+
             s_Commands.SetComputeVectorArrayParam(s_Compute, s_PlanesId, s_PlaneVectors);
             s_Commands.SetComputeVectorParam(s_Compute, s_ViewId, new Vector4(Zoom(viewer),
                                                                              StyleShelterPass.Extent * 0.5f, 0f, 0f));
@@ -497,19 +512,24 @@ namespace HiddenBull.UrpStyle
             group.arguments?.Release();
             group.skyArguments?.Release();
             group.farArguments?.Release();
+            group.shadowArguments?.Release();
             group.farArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, ArgumentStride,
                                                     sizeof(uint));
+            group.shadowArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments,
+                                                       count * ArgumentStride, sizeof(uint));
             group.arguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, count * ArgumentStride,
                                                  sizeof(uint));
             group.skyArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, count * ArgumentStride,
                                                     sizeof(uint));
             group.arguments.SetData(arguments);
             group.skyArguments.SetData(arguments);
+            group.shadowArguments.SetData(arguments);
 
             if (group.blocks == null || group.blocks.Length != count)
             {
                 group.blocks = NewBlocks(count);
                 group.skyBlocks = NewBlocks(count);
+                group.shadowBlocks = NewBlocks(count);
                 group.shelterPasses = new int[count];
             }
 
@@ -523,6 +543,8 @@ namespace HiddenBull.UrpStyle
                 Describe(group.blocks[index], local, bounds);
                 group.blocks[index].SetFloat(s_ReceiveWeatherId, MovingWeather);
                 Describe(group.skyBlocks[index], local, bounds);
+                Describe(group.shadowBlocks[index], local, bounds);
+                group.shadowBlocks[index].SetFloat(s_ReceiveWeatherId, MovingWeather);
 
                 if (billboard ? asset.billboarded : Usable(draws[index]))
                     group.shelterPasses[index] = (billboard ? asset.billboardMaterial : draws[index].material)
@@ -692,6 +714,8 @@ namespace HiddenBull.UrpStyle
             group.near?.Release();
             group.far?.Release();
             group.sky?.Release();
+            group.shadowNear?.Release();
+            group.shadowFar?.Release();
             group.everyone?.Release();
 
             group.everyone = new GraphicsBuffer(GraphicsBuffer.Target.Structured, capacity, VisibleStride);
@@ -702,6 +726,8 @@ namespace HiddenBull.UrpStyle
             group.near = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
             group.far = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
             group.sky = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
+            group.shadowNear = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
+            group.shadowFar = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
         }
 
         static void Cull(Group group, Vector3 eye)
@@ -713,14 +739,23 @@ namespace HiddenBull.UrpStyle
 
             s_Commands.SetBufferCounterValue(group.near, 0);
             s_Commands.SetBufferCounterValue(group.far, 0);
+            s_Commands.SetBufferCounterValue(group.shadowNear, 0);
+            s_Commands.SetBufferCounterValue(group.shadowFar, 0);
 
             s_Commands.SetComputeVectorParam(s_Compute, s_EyeId, new Vector4(eye.x, eye.y, eye.z, group.count));
             s_Commands.SetComputeVectorParam(s_Compute, s_RangesId, new Vector4(
                 near, far, 1f / Mathf.Max(near * FadeShare, MinFade), 1f / Mathf.Max(far * FadeShare, MinFade)));
 
+            var shade = asset.shadowMeshDistance;
+
+            s_Commands.SetComputeVectorParam(s_Compute, s_ShadeId, new Vector4(
+                shade, 1f / Mathf.Max(shade * FadeShare, MinFade), 0f, 0f));
+
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_InstancesId, group.instanceBuffer);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_NearId, group.near);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_FarId, group.far);
+            s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_ShadowNearId, group.shadowNear);
+            s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_ShadowFarId, group.shadowFar);
             s_Commands.DispatchCompute(s_Compute, s_CullKernel, groups, 1, 1);
 
             var sheltered = StyleShelterPass.Needed();
@@ -740,13 +775,16 @@ namespace HiddenBull.UrpStyle
                 var offset = (uint)((index * ArgumentStride + 1) * sizeof(uint));
 
                 s_Commands.CopyCounterValue(group.near, group.arguments, offset);
+                s_Commands.CopyCounterValue(group.shadowNear, group.shadowArguments, offset);
 
                 if (sheltered)
                     s_Commands.CopyCounterValue(group.sky, group.skyArguments, offset);
             }
 
-            s_Commands.CopyCounterValue(group.far, group.arguments,
-                                        (uint)((billboard * ArgumentStride + 1) * sizeof(uint)));
+            var billboards = (uint)((billboard * ArgumentStride + 1) * sizeof(uint));
+
+            s_Commands.CopyCounterValue(group.far, group.arguments, billboards);
+            s_Commands.CopyCounterValue(group.shadowFar, group.shadowArguments, billboards);
         }
 
         internal static Counts Watch(HBStylePlantAsset asset)
@@ -757,7 +795,17 @@ namespace HiddenBull.UrpStyle
             if (asset == null || !s_Groups.TryGetValue(asset, out var group))
                 return default;
 
-            return group.count > 0 ? group.counts : new Counts { valid = true };
+            if (group.count == 0)
+                return new Counts { valid = true };
+
+            var counts = group.counts;
+
+            counts.shadowMeshes = s_Casting ? group.shadowMeshes : 0;
+            counts.shadowBillboards = s_Casting ? group.shadowBillboards : 0;
+            counts.shadowTriangles = counts.shadowMeshes * group.meshTriangles +
+                                     counts.shadowBillboards * group.billboardTriangles;
+
+            return counts;
         }
 
         static void Read(Group group)
@@ -792,6 +840,19 @@ namespace HiddenBull.UrpStyle
                     valid = true
                 };
             });
+
+            s_Commands.RequestAsyncReadback(group.shadowArguments, request =>
+            {
+                if (request.hasError)
+                    return;
+
+                var data = request.GetData<uint>();
+
+                group.shadowMeshes = (int)data[1];
+                group.shadowBillboards = group.asset != null && group.asset.billboarded
+                    ? (int)data[billboard * ArgumentStride + 1]
+                    : 0;
+            });
         }
 
         static void Draw(Group group, Camera camera)
@@ -803,20 +864,32 @@ namespace HiddenBull.UrpStyle
             {
                 var draw = draws[index];
 
-                if (Usable(draw))
-                    Draw(group, camera, draw.mesh, draw.material, draw.shadows, index, group.near);
+                if (!Usable(draw))
+                    continue;
+
+                if (draw.shadows != ShadowCastingMode.ShadowsOnly)
+                    Draw(group, camera, draw.mesh, draw.material, ShadowCastingMode.Off, index, group.near,
+                         group.blocks[index], group.arguments);
+
+                if (s_Casting && draw.shadows != ShadowCastingMode.Off)
+                    Draw(group, camera, draw.mesh, draw.material, ShadowCastingMode.ShadowsOnly, index,
+                         group.shadowNear, group.shadowBlocks[index], group.shadowArguments);
             }
 
-            if (asset.billboarded)
-                Draw(group, camera, asset.billboardMesh, asset.billboardMaterial, ShadowCastingMode.On, draws.Length,
-                     group.far);
+            if (!asset.billboarded)
+                return;
+
+            Draw(group, camera, asset.billboardMesh, asset.billboardMaterial, ShadowCastingMode.Off, draws.Length,
+                 group.far, group.blocks[draws.Length], group.arguments);
+
+            if (s_Casting)
+                Draw(group, camera, asset.billboardMesh, asset.billboardMaterial, ShadowCastingMode.ShadowsOnly,
+                     draws.Length, group.shadowFar, group.shadowBlocks[draws.Length], group.shadowArguments);
         }
 
         static void Draw(Group group, Camera camera, Mesh mesh, Material material, ShadowCastingMode shadows, int index,
-                         GraphicsBuffer visible)
+                         GraphicsBuffer visible, MaterialPropertyBlock block, GraphicsBuffer arguments)
         {
-            var block = group.blocks[index];
-
             block.SetBuffer(s_InstancesId, group.instanceBuffer);
             block.SetBuffer(s_ProbesId, group.probeBuffer);
             block.SetBuffer(s_VisibleId, visible);
@@ -833,7 +906,7 @@ namespace HiddenBull.UrpStyle
                 motionVectorMode = MotionVectorGenerationMode.Camera
             };
 
-            Graphics.RenderMeshIndirect(parameters, mesh, group.arguments, 1, index);
+            Graphics.RenderMeshIndirect(parameters, mesh, arguments, 1, index);
         }
 
         internal static void DrawShelter(RasterCommandBuffer cmd, int cullingMask, Material underside)
@@ -893,20 +966,26 @@ namespace HiddenBull.UrpStyle
             group.near?.Release();
             group.far?.Release();
             group.sky?.Release();
+            group.shadowNear?.Release();
+            group.shadowFar?.Release();
             group.everyone?.Release();
             group.arguments?.Release();
             group.skyArguments?.Release();
             group.farArguments?.Release();
+            group.shadowArguments?.Release();
 
             group.instanceBuffer = null;
             group.probeBuffer = null;
             group.near = null;
             group.far = null;
             group.sky = null;
+            group.shadowNear = null;
+            group.shadowFar = null;
             group.everyone = null;
             group.arguments = null;
             group.skyArguments = null;
             group.farArguments = null;
+            group.shadowArguments = null;
             group.capacity = 0;
             group.shaped = true;
             group.dirty = true;

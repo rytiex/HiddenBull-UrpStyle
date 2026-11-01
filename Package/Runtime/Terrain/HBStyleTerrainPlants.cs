@@ -36,7 +36,11 @@ namespace HiddenBull.UrpStyle
             m_Prefab = prefab;
         }
 
-        public GameObject prefab => m_Prefab;
+        public GameObject prefab
+        {
+            get => m_Prefab;
+            internal set => m_Prefab = value;
+        }
 
         public float density
         {

@@ -8,6 +8,8 @@ StructuredBuffer<HBPlantInstance> _HB_PlantInstances;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantNear;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantFar;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantSky;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantShadowNear;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantShadowFar;
 
 float4 _HB_PlantPlanes[6];
 float4 _HB_PlantEye;
@@ -15,18 +17,13 @@ float4 _HB_PlantRanges;
 float4 _HB_PlantSun;
 float4 _HB_PlantView;
 float4 _HB_PlantAir;
+float4 _HB_PlantShade;
 
 #define HB_PLANT_SHADOW_REACH 2.0
 #define HB_PLANT_LOW_SUN      0.25
 
-bool HB_PlantSeen(float4 sphere, float away)
+bool HB_PlantSeen(float4 sphere, float3 tail)
 {
-    float reach = away < _HB_PlantSun.w + sphere.w
-        ? sphere.w * HB_PLANT_SHADOW_REACH / max(-_HB_PlantSun.y, HB_PLANT_LOW_SUN)
-        : 0.0;
-
-    float3 tail = sphere.xyz + _HB_PlantSun.xyz * reach;
-
     [unroll]
     for (int side = 0; side < 6; side++)
     {
@@ -39,6 +36,16 @@ bool HB_PlantSeen(float4 sphere, float away)
     }
 
     return true;
+}
+
+bool HB_PlantCasts(float4 sphere, float away)
+{
+    if (away >= _HB_PlantSun.w + sphere.w)
+        return false;
+
+    float reach = sphere.w * HB_PLANT_SHADOW_REACH / max(-_HB_PlantSun.y, HB_PLANT_LOW_SUN);
+
+    return HB_PlantSeen(sphere, sphere.xyz + _HB_PlantSun.xyz * reach);
 }
 
 HBPlantVisible HB_PlantEntry(uint index, float fade, float gust)
@@ -64,12 +71,33 @@ void Cull(uint3 id : SV_DispatchThreadID)
     float away = length(sphere.xyz - _HB_PlantEye.xyz);
     float seen = away * _HB_PlantView.x;
 
-    if (seen >= _HB_PlantRanges.y || !HB_PlantSeen(sphere, away))
+    if (seen >= _HB_PlantRanges.y)
+        return;
+
+    bool visible = HB_PlantSeen(sphere, sphere.xyz);
+    bool casting = HB_PlantCasts(sphere, away);
+
+    if (!visible && !casting)
         return;
 
     float2 wind = float2(sin(_HB_PlantAir.y), cos(_HB_PlantAir.y));
     float2 root = float2(instance.row0.w, instance.row2.w);
     float gust = HB_GustStreak(root, 0.0, wind, _HB_PlantAir.x, _HB_PlantAir.z);
+
+    if (casting)
+    {
+        float shade = saturate((_HB_PlantShade.x - seen) * _HB_PlantShade.y);
+
+        if (shade > 0.0)
+            _HB_PlantShadowNear.Append(HB_PlantEntry(index, shade, gust));
+
+        if (shade < 1.0)
+            _HB_PlantShadowFar.Append(HB_PlantEntry(index, shade > 0.0 ? -shade : 1.0, gust));
+    }
+
+    if (!visible)
+        return;
+
     float mesh = saturate((_HB_PlantRanges.x - seen) * _HB_PlantRanges.z);
 
     if (mesh > 0.0)

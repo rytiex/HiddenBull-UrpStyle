@@ -29,6 +29,12 @@ namespace HiddenBull.UrpStyle
         float m_CullDistance = 300f;
 
         [SerializeField]
+        [Min(0.1f)]
+        [Tooltip("Distance from the camera, in metres, up to which the plant casts the shadow of its real mesh. " +
+                 "Beyond it the billboard casts the shadow, which is much cheaper.")]
+        float m_ShadowMeshDistance = 20f;
+
+        [SerializeField]
         [HideInInspector]
         HBStylePlantDraw[] m_Draws = Array.Empty<HBStylePlantDraw>();
 
@@ -46,6 +52,7 @@ namespace HiddenBull.UrpStyle
 
         public float switchDistance => billboarded ? m_SwitchDistance : cullDistance;
         public float cullDistance => Mathf.Max(m_CullDistance, m_SwitchDistance + 0.1f);
+        public float shadowMeshDistance => billboarded ? Mathf.Min(m_ShadowMeshDistance, cullDistance) : cullDistance;
 
         public HBStylePlantDraw[] draws => m_Draws;
         public Mesh billboardMesh => m_BillboardMesh;

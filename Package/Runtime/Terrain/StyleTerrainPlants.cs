@@ -91,7 +91,7 @@ namespace HiddenBull.UrpStyle
         {
             var asset = type.asset;
 
-            if (placed.asset != asset)
+            if (!ReferenceEquals(placed.asset, asset))
             {
                 StylePlantSystem.Remove(placed);
                 placed.asset = asset;

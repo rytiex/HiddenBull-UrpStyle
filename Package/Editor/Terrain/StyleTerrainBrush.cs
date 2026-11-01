@@ -51,6 +51,12 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal static bool plantTool => tool == StyleTerrainBrushTool.PlantPaint;
 
+        internal static bool plantSingle
+        {
+            get => EditorPrefs.GetBool(Key + "PlantSingle", false);
+            set => EditorPrefs.SetBool(Key + "PlantSingle", value);
+        }
+
         internal static int plantType
         {
             get => SessionState.GetInt(Key + "PlantType", 0);
@@ -260,7 +266,7 @@ namespace HiddenBull.UrpStyle.Editor
                 case EventType.MouseDrag when GUIUtility.hotControl == id:
                     s_Shift = current.shift;
 
-                    if (hit)
+                    if (hit && !(plantTool && plantSingle))
                         Follow(data, point, s_Shift);
 
                     current.Use();
@@ -467,6 +473,13 @@ namespace HiddenBull.UrpStyle.Editor
                     return;
 
                 case StyleTerrainBrushTool.PlantPaint:
+                    if (plantSingle)
+                    {
+                        StyleTerrainPlanter.Single(data, plantType, point - s_Terrain.transform.position, size * 0.5f,
+                                                   shift);
+                        return;
+                    }
+
                     StyleTerrainPlanter.Stamp(data, plantType, point - s_Terrain.transform.position, size * 0.5f,
                                               hardness, shift, StyleTerrainShapes.current);
                     return;
@@ -611,13 +624,21 @@ namespace HiddenBull.UrpStyle.Editor
                     break;
 
                 case StyleTerrainBrushTool.PlantPaint:
-                    StyleTerrainGUI.SceneLabel(point, PlantName(data), shift ? "Erase" : "Paint", colour);
+                    StyleTerrainGUI.SceneLabel(point, PlantName(data), PlantAction(shift), colour);
                     break;
 
                 default:
                     StyleTerrainGUI.SceneLabel(point, ground, "Smooth", colour);
                     break;
             }
+        }
+
+        static string PlantAction(bool shift)
+        {
+            if (plantSingle)
+                return shift ? "Erase the nearest" : "Place one here";
+
+            return shift ? "Erase" : "Paint";
         }
 
         static string PlantName(HBStyleTerrainData data)

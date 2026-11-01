@@ -397,6 +397,12 @@ namespace HiddenBull.UrpStyle
             if (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
                 return;
 
+#if UNITY_EDITOR
+            if (camera.scene.IsValid() && camera.scene != gameObject.scene &&
+                UnityEditor.SceneManagement.EditorSceneManager.IsPreviewScene(camera.scene))
+                return;
+#endif
+
             if (camera.TryGetComponent<UniversalAdditionalCameraData>(out var additional) &&
                 additional.renderType == CameraRenderType.Overlay)
                 return;

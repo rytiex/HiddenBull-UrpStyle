@@ -38,13 +38,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal static int Add(HBStyleTerrainData data, GameObject prefab)
         {
-            if (!prefab.TryGetComponent<HBStylePlant>(out var plant) || plant.asset == null || !plant.asset.valid)
-            {
-                EditorUtility.DisplayDialog("Add Plant",
-                                            $"'{prefab.name}' has no baked HB Style Plant. Add the component to the " +
-                                            "prefab and press Bake Plant first.", "OK");
+            if (!Baked(prefab, "Add Plant"))
                 return -1;
-            }
 
             var plants = Ensure(data);
 
@@ -59,6 +54,29 @@ namespace HiddenBull.UrpStyle.Editor
             plants.Edited();
             EditorUtility.SetDirty(plants);
             return plants.types.Count - 1;
+        }
+
+        internal static bool Replace(HBStyleTerrainPlants plants, int index, GameObject prefab)
+        {
+            if (!Baked(prefab, "Replace Plant"))
+                return false;
+
+            Undo.RecordObject(plants, "Replace Terrain Plant");
+            plants.types[index].prefab = prefab;
+            plants.Edited();
+            EditorUtility.SetDirty(plants);
+            return true;
+        }
+
+        static bool Baked(GameObject prefab, string title)
+        {
+            if (prefab.TryGetComponent<HBStylePlant>(out var plant) && plant.asset != null && plant.asset.valid)
+                return true;
+
+            EditorUtility.DisplayDialog(title,
+                                        $"'{prefab.name}' has no baked HB Style Plant. Add the component to the " +
+                                        "prefab and press Bake Plant first.", "OK");
+            return false;
         }
 
         internal static void Remove(HBStyleTerrainPlants plants, int index)
@@ -102,6 +120,59 @@ namespace HiddenBull.UrpStyle.Editor
                 Erase(plants, type, local, radius, hardness, shape);
             else
                 Paint(data, plants, type, local, radius, hardness, shape);
+        }
+
+        internal static void Single(HBStyleTerrainData data, int type, Vector3 local, float radius, bool shift)
+        {
+            var plants = data.plants;
+
+            if (plants == null || type < 0 || type >= plants.types.Count)
+                return;
+
+            if (shift)
+            {
+                EraseNearest(plants, type, local, radius);
+                return;
+            }
+
+            var kind = plants.types[type];
+            var size = data.size;
+
+            local.y = data.terrainData.GetInterpolatedHeight(local.x / size.x, local.z / size.z);
+            plants.Plant(type, local, Random.value * kind.rotation,
+                         Mathf.Lerp(kind.sizeLeast, kind.sizeMost, Random.value));
+            plants.Edited();
+        }
+
+        static void EraseNearest(HBStyleTerrainPlants plants, int type, Vector3 local, float radius)
+        {
+            var records = plants.records;
+            var nearest = radius * radius;
+            var found = -1;
+
+            for (var slot = 0; slot < records.Count; slot++)
+            {
+                var record = records[slot];
+
+                if (record.type != type)
+                    continue;
+
+                var dx = record.position.x - local.x;
+                var dz = record.position.z - local.z;
+                var away = dx * dx + dz * dz;
+
+                if (away > nearest)
+                    continue;
+
+                nearest = away;
+                found = slot;
+            }
+
+            if (found < 0)
+                return;
+
+            records.RemoveAt(found);
+            plants.Edited();
         }
 
         static void Paint(HBStyleTerrainData data, HBStyleTerrainPlants plants, int type, Vector3 local, float radius,

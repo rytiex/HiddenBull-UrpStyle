@@ -14,6 +14,14 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly GUIContent s_AddLabel = new GUIContent("Add Plant",
             "Drop a prefab here. It needs an HB Style Plant that has been baked with Bake Plant.");
 
+        static readonly GUIContent s_PrefabLabel = new GUIContent("Prefab",
+            "The prefab this plant draws. Drop another one here to swap every plant of this kind in place. Undo " +
+            "brings the old one back.");
+
+        static readonly GUIContent s_SingleLabel = new GUIContent("Single Click",
+            "Each click places one plant exactly where you click, ignoring Density and Min Distance. Dragging adds " +
+            "nothing. Shift + click erases the nearest one inside the brush.");
+
         static readonly GUIContent s_DensityLabel = new GUIContent("Density",
             "Share of the free spots this plant fills. 1 packs it as tight as Min Distance allows.");
 
@@ -126,14 +134,37 @@ namespace HiddenBull.UrpStyle.Editor
 
             StyleTerrainGUI.Header(Caption(data), StyleTerrainGUI.plantTint);
 
-            if (type.asset == null || !type.asset.valid)
+            var prefab = (GameObject)EditorGUILayout.ObjectField(s_PrefabLabel, type.prefab, typeof(GameObject), false);
+
+            if (prefab != null && prefab != type.prefab && StyleTerrainPlanter.Replace(plants, index, prefab))
+                SceneView.RepaintAll();
+
+            if (type.prefab == null)
+                EditorGUILayout.HelpBox("This plant's prefab is gone, so its plants are not drawn. They keep their " +
+                                        "places: drop a prefab above to bring them back.", MessageType.Warning);
+            else if (type.asset == null || !type.asset.valid)
                 EditorGUILayout.HelpBox("This prefab has no baked HB Style Plant, so its plants are not drawn. " +
                                         "Press Bake Plant on the prefab.", MessageType.Warning);
 
+            var single = EditorGUILayout.Toggle(s_SingleLabel, StyleTerrainBrush.plantSingle);
+
+            if (single != StyleTerrainBrush.plantSingle)
+            {
+                StyleTerrainBrush.plantSingle = single;
+                SceneView.RepaintAll();
+            }
+
             EditorGUI.BeginChangeCheck();
 
-            var density = EditorGUILayout.Slider(s_DensityLabel, type.density, 0f, 1f);
-            var distance = EditorGUILayout.Slider(s_DistanceLabel, type.minDistance, DistanceLeast, DistanceMost);
+            float density;
+            float distance;
+
+            using (new EditorGUI.DisabledScope(single))
+            {
+                density = EditorGUILayout.Slider(s_DensityLabel, type.density, 0f, 1f);
+                distance = EditorGUILayout.Slider(s_DistanceLabel, type.minDistance, DistanceLeast, DistanceMost);
+            }
+
             var least = type.sizeLeast;
             var most = type.sizeMost;
 

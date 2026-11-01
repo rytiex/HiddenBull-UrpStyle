@@ -4,6 +4,7 @@ Shader "Hidden/HB URP Style/Foliage Billboard"
     {
         [MainTexture][NoScaleOffset] _BaseMap("Albedo Atlas", 2D) = "white" {}
         [NoScaleOffset] _NormalAtlas("Normal Atlas", 2D) = "gray" {}
+        [NoScaleOffset] _ShadowAtlas("Shadow Atlas", 2D) = "black" {}
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         _Frames("Frames", Float) = 8.0
         _BillboardCenter("Center", Vector) = (0.0, 0.0, 0.0, 0.0)
@@ -11,6 +12,7 @@ Shader "Hidden/HB URP Style/Foliage Billboard"
         _BillboardTop("Top", Float) = 1.0
         _BillboardRadius("Radius", Float) = 1.0
         _BillboardSway("Sway", Float) = 0.0
+        _ShadowSize("Shadow Size", Float) = 1.0
         _DiffuseWrap("Diffuse Wrap", Range(0.0, 1.0)) = 0.4
         _DiffuseSoftness("Diffuse Softness", Range(0.0, 2.0)) = 0.75
         _HalfTone("Half Tone", Range(0.0, 1.0)) = 0.35
@@ -91,7 +93,7 @@ Shader "Hidden/HB URP Style/Foliage Billboard"
             HLSLPROGRAM
             #pragma target 4.5
 
-            #pragma vertex HB_BillboardDepthVertex
+            #pragma vertex HB_BillboardShadowVertex
             #pragma fragment HB_BillboardShadowFragment
 
             #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
@@ -99,7 +101,7 @@ Shader "Hidden/HB URP Style/Foliage Billboard"
             #pragma instancing_options procedural:HB_PlantInstancingSetup
 
             #define HB_SHADOW_CASTER
-            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardDepthPass.hlsl"
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/BillboardShadowPass.hlsl"
             ENDHLSL
         }
 

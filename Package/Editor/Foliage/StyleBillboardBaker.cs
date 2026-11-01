@@ -15,6 +15,11 @@ namespace HiddenBull.UrpStyle.Editor
         const int Frames = 8;
         const int TileSize = 512;
         const int TopSize = 128;
+        const int ShadowFrames = 8;
+        const int ShadowTile = 128;
+        const int ShadowSample = ShadowTile * 2;
+        const float ShadowSpread = 16f;
+        const float ShadowDiagonal = 1.4142f;
         const int DilateSteps = 8;
         const int AlbedoPass = 0;
         const int NormalPass = 1;
@@ -54,6 +59,8 @@ namespace HiddenBull.UrpStyle.Editor
             var size = Mathf.Max(new Vector2(bounds.size.x, bounds.size.z).magnitude, bounds.size.y);
             var albedo = new Texture2D(TileSize * Frames, TileSize, TextureFormat.RGBA32, false, false);
             var normal = new Texture2D(TileSize * Frames, TileSize, TextureFormat.RGBA32, false, true);
+            var shadow = new byte[ShadowFrames * ShadowTile * ShadowFrames * ShadowTile];
+            var shadowSize = Mathf.Max(bounds.size.magnitude, MinSize);
             var captures = new Dictionary<Material, Material>();
 
             try
@@ -61,14 +68,15 @@ namespace HiddenBull.UrpStyle.Editor
                 foreach (var draw in draws)
                     CaptureMaterial(draw.material, captureShader, captures);
 
-                Capture(draws, captures, bounds, size, albedo, normal);
+                Capture(draws, captures, bounds, size, shadowSize, albedo, normal, shadow);
                 Dilate(albedo, normal);
 
                 var albedoAsset = SaveTexture(albedo, $"{folder}/TEX_Billboard_{name}_Albedo.png", true);
                 var normalAsset = SaveTexture(normal, $"{folder}/TEX_Billboard_{name}_Normal.png", false);
+                var shadowAsset = SaveShadow(shadow, $"{folder}/TEX_Billboard_{name}_Shadow.png");
                 var mesh = SaveMesh($"{folder}/MESH_Billboard_{name}.asset", bounds.center, size);
                 var material = SaveMaterial($"{folder}/MAT_Billboard_{name}.mat", billboardShader, draws, albedoAsset,
-                                            normalAsset, bounds, size, sway);
+                                            normalAsset, shadowAsset, bounds, size, shadowSize, sway);
 
                 return new Result(mesh, material);
             }
@@ -83,7 +91,8 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         static void Capture(IReadOnlyList<HBStylePlantDraw> draws, Dictionary<Material, Material> captures,
-                            Bounds bounds, float size, Texture2D albedo, Texture2D normal)
+                            Bounds bounds, float size, float shadowSize, Texture2D albedo, Texture2D normal,
+                            byte[] shadow)
         {
             var albedoTarget = RenderTexture.GetTemporary(new RenderTextureDescriptor(TileSize, TileSize,
                 RenderTextureFormat.ARGB32, 24) { sRGB = true });
@@ -118,6 +127,8 @@ namespace HiddenBull.UrpStyle.Editor
                     Render(draws, captures, view, projection, normalTarget, NormalPass);
                     Read(normalTarget, normal, frame);
                 }
+
+                CaptureShadow(draws, captures, bounds, shadowSize, shadow);
             }
             finally
             {
@@ -126,6 +137,125 @@ namespace HiddenBull.UrpStyle.Editor
                 RenderTexture.ReleaseTemporary(normalTarget);
                 RenderTexture.ReleaseTemporary(top);
             }
+        }
+
+        static void CaptureShadow(IReadOnlyList<HBStylePlantDraw> draws, Dictionary<Material, Material> captures,
+                                  Bounds bounds, float size, byte[] shadow)
+        {
+            var target = RenderTexture.GetTemporary(new RenderTextureDescriptor(ShadowSample, ShadowSample,
+                RenderTextureFormat.ARGB32, 24));
+            var read = new Texture2D(ShadowSample, ShadowSample, TextureFormat.RGBA32, false, true);
+            var outside = new float[ShadowSample * ShadowSample];
+            var inside = new float[ShadowSample * ShadowSample];
+            var distance = size * 2f;
+            var projection = Matrix4x4.Ortho(-size * 0.5f, size * 0.5f, -size * 0.5f, size * 0.5f, 0.01f,
+                                             distance * 2f);
+
+            try
+            {
+                for (var row = 0; row < ShadowFrames; row++)
+                {
+                    for (var column = 0; column < ShadowFrames; column++)
+                    {
+                        var direction = ShadowDirection(column, row);
+                        var rotation = Quaternion.LookRotation(-direction, Vector3.up);
+                        var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) *
+                                   Matrix4x4.TRS(bounds.center + direction * distance, rotation, Vector3.one).inverse;
+
+                        Render(draws, captures, view, projection, target, AlbedoPass);
+                        RenderTexture.active = target;
+                        read.ReadPixels(new Rect(0f, 0f, ShadowSample, ShadowSample), 0, 0, false);
+                        StoreShadow(read.GetPixels32(), outside, inside, shadow, column, row);
+                    }
+                }
+            }
+            finally
+            {
+                RenderTexture.ReleaseTemporary(target);
+                Object.DestroyImmediate(read);
+            }
+        }
+
+        static Vector3 ShadowDirection(int column, int row)
+        {
+            var x = column * 2f / (ShadowFrames - 1) - 1f;
+            var y = row * 2f / (ShadowFrames - 1) - 1f;
+            var spreadX = (x + y) * 0.5f;
+            var spreadZ = (x - y) * 0.5f;
+
+            return new Vector3(spreadX, 1f - Mathf.Abs(spreadX) - Mathf.Abs(spreadZ), spreadZ).normalized;
+        }
+
+        static void StoreShadow(Color32[] pixels, float[] outside, float[] inside, byte[] shadow, int column, int row)
+        {
+            for (var index = 0; index < pixels.Length; index++)
+            {
+                var solid = pixels[index].a > 127;
+
+                outside[index] = solid ? 0f : ShadowSample;
+                inside[index] = solid ? ShadowSample : 0f;
+            }
+
+            Sweep(outside, 1);
+            Sweep(outside, -1);
+            Sweep(inside, 1);
+            Sweep(inside, -1);
+
+            var side = ShadowFrames * ShadowTile;
+
+            for (var y = 0; y < ShadowTile; y++)
+            {
+                for (var x = 0; x < ShadowTile; x++)
+                {
+                    var sample = y * 2 * ShadowSample + x * 2;
+                    var away = outside[sample] - inside[sample];
+                    var shape = Mathf.Clamp01(0.5f - away * 0.5f / ShadowSpread);
+
+                    shadow[(row * ShadowTile + y) * side + column * ShadowTile + x] =
+                        (byte)Mathf.RoundToInt(shape * 255f);
+                }
+            }
+        }
+
+        static void Sweep(float[] field, int sign)
+        {
+            var first = sign > 0 ? 0 : ShadowSample - 1;
+
+            for (var line = 0; line < ShadowSample; line++)
+            {
+                var y = first + sign * line;
+                var last = y - sign;
+
+                for (var step = 0; step < ShadowSample; step++)
+                {
+                    var x = first + sign * step;
+                    var back = x - sign;
+                    var ahead = x + sign;
+                    var index = y * ShadowSample + x;
+                    var least = field[index];
+
+                    if (Inside(back))
+                        least = Mathf.Min(least, field[y * ShadowSample + back] + 1f);
+
+                    if (Inside(last))
+                    {
+                        least = Mathf.Min(least, field[last * ShadowSample + x] + 1f);
+
+                        if (Inside(back))
+                            least = Mathf.Min(least, field[last * ShadowSample + back] + ShadowDiagonal);
+
+                        if (Inside(ahead))
+                            least = Mathf.Min(least, field[last * ShadowSample + ahead] + ShadowDiagonal);
+                    }
+
+                    field[index] = least;
+                }
+            }
+        }
+
+        static bool Inside(int position)
+        {
+            return position >= 0 && position < ShadowSample;
         }
 
         static void CaptureTop(IReadOnlyList<HBStylePlantDraw> draws, Dictionary<Material, Material> captures,
@@ -298,6 +428,34 @@ namespace HiddenBull.UrpStyle.Editor
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
+        static Texture2D SaveShadow(byte[] shadow, string path)
+        {
+            var side = ShadowFrames * ShadowTile;
+            var texture = new Texture2D(side, side, TextureFormat.R8, false, true);
+
+            texture.SetPixelData(shadow, 0);
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+            if (AssetImporter.GetAtPath(path) is TextureImporter importer)
+            {
+                var settings = new TextureImporterSettings();
+
+                importer.ReadTextureSettings(settings);
+                settings.textureType = TextureImporterType.SingleChannel;
+                settings.singleChannelComponent = TextureImporterSingleChannelComponent.Red;
+                settings.sRGBTexture = false;
+                settings.mipmapEnabled = false;
+                settings.wrapMode = TextureWrapMode.Clamp;
+                importer.SetTextureSettings(settings);
+                importer.textureCompression = TextureImporterCompression.CompressedHQ;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
         static Mesh SaveMesh(string path, Vector3 center, float size)
         {
             var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
@@ -322,7 +480,8 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         static Material SaveMaterial(string path, Shader shader, IReadOnlyList<HBStylePlantDraw> draws,
-                                     Texture2D albedo, Texture2D normal, Bounds bounds, float size, float sway)
+                                     Texture2D albedo, Texture2D normal, Texture2D shadow, Bounds bounds, float size,
+                                     float shadowSize, float sway)
         {
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             var created = material == null;
@@ -338,6 +497,8 @@ namespace HiddenBull.UrpStyle.Editor
             material.shader = shader;
             material.SetTexture("_BaseMap", albedo);
             material.SetTexture("_NormalAtlas", normal);
+            material.SetTexture("_ShadowAtlas", shadow);
+            material.SetFloat("_ShadowSize", shadowSize);
             material.SetFloat("_Frames", Frames);
             material.SetVector("_BillboardCenter", bounds.center);
             material.SetFloat("_BillboardSize", size);
