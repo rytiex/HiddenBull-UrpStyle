@@ -123,7 +123,9 @@ half4 HB_FarRainFragment(HBFarVaryings input) : SV_Target
                * half(max(saturate(HB_RAIN_WIDTH * 0.5 / halfWidth), HB_MIN_COVERAGE))
                * (half(streak.x) < half(HB_FAR_SHARE) ? 1.0h : 0.0h);
 
-    return HB_CurtainColour(input.light, half(HB_RAIN_OPACITY), shape, curtain);
+    half4 colour = HB_CurtainColour(input.light, half(HB_RAIN_OPACITY), shape, curtain);
+
+    return HB_PrecipitationFiltered(colour, input.positionCS);
 }
 
 half4 HB_FarSnowFragment(HBFarVaryings input) : SV_Target
@@ -146,7 +148,9 @@ half4 HB_FarSnowFragment(HBFarVaryings input) : SV_Target
     half shape = half(saturate(1.0 - distanceToCentre / reach)) * coverage * coverage
                * (half(flake.x) < half(HB_FAR_SHARE) ? 1.0h : 0.0h);
 
-    return HB_CurtainColour(input.light, half(HB_SNOW_OPACITY), shape, curtain);
+    half4 colour = HB_CurtainColour(input.light, half(HB_SNOW_OPACITY), shape, curtain);
+
+    return HB_PrecipitationFiltered(colour, input.positionCS);
 }
 
 #endif

@@ -244,12 +244,17 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 
     Light mainLight = GetMainLight();
 
+    half3 shadowTint = HB_TransparentShadowTint(shadowPosition, inputData.positionWS);
+
     HBShadowProbe probe;
     mainLight.shadowAttenuation = HB_MainLightShadow(inputData.shadowCoord, inputData.positionWS, shadowMask,
                                                      inputData.normalizedScreenSpaceUV, probe);
 
 #if defined(HB_STYLE_DEBUG)
     half3 debugColour;
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_SHADOW_TINT)
+        return half4(shadowTint, 1.0h);
 
     if (HB_ShadowDebug(inputData.positionWS, mainLight.shadowAttenuation, probe, debugColour))
         return half4(debugColour, 1.0h);
@@ -258,6 +263,8 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 #ifdef _LIGHT_COOKIES
     mainLight.color *= SampleMainLightCookie(inputData.positionWS);
 #endif
+
+    mainLight.color *= shadowTint;
 
 #if defined(_SCREEN_SPACE_OCCLUSION)
     mainLight.color *= aoFactor.directAmbientOcclusion;

@@ -61,6 +61,7 @@ CBUFFER_START(UnityPerMaterial)
     half _RefractionBlur;
     half _Dispersion;
     half _StrokeBend;
+    half _ColouredShadow;
 #endif
 CBUFFER_END
 

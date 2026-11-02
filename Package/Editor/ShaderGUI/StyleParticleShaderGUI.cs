@@ -94,7 +94,6 @@ namespace HiddenBull.UrpStyle.Editor
 
         const int Premultiply = 1;
         const int Additive = 2;
-        const string MomentsPass = "HBStyleOITMoments";
 
         static readonly (string property, string keyword)[] s_ToggleKeywords =
         {
@@ -164,7 +163,6 @@ namespace HiddenBull.UrpStyle.Editor
             foreach (var (property, keyword) in s_ToggleKeywords)
                 CoreUtils.SetKeyword(material, keyword, GetToggle(material, property));
 
-            material.SetShaderPassEnabled(MomentsPass, mode != Additive);
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)RenderQueue.Transparent;
         }

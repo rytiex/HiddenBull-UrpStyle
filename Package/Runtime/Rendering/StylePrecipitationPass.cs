@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 namespace HiddenBull.UrpStyle
 {
-    sealed class StylePrecipitationPass : ScriptableRenderPass, IDisposable
+    sealed class StylePrecipitationPass : IDisposable
     {
         internal const string ShaderPath =
             "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/Precipitation.shader";
@@ -21,6 +21,10 @@ namespace HiddenBull.UrpStyle
         const float SnowSeed = 104729f;
         const float WindSeed = 7919f;
 
+        internal const int PlainStage = 0;
+        internal const int UnderStage = 1;
+        internal const int OverStage = 2;
+
         class PassData
         {
             internal Material material;
@@ -34,6 +38,7 @@ namespace HiddenBull.UrpStyle
             internal int ribbons;
             internal bool farRain;
             internal bool farSnow;
+            internal int stage;
         }
 
         static readonly int s_OffsetId = Shader.PropertyToID("_HB_PrecipitationOffset");
@@ -41,6 +46,12 @@ namespace HiddenBull.UrpStyle
         static readonly int s_GroundMapId = Shader.PropertyToID("_HB_GroundHeightmap");
         static readonly int s_GroundSizeId = Shader.PropertyToID("_HB_GroundSize");
         static readonly int s_GroundOriginId = Shader.PropertyToID("_HB_GroundOrigin");
+        static readonly int s_StageId = Shader.PropertyToID("_HB_PrecipitationStage");
+
+        static readonly string[] s_Names =
+        {
+            "HB Style Precipitation", "HB Style Precipitation Under", "HB Style Precipitation Over"
+        };
 
         readonly MaterialPropertyBlock m_RainBlock = new MaterialPropertyBlock();
         readonly MaterialPropertyBlock m_SnowBlock = new MaterialPropertyBlock();
@@ -51,11 +62,16 @@ namespace HiddenBull.UrpStyle
 
         Material m_Material;
         HBStylePrecipitationQuality m_Quality;
+        readonly ProfilingSampler m_Sampler = new ProfilingSampler("HB Style Precipitation");
+
+        int m_Rain;
+        int m_Snow;
+        int m_Ribbons;
+        bool m_FarRain;
+        bool m_FarSnow;
 
         internal StylePrecipitationPass()
         {
-            renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
-            profilingSampler = new ProfilingSampler("HB Style Precipitation");
             m_Blocks = new[] { m_RainBlock, m_SnowBlock, m_FarRainBlock, m_FarSnowBlock, m_WindBlock };
         }
 
@@ -90,9 +106,8 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        internal bool Prepare(Camera camera)
         {
-            var camera = frameData.Get<UniversalCameraData>().camera;
             var weather = StyleEnvironment.weather;
             var on = m_Material != null && m_Quality != null && m_Quality.level != HBStyleQualityLevel.Off &&
                      Visible(camera);
@@ -109,9 +124,7 @@ namespace HiddenBull.UrpStyle
             }
 
             if (rain == 0 && snow == 0 && ribbons == 0)
-                return;
-
-            var resourceData = frameData.Get<UniversalResourceData>();
+                return false;
 
             m_RainBlock.SetVector(s_OffsetId, Offset(StylePrecipitation.rainOffset, RainSeed));
             m_RainBlock.SetVector(s_VelocityId, StylePrecipitation.rainVelocity);
@@ -135,8 +148,19 @@ namespace HiddenBull.UrpStyle
 
             BindGround(camera.transform.position);
 
-            using var builder = renderGraph.AddRasterRenderPass<PassData>("HB Style Precipitation", out var data,
-                                                                         profilingSampler);
+            m_Rain = rain;
+            m_Snow = snow;
+            m_Ribbons = ribbons;
+            m_FarRain = far && rain > 0;
+            m_FarSnow = far && snow > 0;
+            return true;
+        }
+
+        internal void Draw(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, int stage,
+                           TextureHandle nearest)
+        {
+            using var builder = renderGraph.AddRasterRenderPass<PassData>(s_Names[stage], out var data,
+                                                                         m_Sampler);
 
             data.material = m_Material;
             data.rainBlock = m_RainBlock;
@@ -144,18 +168,25 @@ namespace HiddenBull.UrpStyle
             data.farRainBlock = m_FarRainBlock;
             data.farSnowBlock = m_FarSnowBlock;
             data.windBlock = m_WindBlock;
-            data.rain = rain;
-            data.snow = snow;
-            data.ribbons = ribbons;
-            data.farRain = far && rain > 0;
-            data.farSnow = far && snow > 0;
+            data.rain = m_Rain;
+            data.snow = m_Snow;
+            data.ribbons = m_Ribbons;
+            data.farRain = m_FarRain;
+            data.farSnow = m_FarSnow;
+            data.stage = stage;
 
-            builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
-            builder.SetRenderAttachmentDepth(resourceData.activeDepthTexture, AccessFlags.Read);
+            if (nearest.IsValid())
+                builder.UseTexture(nearest, AccessFlags.Read);
+
+            builder.SetRenderAttachment(colour, 0);
+            builder.SetRenderAttachmentDepth(depth, AccessFlags.Read);
             builder.UseAllGlobalTextures(true);
             builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (PassData d, RasterGraphContext context) =>
             {
+                context.cmd.SetGlobalFloat(s_StageId, d.stage);
+
                 if (d.farRain)
                 {
                     context.cmd.DrawProcedural(Matrix4x4.identity, d.material, FarRainPass, MeshTopology.Triangles,

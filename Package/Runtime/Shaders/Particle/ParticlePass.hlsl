@@ -2,6 +2,7 @@
 #define HB_PARTICLE_PASS_INCLUDED
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticleInput.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
 #ifdef _HB_PARTICLE_LIT
     #define HB_VOLUME_LIGHT
@@ -193,7 +194,7 @@ HBParticleSurface HB_ParticleSurface(Varyings input)
     float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
 
 #ifdef _HB_SOFT_PARTICLES
-    float scene = LinearEyeDepth(LOAD_TEXTURE2D(_HB_OITDepth, uint2(input.positionCS.xy)).r, _ZBufferParams);
+    float scene = LinearEyeDepth(LoadSceneDepth(uint2(input.positionCS.xy)), _ZBufferParams);
     fade *= half(saturate((scene - eye) / max(float(_SoftDistance), 1e-3)));
 #endif
 
@@ -260,78 +261,32 @@ half3 HB_ParticleLight(Varyings input)
 #endif
 }
 
-void HB_ParticleMomentsFragment(Varyings input, out float outB0 : SV_Target0, out float4 outMoments : SV_Target1,
-                                out float4 outChroma : SV_Target2)
+half4 HB_ParticleFragment(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-    float depth = HB_OITDepth(input.positionWS);
-
-    outB0 = 0.0;
-    outMoments = float4(0.0, 0.0, 0.0, 0.0);
-    outChroma = float4(0.0, 0.0, 0.0, 0.0);
+    float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
 
     UNITY_BRANCH
-    if (HB_OITOutsideRound(uint2(input.positionCS.xy), depth))
+    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye))
     {
         discard;
-        return;
+        return half4(0.0h, 0.0h, 0.0h, 0.0h);
     }
-
-    HBParticleSurface surface = HB_ParticleSurface(input);
-
-    HB_OITMoments(HB_OITAbsorbance(1.0h - surface.alpha), depth, outB0, outMoments);
-}
-
-void HB_ParticleColorFragment(Varyings input, out half4 outAccumulated : SV_Target0, out half4 outTint : SV_Target1,
-                              out half4 outLight : SV_Target2, out float4 outRefraction : SV_Target3)
-{
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-
-    uint2 pixel = uint2(input.positionCS.xy);
-    float depth = HB_OITDepth(input.positionWS);
-
-    outAccumulated = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    outTint = half4(1.0h, 1.0h, 1.0h, 1.0h);
-    outLight = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    outRefraction = float4(0.0, 0.0, 0.0, 0.0);
-
-    UNITY_BRANCH
-    if (HB_OITOutsideRound(pixel, depth))
-    {
-        discard;
-        return;
-    }
-
-    outTint.a = 0.0h;
 
     HBParticleSurface surface = HB_ParticleSurface(input);
     HBTransparentFog fog = HB_TransparentFog(input.positionWS);
 
-#ifdef _HB_ADDITIVE
-    float absorbance = 0.0;
-#else
-    float absorbance = HB_OITAbsorbance(1.0h - surface.alpha);
-#endif
-
-    half transmittance = half(HB_OITTransmittanceAt(pixel, depth, absorbance));
     half3 light = HB_ParticleLight(input);
     half3 colour = surface.colour * light * fog.clear;
-
-    outLight.rgb = (surface.emission + surface.glow * light) * (fog.clear * transmittance);
+    half3 glow = (surface.emission + surface.glow * light) * fog.clear;
 
 #ifdef _HB_ADDITIVE
-    outLight.rgb += colour * transmittance;
+    return half4(colour + glow, 0.0h);
 #else
-    outAccumulated = half4((colour + fog.colour * surface.alpha) * transmittance, surface.alpha * transmittance);
+    return half4(colour + fog.colour * surface.alpha + glow, surface.alpha);
 #endif
-
-    half3 chroma = HB_OITChromaAt(pixel, depth);
-
-    outAccumulated.rgb *= chroma;
-    outLight.rgb *= chroma;
 }
 
 #endif

@@ -6,6 +6,7 @@
 #endif
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSurface.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
 static half4 hb_TransparentBase;
 
@@ -44,24 +45,18 @@ void HB_TransparentInput(InputData inputData, float3 strokeShift)
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Transparency/StyleTransparency.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Transparency/StyleTransparentFog.hlsl"
 
-void HB_TransparentMomentsFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC,
-                                   out float outB0 : SV_Target0, out float4 outMoments : SV_Target1,
-                                   out float4 outChroma : SV_Target2)
+half4 HB_TransparentTintFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-    float depth = HB_OITDepth(input.positionWS);
-
-    outB0 = 0.0;
-    outMoments = float4(0.0, 0.0, 0.0, 0.0);
-    outChroma = float4(0.0, 0.0, 0.0, 0.0);
+    float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
 
     UNITY_BRANCH
-    if (HB_OITOutsideRound(uint2(input.positionCS.xy), depth))
+    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye) || (HB_TRANSPARENT_FRONT && _BlendMode > 3.5))
     {
         discard;
-        return;
+        return half4(1.0h, 1.0h, 1.0h, 1.0h);
     }
 
     HBSurfaceInput surface = HB_LitSurfaceInput(input, IS_FRONT_VFACE(frontFace, true, false));
@@ -77,19 +72,10 @@ void HB_TransparentMomentsFragment(Varyings input, FRONT_FACE_TYPE frontFace : F
     LODFadeCrossFade(input.positionCS);
 #endif
 
-#ifdef _HB_TINTED
-    half3 tint = HB_TintTransmission(base.rgb, base.a * HB_TransparentClear(input.positionWS));
-    half transmission = HB_TintMean(tint);
-
-    outChroma = HB_OITChroma(tint, depth);
-#else
-    half transmission = 1.0h - base.a;
-#endif
-
-    HB_OITMoments(HB_OITAbsorbance(transmission), depth, outB0, outMoments);
+    return half4(HB_TintTransmission(base.rgb, base.a * HB_TransparentClear(input.positionWS)), 1.0h);
 }
 
-float HB_TransparentGlassFragment(Varyings input) : SV_Target
+float2 HB_TransparentNearestFragment(Varyings input) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
@@ -98,79 +84,66 @@ float HB_TransparentGlassFragment(Varyings input) : SV_Target
     LODFadeCrossFade(input.positionCS);
 #endif
 
-    return HB_GlassNearness(HB_OITDepth(input.positionWS));
+#ifdef HB_REFRACTIVE_NEAREST
+    UNITY_BRANCH
+    if (_BlendMode < 3.5)
+    {
+        discard;
+        return float2(0.0, 0.0);
+    }
+#endif
+
+    float nearest = HB_NearestValue(LinearEyeDepth(input.positionWS, GetWorldToViewMatrix()));
+
+    return float2(nearest, nearest);
 }
 
-void HB_TransparentColorFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC,
-                                 out half4 outAccumulated : SV_Target0, out half4 outTint : SV_Target1,
-                                 out half4 outLight : SV_Target2, out float4 outRefraction : SV_Target3)
+half4 HB_TransparentFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     uint2 pixel = uint2(input.positionCS.xy);
-    float depth = HB_OITDepth(input.positionWS);
-
-    outAccumulated = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    outTint = half4(1.0h, 1.0h, 1.0h, 1.0h);
-    outLight = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    outRefraction = float4(0.0, 0.0, 0.0, 0.0);
+    float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
 
     UNITY_BRANCH
-    if (HB_OITOutsideRound(pixel, depth))
+    if (HB_TransparentOutsideStage(pixel, eye))
     {
         discard;
-        return;
+        return half4(0.0h, 0.0h, 0.0h, 0.0h);
     }
-
-    outTint.a = 0.0h;
 
     half4 colour = HB_LitColour(input, IS_FRONT_VFACE(frontFace, true, false));
     HBTransparentFog fog = HB_TransparentFog(input.positionWS);
 
-#if defined(_HB_ADDITIVE)
-    float absorbance = 0.0;
-#elif defined(_HB_TINTED)
-    float absorbance = HB_OITAbsorbance(HB_TintMean(HB_TintTransmission(hb_TransparentBase.rgb,
-                                                                        hb_TransparentBase.a * fog.clear)));
-#else
-    float absorbance = HB_OITAbsorbance(1.0h - colour.a);
-#endif
-
-    half transmittance = half(HB_OITTransmittanceAt(pixel, depth, absorbance));
-
+#ifdef _HB_TINTED
     UNITY_BRANCH
-    if (HB_OIT_REFRACTIVE && _BlendMode > 3.5)
+    if (HB_TRANSPARENT_FRONT && _BlendMode > 3.5)
     {
         half3 viewWS = half3(GetWorldSpaceNormalizeViewDir(input.positionWS));
+        float2 uv = (float2(pixel) + 0.5) * _ScreenSize.zw;
         float2 offset = HB_RefractionOffset(input.positionWS, hb_TransparentNormal, viewWS, half(_Refraction),
                                             hb_TransparentStroke, half(_StrokeBend));
-        float nearest = HB_OITBehindGlass(pixel, depth) ? 0.0 : 1.0;
+        float scene = LinearEyeDepth(SampleSceneDepth(saturate(uv + offset)), _ZBufferParams);
 
-        outRefraction = float4(offset, float2(_RefractionBlur, _Dispersion) * nearest) * (transmittance * fog.clear);
+        offset = scene < eye ? float2(0.0, 0.0) : offset;
+
+        half3 tint = HB_TintTransmission(hb_TransparentBase.rgb, hb_TransparentBase.a * fog.clear);
+        half3 behind = HB_Refracted(uv, offset, half(_RefractionBlur), half(_Dispersion));
+
+        return half4(behind * tint + colour.rgb * fog.clear, 1.0h);
     }
-
-#if defined(_HB_ADDITIVE)
-    outLight.rgb = colour.rgb * (colour.a * fog.clear * transmittance);
-#elif defined(_HB_TINTED)
-    half3 tint = HB_TintTransmission(hb_TransparentBase.rgb, hb_TransparentBase.a * fog.clear);
-
-    outTint.rgb = tint / max(HB_TintMean(tint), half(HB_OIT_MIN_TRANSMISSION));
-    outLight.rgb = colour.rgb * (fog.clear * transmittance);
-#elif defined(_HB_PREMULTIPLY)
-    half3 lit = colour.rgb * fog.clear + fog.colour * colour.a;
-
-    outAccumulated = half4(lit * transmittance, colour.a * transmittance);
-#else
-    half3 lit = colour.rgb * fog.clear + fog.colour;
-
-    outAccumulated = half4(lit * (colour.a * transmittance), colour.a * transmittance);
 #endif
 
-    half3 chroma = HB_OITChromaAt(pixel, depth);
-
-    outAccumulated.rgb *= chroma;
-    outLight.rgb *= chroma;
+#if defined(_HB_ADDITIVE)
+    return half4(colour.rgb * (colour.a * fog.clear), 0.0h);
+#elif defined(_HB_TINTED)
+    return half4(colour.rgb * fog.clear, 0.0h);
+#elif defined(_HB_PREMULTIPLY)
+    return half4(colour.rgb * fog.clear + fog.colour * colour.a, colour.a);
+#else
+    return half4((colour.rgb * fog.clear + fog.colour) * colour.a, colour.a);
+#endif
 }
 
 #endif

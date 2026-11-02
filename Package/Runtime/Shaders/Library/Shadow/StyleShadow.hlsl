@@ -25,6 +25,13 @@
 #define HB_DEBUG_SHADOW_CASCADES    4
 #define HB_DEBUG_SHADOW_FILTER      5
 #define HB_DEBUG_SHADOW_RADIUS      6
+#define HB_DEBUG_SHADOW_TINT        21
+
+#define HB_SHADOW_TINT_BIAS 1e-3
+
+TEXTURE2D(_HB_ShadowTintMap);
+float _HB_ShadowTintActive;
+float4x4 _HB_ShadowTintWorldToShadow[MAX_SHADOW_CASCADES + 1];
 
 #if defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
     #define HB_MAIN_LIGHT_SHADOW_MAP
@@ -188,6 +195,42 @@ half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV, in
 }
 
 #endif
+
+half3 HB_TransparentShadowTint(float3 shadowPositionWS, float3 positionWS)
+{
+    half3 tint = half3(1.0h, 1.0h, 1.0h);
+
+#if defined(HB_MAIN_LIGHT_SHADOW_MAP) && defined(MAIN_LIGHT_CALCULATE_SHADOWS)
+    #if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    int cascade = (int)ComputeCascadeIndex(shadowPositionWS);
+    #else
+    int cascade = 0;
+    #endif
+
+    float4 shadowCoord = mul(_HB_ShadowTintWorldToShadow[cascade], float4(shadowPositionWS, 1.0));
+
+    UNITY_BRANCH
+    if (_HB_ShadowTintActive > 0.5 && !(BEYOND_SHADOW_FAR(shadowCoord)))
+    {
+        half3 absorbance = SAMPLE_TEXTURE2D_LOD(_HB_ShadowTintMap, sampler_LinearClamp, shadowCoord.xy, 0).rgb;
+        float4 casters = GATHER_ALPHA_TEXTURE2D(_HB_ShadowTintMap, sampler_LinearClamp, shadowCoord.xy);
+        float nearest = max(max(casters.x, casters.y), max(casters.z, casters.w));
+
+    #if UNITY_REVERSED_Z
+        float depth = shadowCoord.z;
+    #else
+        float depth = 1.0 - shadowCoord.z;
+    #endif
+
+        half behind = depth < nearest - HB_SHADOW_TINT_BIAS ? 1.0h : 0.0h;
+        half amount = behind * GetMainLightShadowParams().x * (1.0h - GetMainLightShadowFade(positionWS));
+
+        tint = lerp(half3(1.0h, 1.0h, 1.0h), exp(-absorbance), amount);
+    }
+#endif
+
+    return tint;
+}
 
 half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask, float2 screenUV,
                         out HBShadowProbe probe)

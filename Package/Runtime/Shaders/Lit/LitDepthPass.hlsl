@@ -14,7 +14,7 @@
     #if defined(_NORMALMAP) && !defined(_HB_TRIPLANAR)
         #define HB_VERTEX_TANGENT
     #endif
-#elif defined(_ALPHATEST_ON)
+#elif defined(_ALPHATEST_ON) || defined(HB_TINT_CASTER)
     #define HB_VERTEX_UV
     #ifdef _HB_TRIPLANAR
         #define HB_VERTEX_POSITION

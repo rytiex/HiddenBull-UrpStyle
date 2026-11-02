@@ -54,6 +54,7 @@ Shader "HB URP Style/Transparent"
         [NoScaleOffset] _EmissionMap("Emission Map", 2D) = "white" {}
 
         [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0
+        [ToggleUI] _ColouredShadow("Coloured Shadow", Float) = 1.0
         [Enum(Front, 2, Back, 1, Both, 0)] _Cull("Render Face", Float) = 2.0
     }
 
@@ -71,22 +72,22 @@ Shader "HB URP Style/Transparent"
 
         Pass
         {
-            Name "OIT Moments"
+            Name "Tint"
             Tags
             {
-                "LightMode" = "HBStyleOITMoments"
+                "LightMode" = "HBStyleTransparentTint"
             }
 
             ZWrite Off
             ZTest LEqual
             Cull [_Cull]
-            Blend One One
+            Blend DstColor Zero
 
             HLSLPROGRAM
             #pragma target 4.5
 
             #pragma vertex HB_LitVertex
-            #pragma fragment HB_TransparentMomentsFragment
+            #pragma fragment HB_TransparentTintFragment
 
             #pragma shader_feature_local _HB_BASE_MAP
             #pragma shader_feature_local _NORMALMAP
@@ -94,7 +95,6 @@ Shader "HB URP Style/Transparent"
             #pragma shader_feature_local_fragment _HB_BRUSH
             #pragma shader_feature_local _HB_BRUSH_ANCHOR
             #pragma shader_feature_local_fragment _HB_BRUSH_MASK
-            #pragma shader_feature_local_fragment _HB_TINTED
 
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma multi_compile_instancing
@@ -107,25 +107,22 @@ Shader "HB URP Style/Transparent"
 
         Pass
         {
-            Name "OIT Color"
+            Name "Forward"
             Tags
             {
-                "LightMode" = "HBStyleOITColor"
+                "LightMode" = "HBStyleTransparent"
             }
 
             ZWrite Off
             ZTest LEqual
             Cull [_Cull]
-            Blend 0 One One
-            Blend 1 DstColor Zero
-            Blend 2 One One
-            Blend 3 One One
+            Blend One OneMinusSrcAlpha
 
             HLSLPROGRAM
             #pragma target 4.5
 
             #pragma vertex HB_LitVertex
-            #pragma fragment HB_TransparentColorFragment
+            #pragma fragment HB_TransparentFragment
 
             #pragma shader_feature_local _HB_BASE_MAP
             #pragma shader_feature_local _NORMALMAP
@@ -147,8 +144,7 @@ Shader "HB URP Style/Transparent"
             #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
             #pragma multi_compile _ _LIGHT_LAYERS
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #define _SHADOWS_SOFT_MEDIUM
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
@@ -173,10 +169,10 @@ Shader "HB URP Style/Transparent"
 
         Pass
         {
-            Name "OIT Glass"
+            Name "Nearest"
             Tags
             {
-                "LightMode" = "HBStyleOITGlass"
+                "LightMode" = "HBStyleTransparentNearest"
             }
 
             ZWrite Off
@@ -184,12 +180,13 @@ Shader "HB URP Style/Transparent"
             Cull [_Cull]
             Blend One One
             BlendOp Max
+            ColorMask R
 
             HLSLPROGRAM
             #pragma target 4.5
 
             #pragma vertex HB_LitVertex
-            #pragma fragment HB_TransparentGlassFragment
+            #pragma fragment HB_TransparentNearestFragment
 
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma multi_compile_instancing
@@ -197,6 +194,69 @@ Shader "HB URP Style/Transparent"
 
             #define HB_TRANSPARENT
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Refractive"
+            Tags
+            {
+                "LightMode" = "HBStyleTransparentRefractive"
+            }
+
+            ZWrite Off
+            ZTest LEqual
+            Cull [_Cull]
+            Blend One One
+            BlendOp Max
+            ColorMask G
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_LitVertex
+            #pragma fragment HB_TransparentNearestFragment
+
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #define HB_TRANSPARENT
+            #define HB_REFRACTIVE_NEAREST
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags
+            {
+                "LightMode" = "ShadowCaster"
+            }
+
+            ZWrite Off
+            ZTest Always
+            Cull Off
+            Blend One One, One One
+            BlendOp Add, Max
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_DepthVertex
+            #pragma fragment HB_ShadowTintFragment
+
+            #pragma shader_feature_local _HB_BASE_MAP
+            #pragma shader_feature_local _HB_TRIPLANAR
+            #pragma shader_feature_local _HB_BRUSH_ANCHOR
+
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentShadowPass.hlsl"
             ENDHLSL
         }
     }

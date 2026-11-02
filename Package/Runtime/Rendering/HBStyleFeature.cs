@@ -41,10 +41,6 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
-        Shader m_TransparencyShader;
-
-        [SerializeField]
-        [HideInInspector]
         Material m_TerrainVariants;
 
         StyleCameraStates m_Cameras;
@@ -55,6 +51,7 @@ namespace HiddenBull.UrpStyle
         StylePrecipitationPass m_PrecipitationPass;
         StyleAntiAliasingPass m_AntiAliasingPass;
         StyleTransparencyPass m_TransparencyPass;
+        StyleTransparentShadowPass m_TransparentShadowPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -95,6 +92,7 @@ namespace HiddenBull.UrpStyle
             m_PrecipitationPass = new StylePrecipitationPass();
             m_AntiAliasingPass = new StyleAntiAliasingPass();
             m_TransparencyPass = new StyleTransparencyPass();
+            m_TransparentShadowPass = new StyleTransparentShadowPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -104,7 +102,6 @@ namespace HiddenBull.UrpStyle
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
-            m_TransparencyShader = Load(m_TransparencyShader, StyleTransparencyPass.ShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
@@ -127,8 +124,10 @@ namespace HiddenBull.UrpStyle
 
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
 
-            m_TransparencyPass.Setup(m_TransparencyShader);
+            m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
+            m_TransparencyPass.Setup(kind == StyleCameraKind.Base ? m_PrecipitationPass : null);
             renderer.EnqueuePass(m_TransparencyPass);
+            renderer.EnqueuePass(m_TransparentShadowPass);
 
             var antiAliasing = quality.antiAliasing;
 
@@ -155,9 +154,6 @@ namespace HiddenBull.UrpStyle
 
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
-
-            m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
-            renderer.EnqueuePass(m_PrecipitationPass);
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
 
@@ -233,6 +229,9 @@ namespace HiddenBull.UrpStyle
 
             m_TransparencyPass?.Dispose();
             m_TransparencyPass = null;
+
+            m_TransparentShadowPass?.Dispose();
+            m_TransparentShadowPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

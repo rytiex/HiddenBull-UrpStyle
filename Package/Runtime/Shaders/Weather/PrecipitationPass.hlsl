@@ -5,6 +5,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleAmbient.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Atmosphere/StyleAtmosphere.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Transparency/StyleTransparency.hlsl"
 
 TEXTURE2D(_HB_GroundHeightmap);
 TEXTURE2D_FLOAT(_HB_ShelterDrops);
@@ -13,6 +14,7 @@ float4 _HB_PrecipitationOffset;
 float4 _HB_PrecipitationVelocity;
 float4 _HB_GroundSize;
 float4 _HB_GroundOrigin;
+float _HB_PrecipitationStage;
 
 #define HB_GROUND_HEIGHT_SCALE  (65535.0 / 32766.0)
 
@@ -50,6 +52,20 @@ struct HBDropVaryings
     float2 coord      : TEXCOORD0;
     half4 colour      : COLOR;
 };
+
+half4 HB_PrecipitationFiltered(half4 colour, float4 positionCS)
+{
+    UNITY_BRANCH
+    if (_HB_PrecipitationStage > 0.5)
+    {
+        float eye = LinearEyeDepth(positionCS.z, _ZBufferParams);
+        bool over = _HB_PrecipitationStage > 1.5;
+
+        colour = HB_InFrontOfNearest(uint2(positionCS.xy), eye) == over ? colour : half4(0.0h, 0.0h, 0.0h, 0.0h);
+    }
+
+    return colour;
+}
 
 static const float2 HB_DROP_CORNERS[6] =
 {
@@ -219,7 +235,7 @@ half4 HB_RainFragment(HBDropVaryings input) : SV_Target
     half along = smoothstep(0.0h, 0.15h, half(input.coord.x)) * (1.0h - smoothstep(0.5h, 1.0h, half(input.coord.x)));
     half alpha = input.colour.a * across * along;
 
-    return half4(input.colour.rgb * alpha, alpha);
+    return HB_PrecipitationFiltered(half4(input.colour.rgb * alpha, alpha), input.positionCS);
 }
 
 HBDropVaryings HB_SnowVertex(uint vertexID : SV_VertexID)
@@ -268,7 +284,7 @@ half4 HB_SnowFragment(HBDropVaryings input) : SV_Target
 {
     half alpha = input.colour.a * (1.0h - smoothstep(0.4h, 1.0h, half(length(input.coord))));
 
-    return half4(input.colour.rgb * alpha, alpha);
+    return HB_PrecipitationFiltered(half4(input.colour.rgb * alpha, alpha), input.positionCS);
 }
 
 #endif

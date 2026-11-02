@@ -1,162 +1,47 @@
 #ifndef HB_STYLE_TRANSPARENCY_INCLUDED
 #define HB_STYLE_TRANSPARENCY_INCLUDED
 
-TEXTURE2D_FLOAT(_HB_OITB0);
-TEXTURE2D_FLOAT(_HB_OITMoments);
-TEXTURE2D_FLOAT(_HB_OITChroma);
-TEXTURE2D_FLOAT(_HB_OITGlass);
-TEXTURE2D_FLOAT(_HB_OITDepth);
+TEXTURE2D_FLOAT(_HB_TransparentNearest);
+TEXTURE2D(_HB_RefractionBackground);
 
-float4 _HB_OITParams;
-float4 _HB_OITState;
+float _HB_TransparentStage;
 
-#define HB_OIT_BIAS             _HB_OITParams.x
-#define HB_OIT_LOG_NEAR         _HB_OITParams.y
-#define HB_OIT_RCP_LOG_RANGE    _HB_OITParams.z
-#define HB_OIT_ROUND_MARGIN     _HB_OITParams.w
-#define HB_OIT_REFRACTIVE       (_HB_OITState.x > 0.5)
-#define HB_OIT_ROUND            _HB_OITState.y
-#define HB_OIT_HALF_SIZE        _HB_OITState.zw
+#define HB_TRANSPARENT_SPLIT    (_HB_TransparentStage > 0.5)
+#define HB_TRANSPARENT_FRONT    (_HB_TransparentStage > 1.5)
 
-#define HB_OIT_OVERESTIMATION   0.25
-#define HB_OIT_MIN_TRANSMISSION 1e-6
-#define HB_OIT_EMPTY            1e-5
-#define HB_OIT_BEHIND           0.01
+#define HB_NEAREST_MIN_EYE      1e-3
+#define HB_NEAREST_MARGIN       0.01
 
 #define HB_REFRACTION_DEPTH     0.25
 #define HB_REFRACTION_NEAR      0.05
 #define HB_REFRACTION_REACH     0.1
 #define HB_REFRACTION_BORDER    0.05
 #define HB_STROKE_BEND          1.0
+#define HB_REFRACTION_BLUR_MIPS 6.0
+#define HB_REFRACTION_DISPERSION 0.35
 
-float HB_OITDepth(float3 positionWS)
+float HB_NearestValue(float eye)
 {
-    float eye = max(LinearEyeDepth(positionWS, GetWorldToViewMatrix()), 1e-4);
-
-    return saturate((log(eye) - HB_OIT_LOG_NEAR) * HB_OIT_RCP_LOG_RANGE) * 2.0 - 1.0;
+    return 1.0 / max(eye, HB_NEAREST_MIN_EYE);
 }
 
-float HB_OITAbsorbance(half transmission)
+bool HB_InFrontOfNearest(uint2 pixel, float eye)
 {
-    return -log(max(float(transmission), HB_OIT_MIN_TRANSMISSION));
+    float nearest = LOAD_TEXTURE2D(_HB_TransparentNearest, pixel).r;
+
+    return nearest > 0.0 && eye * nearest < 1.0 + HB_NEAREST_MARGIN;
 }
 
-void HB_OITMoments(float absorbance, float depth, out float b0, out float4 moments)
+bool HB_InFrontOfRefractive(uint2 pixel, float eye)
 {
-    float depthSquared = depth * depth;
+    float refractive = LOAD_TEXTURE2D(_HB_TransparentNearest, pixel).g;
 
-    b0 = absorbance;
-    moments = float4(depth, depthSquared, depthSquared * depth, depthSquared * depthSquared) * absorbance;
+    return refractive <= 0.0 || eye * refractive < 1.0 + HB_NEAREST_MARGIN;
 }
 
-float HB_OITWeight(float b1, float b2, float support, float other0, float other1)
+bool HB_TransparentOutsideStage(uint2 pixel, float eye)
 {
-    float numerator = b2 - (other0 + other1) * b1 + other0 * other1;
-    float denominator = (support - other0) * (support - other1);
-
-    return numerator / (abs(denominator) > 1e-7 ? denominator : 1e-7);
-}
-
-float HB_OITTransmittance(float b0, float4 moments, float depth, float absorbance)
-{
-    if (b0 < HB_OIT_EMPTY)
-        return 1.0;
-
-    float4 b = lerp(moments / b0, float4(0.0, 0.375, 0.0, 0.375), HB_OIT_BIAS);
-
-    float d11 = b.y - b.x * b.x;
-    float l21d11 = b.z - b.x * b.y;
-    float l21 = l21d11 / d11;
-    float d22 = b.w - b.y * b.y - l21d11 * l21;
-
-    float3 c = float3(1.0, depth, depth * depth);
-
-    c.y -= b.x;
-    c.z -= b.y + l21 * c.y;
-    c.y /= d11;
-    c.z /= d22;
-    c.y -= l21 * c.z;
-    c.x -= dot(c.yz, b.xy);
-
-    float p = c.y / c.z;
-    float q = c.x / c.z;
-    float root = sqrt(max(p * p * 0.25 - q, 0.0));
-
-    float z1 = -p * 0.5 - root;
-    float z2 = -p * 0.5 + root;
-
-    float w0 = HB_OITWeight(b.x, b.y, depth, z1, z2);
-    float w1 = HB_OITWeight(b.x, b.y, z1, depth, z2);
-    float w2 = HB_OITWeight(b.x, b.y, z2, depth, z1);
-
-    float own = min(max(w0, 0.0), absorbance / b0);
-
-    float front = (w0 - own) * HB_OIT_OVERESTIMATION
-                + (z1 < depth ? w1 : 0.0)
-                + (z2 < depth ? w2 : 0.0);
-
-    return exp(-b0 * saturate(front));
-}
-
-float HB_OITTransmittanceAt(uint2 pixel, float depth, float absorbance)
-{
-    return HB_OITTransmittance(LOAD_TEXTURE2D(_HB_OITB0, pixel).r, LOAD_TEXTURE2D(_HB_OITMoments, pixel), depth,
-                               absorbance);
-}
-
-float HB_GlassNearness(float depth)
-{
-    return 0.5 - depth * 0.5;
-}
-
-float HB_OITEyeDepth(float depth)
-{
-    return exp((depth * 0.5 + 0.5) / HB_OIT_RCP_LOG_RANGE + HB_OIT_LOG_NEAR);
-}
-
-float HB_GlassEyeDepth(float nearness)
-{
-    return HB_OITEyeDepth(1.0 - nearness * 2.0);
-}
-
-float HB_OITMargin(float depth)
-{
-    return max(HB_OIT_BEHIND / HB_OITEyeDepth(depth) * HB_OIT_RCP_LOG_RANGE, HB_OIT_ROUND_MARGIN);
-}
-
-bool HB_OITBehindGlass(uint2 pixel, float depth)
-{
-    float here = depth * 0.5 + 0.5;
-    float glass = 1.0 - LOAD_TEXTURE2D(_HB_OITGlass, pixel).r;
-
-    return here > glass + HB_OITMargin(depth);
-}
-
-float4 HB_OITChroma(half3 transmission, float depth)
-{
-    float3 absorbance = -log(max(float3(transmission), HB_OIT_MIN_TRANSMISSION));
-
-    return float4(absorbance, (absorbance.r + absorbance.g + absorbance.b) * (depth * 0.5 + 0.5));
-}
-
-half3 HB_OITChromaAt(uint2 pixel, float depth)
-{
-    float4 chroma = LOAD_TEXTURE2D(_HB_OITChroma, pixel);
-    float weight = chroma.r + chroma.g + chroma.b;
-
-    if (weight < HB_OIT_EMPTY)
-        return half3(1.0h, 1.0h, 1.0h);
-
-    float behind = saturate((depth * 0.5 + 0.5 - chroma.a / weight) / HB_OITMargin(depth) - 1.0);
-    float3 transmission = exp(-chroma.rgb);
-    float3 colour = transmission / max(dot(transmission, 1.0 / 3.0), HB_OIT_MIN_TRANSMISSION);
-
-    return half3(lerp(1.0, colour, behind));
-}
-
-bool HB_OITOutsideRound(uint2 pixel, float depth)
-{
-    return HB_OIT_ROUND > 0.5 && (HB_OIT_ROUND < 1.5) != HB_OITBehindGlass(pixel, depth);
+    return HB_TRANSPARENT_SPLIT && HB_TRANSPARENT_FRONT != HB_InFrontOfRefractive(pixel, eye);
 }
 
 float2 HB_RefractionOffset(float3 positionWS, half3 normalWS, half3 viewDirectionWS, half strength,
@@ -187,6 +72,57 @@ float2 HB_RefractionOffset(float3 positionWS, half3 normalWS, half3 viewDirectio
     float2 border = min(target, 1.0 - target);
 
     return offset * saturate(min(border.x, border.y) / HB_REFRACTION_BORDER);
+}
+
+half3 HB_BackgroundAt(float2 uv, float lod)
+{
+    return SAMPLE_TEXTURE2D_LOD(_HB_RefractionBackground, sampler_LinearClamp, uv, lod).rgb;
+}
+
+half3 HB_RefractionBackground(float2 uv, float lod, float2 texel)
+{
+    half3 colour;
+
+    UNITY_BRANCH
+    if (lod < 0.5)
+    {
+        colour = HB_BackgroundAt(uv, 0.0);
+    }
+    else
+    {
+        float2 spread = texel * exp2(lod) * 0.5;
+
+        colour = (HB_BackgroundAt(uv + spread, lod) + HB_BackgroundAt(uv - spread, lod)
+                + HB_BackgroundAt(uv + float2(spread.x, -spread.y), lod)
+                + HB_BackgroundAt(uv + float2(-spread.x, spread.y), lod)) * 0.25h;
+    }
+
+    return colour;
+}
+
+half3 HB_Refracted(float2 uv, float2 offset, half blur, half dispersion)
+{
+    float lod = blur * HB_REFRACTION_BLUR_MIPS;
+    float2 texel = _ScreenSize.zw;
+    float2 target = saturate(uv + offset);
+
+    half3 colour;
+
+    UNITY_BRANCH
+    if (dispersion <= 0.0h)
+    {
+        colour = HB_RefractionBackground(target, lod, texel);
+    }
+    else
+    {
+        float2 chroma = offset * (dispersion * HB_REFRACTION_DISPERSION);
+
+        colour = half3(HB_RefractionBackground(saturate(target + chroma), lod, texel).r,
+                       HB_RefractionBackground(target, lod, texel).g,
+                       HB_RefractionBackground(saturate(target - chroma), lod, texel).b);
+    }
+
+    return colour;
 }
 
 half3 HB_TintTransmission(half3 colour, half strength)

@@ -34,6 +34,11 @@ namespace HiddenBull.UrpStyle.Editor
                 "Stroke Bend",
                 "How far brush strokes drag the bent view along them (0 to 1). Needs the Brush section on.");
 
+            public static readonly GUIContent ColouredShadow = new GUIContent(
+                "Coloured Shadow",
+                "On: the shadow this surface casts takes its colour. Off: the shadow is grey. Whether it casts " +
+                "at all is the Mesh Renderer's Cast Shadows setting.");
+
             public const string TintedHint =
                 "This mode ignores diffuse lighting: the surface shows its colour only through what is seen " +
                 "behind it.";
@@ -44,8 +49,9 @@ namespace HiddenBull.UrpStyle.Editor
         const int Additive = 2;
         const int Tinted = 3;
         const int Refractive = 4;
-        const string MomentsPass = "HBStyleOITMoments";
-        const string GlassPass = "HBStyleOITGlass";
+        const string TintPass = "HBStyleTransparentTint";
+        const string RefractivePass = "HBStyleTransparentRefractive";
+        const string ShadowPass = "ShadowCaster";
 
         MaterialProperty m_BlendMode;
         MaterialProperty m_Refraction;
@@ -53,6 +59,7 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_Dispersion;
         MaterialProperty m_StrokeBend;
         MaterialProperty m_TransparentReceiveShadows;
+        MaterialProperty m_ColouredShadow;
         MaterialProperty m_TransparentCull;
 
         protected override void FindProperties(MaterialProperty[] properties)
@@ -65,6 +72,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_Dispersion = Optional("_Dispersion", properties);
             m_StrokeBend = Optional("_StrokeBend", properties);
             m_TransparentReceiveShadows = Optional("_ReceiveShadows", properties);
+            m_ColouredShadow = Optional("_ColouredShadow", properties);
             m_TransparentCull = Optional("_Cull", properties);
         }
 
@@ -91,8 +99,9 @@ namespace HiddenBull.UrpStyle.Editor
             CoreUtils.SetKeyword(material, "_HB_ADDITIVE", mode == Additive);
             CoreUtils.SetKeyword(material, "_HB_TINTED", mode == Tinted || mode == Refractive);
 
-            material.SetShaderPassEnabled(MomentsPass, mode != Additive);
-            material.SetShaderPassEnabled(GlassPass, mode == Refractive);
+            material.SetShaderPassEnabled(TintPass, mode == Tinted || mode == Refractive);
+            material.SetShaderPassEnabled(RefractivePass, mode == Refractive);
+            material.SetShaderPassEnabled(ShadowPass, mode != Additive);
             material.SetOverrideTag("RenderType", "Transparent");
             material.renderQueue = (int)RenderQueue.Transparent;
         }
@@ -130,13 +139,18 @@ namespace HiddenBull.UrpStyle.Editor
 
         void DrawTransparentAdvanced(MaterialEditor materialEditor)
         {
-            var reset = ResetAction(materialEditor, m_TransparentReceiveShadows, m_TransparentCull);
+            var reset = ResetAction(materialEditor, m_TransparentReceiveShadows, m_ColouredShadow,
+                                    m_TransparentCull);
             var expanded = StyleMaterialHeader.Draw(Styles.Advanced, "Transparent.Advanced", materialEditor,
                                                     reset: reset);
 
             if (expanded)
             {
                 materialEditor.ShaderProperty(m_TransparentReceiveShadows, m_TransparentReceiveShadows.displayName);
+
+                if (m_BlendMode.hasMixedValue || Mathf.RoundToInt(m_BlendMode.floatValue) != Additive)
+                    materialEditor.ShaderProperty(m_ColouredShadow, Styles.ColouredShadow);
+
                 materialEditor.ShaderProperty(m_TransparentCull, m_TransparentCull.displayName);
                 materialEditor.EnableInstancingField();
             }

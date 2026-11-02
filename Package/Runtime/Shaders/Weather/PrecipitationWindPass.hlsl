@@ -108,7 +108,7 @@ half4 HB_WindFragment(HBDropVaryings input) : SV_Target
 {
     half alpha = input.colour.a * (1.0h - smoothstep(0.5h, 1.0h, half(abs(input.coord.y))));
 
-    return half4(input.colour.rgb * alpha, alpha);
+    return HB_PrecipitationFiltered(half4(input.colour.rgb * alpha, alpha), input.positionCS);
 }
 
 #endif

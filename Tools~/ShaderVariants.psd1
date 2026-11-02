@@ -6,6 +6,10 @@
             'LIGHTMAP_ON', 'SHADOWS_SHADOWMASK', 'LIGHTMAP_SHADOW_MIXING', '_LIGHT_LAYERS', '_LIGHT_COOKIES',
             '_SCREEN_SPACE_OCCLUSION', '_DBUFFER_MRT3'
         )
+        Transparent = @(
+            '_MAIN_LIGHT_SHADOWS_CASCADE', '_SHADOWS_SOFT_MEDIUM', '_CLUSTER_LIGHT_LOOP', 'LIGHTMAP_ON', 'SHADOWS_SHADOWMASK',
+            'LIGHTMAP_SHADOW_MIXING', '_LIGHT_LAYERS', '_LIGHT_COOKIES'
+        )
     }
 
     Variants = @(
@@ -486,9 +490,9 @@
             Reads = 40
         }
         @{
-            Name = 'Transparent Moments (tinted, brush)'
+            Name = 'Transparent Tint (brush)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
-            Entry = 'HB_TransparentMomentsFragment'
+            Entry = 'HB_TransparentTintFragment'
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_HB_BRUSH', '_HB_TINTED')
@@ -496,106 +500,76 @@
             Reads = 12
         }
         @{
-            Name = 'Transparent Color (alpha, all)'
+            Name = 'Transparent Nearest'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
-            Entry = 'HB_TransparentColorFragment'
-            Stage = 'ps'
-            Urp = 'Full'
-            Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
-                        '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2700
-            Reads = 140
-        }
-        @{
-            Name = 'Transparent Color (tinted, brush)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
-            Entry = 'HB_TransparentColorFragment'
-            Stage = 'ps'
-            Urp = 'Full'
-            Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2600
-            Reads = 130
-        }
-        @{
-            Name = 'Particle Moments (all)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticlePass.hlsl'
-            Entry = 'HB_ParticleMomentsFragment'
+            Entry = 'HB_TransparentNearestFragment'
             Stage = 'ps'
             Urp = 'Minimal'
-            Defines = @('_FLIPBOOKBLENDING_ON', '_HB_SOFT_PARTICLES', '_HB_CAMERA_FADE', '_HB_BRUSH')
-            Slots = 540
-            Reads = 9
+            Defines = @('HB_TRANSPARENT')
+            Slots = 100
+            Reads = 2
         }
         @{
-            Name = 'Particle Color (lit, all)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticlePass.hlsl'
-            Entry = 'HB_ParticleColorFragment'
+            Name = 'Transparent Shadow Tint (triplanar)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentShadowPass.hlsl'
+            Entry = 'HB_ShadowTintFragment'
             Stage = 'ps'
-            Urp = 'Full'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP', '_HB_TRIPLANAR', '_HB_BRUSH_ANCHOR')
+            Slots = 200
+            Reads = 4
+        }
+        @{
+            Name = 'Transparent Shadow Tint vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentShadowPass.hlsl'
+            Entry = 'HB_DepthVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_BASE_MAP')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Transparent Forward (alpha, all)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
+            Entry = 'HB_TransparentFragment'
+            Stage = 'ps'
+            Urp = 'Transparent'
+            Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
+                        '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
+            Slots = 2000
+            Reads = 45
+        }
+        @{
+            Name = 'Transparent Forward (tinted or refractive, brush)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
+            Entry = 'HB_TransparentFragment'
+            Stage = 'ps'
+            Urp = 'Transparent'
+            Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
+            Slots = 2000
+            Reads = 55
+        }
+        @{
+            Name = 'Particle Forward (lit, all)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticlePass.hlsl'
+            Entry = 'HB_ParticleFragment'
+            Stage = 'ps'
+            Urp = 'Transparent'
             Defines = @('_FLIPBOOKBLENDING_ON', '_HB_PARTICLE_LIT', '_HB_SOFT_PARTICLES', '_HB_CAMERA_FADE',
                         '_HB_BRUSH', '_HB_EMISSION')
-            Slots = 2200
-            Reads = 128
+            Slots = 1400
+            Reads = 36
         }
         @{
-            Name = 'Particle Color (additive, flipbook)'
+            Name = 'Particle Forward (additive, flipbook)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticlePass.hlsl'
-            Entry = 'HB_ParticleColorFragment'
+            Entry = 'HB_ParticleFragment'
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @('_FLIPBOOKBLENDING_ON', '_HB_ADDITIVE', '_HB_SOFT_PARTICLES', '_HB_CAMERA_FADE')
             Slots = 260
             Reads = 8
-        }
-        @{
-            Name = 'Transparency Composite (downsample depth)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparencyCompositePass.hlsl'
-            Entry = 'HB_DownsampleDepthFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 60
-            Reads = 6
-        }
-        @{
-            Name = 'Transparency Composite (refract)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparencyCompositePass.hlsl'
-            Entry = 'HB_RefractFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 300
-            Reads = 56
-        }
-        @{
-            Name = 'Transparency Composite (background depth)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparencyCompositePass.hlsl'
-            Entry = 'HB_BackgroundDepthFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 60
-            Reads = 6
-        }
-        @{
-            Name = 'Transparency Composite (transmit)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparencyCompositePass.hlsl'
-            Entry = 'HB_TransmitFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 100
-            Reads = 16
-        }
-        @{
-            Name = 'Transparency Composite (add)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparencyCompositePass.hlsl'
-            Entry = 'HB_AddFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 110
-            Reads = 20
         }
         @{
             Name = 'Lit Meta'

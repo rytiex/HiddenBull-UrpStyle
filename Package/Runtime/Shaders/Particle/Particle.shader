@@ -42,57 +42,22 @@ Shader "HB URP Style/Particle"
 
         Pass
         {
-            Name "OIT Moments"
+            Name "Forward"
             Tags
             {
-                "LightMode" = "HBStyleOITMoments"
+                "LightMode" = "HBStyleTransparent"
             }
 
             ZWrite Off
             ZTest LEqual
             Cull [_Cull]
-            Blend One One
+            Blend One OneMinusSrcAlpha
 
             HLSLPROGRAM
             #pragma target 4.5
 
             #pragma vertex HB_ParticleVertex
-            #pragma fragment HB_ParticleMomentsFragment
-
-            #pragma shader_feature_local _FLIPBOOKBLENDING_ON
-            #pragma shader_feature_local_fragment _HB_PREMULTIPLY
-            #pragma shader_feature_local_fragment _HB_SOFT_PARTICLES
-            #pragma shader_feature_local_fragment _HB_CAMERA_FADE
-            #pragma shader_feature_local_fragment _HB_BRUSH
-
-            #pragma multi_compile_instancing
-            #pragma instancing_options procedural:ParticleInstancingSetup
-
-            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Particle/ParticlePass.hlsl"
-            ENDHLSL
-        }
-
-        Pass
-        {
-            Name "OIT Color"
-            Tags
-            {
-                "LightMode" = "HBStyleOITColor"
-            }
-
-            ZWrite Off
-            ZTest LEqual
-            Cull [_Cull]
-            Blend 0 One One
-            Blend 1 DstColor Zero
-            Blend 2 One One
-            Blend 3 One One
-
-            HLSLPROGRAM
-            #pragma target 4.5
-
-            #pragma vertex HB_ParticleVertex
-            #pragma fragment HB_ParticleColorFragment
+            #pragma fragment HB_ParticleFragment
 
             #pragma shader_feature_local _FLIPBOOKBLENDING_ON
             #pragma shader_feature_local _HB_PARTICLE_LIT
@@ -107,8 +72,7 @@ Shader "HB URP Style/Particle"
             #pragma multi_compile _ EVALUATE_SH_MIXED EVALUATE_SH_VERTEX
             #pragma multi_compile _ _LIGHT_LAYERS
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #define _SHADOWS_SOFT_MEDIUM
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
