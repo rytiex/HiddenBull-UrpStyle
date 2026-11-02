@@ -100,7 +100,6 @@ half3 HB_ObjectSpaceNormal(half3 normalWS)
 HBBrushSpace HB_ResolveBrushSpace(float3 positionWS, half3 normalWS, half objectSpace, float3 anchorOS)
 {
     HBBrushSpace space;
-    ZERO_INITIALIZE(HBBrushSpace, space);
 
 #if defined(_HB_BRUSH_ANCHOR)
     if (objectSpace > 1.5h && any(anchorOS != 0.0))
@@ -108,15 +107,16 @@ HBBrushSpace HB_ResolveBrushSpace(float3 positionWS, half3 normalWS, half object
         space.position = anchorOS * HB_ObjectScale();
         space.normal = HB_ObjectSpaceNormal(normalWS);
         space.localSpace = 1.0h;
-        return space;
     }
+    else
 #endif
+    {
+        half local = saturate(objectSpace);
 
-    half local = saturate(objectSpace);
-
-    space.position = lerp(positionWS, HB_ObjectSpacePosition(positionWS), local);
-    space.normal = lerp(normalWS, HB_ObjectSpaceNormal(normalWS), local);
-    space.localSpace = local;
+        space.position = lerp(positionWS, HB_ObjectSpacePosition(positionWS), local);
+        space.normal = lerp(normalWS, HB_ObjectSpaceNormal(normalWS), local);
+        space.localSpace = local;
+    }
 
     return space;
 }

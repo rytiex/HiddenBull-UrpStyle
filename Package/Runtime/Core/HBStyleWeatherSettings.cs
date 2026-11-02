@@ -107,7 +107,11 @@ namespace HiddenBull.UrpStyle
 
         public float speed => m_Speed;
 
-        public bool instant => m_Instant;
+        public bool instant
+        {
+            get => m_Instant;
+            set => m_Instant = value;
+        }
 
         public float wetTime => m_WetTime;
 
