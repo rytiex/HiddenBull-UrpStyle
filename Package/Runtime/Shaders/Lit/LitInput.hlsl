@@ -54,6 +54,14 @@ CBUFFER_START(UnityPerMaterial)
     half _FlakeDensity;
     half _FlakeSize;
     half _FlakeLife;
+#ifdef HB_TRANSPARENT
+    half _BlendMode;
+    half _StrokeAlpha;
+    half _Refraction;
+    half _RefractionBlur;
+    half _Dispersion;
+    half _StrokeBend;
+#endif
 CBUFFER_END
 
 #ifdef UNITY_DOTS_INSTANCING_ENABLED

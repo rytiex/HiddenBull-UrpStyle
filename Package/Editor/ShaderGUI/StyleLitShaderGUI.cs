@@ -137,6 +137,10 @@ namespace HiddenBull.UrpStyle.Editor
                 "Albedo Variation",
                 "How far the gaps between strokes darken the surface (0 to 1).");
 
+            public static readonly GUIContent StrokeAlpha = new GUIContent(
+                "Stroke Alpha",
+                "How far strokes break up see-through areas: denser on strokes, clearer between them (0 to 1).");
+
             public static readonly GUIContent BrushMask = new GUIContent(
                 "Mask",
                 "Red channel gates the whole brush; it falls silent where the mask is black.");
@@ -293,6 +297,7 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BrushShading;
         MaterialProperty m_BrushAmbient;
         MaterialProperty m_BrushAlbedo;
+        MaterialProperty m_StrokeAlpha;
         MaterialProperty m_BrushMaskEnabled;
         MaterialProperty m_BrushMask;
         MaterialProperty m_SpecularEnabled;
@@ -447,6 +452,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_BrushShading = Optional("_BrushShading", properties);
             m_BrushAmbient = Optional("_BrushAmbient", properties);
             m_BrushAlbedo = Optional("_BrushAlbedo", properties);
+            m_StrokeAlpha = Optional("_StrokeAlpha", properties);
             m_BrushMaskEnabled = Optional("_BrushMaskEnabled", properties);
             m_BrushMask = Optional("_BrushMask", properties);
             m_SpecularEnabled = Optional("_SpecularEnabled", properties);
@@ -507,7 +513,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawMaps(MaterialEditor materialEditor)
+        protected void DrawMaps(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_TriplanarEnabled, m_TriplanarSpace, m_BaseMapEnabled,
                                     m_NormalMapEnabled, m_BumpScale, m_MaskMapEnabled);
@@ -589,7 +595,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var reset = ResetAction(materialEditor, m_BrushObjectSpace, m_BrushScale, m_BrushPaint, m_BrushEdgeKeep,
                                     m_ToneStrokes, m_BakedStrokes, m_BrushRelief, m_BrushShading, m_BrushAmbient,
-                                    m_BrushAlbedo, m_BrushMaskEnabled);
+                                    m_BrushAlbedo, m_StrokeAlpha, m_BrushMaskEnabled);
             var expanded = StyleMaterialHeader.Draw(Styles.Brush, "Brush", materialEditor, m_BrushEnabled, reset);
 
             if (expanded)
@@ -618,6 +624,10 @@ namespace HiddenBull.UrpStyle.Editor
                 materialEditor.ShaderProperty(m_BrushShading, Styles.BrushShading);
                 materialEditor.ShaderProperty(m_BrushAmbient, Styles.BrushAmbient);
                 materialEditor.ShaderProperty(m_BrushAlbedo, Styles.BrushAlbedo);
+
+                if (m_StrokeAlpha != null)
+                    materialEditor.ShaderProperty(m_StrokeAlpha, Styles.StrokeAlpha);
+
                 materialEditor.ShaderProperty(m_BrushMaskEnabled, m_BrushMaskEnabled.displayName);
 
                 if (IsEnabled(m_BrushMaskEnabled))
@@ -632,7 +642,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawSpecular(MaterialEditor materialEditor)
+        protected void DrawSpecular(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_Metallic, m_Smoothness);
             var expanded = StyleMaterialHeader.Draw(Styles.Specular, "Specular", materialEditor, m_SpecularEnabled,
@@ -649,7 +659,7 @@ namespace HiddenBull.UrpStyle.Editor
             StyleMaterialHeader.End(expanded);
         }
 
-        void DrawRim(MaterialEditor materialEditor)
+        protected void DrawRim(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_RimColor, m_RimPower, m_RimIntensity);
             var expanded = StyleMaterialHeader.Draw(Styles.Rim, "Rim", materialEditor, m_RimEnabled, reset);
@@ -726,7 +736,7 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
-        void DrawEmission(MaterialEditor materialEditor)
+        protected void DrawEmission(MaterialEditor materialEditor)
         {
             var reset = ResetAction(materialEditor, m_EmissionColor);
             var expanded = StyleMaterialHeader.Draw(Styles.Emission, "Emission", materialEditor, m_EmissionEnabled,

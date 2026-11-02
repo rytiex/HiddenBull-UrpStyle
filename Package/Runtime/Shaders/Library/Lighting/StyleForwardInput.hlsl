@@ -50,7 +50,7 @@ void HB_InitializeBakedGI(Varyings input, float2 lightmapShift, inout InputData 
 #endif
 }
 
-#ifdef _HB_BRUSH
+#if defined(_HB_BRUSH) && !defined(HB_NO_BRUSH_SHIFT)
 float3 HB_ResolveBrushShift(Varyings input, float3 positionWS, half3 normalWS, float2 uvDdx, float2 uvDdy,
                             inout HBBrushSample brush, inout float2 shift, inout float2 lightmapShift)
 {

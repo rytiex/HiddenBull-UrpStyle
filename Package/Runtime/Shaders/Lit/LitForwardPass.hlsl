@@ -195,6 +195,10 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 
     HB_ResolveSurface(surface, shift, uvDdx, uvDdy, strokeShift, surfaceData, mappedNormalWS);
 
+#ifdef HB_LIT_SURFACE_HOOK
+    HB_LIT_SURFACE_HOOK(surfaceData, brush);
+#endif
+
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);
 #endif
@@ -235,6 +239,10 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 #else
     half wet = 0.0h;
     half snow = 0.0h;
+#endif
+
+#ifdef HB_LIT_INPUT_HOOK
+    HB_LIT_INPUT_HOOK(inputData, strokeShift);
 #endif
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, brushed, wet);

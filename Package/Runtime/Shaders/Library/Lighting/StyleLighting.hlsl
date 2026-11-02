@@ -22,10 +22,15 @@ half3 HB_LightResponse(Light light, half3 normalWS, half3 surfaceNormalWS, HBSty
     half wrap = saturate(style.diffuseWrap);
     half inverseWrap = rcp(1.0h + wrap);
 
+#ifdef HB_VOLUME_LIGHT
+    half lambert = 1.0h;
+    half selfShadow = 1.0h;
+#else
     half NdotL = dot(normalWS, light.direction) + terminatorOffset;
     half lambert = saturate((NdotL + wrap) * inverseWrap);
 
     half selfShadow = saturate(dot(surfaceNormalWS, light.direction) * rcp(HB_SELF_SHADOW_FADE));
+#endif
 
     half tone = HB_ToneBands(lambert * light.shadowAttenuation * selfShadow, wrap * inverseWrap,
                              style.halfTone, style.diffuseSoftness);
