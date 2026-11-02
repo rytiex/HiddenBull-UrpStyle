@@ -41,6 +41,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Shader m_RefractionBlurShader;
+
+        [SerializeField]
+        [HideInInspector]
         Material m_TerrainVariants;
 
         StyleCameraStates m_Cameras;
@@ -102,6 +106,7 @@ namespace HiddenBull.UrpStyle
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
+            m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
@@ -125,7 +130,9 @@ namespace HiddenBull.UrpStyle
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
 
             m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
-            m_TransparencyPass.Setup(kind == StyleCameraKind.Base ? m_PrecipitationPass : null);
+            m_TransparencyPass.Setup(kind == StyleCameraKind.Base ? m_PrecipitationPass : null, quality.transparency,
+                                     m_RefractionBlurShader);
+            m_TransparentShadowPass.Setup(quality.transparency);
             renderer.EnqueuePass(m_TransparencyPass);
             renderer.EnqueuePass(m_TransparentShadowPass);
 

@@ -32,16 +32,26 @@ namespace HiddenBull.UrpStyle
 
         readonly ShadowSliceData[] m_Slices = new ShadowSliceData[MaxCascades];
 
+        HBStyleTransparencyLevel m_Level;
+
         internal StyleTransparentShadowPass()
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingShadows;
             profilingSampler = new ProfilingSampler("HB Style Transparent Shadows");
         }
 
+        internal void Setup(HBStyleTransparencyQuality quality)
+        {
+            m_Level = quality.current;
+        }
+
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             Shader.SetGlobalFloat(s_TintActiveId, 0f);
             Shader.SetGlobalFloat(s_TintCasterId, 0f);
+
+            if (m_Level.glassShadowResolution == HBStyleGlassShadowResolution.Off)
+                return;
 
             var renderingData = frameData.Get<UniversalRenderingData>();
             var cameraData = frameData.Get<UniversalCameraData>();
@@ -74,11 +84,12 @@ namespace HiddenBull.UrpStyle
                 return;
 
             var count = Mathf.Clamp(shadowData.mainLightShadowCascadesCount, 1, MaxCascades);
+            var shift = m_Level.glassShadowResolution == HBStyleGlassShadowResolution.Half ? 1 : 2;
             var fullHeight = shadowData.mainLightShadowmapHeight;
-            var width = shadowData.mainLightShadowmapWidth >> 1;
-            var height = (count == 2 ? fullHeight >> 1 : fullHeight) >> 1;
+            var width = shadowData.mainLightShadowmapWidth >> shift;
+            var height = (count == 2 ? fullHeight >> 1 : fullHeight) >> shift;
             var resolution = ShadowUtils.GetMaxTileResolutionInAtlas(shadowData.mainLightShadowmapWidth, fullHeight,
-                                                                     count) >> 1;
+                                                                     count) >> shift;
 
             if (width < 1 || height < 1 || resolution < 1)
                 return;

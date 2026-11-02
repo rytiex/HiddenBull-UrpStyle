@@ -510,6 +510,16 @@
             Reads = 2
         }
         @{
+            Name = 'Refraction Blur Downsample'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/RefractionBlurPass.hlsl'
+            Entry = 'HB_RefractionDownsampleFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 120
+            Reads = 13
+        }
+        @{
             Name = 'Transparent Shadow Tint (triplanar)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentShadowPass.hlsl'
             Entry = 'HB_ShadowTintFragment'
@@ -547,8 +557,8 @@
             Stage = 'ps'
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2000
-            Reads = 55
+            Slots = 2200
+            Reads = 70
         }
         @{
             Name = 'Particle Forward (lit, all)'

@@ -10,6 +10,11 @@ namespace HiddenBull.UrpStyle
 {
     sealed class StyleTransparencyPass : ScriptableRenderPass, IDisposable
     {
+        internal const string BlurShaderPath =
+            "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/RefractionBlur.shader";
+
+        const int BlurLevels = 6;
+        const float MinRefractionScale = 0.25f;
         const float WholeStage = 0f;
         const float BehindStage = 1f;
         const float FrontStage = 2f;
@@ -17,6 +22,7 @@ namespace HiddenBull.UrpStyle
         static readonly ShaderTagId s_NearestTag = new ShaderTagId("HBStyleTransparentNearest");
         static readonly ShaderTagId s_RefractiveTag = new ShaderTagId("HBStyleTransparentRefractive");
         static readonly List<ShaderTagId> s_NearestTags = new List<ShaderTagId> { s_NearestTag, s_RefractiveTag };
+        static readonly List<ShaderTagId> s_GlassTags = new List<ShaderTagId> { s_NearestTag };
         static readonly List<ShaderTagId> s_ForwardTags = new List<ShaderTagId>
         {
             new ShaderTagId("HBStyleTransparentTint"),
@@ -26,6 +32,11 @@ namespace HiddenBull.UrpStyle
         static readonly int s_NearestId = Shader.PropertyToID("_HB_TransparentNearest");
         static readonly int s_BackgroundId = Shader.PropertyToID("_HB_RefractionBackground");
         static readonly int s_StageId = Shader.PropertyToID("_HB_TransparentStage");
+        static readonly int s_SimpleId = Shader.PropertyToID("_HB_TransparentSimple");
+        static readonly int s_BlurSourceId = Shader.PropertyToID("_HB_BlurSource");
+        static readonly int s_BlurSourceTexelId = Shader.PropertyToID("_HB_BlurSourceTexel");
+        static readonly int s_BlurTargetSizeId = Shader.PropertyToID("_HB_BlurTargetSize");
+        static readonly int s_BlurLodId = Shader.PropertyToID("_HB_BlurLod");
 
         static readonly string[] s_ForwardNames =
         {
@@ -36,17 +47,26 @@ namespace HiddenBull.UrpStyle
         {
             internal RendererListHandle list;
             internal float stage;
+            internal float simple;
         }
 
         class CopyData
         {
             internal TextureHandle source;
             internal TextureHandle background;
+            internal TextureHandle temp;
+            internal Material material;
+            internal Vector2Int sourceSize;
+            internal Vector2Int size;
+            internal int levels;
+            internal bool full;
         }
 
         readonly List<RendererList> m_Probes = new List<RendererList>(2);
 
         StylePrecipitationPass m_Precipitation;
+        HBStyleTransparencyLevel m_Level;
+        Material m_BlurMaterial;
         ScriptableRenderContext m_Context;
         bool m_HasContext;
 
@@ -64,9 +84,13 @@ namespace HiddenBull.UrpStyle
             m_HasContext = true;
         }
 
-        internal void Setup(StylePrecipitationPass precipitation)
+        internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality, Shader blurShader)
         {
+            if (m_BlurMaterial == null && blurShader != null)
+                m_BlurMaterial = CoreUtils.CreateEngineMaterial(blurShader);
+
             m_Precipitation = precipitation;
+            m_Level = quality.current;
             ConfigureInput(ScriptableRenderPassInput.Depth);
         }
 
@@ -85,7 +109,9 @@ namespace HiddenBull.UrpStyle
 
             var raining = m_Precipitation != null && m_Precipitation.Prepare(cameraData.camera);
 
-            Probe(renderingData, cameraData, lightData, out var glass, out var refractive);
+            var refraction = m_BlurMaterial != null;
+
+            Probe(renderingData, cameraData, lightData, refraction, out var glass, out var refractive);
 
             var splitRain = raining && glass;
 
@@ -99,7 +125,7 @@ namespace HiddenBull.UrpStyle
                 return;
             }
 
-            var nearest = RecordNearest(renderGraph, colour, depth, renderingData, cameraData, lightData);
+            var nearest = RecordNearest(renderGraph, colour, depth, refractive, renderingData, cameraData, lightData);
 
             if (splitRain)
                 m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.UnderStage, nearest);
@@ -109,7 +135,7 @@ namespace HiddenBull.UrpStyle
                 RecordForward(renderGraph, colour, depth, BehindStage, nearest, default, resourceData, renderingData,
                               cameraData, lightData);
 
-                var background = RecordBackground(renderGraph, colour);
+                var background = RecordBackground(renderGraph, colour, cameraData);
 
                 RecordForward(renderGraph, colour, depth, FrontStage, nearest, background, resourceData,
                               renderingData, cameraData, lightData);
@@ -124,7 +150,7 @@ namespace HiddenBull.UrpStyle
                 m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.OverStage, nearest);
         }
 
-        TextureHandle RecordNearest(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth,
+        TextureHandle RecordNearest(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, bool refractive,
                                     UniversalRenderingData renderingData, UniversalCameraData cameraData,
                                     UniversalLightData lightData)
         {
@@ -145,8 +171,8 @@ namespace HiddenBull.UrpStyle
             using var builder = renderGraph.AddRasterRenderPass<DrawData>("HB Style Transparent Nearest", out var data,
                                                                          profilingSampler);
 
-            var drawing = RenderingUtils.CreateDrawingSettings(s_NearestTags, renderingData, cameraData, lightData,
-                                                               SortingCriteria.None);
+            var drawing = RenderingUtils.CreateDrawingSettings(refractive ? s_NearestTags : s_GlassTags, renderingData,
+                                                               cameraData, lightData, SortingCriteria.None);
 
             data.list = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing,
                                                                               Filtering(cameraData)));
@@ -162,10 +188,26 @@ namespace HiddenBull.UrpStyle
             return nearest;
         }
 
-        TextureHandle RecordBackground(RenderGraph renderGraph, TextureHandle colour)
+        TextureHandle RecordBackground(RenderGraph renderGraph, TextureHandle colour, UniversalCameraData cameraData)
         {
             var descriptor = renderGraph.GetTextureDesc(colour);
+            var target = cameraData.cameraTargetDescriptor;
+            var explicitSize = descriptor.sizeMode == TextureSizeMode.Explicit;
+            var scale = Mathf.Clamp(m_Level.refractionResolution, MinRefractionScale, 1f);
+            var full = scale > 0.999f;
+            var sourceSize = explicitSize ? new Vector2Int(descriptor.width, descriptor.height)
+                                          : new Vector2Int(target.width, target.height);
+
+            sourceSize = Vector2Int.Max(sourceSize, Vector2Int.one);
+
+            var size = full ? sourceSize
+                            : Vector2Int.Max(Vector2Int.RoundToInt((Vector2)sourceSize * scale), Vector2Int.one);
+            var levels = Mathf.Min(BlurLevels, Mathf.FloorToInt(Mathf.Log(Mathf.Min(size.x, size.y), 2f)));
+
             descriptor.name = "_HB_RefractionBackground";
+            descriptor.sizeMode = TextureSizeMode.Explicit;
+            descriptor.width = size.x;
+            descriptor.height = size.y;
             descriptor.msaaSamples = MSAASamples.None;
             descriptor.clearBuffer = false;
             descriptor.useMipMap = true;
@@ -176,26 +218,71 @@ namespace HiddenBull.UrpStyle
             descriptor.bindTextureMS = false;
 
             var background = renderGraph.CreateTexture(descriptor);
+            var blurSize = Half(size, 1);
+
+            descriptor.name = "_HB_RefractionBlur";
+            descriptor.width = blurSize.x;
+            descriptor.height = blurSize.y;
+
+            var temp = renderGraph.CreateTexture(descriptor);
 
             using var builder = renderGraph.AddUnsafePass<CopyData>("HB Style Refraction Background", out var data,
                                                                    profilingSampler);
 
             data.source = colour;
             data.background = background;
+            data.temp = temp;
+            data.material = m_BlurMaterial;
+            data.sourceSize = sourceSize;
+            data.size = size;
+            data.levels = levels;
+            data.full = full;
 
             builder.UseTexture(colour, AccessFlags.Read);
-            builder.UseTexture(background, AccessFlags.Write);
+            builder.UseTexture(background, AccessFlags.ReadWrite);
+            builder.UseTexture(temp, AccessFlags.ReadWrite);
             builder.SetGlobalTextureAfterPass(background, s_BackgroundId);
             builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (CopyData d, UnsafeGraphContext context) =>
             {
                 var cmd = CommandBufferHelpers.GetNativeCommandBuffer(context.cmd);
 
-                cmd.CopyTexture(d.source, 0, 0, d.background, 0, 0);
-                cmd.GenerateMips(d.background);
+                if (d.full)
+                {
+                    cmd.CopyTexture(d.source, 0, 0, d.background, 0, 0);
+                }
+                else
+                {
+                    cmd.SetRenderTarget(d.background, 0);
+                    Downsample(cmd, d.material, d.source, d.sourceSize, 0, d.size);
+                }
+
+                for (var level = 1; level <= d.levels; level++)
+                {
+                    cmd.SetRenderTarget(d.temp, level - 1);
+                    Downsample(cmd, d.material, d.background, Half(d.size, level - 1), level - 1, Half(d.size, level));
+                    cmd.CopyTexture(d.temp, 0, level - 1, d.background, 0, level);
+                }
             });
 
             return background;
+        }
+
+        static Vector2Int Half(Vector2Int size, int steps)
+        {
+            return new Vector2Int(Mathf.Max(size.x >> steps, 1), Mathf.Max(size.y >> steps, 1));
+        }
+
+        static void Downsample(CommandBuffer cmd, Material material, RenderTargetIdentifier source, Vector2Int from,
+                               int lod, Vector2Int to)
+        {
+            cmd.SetViewport(new Rect(0f, 0f, to.x, to.y));
+            cmd.SetGlobalTexture(s_BlurSourceId, source);
+            cmd.SetGlobalVector(s_BlurSourceTexelId, new Vector4(1f / from.x, 1f / from.y, from.x, from.y));
+            cmd.SetGlobalVector(s_BlurTargetSizeId, new Vector4(to.x, to.y, 1f / to.x, 1f / to.y));
+            cmd.SetGlobalFloat(s_BlurLodId, lod);
+            cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles, 3);
         }
 
         void RecordForward(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, float stage,
@@ -212,6 +299,7 @@ namespace HiddenBull.UrpStyle
             data.list = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing,
                                                                               Filtering(cameraData)));
             data.stage = stage;
+            data.simple = m_Level.simpleLighting ? 1f : 0f;
 
             Read(builder, resourceData.cameraDepthTexture);
             Read(builder, nearest);
@@ -226,8 +314,10 @@ namespace HiddenBull.UrpStyle
             builder.SetRenderFunc(static (DrawData d, RasterGraphContext context) =>
             {
                 context.cmd.SetGlobalFloat(s_StageId, d.stage);
+                context.cmd.SetGlobalFloat(s_SimpleId, d.simple);
                 context.cmd.DrawRendererList(d.list);
                 context.cmd.SetGlobalFloat(s_StageId, WholeStage);
+                context.cmd.SetGlobalFloat(s_SimpleId, 0f);
             });
         }
 
@@ -243,24 +333,27 @@ namespace HiddenBull.UrpStyle
         }
 
         void Probe(UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData,
-                   out bool glass, out bool refractive)
+                   bool refraction, out bool glass, out bool refractive)
         {
             glass = true;
-            refractive = true;
+            refractive = refraction;
 
             if (!m_HasContext)
                 return;
 
             var nearest = CreateProbe(s_NearestTag, renderingData, cameraData, lightData);
-            var refracted = CreateProbe(s_RefractiveTag, renderingData, cameraData, lightData);
+            var refracted = refraction ? CreateProbe(s_RefractiveTag, renderingData, cameraData, lightData) : default;
 
             m_Probes.Clear();
             m_Probes.Add(nearest);
-            m_Probes.Add(refracted);
+
+            if (refraction)
+                m_Probes.Add(refracted);
+
             m_Context.PrepareRendererListsAsync(m_Probes);
 
             glass = Visible(nearest);
-            refractive = Visible(refracted);
+            refractive = refraction && Visible(refracted);
         }
 
         RendererList CreateProbe(ShaderTagId tag, UniversalRenderingData renderingData,
@@ -282,6 +375,8 @@ namespace HiddenBull.UrpStyle
         {
             RenderPipelineManager.beginContextRendering -= Capture;
             m_HasContext = false;
+            CoreUtils.Destroy(m_BlurMaterial);
+            m_BlurMaterial = null;
         }
     }
 }

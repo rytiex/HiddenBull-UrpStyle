@@ -329,37 +329,40 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     }
 
 #if defined(_ADDITIONAL_LIGHTS)
-    uint pixelLightCount = GetAdditionalLightsCount();
+    HB_UNLESS_SIMPLE_LIGHTING
+    {
+        uint pixelLightCount = GetAdditionalLightsCount();
 
     #if USE_CLUSTER_LIGHT_LOOP
-    [loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS);
-                lightIndex++)
-    {
-        CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
-
-        Light light = HB_GetAdditionalLight(lightIndex, inputData.positionWS, positionDx, positionDy,
-                                            inputData.normalWS, shadowMask, aoFactor, brush.offset, brushed);
-    #ifdef _LIGHT_LAYERS
-        if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-    #endif
+        [loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS);
+                    lightIndex++)
         {
-            colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                           brdfData, inputData, surfaceData, wet);
+            CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
+
+            Light light = HB_GetAdditionalLight(lightIndex, inputData.positionWS, positionDx, positionDy,
+                                                inputData.normalWS, shadowMask, aoFactor, brush.offset, brushed);
+        #ifdef _LIGHT_LAYERS
+            if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+        #endif
+            {
+                colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
+                                               brdfData, inputData, surfaceData, wet);
+            }
         }
+    #endif
+
+        LIGHT_LOOP_BEGIN(pixelLightCount)
+            Light light = HB_GetAdditionalLight(lightIndex, inputData.positionWS, positionDx, positionDy,
+                                                inputData.normalWS, shadowMask, aoFactor, brush.offset, brushed);
+        #ifdef _LIGHT_LAYERS
+            if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+        #endif
+            {
+                colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
+                                               brdfData, inputData, surfaceData, wet);
+            }
+        LIGHT_LOOP_END
     }
-    #endif
-
-    LIGHT_LOOP_BEGIN(pixelLightCount)
-        Light light = HB_GetAdditionalLight(lightIndex, inputData.positionWS, positionDx, positionDy,
-                                            inputData.normalWS, shadowMask, aoFactor, brush.offset, brushed);
-    #ifdef _LIGHT_LAYERS
-        if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
-    #endif
-        {
-            colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                           brdfData, inputData, surfaceData, wet);
-        }
-    LIGHT_LOOP_END
 #endif
 
 #if defined(_ADDITIONAL_LIGHTS_VERTEX)

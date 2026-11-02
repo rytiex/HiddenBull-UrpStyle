@@ -34,6 +34,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Anti aliasing levels: how carefully edges and pixel-sized details are smoothed.")]
         HBStyleAntiAliasingQuality m_AntiAliasing = new HBStyleAntiAliasingQuality();
 
+        [SerializeField]
+        [Tooltip("Transparency levels: refraction and the shadows glass casts.")]
+        HBStyleTransparencyQuality m_Transparency = new HBStyleTransparencyQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -47,5 +51,7 @@ namespace HiddenBull.UrpStyle
         public HBStyleGrassQuality grass => m_Grass;
 
         public HBStyleAntiAliasingQuality antiAliasing => m_AntiAliasing;
+
+        public HBStyleTransparencyQuality transparency => m_Transparency;
     }
 }

@@ -37,6 +37,15 @@ float4x4 _HB_ShadowTintWorldToShadow[MAX_SHADOW_CASCADES + 1];
     #define HB_MAIN_LIGHT_SHADOW_MAP
 #endif
 
+#if defined(HB_TRANSPARENT) || defined(HB_VOLUME_LIGHT)
+float _HB_TransparentSimple;
+    #define HB_SIMPLE_LIGHTING (_HB_TransparentSimple > 0.5)
+    #define HB_UNLESS_SIMPLE_LIGHTING UNITY_BRANCH if (!HB_SIMPLE_LIGHTING)
+#else
+    #define HB_SIMPLE_LIGHTING false
+    #define HB_UNLESS_SIMPLE_LIGHTING
+#endif
+
 struct HBShadowProbe
 {
     half blockers;
@@ -241,7 +250,8 @@ half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask,
 
 #ifdef HB_MAIN_LIGHT_SHADOW_MAP
     bool contact = HB_SHADOW_SOFTNESS > 0.0 && _MainLightShadowmapSize.z >= 2.0
-                && distance(positionWS, GetCameraPositionWS()) <= HB_SHADOW_REACH;
+                && distance(positionWS, GetCameraPositionWS()) <= HB_SHADOW_REACH
+                && !HB_SIMPLE_LIGHTING;
 
     #if defined(HB_STYLE_DEBUG)
     contact = contact && HB_DEBUG_VIEW != HB_DEBUG_SHADOW_UNFILTERED;
