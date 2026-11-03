@@ -591,3 +591,35 @@ User measurements in the editor, 176 mesh trees, 1.13 M triangles per pass, Swit
 Hi-Z simulation, not a Unity measurement: a wall caught 16.9 % of the trees fully behind it with a sphere + 4 texels,
 76.6 % with the final box and 5×5 scan; 0 false hides in 1.2 M random boxes; near-wall parallax errors are gone from
 1.2 m on. The ms gain of Hi-Z and the collider count limit in a real scene are measured in Phase 12.
+
+## Phase 8 — Transparency
+
+### Phase 8 closed (2026-11-02): final offline costs (compiled offline; the user confirmed the look in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Transparent forward (alpha, all) | 1896 | 40 | – | 2000 / 45 — OK |
+| Transparent forward (tinted or refractive, brush) | 2089 | 67 | – | 2200 / 70 — OK |
+| Transparent Tint (brush) | 658 | 5 | – | 800 / 12 — OK |
+| Transparent Nearest | 7 | 0 | – | 100 / 2 — OK |
+| Transparent Shadow Tint fragment (triplanar) / vertex | 84 / 30 | 3 / 0 | – | 200 / 4 — OK |
+| Refraction Blur Downsample | 37 | 13 | – | 120 / 13 — OK |
+| Particle forward (lit, all) | 1295 | 32 | – | 1400 / 36 — OK |
+| Particle forward (additive, flipbook) | 139 | 4 | – | 260 / 8 — OK |
+| Lit forward (all, triplanar) | 3503 | 138 | 2455 / 37 | 2550 / 60 — OK, 95 slots left |
+| Foliage forward (all, GPU) | 3286 | 130 | 2238 / 29 | 2500 / 60 — OK |
+| Billboard forward | 2119 | 128 | 1071 / 27 | 1500 / 30 — OK |
+| Terrain forward | 4101 | 153 | 3053 / 52 | 4500 / 175 — OK |
+| Grass forward | 357 | 5 | – | 2000 / 30 — OK |
+
+The coloured shadow receiver (tint atlas read in the main light) adds 17 slots and 2 reads to Lit, and about the same
+to every surface lit by the main light. Static slots of the transparent forward pass by feature (probe compiles, not
+budget rows): all 1890, no brush 1280, no specular and rim 1555, no additional lights 1389, no main shadow 1646, bare
+lighting 1112, plain material 928. Brush stays on glass at every level (user).
+
+Memory at 1080p (computed): the nearest-glass target is R16G16, 7.9 MB; the refraction background is a copy of the
+camera colour plus a third for its mips at scale 1, a quarter of that at 0.5; the tint atlas is RGBA16F
+at half or quarter of the main shadow map (2048² at Half with a 4096 shadow map: 32 MB, 1024²: 8 MB).
+
+The user saw almost no ms difference between Low and Ultra in the test scene, where refraction and glass shadows
+are cheap. Transparency ≤ 0.6 ms without refraction and the refraction cost are measured in a build in Phase 12.

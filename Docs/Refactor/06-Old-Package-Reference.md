@@ -16,7 +16,7 @@ where the weight was.
 | StyleClouds.hlsl | Stepped painterly cloud shading | Improve translucency |
 | StyleSkyExposure.hlsl, StyleShore.hlsl, StyleWeatherSurface.hlsl (547) | Approved snow/wet look (pre-refactor ffb0d53^ version), detail fade ≤ 30 m | Weather module; add roof-margin input |
 | StyleWaves.hlsl (418) | Gerstner cascades bake, depth-scaled waves | Visual-only waves in v1 |
-| StyleTransparency.hlsl, StyleShadowTint.hlsl | MBOIT moments/resolve, front/behind split, tint atlas | Keep model (see pitfalls), add Tinted mode |
+| StyleTransparency.hlsl, StyleShadowTint.hlsl | MBOIT moments/resolve, front/behind split, tint atlas | Replaced in v1 by sorted forward (`03` §11); the tint atlas idea was kept |
 | StyleCanopy.hlsl | Canopy normal from bounds | Replaced by baked canopy attributes |
 | StyleBillboardInstancing.hlsl | Procedural instancing setup | Port as is |
 
@@ -32,7 +32,7 @@ where the weight was.
 | Weather (StyleShelter.compute 593, StylePrecipitation.shader 452) | Shelter follow + fade; procedural rain/snow |
 | Fog | Froxel volumetric — **drop** |
 | Sky (GradientSky) | Port and extend |
-| Transparency | Composite — keep model |
+| Transparency | Composite — replaced by sorted forward |
 | Billboard, Particle, Decal | Port |
 
 ## C# runtime (`Runtime/Core`, `Runtime/Rendering`)
@@ -45,7 +45,7 @@ where the weight was.
 | StyleBillboardSystem.cs (808) | Port nearly as is |
 | StyleGrassPass.cs (639) | Port; culling mask check |
 | StyleGlobalsPass.cs (653) | Replace with one CBUFFER upload |
-| StyleTransparencyPass.cs, StyleTransparentShadows.cs | Port with skip-when-empty |
+| StyleTransparencyPass.cs, StyleTransparentShadows.cs | Rewritten as `StyleTransparencyPass` + `StyleTransparentShadowPass` |
 | StyleFogPass.cs | Drop |
 | HBStyleRenderSettings.cs | Port (runtime quality API, editor restore on Play exit) |
 | HBStyleShadowQualitySettings.cs | Becomes a Quality profile section |

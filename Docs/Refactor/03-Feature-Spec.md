@@ -19,7 +19,7 @@ Legend: **Keep** = the old look/behaviour was approved, rebuild it cleanly. **Ch
 - Add per-level presets like Grass (distance, cascades, resolution, softness, taps) in the Quality profile.
 - Guard every custom filter with the empty-shadowmap test (`_MainLightShadowmapSize.z < 2`, see pitfalls).
 - Debug views move to the Debug window.
-- Colored transparent shadows (tint atlas) — Keep, but skip the cull when no tint caster is visible.
+- Coloured transparent shadows (tint atlas): rebuilt in Phase 8, see §11.
 - Done: Low/Medium/High/Ultra measurable cost steps; no cascade leaks on huge triangles with Near Plane = 1
   (documented), debug views working.
 
@@ -280,7 +280,7 @@ shader and the sky:
 - Step 6 decided (2026-10-25), falling precipitation in four parts, one test each:
   - **6a near layer**: GPU procedural quads (no CPU mesh, no particle system) in a box around the base camera that
     wraps drops across its faces; base cameras only, camera culling mask respected; drawn before transparents
-    (after the skybox, as in `02`); rain behind or in front of glass is solved with OIT in Phase 8. A drop is
+    (after the skybox, as in `02`); rain behind or in front of glass is split around the nearest glass (§11). A drop is
     hidden once it falls below the shelter roof at its position (one map read per drop, soft landing fade).
     Rain: thin streaks stretched along the fall + wind velocity, at least 1.5 px wide, lit by ambient and key light
     and tinted by Rain Color. Snow: round soft dots (no snowflake texture), swaying as they fall. Wind 1 tilts rain
@@ -885,14 +885,37 @@ shader and the sky:
 
 ## 11. Transparency — Change
 
-- Keep MBOIT (4 moments) with refraction inside it; all transparents are our shaders.
-- **Transmission tint for every transparent type**, not only refraction: a "Tinted" blend mode that filters
-  the background by colour (coloured glass without refraction), so transparents read as tinted, not faded.
-- Blend modes: Alpha, Premultiply, Additive, Tinted, Refractive.
-- Optimise: skip the whole OIT path when no transparent of ours is in view; refraction background mips and
-  blur only when a refractive surface is visible; fewer blur taps; measure MRT bandwidth.
+Final state at Phase 8 close (2026-11-02). MBOIT was built first and replaced by sorted full-resolution forward
+transparency; the MBOIT build stays in commit `fb167c6` for reference only.
+
+- `HB URP Style/Transparent` (Alpha, Premultiply, Additive, Tinted, Refractive) and `HB URP Style/Particle` (lit,
+  or additive with flipbook). All transparents are our shaders, drawn back to front by URP's common transparent
+  sorting with premultiplied blending (`One OneMinusSrcAlpha`).
+- **Tinted transmission**: Tinted and Refractive add a tint pass (`Blend DstColor Zero`) that filters what is behind
+  by colour, so glass reads as coloured, not faded.
+- **Nearest glass**: an R16G16 target (1 / eye depth, BlendOp Max) holds the nearest glass (R) and the nearest
+  refractive glass (G). It is drawn only when glass is visible and rain or refraction needs it.
+- **Refraction**: transparents behind the nearest refractive glass draw first, the colour is copied into a
+  background with a blurred 6-level pyramid (13-tap downsample), then the front group draws and reads it with a
+  bicubic read between two levels; the material's Blur picks the level. Mip sizes come from `GetDimensions`.
+- **Rain and glass**: the transparency pass draws precipitation, split into Under (behind the nearest glass) and
+  Over (in front of it) when it rains and glass is visible; otherwise one plain draw. Overlay cameras draw none.
+- **Skip**: renderer list probes per camera. With no glass in view the pass draws one plain forward group with no
+  extra targets; with no refractive glass there is no background copy or blur.
+- **Coloured shadows**: `StyleTransparentShadowPass` draws the glass shadow casters per cascade into an RGBA16F
+  tint atlas (RGB absorbance added, A caster depth by max) at half or quarter of the main shadow map size, snapped
+  at its own resolution. Receivers multiply the main light colour by the tint after a 2 × 2 depth test. Material
+  toggle "Coloured Shadow" (off gives grey shadows); hidden for Additive, which casts none. Debug view
+  Shadows/Transparent Tint.
+- **Quality** (Transparency section of the Quality profile, Low / Medium / High / Ultra, no Off: refraction is
+  always on): Refraction Resolution 0.5 / 0.5 / 0.75 / 1 (background scale, 0.25–1), Glass Shadow Resolution
+  Off / Quarter / Half / Half, Simple Lighting on Low only (transparents and particles skip additional lights and
+  the contact shadow filter).
+- Brush stays on glass at every level (user, 2026-11-02).
 - MSAA unsupported (documented).
-- Done: transparency ≤ 0.6 ms without refraction on the reference scene; refraction cost reported.
+- Done: tinted glass reads as glass and coloured shadows hold still while the camera moves (user, 2026-11-02).
+  Transparency ≤ 0.6 ms without refraction and the refraction cost are measured in Phase 12. The overlay camera
+  case was not tested by the user.
 
 ## 12. Cavity / edge highlight — New
 

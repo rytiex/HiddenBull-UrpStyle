@@ -31,8 +31,8 @@ fixes stacked on fixes. v1 keeps the look and rebuilds the structure.
 | Terrain + Liquid | One family: liquid uses the terrain's data directly; one set of components and tools. |
 | Environment settings | **ScriptableObject profile on the HB Style Environment Controller (was HB Style Sun). No URP Volume components.** Runtime API for dynamic scenes (weather transitions, profile blending) and a box zone component for local overrides. |
 | Fog | Replace the froxel volumetric fog with a cheaper analytic **height fog + horizon / aerial perspective** applied in-shader. |
-| Transparency | Keep moment-based OIT (no Weighted-Blended tiers), but optimise it and add real tinted transmission. |
-| MSAA | **Not supported** (Depth Priming Forced and OIT need it off). Document it; post AA only. |
+| Transparency | Sorted full-resolution forward transparency with real tinted transmission (MBOIT replaced on 2026-11-02, no Weighted-Blended tiers). |
+| MSAA | **Not supported** (Depth Priming Forced and the transparency targets need it off). Document it; post AA only. |
 | Shader Graph | **Node library only** (Custom Function / Sub Graph nodes for an Unlit graph). No template graph. |
 | Unity version | Unity 6000.4 (6000.0 minimum), URP 17.4, Forward+, Render Graph only. PC and console. No WebGL/mobile. |
 | Lighting | Mixed lighting with **Shadowmask** is the supported bake mode. APV recommended. Time of day and weather live on HB Style Environment Controller. |
@@ -108,6 +108,9 @@ budgeted variant. Shaders with no URP counterpart (Sky) are budgeted absolutely.
 | Liquid surface | ≤ 3500 | ≤ 120 |
 | Sky | ≤ 1500 | ≤ 20 |
 | Billboard | ≤ 1500 | ≤ 30 |
+| Transparent forward (alpha, all) | ≤ 2000 | ≤ 45 |
+| Transparent forward (tinted or refractive) | ≤ 2200 (raised from 2000 on 2026-11-02 for the blurred refraction read) | ≤ 70 |
+| Particle forward (lit, all) | ≤ 1400 | ≤ 36 |
 
 Frame targets on the reference GPU at 1080p (Ultra, busy scene): whole package ≤ 4 ms GPU above plain URP;
 grass ≤ 2 ms; precipitation ≤ 0.5 ms; shelter maps ≤ 0.3 ms; transparency (no refraction) ≤ 0.6 ms.

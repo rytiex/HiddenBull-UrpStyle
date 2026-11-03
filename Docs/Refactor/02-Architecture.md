@@ -59,6 +59,7 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 |---|---|---|
 | Globals (frame CBUFFER, environment, brush, quality) | BeforeRenderingShadows (must be before shadow casters) | always |
 | Shelter (top-down sky depth, near + far, with margin dilation, timed cover map) | BeforeRenderingShadows | weather active |
+| Glass shadow tint atlas (`StyleTransparentShadowPass`, per cascade) | BeforeRenderingShadows | Glass Shadow Resolution > Off and the main light casts shadows |
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |
 | Plant culling (compute, outside the pass list) | `beginCameraRendering` | GPU plants exist |
@@ -66,8 +67,7 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Opaques (URP) — no atmosphere in the surface shaders | — | — |
 | Depth pyramid (Hi-Z, `StyleDepthPyramidPass`, read the next frame) | AfterRenderingSkybox | GPU plants or grass |
 | Atmosphere (full screen: fog, horizon, fog paint, silhouette, from depth) | AfterRenderingSkybox, before precipitation | atmosphere quality > Off |
-| Precipitation (procedural) | AfterRenderingSkybox | weather active |
-| Transparency (MBOIT + composite, refraction only if a refractive surface is visible) | BeforeRenderingTransparents | a transparent of ours is visible |
+| Transparency (sorted forward; nearest glass, behind / front split and blurred background only when needed; draws precipitation, split under / over glass) | BeforeRenderingTransparents | always; renderer list probes pick the stages |
 | Underwater (full screen) | BeforeRenderingPostProcessing | camera is below/at a liquid surface |
 
 Since 2026-10-27 opaque surfaces are fogged by **one full-screen atmosphere pass** (it needs neighbouring depth
@@ -156,7 +156,7 @@ HBStyleTerrain (component)
    that fades weather in where a roof was removed.
 4. Plant, terrain and grass computes cull into indirect args, using last frame's depth pyramid.
 5. Opaque shaders: Surface → Lighting (+Shadow, Brush, Weather, Cavity) → Atmosphere.
-6. Transparents via OIT; precipitation; underwater.
+6. Precipitation and sorted transparents (one pass, rain split around the nearest glass); underwater.
 
 ## 7. Assemblies
 

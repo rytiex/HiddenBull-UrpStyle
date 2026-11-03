@@ -14,7 +14,7 @@ written down in `Docs/`.
 | **5 Grass** | Painted grass map (density + height); GPU generated leaves; wind gust; flowers; benders; weather on grass; gradual weather after a roof is removed | Paint grass on/off and height; ≤ 2 ms Ultra meadow (measured 2.1 ms in the editor) |
 | **7 Foliage + Billboards** (ran before 6) | Foliage and Foliage Body shaders, Bake Plant (canopy + billboard), Sway + Flutter, always-Static weather; `StylePlantSystem` (compute cull, view and shadow lists, cross-fade, FOV distances, picking, counter); sun-view shadow atlas; Hi-Z occlusion for plants and grass; Plants palette on our terrain; colliders; harvest API | Merged and separate bushes look the same; tall bushes not black |
 | **6 Liquids** | Liquid layers (water/lava/acid); terrain level map (sea + lakes + rivers); visual waves (baked wave textures), near-only displacement by quality; depth gradient, caustics, foam, crest; pools; cutters; floaters; height query; underwater with exact waterline | Approved look preserved; cost report; waterline seamless |
-| **8 Transparency** | MBOIT with Tinted / Refractive / Alpha / Premultiply / Additive; skip when none visible; refraction optimisation; colored shadows; particles | ≤ 0.6 ms without refraction; tinted glass reads as glass |
+| **8 Transparency** | Sorted forward (MBOIT replaced) with Tinted / Refractive / Alpha / Premultiply / Additive; nearest-glass split for rain and refraction; skip when none visible; blurred refraction pyramid; coloured shadows; particles; Transparency quality levels | ≤ 0.6 ms without refraction (measured in Phase 12); tinted glass reads as glass |
 | **9 Cavity + Decal** | Screen-space cavity pass; decal shader | Edge highlights on props/buildings ≤ 0.4 ms |
 | **10 Texture Studio** | Shared framework (fullscreen, presets everywhere, GPU generation); Terrain import/edit; Grass & per-flower presets; Liquid/Cloud presets | Fast generation, consistent UI |
 | **11 Shader Graph** | Node library: Lighting, Brush, Weather Static/Moving, Atmosphere, Cavity | Unlit graph matches Lit look |
@@ -42,6 +42,11 @@ the way; the phase also brought Wet Gloss, pressed snow, a bender trail independ
 shows the order of work. Final state in `03` §4, costs in `08`. Phase 7 ended with no mid LOD: dense mesh trees are
 avoided by hand for now (path written in `03` §4). Colliders, harvest and the billboard leaf light fix were compiled
 offline and not run in Unity at close, so the first Phase 6 session in the sandbox should glance at them.
+
+**Phase 8 closed (user, 2026-11-02).** It ran before Phase 6 too. The MBOIT build was replaced by sorted forward
+transparency on the way. Final state in `03` §11, offline costs in `08`. The overlay camera case was not tested by the
+user. Before Phase 6 comes a polish batch the user agreed on 2026-11-02: the Moving weather rebuild, grass Blade
+Detail per quality level, then custom grass texture cards per terrain layer.
 
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start

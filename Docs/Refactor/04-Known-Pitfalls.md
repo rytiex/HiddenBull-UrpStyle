@@ -20,7 +20,7 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | 1.11 | "UnityPerMaterial var is not declared in shader property section" (BRG / GPU Resident Drawer) | A cbuffer variable (`_Metallic`) had no Properties entry in Foliage | Every UnityPerMaterial variable is declared in Properties of **every** shader that uses the cbuffer. Per-family cbuffers, not one shared superset. |
 | 1.12 | Statistics window shows no triangles for billboards / grass | Unity does not count indirect draws (Won't Fix) | Provide our own counters (AsyncGPUReadback, only while an inspector watches). |
 | 1.13 | Depth priming silently off | MSAA on, or renderer left at Disabled | Feature forces Depth Priming = Forced in editor; MSAA unsupported. |
-| 1.14 | Transparents break with MSAA | OIT targets are not MSAA-resolved | MSAA unsupported; document. |
+| 1.14 | Transparents break with MSAA | The nearest-glass target and the refraction background are not MSAA-resolved | MSAA unsupported; document. |
 | 1.15 | Cascade-shaped light leak on huge triangles | Shadow pancaking clamps per vertex | Set Directional Light â†’ Shadows â†’ Near Plane = 1 (user's choice; do not add ZClip changes unless asked). |
 | 1.16 | Shadow artefact looked like a lightmap leak | Our contact filter returned lit when its blocker search found nothing at contact points | For any "leak", first ask whether it survives turning the realtime sun off; compare Attenuation vs Unfiltered debug views. |
 | 1.18 | Removed roof: red in Debug > Weather/Shelter but snow popped in | The cover timer forgave short cover to protect moving cars, and snow is complete at about half the value, so short roof toggles started past that point | Moving Lit is not in the shelter map, so every drop in the top height restarts from 0. Compare the debug value with the weather curve, not only with time. |
@@ -30,6 +30,7 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | 1.21 | Billboard leaves lit from the wrong side, ground shadow right | For GPU plants `unity_WorldToObject` is set only in the vertex stage | Fragment code in GPU plants must not rely on `unity_WorldToObject`; use `TransformObjectToWorldDir` |
 | 1.22 | Grass flicker while moving with a first-person hand in view | Hi-Z tests last frame's depth, and the hand turns with the camera | Depth closer than 1.5 m is never an occluder (`HB_OCCLUSION_CLOSEST`); boxes grow by camera travel |
 | 1.23 | Compute "property not set" naming a kernel after adding a kernel | Kernel indices cached by C# that ran before the shader changed | Look kernels up on every Ready, no static cache |
+| 1.24 | Coloured glass shadows flicker while the camera moves | The reduced-size tint atlas used URP's full-size cascade snapping | Extract the cascade matrices again at the atlas size (`ExtractDirectionalLightMatrix`) and use those for drawing and reading |
 
 ## 2. Shader authoring traps
 
@@ -49,6 +50,10 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 - A missing mesh channel is not zero: an absent TEXCOORD3 reads from elsewhere. Test only a value the bake sets on
   purpose (uv3.z > 0.5), never x or y.
 - Water, glass and anything see-through must stay out of opaque depth, or Hi-Z hides what is behind it.
+- Mip sizes are floored, not halved: a texel size of mip0 Ã— 2^level misreads odd sizes and shows a block grid.
+  Read the level size with `GetDimensions(level, ...)`.
+- `[branch]` on a compile-time constant condition warns X3554. Hide the attribute behind a macro that is empty when
+  the condition is constant (`HB_UNLESS_SIMPLE_LIGHTING`).
 
 ## 3. C# / Unity API traps (Unity 6000.4)
 
@@ -88,8 +93,8 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | Water | Wind multiplier on waves | Material toggle "Wind Affects Waves" instead. |
 | Shadows | Shrinking contact-hardening reach below 15 m | Keep 15 m. |
 | Shadows | ZClip / depth clamp change for pancaking | User sets Near Plane = 1. |
-| Variant stripping | Pass-level stripping (ForwardLit on transparent, OIT on opaque) | Risky for runtime-created materials. Only strip keywords that are provably unused project-wide. |
-| Transparency | Weighted-Blended OIT tiers | Always MBOIT. |
+| Variant stripping | Pass-level stripping (ForwardLit on transparent, transparent passes on opaque) | Risky for runtime-created materials. Only strip keywords that are provably unused project-wide. |
+| Transparency | Weighted-Blended OIT tiers | Sorted forward since 2026-11-02; MBOIT was replaced too (kept in commit fb167c6). |
 | Shader Graph | A base/template graph | Node library only. |
 | Brush | "Minimum Detail" setting | Destroyed fine detail, no FPS gain. |
 | Temporal | A temporal accumulation layer | Dropped. |
