@@ -31,18 +31,17 @@ Read before doing anything (do not ask me what these answer):
 **Next job: the polish batch before Phase 6** (agreed with me on 2026-11-02, in this order, each one confirmed by me
 before it starts):
 
-1. Rebuild Receive Weather Moving as one model: settled wet and snow kept apart from what is falling now, drying
-   shrinks drops, new beads take the kind of the current precipitation (snow stops after a switch to rain), faces
-   turned down fade their drops slowly. My objects have `HBStyleWeatherBody`; first find out why drops vanish at
-   once even with a body before you claim a cause.
-2. Grass "Blade Detail" per quality level: fewer leaves per tuft and triangles per leaf, leaves widened to keep
+1. Done (closed 2026-11-03): the Receive Weather Moving rebuild, final state in 03 §7 (Weather Body slots, own rain
+   and snow clocks, fixed cell kinds, beads shrink one by one, bead plane from the smooth normal). The per-face
+   memory for flipped bodies was dropped.
+2. Next: Grass "Blade Detail" per quality level: fewer leaves per tuft and triangles per leaf, leaves widened to keep
    coverage.
 3. Custom grass textures as alpha-cut cards per terrain layer, through the same GPU placement and brush shading.
 
 Then **Phase 6 Liquids** (05, 03 §10; old liquids in commit `3d4a06c`, see 06). Build each step with a debug view,
 compile with `Tools~/Check-All.ps1 -Filter '<name>*'` (never the full table for small changes), and give me one
-test list per step. Respect the budgets in 01 §5. Lit has 95 slots left under its budget, so anything that touches
-Lit must cut something first. The cost measurement happens once, in Phase 12.
+test list per step. Respect the budgets in 01 §5. Lit has 95 slots left under its budget (the Moving triplanar
+row 64), so anything that touches Lit must cut something first. The cost measurement happens once, in Phase 12.
 
 Working rules:
 

@@ -17,6 +17,10 @@ namespace HiddenBull.UrpStyle
 
         internal static double fallClock { get; private set; }
 
+        internal static double rainClock { get; private set; }
+
+        internal static double snowClock { get; private set; }
+
         internal static bool instant { get; private set; } = true;
 
         internal static bool surfaceActive => wetness > Settled || snow > Settled;
@@ -50,6 +54,12 @@ namespace HiddenBull.UrpStyle
                 StylePrecipitation.Advance(Mathf.Min(step, LongestStep));
             }
 
+            if (rainNow > 0f)
+                rainClock += step;
+
+            if (snowNow > 0f)
+                snowClock += step;
+
             if (instant)
             {
                 wetness = Mathf.Clamp01(rainNow * RainToSoak);
@@ -77,6 +87,8 @@ namespace HiddenBull.UrpStyle
             snow = 0f;
             rain = 0f;
             fallClock = 0.0;
+            rainClock = 0.0;
+            snowClock = 0.0;
             instant = true;
             StylePrecipitation.Reset();
         }

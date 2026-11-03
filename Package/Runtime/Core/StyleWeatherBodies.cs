@@ -13,8 +13,13 @@ namespace HiddenBull.UrpStyle
         const float CoverRange = 0.6f;
         const float UnderSoft = 0.05f;
         const float None = -1e5f;
+        const int FirstSlots = 16;
 
         static readonly List<HBStyleWeatherBody> s_Bodies = new List<HBStyleWeatherBody>();
+        static readonly Stack<int> s_FreeSlots = new Stack<int>();
+
+        static Vector4[] s_States = new Vector4[FirstSlots];
+        static int s_SlotCount;
 
         static RTHandle s_Heights;
         static Vector4 s_WrittenArea;
@@ -45,15 +50,39 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static void Register(HBStyleWeatherBody body)
+        internal static Vector4[] states => s_States;
+
+        internal static int slotCount => s_SlotCount;
+
+        internal static int Register(HBStyleWeatherBody body)
         {
             s_Bodies.Remove(body);
             s_Bodies.Add(body);
+
+            var slot = s_FreeSlots.Count > 0 ? s_FreeSlots.Pop() : s_SlotCount++;
+
+            if (slot >= s_States.Length)
+                System.Array.Resize(ref s_States, s_States.Length * 2);
+
+            s_States[slot] = Vector4.zero;
+            return slot;
         }
 
-        internal static void Unregister(HBStyleWeatherBody body)
+        internal static void Unregister(HBStyleWeatherBody body, int slot)
         {
             s_Bodies.Remove(body);
+
+            if (slot < 0 || slot >= s_SlotCount)
+                return;
+
+            s_States[slot] = Vector4.zero;
+            s_FreeSlots.Push(slot);
+        }
+
+        internal static void Store(int slot, Vector4 state)
+        {
+            if (slot >= 0 && slot < s_SlotCount)
+                s_States[slot] = state;
         }
 
         internal static RTHandle Target(int size)
@@ -160,6 +189,9 @@ namespace HiddenBull.UrpStyle
         static void OnSubsystemRegistration()
         {
             s_Bodies.Clear();
+            s_FreeSlots.Clear();
+            s_States = new Vector4[FirstSlots];
+            s_SlotCount = 0;
             Reset();
         }
 

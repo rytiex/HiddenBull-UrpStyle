@@ -23,6 +23,7 @@
 #define HB_DEBUG_SHELTER 8
 #define HB_DEBUG_WETNESS 9
 #define HB_DEBUG_SNOW    10
+#define HB_DEBUG_MOVING_BODY 22
 
 #if defined(_HB_BRUSH_ANCHOR)
     #define HB_ANCHOR
@@ -227,8 +228,8 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     HB_InitializeBakedGI(input, lightmapShift, inputData);
 
 #ifdef HB_WEATHER
-    HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, brush.coverage, surface.anchorOS,
-                                          HB_LitWeatherMaterial());
+    HBWeather weather = HB_ResolveWeather(inputData.positionWS, inputData.normalWS, HB_FacingNormal(surface),
+                                          brush.coverage, surface.anchorOS, HB_LitWeatherMaterial());
 
     HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
@@ -261,6 +262,15 @@ half4 HB_LitColour(Varyings input, bool frontFace)
 
     if (HB_DEBUG_VIEW == HB_DEBUG_SNOW)
         colour.rgb = half3(snow, snow, snow);
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_MOVING_BODY)
+    {
+#if defined(_HB_WEATHER_MOVING)
+        colour.rgb = HB_WeatherBodyTracked() ? half3(0.1h, 0.8h, 0.2h) : half3(0.9h, 0.1h, 0.1h);
+#else
+        colour.rgb *= 0.15h;
+#endif
+    }
 #endif
 
     return colour;

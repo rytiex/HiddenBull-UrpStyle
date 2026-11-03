@@ -12,6 +12,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_BrushAtlasId = Shader.PropertyToID("_HB_BrushAtlas");
         static readonly int s_CloudAtlasId = Shader.PropertyToID("_HB_CloudAtlas");
         static readonly int s_SkyLutId = Shader.PropertyToID("_HB_SkyLut");
+        static readonly int s_BodiesId = Shader.PropertyToID("_HB_WeatherBodies");
 
         readonly ConstantBuffer<StyleFrameGlobals> m_Buffer = new ConstantBuffer<StyleFrameGlobals>();
         readonly StyleEnvironmentMixer m_Mixer = new StyleEnvironmentMixer();
@@ -21,6 +22,7 @@ namespace HiddenBull.UrpStyle
         HBStyleQualityProfile m_Quality;
         StyleCameraStates m_Cameras;
         StyleShelterPass m_Shelter;
+        GraphicsBuffer m_Bodies;
 
         class PassData
         {
@@ -34,6 +36,9 @@ namespace HiddenBull.UrpStyle
             public bool noUnderside;
             public bool noCover;
             public StyleShelterPass.Binding shelter;
+            public GraphicsBuffer bodies;
+            public Vector4[] bodyStates;
+            public int bodyCount;
         }
 
         internal StyleGlobalsPass()
@@ -76,6 +81,18 @@ namespace HiddenBull.UrpStyle
             passData.skyLut = resolved.skyLut;
             passData.bindShelter = false;
 
+            var states = StyleWeatherBodies.states;
+
+            if (m_Bodies == null || m_Bodies.count != states.Length)
+            {
+                m_Bodies?.Release();
+                m_Bodies = new GraphicsBuffer(GraphicsBuffer.Target.Structured, states.Length, sizeof(float) * 4);
+            }
+
+            passData.bodies = m_Bodies;
+            passData.bodyStates = states;
+            passData.bodyCount = StyleWeatherBodies.slotCount;
+
             if (kind == StyleCameraKind.Overlay && m_Shelter != null &&
                 m_Shelter.TryGetMap(cameraData.baseCamera, out var shelter))
             {
@@ -104,6 +121,11 @@ namespace HiddenBull.UrpStyle
                 context.cmd.SetGlobalTexture(s_BrushAtlasId, data.brushAtlas);
                 context.cmd.SetGlobalTexture(s_CloudAtlasId, data.cloudAtlas);
                 context.cmd.SetGlobalTexture(s_SkyLutId, data.skyLut);
+
+                if (data.bodyCount > 0)
+                    context.cmd.SetBufferData(data.bodies, data.bodyStates, 0, 0, data.bodyCount);
+
+                context.cmd.SetGlobalBuffer(s_BodiesId, data.bodies);
 
                 if (data.bindShelter)
                 {
@@ -155,6 +177,8 @@ namespace HiddenBull.UrpStyle
         public void Dispose()
         {
             m_Buffer.Release();
+            m_Bodies?.Release();
+            m_Bodies = null;
             m_Mixer.Dispose();
             m_SharedMixLut.Dispose();
         }

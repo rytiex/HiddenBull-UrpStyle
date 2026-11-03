@@ -8,11 +8,7 @@ namespace HiddenBull.UrpStyle
     public sealed class HBStyleWeatherBody : MonoBehaviour
     {
         const uint Tracked = 0x80000000u;
-        const float Levels = 127f;
-        const int SnowShift = 7;
-        const int ClockShift = 14;
-        const uint ClockMask = 0x1FFFFu;
-        const double ClockRate = 32.0;
+        const double ClockWrap = 65536.0;
         const float CoverReach = 0.7f;
 
         [SerializeField]
@@ -30,7 +26,9 @@ namespace HiddenBull.UrpStyle
         float m_Wetness;
         float m_Snow;
         float m_Exposure = 1f;
-        double m_Clock;
+        double m_RainClock;
+        double m_SnowClock;
+        int m_Slot = -1;
         uint m_Written;
 
         public float wetness => m_Wetness;
@@ -47,12 +45,13 @@ namespace HiddenBull.UrpStyle
         void OnEnable()
         {
             Collect();
-            StyleWeatherBodies.Register(this);
+            m_Slot = StyleWeatherBodies.Register(this);
         }
 
         void OnDisable()
         {
-            StyleWeatherBodies.Unregister(this);
+            StyleWeatherBodies.Unregister(this, m_Slot);
+            m_Slot = -1;
             Write(0u);
         }
 
@@ -80,19 +79,22 @@ namespace HiddenBull.UrpStyle
             var wetTarget = StyleWeatherState.wetness * m_Exposure;
             var snowTarget = StyleWeatherState.snow * m_Exposure;
 
-            if (StyleWeatherState.falling)
-                m_Clock += Time.deltaTime * m_Exposure;
+            var falling = StyleEnvironment.weather;
+
+            if (falling.x > 0f)
+                m_RainClock += Time.deltaTime * m_Exposure;
+
+            if (falling.y > 0f)
+                m_SnowClock += Time.deltaTime * m_Exposure;
 
             var step = Time.deltaTime * settings.speed;
 
             m_Wetness = Toward(m_Wetness, wetTarget, step / settings.uncoverTime, step / settings.dryTime);
             m_Snow = Toward(m_Snow, snowTarget, step / settings.uncoverTime, step / settings.meltTime);
 
-            var wet = (uint)Mathf.RoundToInt(m_Wetness * Levels);
-            var flakes = (uint)Mathf.RoundToInt(m_Snow * Levels);
-            var clock = (uint)((long)(m_Clock * ClockRate) & ClockMask);
-
-            Write(Tracked | wet | (flakes << SnowShift) | (clock << ClockShift));
+            StyleWeatherBodies.Store(m_Slot, new Vector4(m_Wetness, m_Snow, (float)(m_RainClock % ClockWrap),
+                                                           (float)(m_SnowClock % ClockWrap)));
+            Write(m_Slot >= 0 ? Tracked | (uint)m_Slot : 0u);
         }
 
         void OnDrawGizmosSelected()

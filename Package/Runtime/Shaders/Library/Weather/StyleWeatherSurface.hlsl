@@ -8,17 +8,13 @@
 
 #define HB_WEATHER_CONTRAST     2.0h
 #define HB_BODY_TRACKED         0x80000000u
-#define HB_BODY_LEVELS          127u
-#define HB_BODY_UNIT            (1.0 / 127.0)
-#define HB_BODY_SNOW_SHIFT      7u
-#define HB_BODY_CLOCK_SHIFT     14u
-#define HB_BODY_CLOCK_MASK      0x1FFFFu
-#define HB_BODY_CLOCK_RATE      32.0
+#define HB_BODY_SLOT            0x7FFFFFFFu
 #define HB_FLAKE_UP             2.0h
 
 #define HB_BEAD_JITTER          0.4
 #define HB_BEAD_RADIUS          0.3
 #define HB_BEAD_SOFT            0.06
+#define HB_BEAD_DRY             0.3h
 #define HB_BEAD_STEEPEST        0.35
 #define HB_DROP_BEND            0.4
 #define HB_FLAKE_BEND           0.2
@@ -103,6 +99,15 @@ struct HBWeatherMaterial
     half4 beads;
     half2 beadLife;
 };
+
+#if defined(_HB_WEATHER_MOVING)
+StructuredBuffer<float4> _HB_WeatherBodies;
+
+bool HB_WeatherBodyTracked()
+{
+    return (unity_RendererUserValue & HB_BODY_TRACKED) != 0u;
+}
+#endif
 
 half HB_WeatherDetail(float3 positionWS)
 {
@@ -303,21 +308,30 @@ float3 HB_BeadSpace(float3 positionWS, float3 anchorOS)
 #endif
 }
 
-float3 HB_BeadNormal(float3 spaceDx, float3 spaceDy)
+float3 HB_BeadNormal(float3 spaceDx, float3 spaceDy, float3 positionDx, float3 positionDy, float3 geometryWS)
 {
-    float3 crossed = cross(spaceDx, spaceDy);
-    float length2 = dot(crossed, crossed);
+    float3 facet = cross(positionDx, positionDy);
+    float3 spaceFacet = cross(spaceDx, spaceDy);
+    float facet2 = dot(facet, facet);
+    float spaceFacet2 = dot(spaceFacet, spaceFacet);
 
-    return length2 > 1e-20 ? crossed * rsqrt(length2) : float3(0.0, 1.0, 0.0);
+    if (facet2 <= 1e-30 || spaceFacet2 <= 1e-30)
+        return float3(0.0, 1.0, 0.0);
+
+    float3 normal = (dot(geometryWS, cross(positionDy, facet)) * spaceDx
+                   + dot(geometryWS, cross(facet, positionDx)) * spaceDy) / facet2
+                  + dot(geometryWS, facet) * rsqrt(facet2) * rsqrt(spaceFacet2) * GetOddNegativeScale() * spaceFacet;
+
+    return normalize(normal);
 }
 
-half HB_Beads(float3 space, float3 normal, half dropShare, half flakeShare, float cellSize, float2 scale,
-              float2 life, float clock, float footprint, out float3 slope, out half flake)
+half HB_Beads(float3 space, float3 normal, half2 presence, half flakePart, half2 amount, float cellSize,
+              float2 scale, float2 life, float2 clocks, float footprint, out float3 slope, out half flake)
 {
     float3 q = space / cellSize;
     float3 home = floor(q - 0.5);
 
-    half flakeRatio = flakeShare / max(dropShare + flakeShare, 1e-4h);
+    half2 dryStart = amount / HB_BEAD_DRY;
     half bead = 0.0h;
     float3 offset = float3(0.0, 0.0, 0.0);
 
@@ -328,9 +342,10 @@ half HB_Beads(float3 space, float3 normal, half dropShare, half flakeShare, floa
     {
         float3 cell = home + float3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
         float3 timing = HB_BrushHash(cell.xy + cell.z * 97.0 + 990.0);
-        half flakeCell = half(timing.z) < flakeRatio ? 1.0h : 0.0h;
+        half flakeCell = half(timing.z) < flakePart ? 1.0h : 0.0h;
 
-        float cycle = clock / (lerp(life.x, life.y, flakeCell) * (0.6 + timing.x * 0.8)) + timing.y;
+        float cycle = lerp(clocks.x, clocks.y, flakeCell) / (lerp(life.x, life.y, flakeCell) * (0.6 + timing.x * 0.8))
+                    + timing.y;
         float age = frac(cycle);
         float2 generation = floor(cycle) * float2(13.0, 29.0);
 
@@ -339,7 +354,9 @@ half HB_Beads(float3 space, float3 normal, half dropShare, half flakeShare, floa
 
         float3 jitter = (place - 0.5) * HB_BEAD_JITTER;
         float3 centre = cell + 0.5 + jitter - dot(jitter, normal) * normal;
-        float radius = HB_BEAD_RADIUS * lerp(scale.x, scale.y, flakeCell) * (0.6 + kind.y * 0.4) * (1.0 - age * age);
+        half dried = saturate(lerp(dryStart.x, dryStart.y, flakeCell) - half(kind.z) * (1.0h / HB_BEAD_DRY - 1.0h));
+        float radius = HB_BEAD_RADIUS * lerp(scale.x, scale.y, flakeCell) * (0.6 + kind.y * 0.4) * (1.0 - age * age)
+                     * dried;
         float3 away = q - centre;
         float depth = dot(away, normal);
         half layer = half(saturate(1.0 - abs(depth)));
@@ -347,7 +364,7 @@ half HB_Beads(float3 space, float3 normal, half dropShare, half flakeShare, floa
         away -= depth * normal;
 
         half cover = half(saturate((radius - length(away)) / HB_BEAD_SOFT))
-                   * (half(kind.x) < lerp(dropShare, flakeShare, flakeCell) * layer ? 1.0h : 0.0h);
+                   * (half(kind.x) < lerp(presence.x, presence.y, flakeCell) * layer ? 1.0h : 0.0h);
 
         if (cover > bead)
         {
@@ -379,8 +396,8 @@ half3 HB_BeadBend(float3 slope, float3 spaceDx, float3 spaceDy, float3 positionD
     return half3(-gradient);
 }
 
-HBWeather HB_ResolveMovingWeather(float3 positionWS, half3 normalWS, float3 anchorOS, HBWeatherMaterial material,
-                                  half wetAmount, half snowAmount, float clock)
+HBWeather HB_ResolveMovingWeather(float3 positionWS, half3 normalWS, half3 geometryWS, float3 anchorOS,
+                                  HBWeatherMaterial material, half wetAmount, half snowAmount, float2 clocks)
 {
     HBWeather weather;
     weather.rain = 0.0h;
@@ -388,31 +405,32 @@ HBWeather HB_ResolveMovingWeather(float3 positionWS, half3 normalWS, float3 anch
 
     half up = saturate(normalWS.y * HB_FLAKE_UP);
     half wet = wetAmount * material.wetness;
-    half snow = snowAmount * up;
 
     float3 space = HB_BeadSpace(positionWS, anchorOS);
     float3 spaceDx = ddx(space);
     float3 spaceDy = ddy(space);
-    float3 beadNormal = HB_BeadNormal(spaceDx, spaceDy);
     float3 positionDx = ddx(positionWS);
     float3 positionDy = ddy(positionWS);
+    float3 beadNormal = HB_BeadNormal(spaceDx, spaceDy, positionDx, positionDy, float3(geometryWS));
     float footprint = length(abs(positionDx) + abs(positionDy));
     half detail = HB_WeatherDetail(positionWS);
 
-    half dropShare = wet * up * material.beads.x;
-    half flakeShare = snow * material.beads.z;
+    half density = material.beads.x + material.beads.z;
+    half2 presence = density * up * half2(material.wetness, 1.0h);
+    half flakePart = material.beads.z / max(density, 1e-4h);
     float cellSize = max(material.beads.y, material.beads.w);
     half drops = 0.0h;
     half flakes = 0.0h;
 
     UNITY_BRANCH
-    if (detail > 0.0h && dropShare + flakeShare > 0.0h && footprint < cellSize * HB_BEAD_RADIUS * 2.0)
+    if (detail > 0.0h && (wet * material.beads.x + snowAmount * material.beads.z) * up > 0.0h &&
+        footprint < cellSize * HB_BEAD_RADIUS * 2.0)
     {
         float3 slope;
         half flake;
-        half bead = HB_Beads(space, beadNormal, dropShare, flakeShare, cellSize,
+        half bead = HB_Beads(space, beadNormal, presence, flakePart, half2(wetAmount, snowAmount), cellSize,
                              float2(material.beads.y, material.beads.w) / cellSize, max(material.beadLife, 0.1h),
-                             clock, footprint, slope, flake) * detail;
+                             clocks, footprint, slope, flake) * detail;
 
         drops = bead * (1.0h - flake);
         flakes = bead * flake;
@@ -432,29 +450,37 @@ HBWeather HB_ResolveMovingWeather(float3 positionWS, half3 normalWS, float3 anch
     return weather;
 }
 
-HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half brushCoverage, float3 anchorOS,
+HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS, half brushCoverage, float3 anchorOS,
                             HBWeatherMaterial material)
 {
     HBWeather weather;
 
 #if defined(_HB_WEATHER_MOVING)
     uint body = unity_RendererUserValue;
-    half wet = half(float(body & HB_BODY_LEVELS) * HB_BODY_UNIT);
-    half snow = half(float((body >> HB_BODY_SNOW_SHIFT) & HB_BODY_LEVELS) * HB_BODY_UNIT);
-    float clock = float((body >> HB_BODY_CLOCK_SHIFT) & HB_BODY_CLOCK_MASK) / HB_BODY_CLOCK_RATE;
+    half wet;
+    half snow;
+    float2 clocks;
 
     UNITY_BRANCH
-    if ((body & HB_BODY_TRACKED) == 0u)
+    if ((body & HB_BODY_TRACKED) != 0u)
+    {
+        float4 state = _HB_WeatherBodies[body & HB_BODY_SLOT];
+
+        wet = half(state.x);
+        snow = half(state.y);
+        clocks = state.zw;
+    }
+    else
     {
         half open = HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0
                   ? HB_ShelterOpen(positionWS, normalWS) * HB_ShelterCover(positionWS.xz) : 0.0h;
 
         wet = half(HB_SURFACE_WET) * open;
         snow = half(HB_SURFACE_SNOW) * open;
-        clock = HB_SURFACE_CLOCK;
+        clocks = float2(HB_RAIN_CLOCK, HB_SNOW_CLOCK);
     }
 
-    weather = HB_ResolveMovingWeather(positionWS, normalWS, anchorOS, material, wet, snow, clock);
+    weather = HB_ResolveMovingWeather(positionWS, normalWS, geometryWS, anchorOS, material, wet, snow, clocks);
 #else
     weather = HB_ResolveSurfaceWeather(positionWS, normalWS, brushCoverage, material.wetness, material.snowCover,
                                        false, 1.0h);

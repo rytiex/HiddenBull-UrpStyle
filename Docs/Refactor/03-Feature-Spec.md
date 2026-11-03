@@ -262,21 +262,30 @@ shader and the sky:
   covers all renderers below it; it reads the shelter at one probe point (transform position + Probe Offset,
   turned with the transform only when Follow Rotation is on, so an FPS camera looking up or down keeps the point)
   from a CPU readback of the key game camera's map (`Camera.main`, else the last base Game camera; every 0.2 s),
-  follows the global wetness / snow with Uncover Time (rising) and Dry / Melt Time (falling), and packs wetness and
-  snow into the Renderer Shader User Value (bit 31 = tracked). Static and Moving are separate keywords again
+  follows the global wetness / snow with Uncover Time (rising) and Dry / Melt Time (falling), and stores wetness and
+  snow in its Weather Body slot (below). Static and Moving are separate keywords again
   (`_HB_WEATHER`, `_HB_WEATHER_MOVING`); the Lit inspector re-validates keywords when a material opens. The
   component runs in Play mode only; its inspector shows the shelter map camera, open-to-sky share, wet and snow.
-- Drops and flakes are discs in the surface plane (plane from the bead-space derivatives); each 3D cell layer is
-  present by a tent along the normal, so density and size do not depend on where a face sits in the cell grid
-  (simulated: flat faces 0.13–0.145 at every offset, before 0.000–0.104; spheres even at every latitude). Beads
-  only form while precipitation reaches the surface: their clock runs while rain or snow falls (global clock,
-  `_HB_WeatherSurface.w`) and, for a Weather Body, while it falls on the body (scaled by its open share). Under
-  cover or after the rain the beads hold still and vanish one by one as the surface dries or melts. User value
-  packing: bits 0–6 wet, 7–13 snow, 14–30 clock (1/32 s, wraps after 4096 s), bit 31 tracked.
+- Drops and flakes are discs in the surface plane; each 3D cell layer is present by a tent along the normal, so
+  density and size do not depend on where a face sits in the cell grid (simulated: flat faces 0.13–0.145 at every
+  offset, before 0.000–0.104; spheres even at every latitude). The plane is the smooth vertex normal (not the
+  normal-mapped one) carried into bead space through the pixel's position and bead-space derivatives, with the
+  object's mirror sign; a per-triangle normal cut 20–52% of the beads crossing a triangle edge (2026-11-03).
+  Rain and snow have their own clocks that run only while that kind falls (global `_HB_WeatherClocks`; for a
+  Weather Body while it falls on the body, scaled by its open share), so under cover or after the rain the beads
+  hold still. Drying and melting shrink the beads one by one, each around its own threshold.
+- Weather Body data (2026-11-03): each body takes a slot in the `_HB_WeatherBodies` structured buffer (wet, snow,
+  rain clock, snow clock; clocks wrap after 65536 s), uploaded once per frame by the globals pass. The Renderer
+  Shader User Value holds bit 31 tracked + the slot index and is written only when it changes. Debug view
+  Weather / Moving Body shows tracked renderers green and untracked ones red.
 - Step 5 confirmed (2026-10-25). All features + Moving was over the Lit budget (+2910); drops and flakes now share
-  one 8-cell loop on the larger of the two sizes: each cell carries a flake with the snow's share of the total and
-  a drop otherwise, so with only rain or only snow the look is unchanged; with both, they split the cells, and a
-  smaller Drop / Flake Size draws smaller beads on the shared grid.
+  one 8-cell loop on the larger of the two sizes: each cell's kind is fixed by the material's flake density share
+  of the total (since 2026-11-03; before, it followed the current weather, so beads switched kind when rain turned
+  to snow), and a smaller Drop / Flake Size draws smaller beads on the shared grid.
+- Moving rebuild closed (user, 2026-11-03, polish batch). Tried and dropped: a per-face memory so a flipped body
+  keeps its drops on the face now turned down and dries them there. Settled up vectors, then six direction bins
+  with their own clocks, cut and shimmered beads on curved and skinned bodies and cost ~75 Lit slots. Beads follow
+  the current up at once on a flip; the user accepted that drops vanish fast there.
 - Step 6 decided (2026-10-25), falling precipitation in four parts, one test each:
   - **6a near layer**: GPU procedural quads (no CPU mesh, no particle system) in a box around the base camera that
     wraps drops across its faces; base cameras only, camera culling mask respected; drawn before transparents

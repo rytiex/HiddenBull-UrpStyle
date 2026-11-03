@@ -52,6 +52,7 @@ namespace HiddenBull.UrpStyle
         public Vector4 _HB_Horizon;
         public Vector4 _HB_FogPaint;
         public Vector4 _HB_Debug;
+        public Vector4 _HB_WeatherClocks;
 
         internal static StyleFrameGlobals Resolve(HBStyleEnvironmentProfile profile, StyleSkyLut lut,
                                                   HBStyleQualityProfile quality, int cascades)
@@ -189,6 +190,8 @@ namespace HiddenBull.UrpStyle
             globals._HB_Weather = new Vector4(falling.x, falling.y, falling.z, heading);
             globals._HB_WeatherSurface = new Vector4(StyleWeatherState.wetness, StyleWeatherState.snow,
                                                      StyleWeatherState.rain, (float)StyleWeatherState.fallClock);
+            globals._HB_WeatherClocks = new Vector4((float)StyleWeatherState.rainClock,
+                                                   (float)StyleWeatherState.snowClock, 0f, 0f);
             globals._HB_WeatherLook = new Vector4(rainColor.r, rainColor.g, rainColor.b,
                                                   quality.current.detailDistance);
             globals._HB_Precipitation = new Vector4(weather.rainOpacity, weather.rainWidth, weather.snowSize,

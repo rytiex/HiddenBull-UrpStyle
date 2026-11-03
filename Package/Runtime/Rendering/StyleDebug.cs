@@ -25,7 +25,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Foliage/Canopy")] FoliageCanopy = 18,
         [InspectorName("Foliage/Sway")] FoliageSway = 19,
         [InspectorName("Culling/Game Camera")] CullingGameCamera = 20,
-        [InspectorName("Shadows/Transparent Tint")] ShadowTransparentTint = 21
+        [InspectorName("Shadows/Transparent Tint")] ShadowTransparentTint = 21,
+        [InspectorName("Weather/Moving Body")] WeatherMovingBody = 22
     }
 
     static class StyleDebug

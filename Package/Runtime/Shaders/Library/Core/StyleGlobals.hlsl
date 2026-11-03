@@ -40,6 +40,7 @@ CBUFFER_START(HBStyleFrame)
     float4 _HB_Horizon;
     float4 _HB_FogPaint;
     float4 _HB_Debug;
+    float4 _HB_WeatherClocks;
 CBUFFER_END
 
 #define HB_TIME_OF_DAY _HB_Environment.x
@@ -52,6 +53,8 @@ CBUFFER_END
 #define HB_SURFACE_SNOW _HB_WeatherSurface.y
 #define HB_SURFACE_RAIN _HB_WeatherSurface.z
 #define HB_SURFACE_CLOCK _HB_WeatherSurface.w
+#define HB_RAIN_CLOCK _HB_WeatherClocks.x
+#define HB_SNOW_CLOCK _HB_WeatherClocks.y
 #define HB_RAIN_COLOR _HB_WeatherLook.rgb
 #define HB_WEATHER_DETAIL _HB_WeatherLook.w
 #define HB_RAIN_OPACITY _HB_Precipitation.x
