@@ -9,6 +9,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Atmosphere/StyleAtmosphere.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherSurface.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidLevel.hlsl"
 
 #define HB_DEBUG_SHELTER 8
 #define HB_DEBUG_WETNESS 9
@@ -24,6 +25,13 @@
 #define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
 #define HB_GRASS_DEBUG_TALL         half3(0.05h, 0.5h, 0.4h)
 #define HB_GRASS_DEBUG_TALLEST      1.0h
+#define HB_WATER_DEBUG_DRY          half3(0.5h, 0.5h, 0.5h)
+#define HB_WATER_DEBUG_DEEP         10.0h
+#define HB_WATER_DEBUG_DARK         0.15h
+#define HB_WATER_DEBUG_FASTEST      6.0h
+#define HB_WATER_DEBUG_STRIPE       1.0
+#define HB_WATER_DEBUG_CELL         4.0
+#define HB_WATER_DEBUG_STRIPE_DIM   0.55h
 #define HB_GRASS_FAR_START          _HB_TerrainGrassFar.x
 #define HB_GRASS_FAR_END            _HB_TerrainGrassFar.y
 #define HB_GRASS_FAR_TIP            0.5h
@@ -289,6 +297,50 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
         colour.rgb = pow(lerp(HB_GRASS_DEBUG_BARE, hue, saturate(grass.density)), 2.2h)
                    * saturate(normalWS.y * 0.5h + 0.5h);
+    }
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_LIQUID_DEPTH)
+    {
+        float2 spot = HB_TerrainLocal(input.positionWS.xz) / HB_TERRAIN_SIZE.xz;
+        HBWaterLevel water = HB_WaterLevel(spot, HB_TERRAIN_ORIGIN.y);
+        float depth = water.level - input.positionWS.y;
+        half lit = saturate(normalWS.y * 0.5h + 0.5h);
+
+        colour.rgb = HB_WATER_DEBUG_DRY * lit;
+
+        if (water.wet && depth > 0.0)
+        {
+            half deep = half(saturate(depth / HB_WATER_DEBUG_DEEP));
+            half3 tint = pow(max(HB_WaterTint(water.mix), 0.0h), 2.2h);
+
+            colour.rgb = tint * lerp(1.0h, HB_WATER_DEBUG_DARK, sqrt(deep));
+        }
+    }
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_LIQUID_FLOW)
+    {
+        float2 spot = HB_TerrainLocal(input.positionWS.xz) / HB_TERRAIN_SIZE.xz;
+        HBWaterLevel water = HB_WaterLevel(spot, HB_TERRAIN_ORIGIN.y);
+        half lit = saturate(normalWS.y * 0.5h + 0.5h);
+
+        colour.rgb = HB_WATER_DEBUG_DRY * lit;
+
+        float pixel = max(length(ddx(input.positionWS.xz)), length(ddy(input.positionWS.xz)));
+
+        if (water.wet && water.level > input.positionWS.y)
+        {
+            float2 centre = (floor(input.positionWS.xz / HB_WATER_DEBUG_CELL) + 0.5) * HB_WATER_DEBUG_CELL;
+            float2 flow = HB_WaterFlow(HB_TerrainLocal(centre) / HB_TERRAIN_SIZE.xz).xy;
+            float speed = length(flow);
+            half share = half(saturate(speed / HB_WATER_DEBUG_FASTEST));
+            half3 hue = share < 0.5h ? lerp(half3(1.0h, 0.0h, 0.0h), half3(1.0h, 1.0h, 0.0h), share * 2.0h)
+                                     : lerp(half3(1.0h, 1.0h, 0.0h), half3(0.0h, 1.0h, 0.0h), share * 2.0h - 1.0h);
+            float along = dot(input.positionWS.xz - centre, flow / max(speed, HB_EPSILON)) - _Time.y * speed;
+            half shown = half(saturate(HB_WATER_DEBUG_STRIPE / max(pixel, HB_EPSILON) / 4.0 - 1.0));
+            half dim = speed > 0.01 && frac(along / HB_WATER_DEBUG_STRIPE) > 0.5 ? shown : 0.0h;
+
+            colour.rgb = pow(hue, 2.2h) * lerp(1.0h, HB_WATER_DEBUG_STRIPE_DIM, dim);
+        }
     }
 #endif
 

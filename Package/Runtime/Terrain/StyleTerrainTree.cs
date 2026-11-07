@@ -23,11 +23,20 @@ namespace HiddenBull.UrpStyle
         int[] m_Count;
         int m_Levels;
         float m_LeafSize;
+        int m_Inner;
+        int m_Blocks = 1;
+        int m_Block;
+        float m_Outer;
+        float m_Margin;
         readonly float[] m_Ranges = new float[MaxLevels];
 
         internal int levels => m_Levels;
 
         internal float leafSize => m_LeafSize;
+
+        internal float offset => m_Block * m_LeafSize * m_Count[0];
+
+        internal float span => m_Blocks * m_LeafSize * m_Count[0];
 
         internal float Range(int level) => m_Ranges[level];
 
@@ -35,7 +44,11 @@ namespace HiddenBull.UrpStyle
 
         internal float Spacing(int level) => m_LeafSize * (1 << level) / PatchQuads;
 
-        internal bool Build(float[] leafMin, float[] leafMax, int leaves, float leafSize)
+        internal bool Build(float[] leafMin, float[] leafMax, int leaves, float leafSize) =>
+            Build(leafMin, leafMax, leaves, leafSize, 0, 0f, 0f);
+
+        internal bool Build(float[] leafMin, float[] leafMax, int leaves, float leafSize, int extra, float outer,
+                            float margin)
         {
             m_Levels = 0;
 
@@ -51,7 +64,14 @@ namespace HiddenBull.UrpStyle
             if (levels > MaxLevels)
                 return false;
 
-            m_Levels = levels;
+            extra = Math.Max(Math.Min(extra, MaxLevels - levels), 0);
+
+            m_Inner = levels;
+            m_Blocks = 1 << extra;
+            m_Block = extra > 0 ? m_Blocks / 2 - 1 : 0;
+            m_Outer = outer;
+            m_Margin = margin;
+            m_Levels = levels + extra;
             m_LeafSize = leafSize;
             m_Min = new float[levels][];
             m_Max = new float[levels][];
@@ -108,11 +128,14 @@ namespace HiddenBull.UrpStyle
                     List<StyleTerrainNode> output)
         {
             var size = m_LeafSize * (1 << level);
-            var index = z * m_Count[level] + x;
-            var minX = x * size;
-            var minZ = z * size;
-            var minY = m_Min[level][index];
-            var maxY = m_Max[level][index];
+            var minX = x * size - offset;
+            var minZ = z * size - offset;
+
+            Height(level, x, z, out var minY, out var maxY);
+
+            if (minY > maxY)
+                return true;
+
             var distance = Distance(cameraX, cameraY, cameraZ, minX, minY, minZ, minX + size, maxY, minZ + size);
 
             if (distance > m_Ranges[level])
@@ -152,8 +175,39 @@ namespace HiddenBull.UrpStyle
             return true;
         }
 
-        static float Distance(float px, float py, float pz, float minX, float minY, float minZ, float maxX, float maxY,
-                              float maxZ)
+        void Height(int level, int x, int z, out float minY, out float maxY)
+        {
+            minY = m_Outer - m_Margin;
+            maxY = m_Outer + m_Margin;
+
+            if (level < m_Inner)
+            {
+                var count = m_Count[level];
+                var first = m_Block * count;
+
+                if (x < first || z < first || x >= first + count || z >= first + count)
+                    return;
+
+                var index = (z - first) * count + x - first;
+
+                minY = m_Min[level][index];
+                maxY = m_Max[level][index];
+                return;
+            }
+
+            var blocks = 1 << (level - m_Inner + 1);
+            var top = m_Inner - 1;
+
+            if (m_Block < x * blocks || m_Block >= (x + 1) * blocks || m_Block < z * blocks ||
+                m_Block >= (z + 1) * blocks || m_Min[top][0] > m_Max[top][0])
+                return;
+
+            minY = Math.Min(minY, m_Min[top][0]);
+            maxY = Math.Max(maxY, m_Max[top][0]);
+        }
+
+        internal static float Distance(float px, float py, float pz, float minX, float minY, float minZ, float maxX,
+                                       float maxY, float maxZ)
         {
             var dx = Math.Max(Math.Max(minX - px, 0f), px - maxX);
             var dy = Math.Max(Math.Max(minY - py, 0f), py - maxY);
@@ -162,7 +216,8 @@ namespace HiddenBull.UrpStyle
             return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
 
-        static bool Visible(float[] planes, float minX, float minY, float minZ, float maxX, float maxY, float maxZ)
+        internal static bool Visible(float[] planes, float minX, float minY, float minZ, float maxX, float maxY,
+                                     float maxZ)
         {
             for (var i = 0; i < planes.Length; i += 4)
             {

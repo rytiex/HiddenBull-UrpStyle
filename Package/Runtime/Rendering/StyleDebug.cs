@@ -26,7 +26,10 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Foliage/Sway")] FoliageSway = 19,
         [InspectorName("Culling/Game Camera")] CullingGameCamera = 20,
         [InspectorName("Shadows/Transparent Tint")] ShadowTransparentTint = 21,
-        [InspectorName("Weather/Moving Body")] WeatherMovingBody = 22
+        [InspectorName("Weather/Moving Body")] WeatherMovingBody = 22,
+        [InspectorName("Liquid/Depth")] LiquidDepth = 23,
+        [InspectorName("Liquid/Flow")] LiquidFlow = 24,
+        [InspectorName("Liquid/Waves")] LiquidWaves = 25
     }
 
     static class StyleDebug
@@ -48,7 +51,8 @@ namespace HiddenBull.UrpStyle
         internal static bool hidesGrass => view is StyleDebugView.WeatherShelter or StyleDebugView.WeatherWetness or
             StyleDebugView.WeatherSnow or StyleDebugView.TerrainRings or StyleDebugView.TerrainLayers or
             StyleDebugView.TerrainCurvature or StyleDebugView.GrassDensity or StyleDebugView.FoliageCanopy or
-            StyleDebugView.FoliageSway;
+            StyleDebugView.FoliageSway or StyleDebugView.LiquidDepth or StyleDebugView.LiquidFlow or
+            StyleDebugView.LiquidWaves;
 
         internal static Camera Viewer(Camera camera)
         {

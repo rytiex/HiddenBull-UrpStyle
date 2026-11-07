@@ -17,7 +17,8 @@ namespace HiddenBull.UrpStyle.Editor
         GrassReset,
         GrassSetDensity,
         GrassSetHeight,
-        PlantPaint
+        PlantPaint,
+        Ramp
     }
 
     sealed class StyleTerrainShape
@@ -81,6 +82,21 @@ namespace HiddenBull.UrpStyle.Editor
         public float step;
     }
 
+    struct StyleTerrainRamp
+    {
+        public float startX;
+        public float startZ;
+        public float startHeight;
+        public float endX;
+        public float endZ;
+        public float endHeight;
+        public float radius;
+        public float hardness;
+        public float cornerX;
+        public float cornerZ;
+        public float spacing;
+    }
+
     static class StyleTerrainStamp
     {
         const float TerraceSharpness = 6f;
@@ -142,19 +158,49 @@ namespace HiddenBull.UrpStyle.Editor
                             if (x == 0 || z == 0 || x == width - 1 || z == length - 1)
                                 continue;
 
-                            value += (Average(source, x, z) - value) * weight * settings.amount;
+                            value += (Average(source, x, z) - value) * Math.Min(weight * settings.amount, 1f);
                             break;
 
                         case StyleTerrainBrushTool.Terrace:
-                            value += (Terrace(value, settings.step) - value) * weight * settings.amount;
+                            value += (Terrace(value, settings.step) - value) * Math.Min(weight * settings.amount, 1f);
                             break;
 
                         default:
-                            value += (settings.target - value) * weight * settings.amount;
+                            value += (settings.target - value) * Math.Min(weight * settings.amount, 1f);
                             break;
                     }
 
                     heights[z, x] = Math.Max(0f, Math.Min(1f, value));
+                }
+            }
+        }
+
+        internal static void Ramp(float[,] heights, StyleTerrainRamp ramp)
+        {
+            var length = heights.GetLength(0);
+            var width = heights.GetLength(1);
+            var runX = ramp.endX - ramp.startX;
+            var runZ = ramp.endZ - ramp.startZ;
+            var run = Math.Max(runX * runX + runZ * runZ, 1e-6f);
+
+            for (var z = 0; z < length; z++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var px = ramp.cornerX + x * ramp.spacing - ramp.startX;
+                    var pz = ramp.cornerZ + z * ramp.spacing - ramp.startZ;
+                    var t = Math.Max(0f, Math.Min(1f, (px * runX + pz * runZ) / run));
+                    var ox = px - runX * t;
+                    var oz = pz - runZ * t;
+                    var weight = Falloff((float)Math.Sqrt(ox * ox + oz * oz) / ramp.radius, ramp.hardness);
+
+                    if (weight <= 0f)
+                        continue;
+
+                    var target = ramp.startHeight + (ramp.endHeight - ramp.startHeight) * t;
+                    var value = heights[z, x];
+
+                    heights[z, x] = Math.Max(0f, Math.Min(1f, value + (target - value) * weight));
                 }
             }
         }

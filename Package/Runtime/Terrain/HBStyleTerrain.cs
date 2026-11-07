@@ -52,6 +52,13 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayerVaryId = Shader.PropertyToID("_HB_LayerVary");
         static readonly int s_LayerVaryShapeId = Shader.PropertyToID("_HB_LayerVaryShape");
         static readonly int s_LayerVarySizeId = Shader.PropertyToID("_HB_LayerVarySize");
+        static readonly int s_WaterLevelId = Shader.PropertyToID("_HB_WaterLevel");
+        static readonly int s_WaterMixId = Shader.PropertyToID("_HB_WaterMix");
+        static readonly int s_WaterSeaId = Shader.PropertyToID("_HB_WaterSea");
+        static readonly int s_WaterTintId = Shader.PropertyToID("_HB_WaterTint");
+        static readonly int s_WaterFlowId = Shader.PropertyToID("_HB_WaterFlow");
+
+        static Texture2D s_FlatWater;
 
         static readonly List<HBStyleTerrain> s_Active = new List<HBStyleTerrain>();
 
@@ -77,6 +84,14 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         ComputeShader m_GrassCompute;
 
+        [SerializeField]
+        [HideInInspector]
+        Shader m_LiquidShader;
+
+        [SerializeField]
+        [HideInInspector]
+        ComputeShader m_WaveCompute;
+
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly List<StyleTerrainNode> m_Nodes = new List<StyleTerrainNode>();
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
@@ -99,9 +114,11 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerVary = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVaryShape = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVarySize = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_WaterTint = new Vector4[HBStyleTerrainData.LiquidSlots];
         readonly StyleGrass m_Grass = new StyleGrass();
         readonly StyleTrail m_Trail = new StyleTrail();
         readonly StyleTerrainPlants m_Plants = new StyleTerrainPlants();
+        readonly StyleTerrainLiquid m_Liquid = new StyleTerrainLiquid();
         readonly float[] m_Weights = new float[HBStyleTerrainData.MaxLayers];
         readonly HBStyleTerrainLayer[] m_OneLayer = new HBStyleTerrainLayer[1];
         readonly float[] m_OneWeight = new float[1];
@@ -338,6 +355,7 @@ namespace HiddenBull.UrpStyle
             m_Material = null;
             m_Grass.Dispose();
             m_Trail.Dispose();
+            m_Liquid.Dispose();
         }
 
 #if UNITY_EDITOR
@@ -356,6 +374,12 @@ namespace HiddenBull.UrpStyle
 
             if (m_GrassCompute == null)
                 m_GrassCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(StyleGrass.ComputePath);
+
+            if (m_LiquidShader == null)
+                m_LiquidShader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(StyleTerrainLiquid.ShaderPath);
+
+            if (m_WaveCompute == null)
+                m_WaveCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(StyleLiquidWaves.ComputePath);
         }
 
         void OnValidate()
@@ -396,7 +420,8 @@ namespace HiddenBull.UrpStyle
             }
 
 #if UNITY_EDITOR
-            if (m_Shader == null || m_GrassShader == null || m_GrassCompute == null)
+            if (m_Shader == null || m_GrassShader == null || m_GrassCompute == null || m_LiquidShader == null ||
+                m_WaveCompute == null)
                 LoadShaders();
 #endif
 
@@ -472,6 +497,8 @@ namespace HiddenBull.UrpStyle
             var bounds = new Bounds(origin + size * 0.5f, size + Vector3.up * 2f);
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
+            m_Liquid.Draw(context, camera, m_Data, m_LiquidShader, m_WaveCompute, block, origin, local, m_LocalPlanes,
+                          viewer.farClipPlane, StyleTerrains.quality.current.detailRange, gameObject.layer);
             m_Grass.Draw(context, camera, this, m_Trail.Map(camera));
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
@@ -539,8 +566,47 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_GrassFarId, GrassFar());
             block.SetTexture(s_GrassTrailId, m_Trail.Map(camera));
             BindLayers(block, camera);
+            BindWater(block);
 
             return block;
+        }
+
+        void BindWater(MaterialPropertyBlock block)
+        {
+            for (var slot = 0; slot < m_WaterTint.Length; slot++)
+            {
+                var liquid = m_Data.Liquid(slot);
+                var tint = liquid != null ? liquid.shallowColor : Color.gray;
+                var top = Mathf.Max(Mathf.Max(tint.r, tint.g), Mathf.Max(tint.b, 1f));
+
+                m_WaterTint[slot] = new Vector4(tint.r / top, tint.g / top, tint.b / top, 1f);
+            }
+
+            var ready = m_Data.waterFormat == HBStyleTerrainData.WaterFormat && m_Data.waterLevel != null &&
+                        m_Data.waterMix != null && m_Data.waterFlow != null;
+
+            block.SetTexture(s_WaterLevelId, ready ? m_Data.waterLevel : FlatWater());
+            block.SetTexture(s_WaterMixId, ready ? m_Data.waterMix : Texture2D.blackTexture);
+            block.SetTexture(s_WaterFlowId, ready ? m_Data.waterFlow : Texture2D.blackTexture);
+            block.SetVector(s_WaterSeaId, new Vector4(m_Data.seaLevel, m_Data.liquidOn ? 1f : 0f,
+                                                      Mathf.Max(m_Data.size.y, 0.01f), m_Data.seaSlot));
+            block.SetVectorArray(s_WaterTintId, m_WaterTint);
+        }
+
+        static Texture2D FlatWater()
+        {
+            if (s_FlatWater != null)
+                return s_FlatWater;
+
+            s_FlatWater = new Texture2D(1, 1, TextureFormat.RG32, false, true)
+            {
+                name = "HB Flat Water",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            s_FlatWater.SetPixelData(new ushort[] { 32768, 0 }, 0);
+            s_FlatWater.Apply(false, true);
+            return s_FlatWater;
         }
 
         void BindLayers(MaterialPropertyBlock block, Camera camera)
@@ -725,7 +791,7 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        static Mesh Patch(bool quarter)
+        internal static Mesh Patch(bool quarter)
         {
             ref var mesh = ref quarter ? ref s_Quarter : ref s_Patch;
 

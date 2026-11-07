@@ -41,6 +41,7 @@ namespace HiddenBull.UrpStyle.Editor
             var text = new StringBuilder();
 
             text.Append(data.version).Append(':').Append(data.controlResolution).Append(':').Append(data.layerCount);
+            text.Append(":").Append(data.sunk);
 
             for (var index = 0; index < data.layerCount; index++)
             {
@@ -110,7 +111,7 @@ namespace HiddenBull.UrpStyle.Editor
                 rows[index] = new Row
                 {
                     slope = rule.slope,
-                    height = rule.height,
+                    height = rule.height + Vector2.one * data.sunk,
                     slopeSoftness = rule.slopeSoftness,
                     heightSoftness = rule.heightSoftness,
                     breakup = rule.breakup,

@@ -11,6 +11,9 @@ namespace HiddenBull.UrpStyle
 
         public const int MaxLayers = HBStyleTerrainLayerSet.MaxLayers;
 
+        public const int LiquidSlots = 4;
+        internal const int WaterFormat = 3;
+
         static readonly HBStyleTerrainLayerRule[] s_NoLayers = new HBStyleTerrainLayerRule[0];
 
         [SerializeField]
@@ -113,6 +116,64 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         HBStyleTerrainPlants m_Plants;
 
+        [SerializeField]
+        [Tooltip("The liquids of this terrain, up to four. The sea liquid fills every place below its level; the " +
+                 "others are painted over it with the Liquid tools.")]
+        HBStyleLiquidLayer[] m_Liquids = new HBStyleLiquidLayer[0];
+
+        [SerializeField]
+        [Tooltip("Turns the liquid of this terrain on. Off, nothing about the liquid is drawn, moved or edited; " +
+                 "what was sculpted and painted is kept.")]
+        bool m_LiquidOn;
+
+        [SerializeField]
+        [Tooltip("Height of the liquid wherever its level was not changed, in metres above the terrain's base. " +
+                 "Put it below the ground for a terrain with only lakes and rivers.")]
+        float m_SeaLevel;
+
+        [SerializeField]
+        [HideInInspector]
+        float m_Sunk;
+
+        [SerializeField]
+        [Tooltip("The liquid that fills the sea and every place no other liquid was painted.")]
+        int m_SeaSlot;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D m_WaterLevel;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D m_WaterMix;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D m_WaterFlow;
+
+        [SerializeField]
+        [HideInInspector]
+        int m_WaterFormat;
+
+        [SerializeField]
+        [HideInInspector]
+        int m_WaterVersion;
+
+        [System.NonSerialized]
+        RectInt m_WaterShown;
+
+        [System.NonSerialized]
+        bool m_WaterShownAny;
+
+        [System.NonSerialized]
+        int m_WaterStamp;
+
+        [System.NonSerialized]
+        RectInt m_HolesEdited;
+
+        [System.NonSerialized]
+        bool m_HolesEditedAny;
+
         public TerrainData terrainData => m_Terrain;
 
         public Vector3 size => m_Terrain != null ? m_Terrain.size : Vector3.zero;
@@ -128,6 +189,146 @@ namespace HiddenBull.UrpStyle
         internal int version => m_Version;
 
         internal HBStyleTerrainPlants plants => m_Plants;
+
+        public float seaLevel => m_SeaLevel;
+
+        internal float sunk => m_Sunk;
+
+        internal void Sink(float depth)
+        {
+            m_SeaLevel += depth;
+            m_Sunk += depth;
+        }
+
+        public int liquidCount => m_Liquids != null ? Mathf.Min(m_Liquids.Length, LiquidSlots) : 0;
+
+        public bool liquidOn => m_LiquidOn && liquidCount > 0;
+
+        public int seaSlot => Mathf.Clamp(m_SeaSlot, 0, Mathf.Max(liquidCount - 1, 0));
+
+        internal Texture2D waterLevel => m_WaterLevel;
+
+        internal Texture2D waterMix => m_WaterMix;
+
+        internal Texture2D waterFlow => m_WaterFlow;
+
+        internal int waterFormat => m_WaterFormat;
+
+        internal int waterVersion => m_WaterVersion;
+
+        public HBStyleLiquidLayer Liquid(int slot)
+        {
+            return m_Liquids != null && slot >= 0 && slot < m_Liquids.Length ? m_Liquids[slot] : null;
+        }
+
+        internal void SetWater(Texture2D level, Texture2D mix, Texture2D flow, int format)
+        {
+            m_WaterLevel = level;
+            m_WaterMix = mix;
+            m_WaterFlow = flow;
+            m_WaterFormat = format;
+            m_WaterVersion++;
+        }
+
+        internal void WaterEdited()
+        {
+            m_WaterVersion++;
+        }
+
+        internal void WaterShown(RectInt area)
+        {
+            m_WaterStamp++;
+
+            if (m_WaterShownAny)
+            {
+                var xMin = Mathf.Min(m_WaterShown.xMin, area.xMin);
+                var yMin = Mathf.Min(m_WaterShown.yMin, area.yMin);
+                var xMax = Mathf.Max(m_WaterShown.xMax, area.xMax);
+                var yMax = Mathf.Max(m_WaterShown.yMax, area.yMax);
+
+                area = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+            }
+
+            m_WaterShown = area;
+            m_WaterShownAny = true;
+        }
+
+        internal int waterStamp => m_WaterStamp;
+
+        internal void FlowEdited()
+        {
+            m_WaterStamp++;
+        }
+
+        internal bool TakeWaterShown(out RectInt area)
+        {
+            area = m_WaterShown;
+
+            var any = m_WaterShownAny;
+
+            m_WaterShownAny = false;
+            return any;
+        }
+
+        internal void HolesEdited(RectInt cells)
+        {
+            if (m_HolesEditedAny)
+            {
+                var xMin = Mathf.Min(m_HolesEdited.xMin, cells.xMin);
+                var yMin = Mathf.Min(m_HolesEdited.yMin, cells.yMin);
+                var xMax = Mathf.Max(m_HolesEdited.xMax, cells.xMax);
+                var yMax = Mathf.Max(m_HolesEdited.yMax, cells.yMax);
+
+                cells = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+            }
+
+            m_HolesEdited = cells;
+            m_HolesEditedAny = true;
+        }
+
+        internal bool TakeHolesEdited(out RectInt cells)
+        {
+            cells = m_HolesEdited;
+
+            var any = m_HolesEditedAny;
+
+            m_HolesEditedAny = false;
+            return any;
+        }
+
+        internal void AddLiquid(HBStyleLiquidLayer liquid)
+        {
+            if (liquidCount >= LiquidSlots)
+                return;
+
+            var count = liquidCount;
+
+            System.Array.Resize(ref m_Liquids, count + 1);
+            m_Liquids[count] = liquid;
+        }
+
+        internal void RemoveLiquid(int slot)
+        {
+            var count = liquidCount;
+
+            if (slot < 0 || slot >= count)
+                return;
+
+            var kept = new HBStyleLiquidLayer[count - 1];
+
+            for (int from = 0, to = 0; from < count; from++)
+            {
+                if (from != slot)
+                    kept[to++] = m_Liquids[from];
+            }
+
+            m_Liquids = kept;
+
+            if (m_SeaSlot == slot)
+                m_SeaSlot = 0;
+            else if (m_SeaSlot > slot)
+                m_SeaSlot--;
+        }
 
         internal bool valid => m_Terrain != null && m_Patches > 0 && m_PatchMin != null && m_PatchMax != null &&
                                m_PatchMin.Length == m_Patches * m_Patches && m_PatchMax.Length == m_PatchMin.Length &&
@@ -171,9 +372,14 @@ namespace HiddenBull.UrpStyle
 
         internal int grassVersion => m_GrassVersion;
 
+        internal int controlVersion => m_ControlVersion;
+
         internal Texture2DArray flowerArray => m_FlowerArray;
 
         internal string grassSignature => m_GrassSignature;
+
+        [System.NonSerialized]
+        int m_ControlVersion;
 
         [System.NonSerialized]
         internal int grassStamp;
@@ -235,6 +441,7 @@ namespace HiddenBull.UrpStyle
         {
             m_Control = control;
             m_BakedLayers = layers;
+            m_ControlVersion++;
         }
 
         internal int HandChannel(HBStyleTerrainLayer layer)
@@ -311,6 +518,13 @@ namespace HiddenBull.UrpStyle
         {
             m_ControlResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_ControlResolution), 512, 4096);
             m_TextureResolution = Mathf.Clamp(Mathf.ClosestPowerOfTwo(m_TextureResolution), 512, 2048);
+
+            if (m_Liquids == null)
+                m_Liquids = new HBStyleLiquidLayer[0];
+            else if (m_Liquids.Length > LiquidSlots)
+                System.Array.Resize(ref m_Liquids, LiquidSlots);
+
+            m_SeaSlot = seaSlot;
         }
 #endif
 

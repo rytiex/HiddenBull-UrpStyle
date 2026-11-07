@@ -249,7 +249,7 @@ namespace HiddenBull.UrpStyle.Editor
             s_Point = point;
             s_Normal = data.terrainData.GetInterpolatedNormal(u, v);
             hoverSlope = data.terrainData.GetSteepness(u, v);
-            hoverHeight = local.y;
+            hoverHeight = local.y - data.sunk;
             s_Row = Painted(data, u, v, out var row) ? row : Match(data, hoverSlope, hoverHeight);
             hovering = true;
         }

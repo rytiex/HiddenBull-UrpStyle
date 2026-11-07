@@ -14,7 +14,8 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly StyleTerrainBrushTool[] s_ShapeTools =
         {
             StyleTerrainBrushTool.Raise, StyleTerrainBrushTool.Smooth, StyleTerrainBrushTool.Flatten,
-            StyleTerrainBrushTool.SetHeight, StyleTerrainBrushTool.Noise, StyleTerrainBrushTool.Terrace
+            StyleTerrainBrushTool.SetHeight, StyleTerrainBrushTool.Noise, StyleTerrainBrushTool.Terrace,
+            StyleTerrainBrushTool.Ramp
         };
 
         static readonly StyleTerrainBrushTool[] s_GrassTools =
@@ -26,7 +27,8 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly string[] s_Titles =
         {
             "Raise / Lower", "Smooth", "Flatten", "Set Height", "Holes", "Paint Layer", "Noise", "Terrace",
-            "Grass Density", "Grass Height", "Reset Grass", "Set Grass Density", "Set Grass Height", "Paint Plants"
+            "Grass Density", "Grass Height", "Reset Grass", "Set Grass Density", "Set Grass Height", "Paint Plants",
+            "Ramp"
         };
 
         static readonly string[] s_Help =
@@ -48,7 +50,9 @@ namespace HiddenBull.UrpStyle.Editor
             "a Grass Density above 0 grow grass.",
             "Drag to give the grass here the same Height everywhere, whatever the layers say.",
             "Drag to place this plant. Going over the same place again adds nothing, and Min Distance keeps the " +
-            "plants apart."
+            "plants apart.",
+            "Press where the ramp starts and drag to where it ends; letting go lays a straight slope between the " +
+            "two ground heights, as wide as the brush. Hardness keeps the full slope across that share of the width."
         };
 
         static readonly string[][] s_Hints =
@@ -66,7 +70,8 @@ namespace HiddenBull.UrpStyle.Editor
             new string[0],
             new string[0],
             new string[0],
-            new[] { "Shift", "erase" }
+            new[] { "Shift", "erase" },
+            new[] { "Drag", "start to end" }
         };
 
         static readonly string[] s_Sizing = { "[  ]", "brush size" };
@@ -80,7 +85,8 @@ namespace HiddenBull.UrpStyle.Editor
             new GUIContent("Flatten", "Flatten toward the height where you press."),
             new GUIContent("Set Height", "Pull the ground toward Height."),
             new GUIContent("Noise", "Add natural bumps and dips."),
-            new GUIContent("Terrace", "Pull the ground into flat steps.")
+            new GUIContent("Terrace", "Pull the ground into flat steps."),
+            new GUIContent("Ramp", "Lay a straight slope from where you press to where you let go.")
         };
 
         static readonly GUIContent s_HolesName = new GUIContent("Holes", "Cut holes in the ground; Shift fills them.");
@@ -161,7 +167,8 @@ namespace HiddenBull.UrpStyle.Editor
             if (tool == StyleTerrainBrushTool.PlantPaint)
                 title = "Paint " + StyleTerrainPlantPanel.Caption(data);
 
-            var forced = tool != StyleTerrainBrushTool.Holes && tool != StyleTerrainBrushTool.PlantPaint;
+            var forced = tool != StyleTerrainBrushTool.Holes && tool != StyleTerrainBrushTool.PlantPaint &&
+                         tool != StyleTerrainBrushTool.Ramp;
 
             StyleTerrainGUI.Guide(tint, title, s_Help[index], tool, s_Hints[index], s_Sizing,
                                   forced ? s_Forcing : null, s_Stopping);
@@ -181,7 +188,8 @@ namespace HiddenBull.UrpStyle.Editor
                 if (StyleTerrainBrush.plantTool)
                     StyleTerrainPlantPanel.DrawSettings(data);
 
-                if (StyleTerrainBrush.tool != StyleTerrainBrushTool.Holes)
+                if (StyleTerrainBrush.tool != StyleTerrainBrushTool.Holes &&
+                    StyleTerrainBrush.tool != StyleTerrainBrushTool.Ramp)
                     DrawShapes();
             }
 
@@ -357,7 +365,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var tool = StyleTerrainBrush.tool;
             var holes = tool == StyleTerrainBrushTool.Holes;
-            var round = holes || StyleTerrainShapes.round;
+            var round = StyleTerrainBrush.round;
 
             StyleTerrainGUI.Header("Brush", tint);
 
@@ -386,8 +394,9 @@ namespace HiddenBull.UrpStyle.Editor
                     var grassDensity = StyleTerrainBrush.grassDensity;
                     var grassHeight = StyleTerrainBrush.grassHeight;
 
-                    if (!holes && !StyleTerrainBrush.plantTool)
-                        strength = EditorGUILayout.Slider(s_StrengthLabel, strength, 0f, 1f);
+                    if (!holes && !StyleTerrainBrush.plantTool && tool != StyleTerrainBrushTool.Ramp)
+                        strength = EditorGUILayout.Slider(s_StrengthLabel, strength, 0f,
+                                                         StyleTerrainBrush.StrengthMost);
 
                     if (round)
                         hardness = EditorGUILayout.Slider(s_HardnessLabel, hardness, 0f, 0.99f);

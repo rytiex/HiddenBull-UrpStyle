@@ -10,12 +10,14 @@ namespace HiddenBull.UrpStyle.Editor
         const string PreviewKey = "HiddenBull.UrpStyle.Terrain.Preview";
         const int LayersTab = 0;
         const int BrushesTab = 1;
-        const int LookTab = 2;
+        const int LiquidsTab = 2;
+        const int LookTab = 3;
 
         static readonly GUIContent[] s_Tabs =
         {
             new GUIContent("Layers", "Ground layers, their rules, preview and bake."),
             new GUIContent("Brushes", "Shape and paint the ground in the Scene view."),
+            new GUIContent("Liquids", "Liquid layers, the sea and the water brushes."),
             new GUIContent("Look", "Brush strokes, curvature and colour variation of the ground."),
             new GUIContent("Settings", "Map resolutions and the terrain's heights.")
         };
@@ -30,6 +32,19 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly GUIContent s_NewDataLabel = new GUIContent("New",
             "Creates a new flat terrain data asset next to the scene and uses it.");
+
+        static readonly GUIContent s_NewLiquidLabel = new GUIContent("New",
+            "Creates a new liquid layer next to the terrain data and puts it in this entry.");
+
+        static readonly GUIContent s_RemoveLiquidLabel = new GUIContent("-",
+            "Takes this liquid out of the terrain. What was painted with it turns into the sea liquid.");
+
+        static readonly GUIContent s_AddLiquidLabel = new GUIContent("Add Liquid",
+            "Adds an entry for one more liquid. A terrain holds up to four.");
+
+        static readonly GUIContent s_LiquidOnLabel = new GUIContent("Enabled",
+            "Turns the liquid of this terrain on. Off, nothing about the liquid is drawn, moved or edited; what was " +
+            "sculpted and painted is kept.");
 
         static readonly GUIContent s_NewSetLabel = new GUIContent("New",
             "Creates an empty layer set next to the terrain data and uses it.");
@@ -98,6 +113,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_Layers?.Release();
             m_Layers = null;
             StyleTerrainBrush.End(terrain);
+            StyleTerrainLiquidBrush.End(terrain);
             SetPreview(null);
         }
 
@@ -105,10 +121,13 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var current = Event.current;
 
-            if (current.type == EventType.KeyDown && current.keyCode == KeyCode.Escape && StyleTerrainBrush.armed)
+            if (current.type == EventType.KeyDown && current.keyCode == KeyCode.Escape &&
+                (StyleTerrainBrush.armed || StyleTerrainLiquidBrush.armed))
             {
                 StyleTerrainBrush.armed = false;
+                StyleTerrainLiquidBrush.armed = false;
                 StyleTerrainBrush.End(terrain);
+                StyleTerrainLiquidBrush.End(terrain);
                 current.Use();
             }
 
@@ -119,6 +138,7 @@ namespace HiddenBull.UrpStyle.Editor
             if (data == null)
             {
                 StyleTerrainBrush.End(terrain);
+                StyleTerrainLiquidBrush.End(terrain);
                 SetPreview(null);
                 EditorGUILayout.HelpBox("Pick a Terrain Data, or press New to start a flat terrain.",
                                         MessageType.Info);
@@ -151,10 +171,17 @@ namespace HiddenBull.UrpStyle.Editor
             if (tab != LayersTab)
                 m_Layers?.Hide();
 
-            if (tab == BrushesTab && StyleTerrainBrush.armed)
-                StyleTerrainBrush.Begin(terrain);
-            else
+            if (!StyleTerrainBrush.armed || tab != BrushesTab)
                 StyleTerrainBrush.End(terrain);
+
+            if (!StyleTerrainLiquidBrush.armed || tab != LiquidsTab || !data.liquidOn)
+                StyleTerrainLiquidBrush.End(terrain);
+
+            if (StyleTerrainBrush.armed && tab == BrushesTab)
+                StyleTerrainBrush.Begin(terrain);
+
+            if (StyleTerrainLiquidBrush.armed && tab == LiquidsTab && data.liquidOn)
+                StyleTerrainLiquidBrush.Begin(terrain);
 
             switch (tab)
             {
@@ -164,6 +191,10 @@ namespace HiddenBull.UrpStyle.Editor
 
                 case BrushesTab:
                     StyleTerrainBrushPanel.Draw(data);
+                    break;
+
+                case LiquidsTab:
+                    DrawLiquids(data);
                     break;
 
                 case LookTab:
@@ -191,6 +222,10 @@ namespace HiddenBull.UrpStyle.Editor
                     StyleTerrainBrushPanel.Guide(data);
                     break;
 
+                case LiquidsTab:
+                    StyleTerrainLiquidPanel.Guide(data);
+                    break;
+
                 case LookTab:
                     StyleTerrainGUI.Guide(StyleTerrainGUI.lookTint, "Look",
                                           "How the ground is drawn: brush strokes, hollows and ridges, and wide " +
@@ -203,6 +238,98 @@ namespace HiddenBull.UrpStyle.Editor
                                           "flat one.", null);
                     break;
             }
+        }
+
+        void DrawLiquids(HBStyleTerrainData data)
+        {
+            m_DataObject.Update();
+            StyleTerrainGUI.Header("Sea", StyleTerrainGUI.liquidTint);
+
+            var on = m_DataObject.FindProperty("m_LiquidOn");
+            var liquids = m_DataObject.FindProperty("m_Liquids");
+            var seaSlot = m_DataObject.FindProperty("m_SeaSlot");
+            var count = Mathf.Min(liquids.arraySize, HBStyleTerrainData.LiquidSlots);
+
+            EditorGUILayout.PropertyField(on, s_LiquidOnLabel);
+
+            using (new EditorGUI.DisabledScope(!on.boolValue))
+            {
+                EditorGUILayout.PropertyField(m_DataObject.FindProperty("m_SeaLevel"));
+
+                using (new EditorGUI.DisabledScope(count == 0))
+                {
+                    var names = new GUIContent[Mathf.Max(count, 1)];
+
+                    for (var slot = 0; slot < names.Length; slot++)
+                    {
+                        var liquid = slot < count ? liquids.GetArrayElementAtIndex(slot).objectReferenceValue : null;
+
+                        names[slot] = new GUIContent(count == 0 ? "No liquid layers"
+                                                     : $"{slot + 1}: " + (liquid != null ? liquid.name : "Empty"));
+                    }
+
+                    seaSlot.intValue = EditorGUILayout.Popup(new GUIContent("Liquid", seaSlot.tooltip),
+                                                             Mathf.Clamp(seaSlot.intValue, 0, names.Length - 1),
+                                                             names);
+                }
+
+                StyleTerrainGUI.Header("Liquid Layers", StyleTerrainGUI.liquidTint);
+
+                var removed = -1;
+
+                for (var slot = 0; slot < count; slot++)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        var element = liquids.GetArrayElementAtIndex(slot);
+
+                        EditorGUILayout.PropertyField(element, new GUIContent($"Liquid {slot + 1}", liquids.tooltip));
+
+                        if (GUILayout.Button(s_NewLiquidLabel, EditorStyles.miniButtonLeft, GUILayout.Width(40f)))
+                            element.objectReferenceValue = NewLiquid(data, slot);
+
+                        if (GUILayout.Button(s_RemoveLiquidLabel, EditorStyles.miniButtonRight, GUILayout.Width(22f)))
+                            removed = slot;
+                    }
+                }
+
+                if (m_DataObject.ApplyModifiedProperties())
+                    SceneView.RepaintAll();
+
+                if (removed >= 0)
+                {
+                    StyleTerrainWater.RemoveLiquid(data, removed);
+                    StyleTerrainLiquidBrush.Watch(data);
+                    SceneView.RepaintAll();
+                    GUIUtility.ExitGUI();
+                }
+
+                using (new EditorGUI.DisabledScope(count >= HBStyleTerrainData.LiquidSlots))
+                {
+                    if (GUILayout.Button(s_AddLiquidLabel, EditorStyles.miniButton))
+                    {
+                        Undo.RecordObject(data, "Add Liquid");
+                        data.AddLiquid(null);
+                        EditorUtility.SetDirty(data);
+                        GUIUtility.ExitGUI();
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(!data.liquidOn))
+                    StyleTerrainLiquidPanel.Draw(data);
+            }
+
+            m_DataObject.ApplyModifiedProperties();
+        }
+
+        static HBStyleLiquidLayer NewLiquid(HBStyleTerrainData data, int slot)
+        {
+            var folder = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(data))?.Replace('\\', '/');
+            var path = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{data.name} Liquid {slot + 1}.asset");
+            var liquid = CreateInstance<HBStyleLiquidLayer>();
+
+            AssetDatabase.CreateAsset(liquid, path);
+            return liquid;
         }
 
         void DrawLook()

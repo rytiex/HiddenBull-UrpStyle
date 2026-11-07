@@ -23,6 +23,7 @@ namespace HiddenBull.UrpStyle.Editor
         internal static readonly Color settingsTint = new Color(0.6f, 0.6f, 0.6f);
         internal static readonly Color grassTint = new Color(0.6f, 0.85f, 0.25f);
         internal static readonly Color plantTint = new Color(0.3f, 0.75f, 0.55f);
+        internal static readonly Color liquidTint = new Color(0.25f, 0.8f, 0.85f);
 
         static readonly Color s_LabelBack = new Color(0.1f, 0.1f, 0.1f, 0.92f);
         static readonly char[] s_Breaks = { '_', ' ', '-', '.' };
@@ -261,6 +262,12 @@ namespace HiddenBull.UrpStyle.Editor
                     Ink(rect, 0.2f, 0.62f, 0.5f, 0.12f, 0.8f, 0.62f, 0.2f, 0.62f);
                     break;
 
+                case StyleTerrainBrushTool.Ramp:
+                    Ink(rect, 0.1f, 0.3f, 0.3f, 0.3f, 0.7f, 0.75f, 0.9f, 0.75f);
+                    Ink(rect, 0.1f, 0.88f, 0.9f, 0.88f);
+                    Ink(rect, 0.42f, 0.36f, 0.58f, 0.36f, 0.58f, 0.52f);
+                    break;
+
                 default:
                     Handles.DrawSolidDisc(rect.center, Vector3.forward, rect.width * 0.3f);
                     break;
@@ -269,6 +276,15 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal static void Guide(Color tint, string title, string help, StyleTerrainBrushTool? glyph,
                                    params string[][] chips)
+        {
+            if (glyph.HasValue)
+                GuideWith(tint, title, help, rect => Glyph(glyph.Value, rect), chips);
+            else
+                GuideWith(tint, title, help, null, chips);
+        }
+
+        internal static void GuideWith(Color tint, string title, string help, System.Action<Rect> glyph,
+                                       params string[][] chips)
         {
             s_Title ??= new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 };
             s_Text ??= new GUIStyle(EditorStyles.wordWrappedMiniLabel) { richText = false };
@@ -287,8 +303,8 @@ namespace HiddenBull.UrpStyle.Editor
 
                         var inner = new Rect(icon.x + 5f, icon.y + 5f, icon.width - 10f, icon.height - 10f);
 
-                        if (glyph.HasValue)
-                            Glyph(glyph.Value, inner);
+                        if (glyph != null)
+                            glyph(inner);
                         else
                             Handles.DrawSolidDisc(icon.center, Vector3.forward, GuideIcon * 0.22f);
                     }

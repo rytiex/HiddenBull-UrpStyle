@@ -21,6 +21,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly ShaderTagId s_NearestTag = new ShaderTagId("HBStyleTransparentNearest");
         static readonly ShaderTagId s_RefractiveTag = new ShaderTagId("HBStyleTransparentRefractive");
+        static readonly ShaderTagId s_LiquidTag = new ShaderTagId("HBStyleLiquid");
         static readonly List<ShaderTagId> s_NearestTags = new List<ShaderTagId> { s_NearestTag, s_RefractiveTag };
         static readonly List<ShaderTagId> s_GlassTags = new List<ShaderTagId> { s_NearestTag };
         static readonly List<ShaderTagId> s_ForwardTags = new List<ShaderTagId>
@@ -62,7 +63,7 @@ namespace HiddenBull.UrpStyle
             internal bool full;
         }
 
-        readonly List<RendererList> m_Probes = new List<RendererList>(2);
+        readonly List<RendererList> m_Probes = new List<RendererList>(3);
 
         StylePrecipitationPass m_Precipitation;
         HBStyleTransparencyLevel m_Level;
@@ -111,7 +112,14 @@ namespace HiddenBull.UrpStyle
 
             var refraction = m_BlurMaterial != null;
 
-            Probe(renderingData, cameraData, lightData, refraction, out var glass, out var refractive);
+            Probe(renderingData, cameraData, lightData, refraction, out var glass, out var refractive, out var liquid);
+
+            if (liquid)
+            {
+                var below = refraction ? RecordBackground(renderGraph, colour, cameraData) : default;
+
+                RecordLiquid(renderGraph, colour, depth, below, resourceData, renderingData, cameraData, lightData);
+            }
 
             var splitRain = raining && glass;
 
@@ -321,6 +329,31 @@ namespace HiddenBull.UrpStyle
             });
         }
 
+        void RecordLiquid(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, TextureHandle background,
+                          UniversalResourceData resourceData, UniversalRenderingData renderingData,
+                          UniversalCameraData cameraData, UniversalLightData lightData)
+        {
+            using var builder = renderGraph.AddRasterRenderPass<DrawData>("HB Style Liquid", out var data,
+                                                                         profilingSampler);
+
+            var drawing = RenderingUtils.CreateDrawingSettings(s_LiquidTag, renderingData, cameraData, lightData,
+                                                               SortingCriteria.CommonOpaque);
+
+            data.list = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing,
+                                                                              Filtering(cameraData)));
+
+            Read(builder, resourceData.cameraDepthTexture);
+            Read(builder, background);
+
+            builder.UseRendererList(data.list);
+            builder.SetRenderAttachment(colour, 0);
+            builder.SetRenderAttachmentDepth(depth, AccessFlags.ReadWrite);
+            builder.UseAllGlobalTextures(true);
+            builder.AllowPassCulling(false);
+            builder.SetRenderFunc(static (DrawData d, RasterGraphContext context) =>
+                context.cmd.DrawRendererList(d.list));
+        }
+
         static void Read(IRasterRenderGraphBuilder builder, TextureHandle handle)
         {
             if (handle.IsValid())
@@ -333,19 +366,22 @@ namespace HiddenBull.UrpStyle
         }
 
         void Probe(UniversalRenderingData renderingData, UniversalCameraData cameraData, UniversalLightData lightData,
-                   bool refraction, out bool glass, out bool refractive)
+                   bool refraction, out bool glass, out bool refractive, out bool liquid)
         {
             glass = true;
             refractive = refraction;
+            liquid = true;
 
             if (!m_HasContext)
                 return;
 
             var nearest = CreateProbe(s_NearestTag, renderingData, cameraData, lightData);
             var refracted = refraction ? CreateProbe(s_RefractiveTag, renderingData, cameraData, lightData) : default;
+            var wet = CreateProbe(s_LiquidTag, renderingData, cameraData, lightData);
 
             m_Probes.Clear();
             m_Probes.Add(nearest);
+            m_Probes.Add(wet);
 
             if (refraction)
                 m_Probes.Add(refracted);
@@ -354,6 +390,7 @@ namespace HiddenBull.UrpStyle
 
             glass = Visible(nearest);
             refractive = refraction && Visible(refracted);
+            liquid = Visible(wet);
         }
 
         RendererList CreateProbe(ShaderTagId tag, UniversalRenderingData renderingData,

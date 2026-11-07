@@ -1146,6 +1146,86 @@
             Reads = 0
         }
         @{
+            Name = 'Liquid Surface'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @()
+            Slots = 1300
+            Reads = 80
+        }
+        @{
+            Name = 'Liquid Surface (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Surface vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves Bake'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'Bake'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves CalmSeed'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'CalmSeed'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves CalmSpread'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'CalmSpread'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves CalmFinish'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'CalmFinish'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves CalmTiles'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'CalmTiles'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Grass Forward'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
             Entry = 'HB_GrassFragment'

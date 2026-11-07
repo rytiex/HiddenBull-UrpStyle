@@ -1,0 +1,167 @@
+#pragma kernel Bake
+
+#define HB_WAVE_BANDS 3
+#define HB_WAVE_COUNT 12
+
+RWTexture2DArray<float4> _HB_WaveDisplacementOut;
+RWTexture2DArray<float4> _HB_WaveDerivativeOut;
+
+float4 _HB_WaveSet[HB_WAVE_BANDS * HB_WAVE_COUNT];
+float4 _HB_WavePatch;
+float4 _HB_WaveBake;
+
+#define HB_WAVE_RESOLUTION _HB_WaveBake.x
+#define HB_WAVE_CHOP       _HB_WaveBake.y
+
+[numthreads(8, 8, 1)]
+void Bake(uint3 id : SV_DispatchThreadID)
+{
+    if (any((float2)id.xy >= HB_WAVE_RESOLUTION) || id.z >= HB_WAVE_BANDS)
+        return;
+
+    float2 position = ((float2)id.xy + 0.5) / HB_WAVE_RESOLUTION * _HB_WavePatch[id.z];
+
+    float3 offset = float3(0.0, 0.0, 0.0);
+    float2 slope = float2(0.0, 0.0);
+    float3 fold = float3(0.0, 0.0, 0.0);
+
+    for (uint index = 0; index < HB_WAVE_COUNT; index++)
+    {
+        float4 wave = _HB_WaveSet[id.z * HB_WAVE_COUNT + index];
+        float number = max(length(wave.xy), 1e-5);
+        float2 direction = wave.xy / number;
+
+        float s, c;
+        sincos(dot(wave.xy, position) + wave.w, s, c);
+
+        float push = wave.z * HB_WAVE_CHOP;
+
+        offset.y += wave.z * s;
+        offset.xz += direction * (push * c);
+        slope += wave.xy * (wave.z * c);
+        fold -= float3(direction.x * direction.x, direction.y * direction.y, direction.x * direction.y)
+              * (number * push * s);
+    }
+
+    _HB_WaveDisplacementOut[id] = float4(offset, fold.z);
+    _HB_WaveDerivativeOut[id] = float4(slope, fold.xy);
+}
+
+#pragma kernel CalmSeed
+#pragma kernel CalmSpread
+#pragma kernel CalmFinish
+#pragma kernel CalmTiles
+
+Texture2D<float> _HB_CalmHeightmap;
+Texture2D<float2> _HB_CalmLevel;
+Texture2D<float4> _HB_CalmFlow;
+Texture2D<float4> _HB_CalmIn;
+RWTexture2D<float4> _HB_CalmOut;
+RWTexture2D<float2> _HB_CalmTilesOut;
+SamplerState sampler_LinearClamp;
+
+float4 _HB_CalmGrid;
+float4 _HB_CalmTerrain;
+float4 _HB_CalmTile;
+
+#define HB_CALM_SIZE       ((uint)_HB_CalmGrid.x)
+#define HB_CALM_CELL       _HB_CalmGrid.y
+#define HB_CALM_SLOPE      _HB_CalmGrid.z
+#define HB_CALM_STEP       ((int)_HB_CalmGrid.w)
+#define HB_CALM_GROUND     _HB_CalmTerrain.x
+#define HB_CALM_SEA        _HB_CalmTerrain.y
+#define HB_CALM_RANGE      _HB_CalmTerrain.z
+#define HB_CALM_RESOLUTION _HB_CalmTerrain.w
+#define HB_CALM_TILES      ((uint)_HB_CalmTile.x)
+#define HB_CALM_TILE       _HB_CalmTile.y
+#define HB_CALM_EXTENT     _HB_CalmTile.zw
+#define HB_CALM_CUT        0.5
+#define HB_CALM_STREAM     0.01
+#define HB_CALM_SURE       0.25
+
+[numthreads(8, 8, 1)]
+void CalmSeed(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= HB_CALM_SIZE))
+        return;
+
+    float2 uv = ((float2)id.xy + 0.5) / HB_CALM_SIZE;
+    float2 texel = (uv * (HB_CALM_RESOLUTION - 1.0) + 0.5) / HB_CALM_RESOLUTION;
+    float ground = _HB_CalmHeightmap.SampleLevel(sampler_LinearClamp, texel, 0) * HB_CALM_GROUND;
+
+    uint width, height;
+    _HB_CalmLevel.GetDimensions(width, height);
+
+    float raised = _HB_CalmLevel.SampleLevel(sampler_LinearClamp, uv, 0).r;
+    float cut = _HB_CalmLevel.Load(int3(min(uint2(uv * float2(width, height)), uint2(width, height) - 1), 0)).g;
+    float level = HB_CALM_SEA + (raised * 65535.0 - 32768.0) / 32767.0 * HB_CALM_RANGE;
+    float depth = cut >= HB_CALM_CUT ? 0.0 : max(level - ground, 0.0);
+
+    _HB_CalmOut[id.xy] = float4(depth, 0.0, 0.0, 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void CalmSpread(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= HB_CALM_SIZE))
+        return;
+
+    float depth = _HB_CalmIn[id.xy].r;
+    int step = HB_CALM_STEP;
+
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            int2 at = (int2)id.xy + int2(x, y) * step;
+
+            if ((x == 0 && y == 0) || any(at < 0) || any(at >= (int)HB_CALM_SIZE))
+                continue;
+
+            float reach = length(float2(x, y)) * step * HB_CALM_CELL * HB_CALM_SLOPE;
+
+            depth = min(depth, _HB_CalmIn[at].r + reach);
+        }
+    }
+
+    _HB_CalmOut[id.xy] = float4(depth, 0.0, 0.0, 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void CalmFinish(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= HB_CALM_SIZE))
+        return;
+
+    int last = (int)HB_CALM_SIZE - 1;
+    int2 at = (int2)id.xy;
+    float left = _HB_CalmIn[int2(max(at.x - 1, 0), at.y)].r;
+    float right = _HB_CalmIn[int2(min(at.x + 1, last), at.y)].r;
+    float down = _HB_CalmIn[int2(at.x, max(at.y - 1, 0))].r;
+    float up = _HB_CalmIn[int2(at.x, min(at.y + 1, last))].r;
+    float2 slope = float2(right - left, up - down) / (2.0 * HB_CALM_CELL);
+    float steep = length(slope);
+    float2 toward = steep > 1e-5 ? -slope / steep : float2(0.0, 0.0);
+
+    _HB_CalmOut[id.xy] = float4(_HB_CalmIn[at].r, toward, saturate(steep / HB_CALM_SLOPE));
+}
+
+[numthreads(8, 8, 1)]
+void CalmTiles(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id.xy >= HB_CALM_TILES))
+        return;
+
+    float2 uv = ((float2)id.xy + 0.5) * HB_CALM_TILE / HB_CALM_EXTENT;
+    float2 stream = _HB_CalmFlow.SampleLevel(sampler_LinearClamp, uv, 0).xy;
+    float4 calm = _HB_CalmIn.SampleLevel(sampler_LinearClamp, uv, 0);
+    float rush = dot(stream, stream);
+    float2 heading = float2(0.0, 0.0);
+
+    if (rush > HB_CALM_STREAM * HB_CALM_STREAM)
+        heading = stream * rsqrt(rush);
+    else if (calm.w > HB_CALM_SURE && dot(calm.yz, calm.yz) > HB_CALM_SURE)
+        heading = normalize(calm.yz);
+
+    _HB_CalmTilesOut[id.xy] = heading;
+}

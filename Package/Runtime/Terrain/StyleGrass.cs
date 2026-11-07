@@ -459,6 +459,7 @@ namespace HiddenBull.UrpStyle
                 hash = hash * 31 + data.version;
                 hash = hash * 31 + data.grassVersion;
                 hash = hash * 31 + data.grassStamp;
+                hash = hash * 31 + data.controlVersion;
                 hash = hash * 31 + data.handVersion;
                 hash = hash * 31 + StyleTerrains.previewVersion;
                 hash = hash * 31 + (terrain.boundControl != null ? terrain.boundControl.GetHashCode() : 0);

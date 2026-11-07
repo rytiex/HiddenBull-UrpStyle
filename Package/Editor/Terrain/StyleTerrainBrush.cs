@@ -12,6 +12,7 @@ namespace HiddenBull.UrpStyle.Editor
         const float SizeStep = 1.15f;
         const float SizeMost = 500f;
         const float StrengthStep = 0.05f;
+        internal const float StrengthMost = 2f;
         const float RaiseRate = 0.02f;
         const float BlendRate = 0.5f;
         const float Spacing = 0.15f;
@@ -37,10 +38,12 @@ namespace HiddenBull.UrpStyle.Editor
         static HBStyleTerrain s_Terrain;
         static bool s_Stroking;
         static Vector3 s_Last;
+        static Vector3 s_RampEnd;
         static float s_Target;
         static int s_Channel = -1;
         static bool s_Shift;
         static double s_Stamped;
+        static int s_Group;
         static int s_Version = -1;
         static int s_HandVersion = -1;
         static int s_GrassVersion = -1;
@@ -50,6 +53,9 @@ namespace HiddenBull.UrpStyle.Editor
         internal static bool grassTool => IsGrass(tool);
 
         internal static bool plantTool => tool == StyleTerrainBrushTool.PlantPaint;
+
+        internal static bool round => tool == StyleTerrainBrushTool.Holes || tool == StyleTerrainBrushTool.Ramp ||
+                                      StyleTerrainShapes.round;
 
         internal static bool plantSingle
         {
@@ -90,7 +96,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal static StyleTerrainBrushTool tool
         {
-            get => (StyleTerrainBrushTool)EditorPrefs.GetInt(Key + "Tool", 0);
+            get => (StyleTerrainBrushTool)Mathf.Clamp(EditorPrefs.GetInt(Key + "Tool", 0), 0,
+                                                      (int)StyleTerrainBrushTool.Ramp);
             set => EditorPrefs.SetInt(Key + "Tool", (int)value);
         }
 
@@ -103,7 +110,7 @@ namespace HiddenBull.UrpStyle.Editor
         internal static float strength
         {
             get => EditorPrefs.GetFloat(Key + "Strength", 0.5f);
-            set => EditorPrefs.SetFloat(Key + "Strength", Mathf.Clamp01(value));
+            set => EditorPrefs.SetFloat(Key + "Strength", Mathf.Clamp(value, 0f, StrengthMost));
         }
 
         internal static float hardness
@@ -218,9 +225,13 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
             }
 
-            if (current.type == EventType.MouseUp && GUIUtility.hotControl == id)
+            if (current.rawType == EventType.MouseUp && s_Stroking)
             {
                 GUIUtility.hotControl = 0;
+
+                if (tool == StyleTerrainBrushTool.Ramp)
+                    Ramp(data);
+
                 Finish();
                 current.Use();
                 return;
@@ -244,6 +255,16 @@ namespace HiddenBull.UrpStyle.Editor
                         break;
                     }
 
+                    if (tool == StyleTerrainBrushTool.Ramp)
+                    {
+                        GUIUtility.hotControl = id;
+                        s_Stroking = true;
+                        s_Last = point;
+                        s_RampEnd = point;
+                        current.Use();
+                        break;
+                    }
+
                     if (!Record(data))
                     {
                         current.Use();
@@ -252,6 +273,7 @@ namespace HiddenBull.UrpStyle.Editor
 
                     GUIUtility.hotControl = id;
                     s_Stroking = true;
+                    s_Group = Undo.GetCurrentGroup();
                     s_Target = tool == StyleTerrainBrushTool.Flatten
                         ? point.y - s_Terrain.transform.position.y
                         : height;
@@ -263,11 +285,18 @@ namespace HiddenBull.UrpStyle.Editor
                     current.Use();
                     break;
 
-                case EventType.MouseDrag when GUIUtility.hotControl == id:
+                case EventType.MouseDrag when s_Stroking:
                     s_Shift = current.shift;
 
-                    if (hit && !(plantTool && plantSingle))
+                    if (hit && tool == StyleTerrainBrushTool.Ramp)
+                    {
+                        s_RampEnd = point;
+                        view.Repaint();
+                    }
+                    else if (hit && !(plantTool && plantSingle))
+                    {
                         Follow(data, point, s_Shift);
+                    }
 
                     current.Use();
                     break;
@@ -528,6 +557,14 @@ namespace HiddenBull.UrpStyle.Editor
             if (width < 1 || length < 1)
                 return;
 
+            if (brush == StyleTerrainBrushTool.Raise && shift && Bottom(terrain, x0, z0, width, length,
+                                                                         Amount(brush, true, bounds.y)))
+            {
+                StyleTerrainSink.Sink(s_Terrain, StyleTerrainSink.Depth);
+                Undo.CollapseUndoOperations(s_Group);
+                bounds = terrain.size;
+            }
+
             var heights = terrain.GetHeights(x0, z0, width, length);
             var source = brush == StyleTerrainBrushTool.Smooth ? (float[,])heights.Clone() : heights;
             var settings = new StyleTerrainStampSettings
@@ -552,6 +589,89 @@ namespace HiddenBull.UrpStyle.Editor
             terrain.SetHeightsDelayLOD(x0, z0, heights);
             data.UpdateBounds(x0, z0, width, length);
             StyleTerrainPlanter.Follow(data, x0 * spacing, z0 * spacing, x1 * spacing, z1 * spacing);
+        }
+
+        static void Ramp(HBStyleTerrainData data)
+        {
+            var origin = s_Terrain.transform.position;
+            var start = s_Last - origin;
+            var end = s_RampEnd - origin;
+            var radius = size * 0.5f;
+
+            if (new Vector2(end.x - start.x, end.z - start.z).magnitude < radius * 0.5f || !Record(data))
+                return;
+
+            var terrain = data.terrainData;
+            var resolution = terrain.heightmapResolution;
+            var bounds = terrain.size;
+            var spacing = bounds.x / (resolution - 1);
+            var x0 = Mathf.Clamp(Mathf.FloorToInt((Mathf.Min(start.x, end.x) - radius) / spacing), 0, resolution - 1);
+            var z0 = Mathf.Clamp(Mathf.FloorToInt((Mathf.Min(start.z, end.z) - radius) / spacing), 0, resolution - 1);
+            var x1 = Mathf.Clamp(Mathf.CeilToInt((Mathf.Max(start.x, end.x) + radius) / spacing), 0, resolution - 1);
+            var z1 = Mathf.Clamp(Mathf.CeilToInt((Mathf.Max(start.z, end.z) + radius) / spacing), 0, resolution - 1);
+            var width = x1 - x0 + 1;
+            var length = z1 - z0 + 1;
+            var heights = terrain.GetHeights(x0, z0, width, length);
+
+            StyleTerrainStamp.Ramp(heights, new StyleTerrainRamp
+            {
+                startX = start.x,
+                startZ = start.z,
+                startHeight = start.y / bounds.y,
+                endX = end.x,
+                endZ = end.z,
+                endHeight = end.y / bounds.y,
+                radius = radius,
+                hardness = hardness,
+                cornerX = x0 * spacing,
+                cornerZ = z0 * spacing,
+                spacing = spacing
+            });
+
+            terrain.SetHeightsDelayLOD(x0, z0, heights);
+            data.UpdateBounds(x0, z0, width, length);
+            StyleTerrainPlanter.Follow(data, x0 * spacing, z0 * spacing, x1 * spacing, z1 * spacing);
+        }
+
+        static float Slope()
+        {
+            var run = s_RampEnd - s_Last;
+            var flat = new Vector2(run.x, run.z).magnitude;
+
+            return flat > 1e-3f ? Mathf.Atan2(Mathf.Abs(run.y), flat) * Mathf.Rad2Deg : 0f;
+        }
+
+        static void DrawRamp(Color colour)
+        {
+            var run = s_RampEnd - s_Last;
+            var flat = new Vector3(run.x, 0f, run.z);
+
+            if (flat.sqrMagnitude < 1e-4f)
+                return;
+
+            var side = new Vector3(-flat.z, 0f, flat.x).normalized * size * 0.5f;
+            var lift = Vector3.up * 0.1f;
+
+            Handles.color = colour;
+            Handles.DrawAAPolyLine(2.5f, s_Last + lift, s_RampEnd + lift);
+            Handles.color = new Color(colour.r, colour.g, colour.b, 0.6f);
+            Handles.DrawAAPolyLine(1.5f, s_Last + side + lift, s_RampEnd + side + lift);
+            Handles.DrawAAPolyLine(1.5f, s_Last - side + lift, s_RampEnd - side + lift);
+            Handles.DrawAAPolyLine(1.5f, s_Last + side + lift, s_Last - side + lift);
+            Handles.DrawAAPolyLine(1.5f, s_RampEnd + side + lift, s_RampEnd - side + lift);
+        }
+
+        static bool Bottom(TerrainData terrain, int x0, int z0, int width, int length, float amount)
+        {
+            var heights = terrain.GetHeights(x0, z0, width, length);
+
+            foreach (var height in heights)
+            {
+                if (height + amount <= 0f)
+                    return true;
+            }
+
+            return false;
         }
 
         static void StampHoles(HBStyleTerrainData data, Vector3 point, bool fill)
@@ -584,6 +704,7 @@ namespace HiddenBull.UrpStyle.Editor
             holes[underZ - z0, underX - x0] = fill;
 
             terrain.SetHolesDelayLOD(x0, z0, holes);
+            data.HolesEdited(new RectInt(x0, z0, x1 - x0 + 1, z1 - z0 + 1));
             data.grassStamp++;
         }
 
@@ -621,6 +742,14 @@ namespace HiddenBull.UrpStyle.Editor
 
                 case StyleTerrainBrushTool.Terrace:
                     StyleTerrainGUI.SceneLabel(point, ground, $"Steps of {terraceStep:0.#} m", colour);
+                    break;
+
+                case StyleTerrainBrushTool.Ramp:
+                    var start = s_Last.y - s_Terrain.transform.position.y;
+
+                    StyleTerrainGUI.SceneLabel(point, s_Stroking ? $"{start:0.0} m → {ground}" : ground,
+                                               s_Stroking ? $"Ramp, {Slope():0} degrees" : "Drag from start to end",
+                                               colour);
                     break;
 
                 case StyleTerrainBrushTool.Holes:
@@ -751,7 +880,7 @@ namespace HiddenBull.UrpStyle.Editor
             Circle(data, point, size * 0.5f);
             Handles.DrawAAPolyLine(2.5f, s_Circle);
 
-            if (hardness > 0.05f && StyleTerrainShapes.round)
+            if (hardness > 0.05f && round)
             {
                 Handles.color = new Color(colour.r, colour.g, colour.b, 0.45f);
                 Circle(data, point, size * 0.5f * hardness);
@@ -764,9 +893,15 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
             }
 
+            if (tool == StyleTerrainBrushTool.Ramp && s_Stroking)
+            {
+                DrawRamp(colour);
+                return;
+            }
+
             DrawFootprint(data, point, colour);
 
-            if (!StyleTerrainShapes.round)
+            if (!round)
             {
                 var angle = StyleTerrainShapes.rotation * Mathf.Deg2Rad;
                 var tip = point + new Vector3(-Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * size * 0.5f;
@@ -781,7 +916,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         static void DrawFootprint(HBStyleTerrainData data, Vector3 point, Color colour)
         {
-            var shape = StyleTerrainShapes.current;
+            var shape = round ? null : StyleTerrainShapes.current;
             var radius = size * 0.5f;
             var extent = radius * (shape != null ? ShapeExtent : 1f);
             var origin = s_Terrain.transform.position;

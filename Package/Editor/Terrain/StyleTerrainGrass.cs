@@ -75,8 +75,8 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 for (var x = x0; x <= x1; x++)
                 {
-                    var amount = StyleTerrainStamp.Weight(shape, x - centreX, z - centreZ, reach, hardness) * strength *
-                                 rate;
+                    var amount = Mathf.Min(StyleTerrainStamp.Weight(shape, x - centreX, z - centreZ, reach, hardness) *
+                                           strength * rate, 1f);
 
                     if (amount <= 0f)
                         continue;
