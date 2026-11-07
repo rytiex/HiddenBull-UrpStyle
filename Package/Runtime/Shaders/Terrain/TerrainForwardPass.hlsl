@@ -31,9 +31,6 @@
 #define HB_GRASS_FAR_SPECK_FADE     0.5
 #define HB_GRASS_FAR_SPECK_TONE     0.5h
 #define HB_GRASS_FAR_SWEEP          0.25h
-#define HB_GRASS_GROUND_SHADE       0.55h
-#define HB_GRASS_GROUND_NEAR        0.2
-#define HB_GRASS_GROUND_END         0.5
 
 struct HBTerrainAttributes
 {
@@ -124,10 +121,6 @@ half3 HB_TerrainDistantGrass(HBTerrainSurface surface, float3 positionWS, float 
         half4 map = half4(SAMPLE_TEXTURE2D_LOD(_HB_GrassMap, sampler_LinearClamp, uv, 0));
         half density = saturate(surface.meadow * (1.0h - map.b) + map.r * map.b);
         half fade = half(smoothstep(HB_GRASS_FAR_START, HB_GRASS_FAR_END, gap));
-        half close = half(1.0 - smoothstep(HB_GRASS_FAR_START * HB_GRASS_GROUND_NEAR,
-                                           HB_GRASS_FAR_START * HB_GRASS_GROUND_END, gap));
-        half3 ground = albedo * lerp(1.0h, HB_GRASS_GROUND_SHADE, density * close);
-
         UNITY_BRANCH
         if (fade > 0.0h)
         {
@@ -146,10 +139,8 @@ half3 HB_TerrainDistantGrass(HBTerrainSurface surface, float3 positionWS, float 
             grass *= 1.0h + vary * half(HB_GrassClump(xz)) * HB_GRASS_CLUMP_TONE;
             grass *= 1.0h + (half(HB_WindNoise(xz / HB_GRASS_FAR_SPECK)) - 0.5h) * HB_GRASS_FAR_SPECK_TONE * speck;
             grass *= 1.0h + streak * HB_GRASS_FAR_SWEEP;
-            ground = lerp(ground, grass, fade * density);
+            albedo = lerp(albedo, grass, fade * density);
         }
-
-        albedo = ground;
     }
 
     return albedo;

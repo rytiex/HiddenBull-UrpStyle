@@ -355,7 +355,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         static void Follow(HBStyleTerrainData data, Vector3 point, bool shift)
         {
-            var step = Mathf.Max(size * Spacing, data.size.x / (data.resolution - 1));
+            var step = Mathf.Max(size * Spacing, Texel(data));
             var path = point - s_Last;
 
             path.y = 0f;
@@ -373,6 +373,27 @@ namespace HiddenBull.UrpStyle.Editor
                 distance -= step;
                 Stamp(data, s_Last, shift);
             }
+        }
+
+        static float Texel(HBStyleTerrainData data)
+        {
+            switch (tool)
+            {
+                case StyleTerrainBrushTool.PaintLayer:
+                    return data.hand != null ? data.size.x / data.hand.width : data.size.x / data.controlResolution;
+
+                case StyleTerrainBrushTool.GrassDensity:
+                case StyleTerrainBrushTool.GrassHeight:
+                case StyleTerrainBrushTool.GrassReset:
+                case StyleTerrainBrushTool.GrassSetDensity:
+                case StyleTerrainBrushTool.GrassSetHeight:
+                    if (data.grass != null)
+                        return data.size.x / data.grass.width;
+
+                    break;
+            }
+
+            return data.size.x / (data.resolution - 1);
         }
 
         static void Hold()

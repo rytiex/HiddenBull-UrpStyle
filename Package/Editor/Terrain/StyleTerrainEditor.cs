@@ -103,6 +103,15 @@ namespace HiddenBull.UrpStyle.Editor
 
         public override void OnInspectorGUI()
         {
+            var current = Event.current;
+
+            if (current.type == EventType.KeyDown && current.keyCode == KeyCode.Escape && StyleTerrainBrush.armed)
+            {
+                StyleTerrainBrush.armed = false;
+                StyleTerrainBrush.End(terrain);
+                current.Use();
+            }
+
             DrawDataField();
 
             var data = terrain.data;

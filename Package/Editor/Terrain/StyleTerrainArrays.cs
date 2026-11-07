@@ -149,8 +149,14 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 var layer = data.layers[index].layer;
 
-                if (layer != null && layer.flowerTexture != null && !textures.Contains(layer.flowerTexture))
+                if (layer == null)
+                    continue;
+
+                if (layer.flowerTexture != null && !textures.Contains(layer.flowerTexture))
                     textures.Add(layer.flowerTexture);
+
+                if (layer.grassCardTexture != null && !textures.Contains(layer.grassCardTexture))
+                    textures.Add(layer.grassCardTexture);
             }
 
             return textures;

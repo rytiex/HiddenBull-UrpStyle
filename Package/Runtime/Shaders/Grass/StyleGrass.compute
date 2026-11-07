@@ -32,6 +32,7 @@ AppendStructuredBuffer<HBGrassDrawn> _HB_GrassNear;
 AppendStructuredBuffer<HBGrassDrawn> _HB_GrassMid;
 AppendStructuredBuffer<HBGrassDrawn> _HB_GrassFar;
 AppendStructuredBuffer<HBGrassDrawn> _HB_GrassFlowers;
+AppendStructuredBuffer<HBGrassDrawn> _HB_GrassCards;
 TEXTURE2D(_HB_GrassTrail);
 RWTexture2D<float4> _HB_GrassTrailOut;
 
@@ -40,6 +41,7 @@ float4 _HB_GrassAir;
 float4 _HB_GrassClock;
 float4 _HB_GrassTrailFrom;
 float4 _HB_LayerFlower[16];
+float4 _HB_LayerCard[16];
 
 #define HB_GRASS_SWAY_ROOM   2.0
 #define HB_GRASS_GROUND_FOOT 2.0
@@ -81,6 +83,9 @@ float4 _HB_LayerFlower[16];
 #define HB_BLOOM_KIND        7.0
 #define HB_BLOOM_PURE        0.75
 #define HB_BLOOM_REACH       0.5
+#define HB_CARD_SHIFT        float2(37.3, 91.7)
+#define HB_CARD_CONTRAST     1.6
+#define HB_CARD_SOFT         0.15
 
 uint HB_GrassBloom(float2 xz, int2 grid, uint level, float4 flower)
 {
@@ -99,6 +104,32 @@ uint HB_GrassBloom(float2 xz, int2 grid, uint level, float4 flower)
     float kind = dice.y < HB_BLOOM_PURE ? species : frac(dice.y * 7.31);
 
     return 1u + min((uint)(kind * flower.w), (uint)flower.w - 1u);
+}
+
+bool HB_GrassCard(float2 xz, float rand, float share)
+{
+    if (share <= 0.0)
+        return false;
+
+    float2 spot = xz + HB_CARD_SHIFT;
+    float field = HB_BrushField(spot / HB_BLOOM_WIDE) * 0.65 + HB_BrushField(spot / HB_BLOOM_FINE) * 0.35;
+    float spread = saturate(0.5 + 0.5 * field * HB_CARD_CONTRAST);
+    float jitter = (frac(rand * 29.11) - 0.5) * HB_CARD_SOFT;
+
+    return spread + jitter < lerp(-HB_CARD_SOFT, 1.0 + HB_CARD_SOFT, share);
+}
+
+float2 HB_GrassStrokeShift(float2 xz, float rootHeight, float3 normal)
+{
+    if (HB_TERRAIN_BRUSH_PAINT <= 0.0 || HB_BRUSH_ATLAS_BOUND < 0.5)
+        return float2(0.0, 0.0);
+
+    float scale = max(HB_TERRAIN_BRUSH_SIZE, HB_EPSILON);
+    float3 still = float3(0.0, 0.0, 0.0);
+    HBBrushLayer layer = HB_BrushLayer(float3(xz.x, rootHeight, xz.y), still, still, HB_TriplanarBlend(half3(normal)),
+                                       HB_BRUSH_TILES_PER_UNIT / scale);
+
+    return HB_BrushStrokeOffset(layer.spine, half3(normal), half(scale)).xz * HB_TERRAIN_BRUSH_PAINT;
 }
 
 uint HB_GrassGroundMark(float3 root, float3 normal)
@@ -138,12 +169,17 @@ void Place(uint3 id : SV_DispatchThreadID)
         uint mapWidth, mapHeight;
         _HB_GrassMap.GetDimensions(mapWidth, mapHeight);
 
+        float curvature;
+        float3 normal = HB_TerrainShape(xz, HB_GRASS_SPACING * HB_GRASS_SHAPE_STEP, curvature);
+        float rootHeight = HB_TerrainHeight(xz);
+        float2 shifted = local + HB_GrassStrokeShift(xz, rootHeight, normal);
+        float2 painted = shifted / HB_TERRAIN_SIZE.xz;
         float2 shake = (HB_GrassRandom(grid, 6u + level * 8u) - 0.5) * HB_GRASS_MAP_SHAKE / float2(mapWidth, mapHeight);
-        HBTerrainGrass grass = HB_TerrainGrassPick(uv, uv + shake, half(roll.y), layer, shares, ids);
+        HBTerrainGrass grass = HB_TerrainGrassPick(painted, uv + shake, half(roll.y), layer, shares, ids);
         float reach = 1.0 + HB_GRASS_DENSITY_SOFT;
 
         if (roll.x < grass.density * reach)
-            HB_TerrainGrassFringe(uv, grass);
+            HB_TerrainGrassFringe(painted, grass);
 
         float grown = saturate((grass.density * reach - roll.x) / HB_GRASS_DENSITY_SOFT);
         float tuft = grass.height * grown;
@@ -162,19 +198,17 @@ void Place(uint3 id : SV_DispatchThreadID)
                 float4 st = _HB_LayerST[ids[pick]];
 
                 float mip = log2(max(foot * max(st.x, st.y) * float(texels), 1.0));
-                float3 base = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, local * st.xy + st.zw,
-                                                         ids[pick], mip).rgb
+                float2 spot = shifted * st.xy + st.zw;
+                float3 base = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, spot, ids[pick],
+                                                         mip).rgb
                             * _HB_LayerLook[ids[pick]].rgb;
 
                 ground += HB_TerrainVary(half3(base), xz, ids[pick]) * shares[pick];
             }
 
-            float curvature;
-            float3 normal = HB_TerrainShape(xz, HB_GRASS_SPACING * HB_GRASS_SHAPE_STEP, curvature);
             ground *= HB_TerrainShade(xz, HB_TerrainBend(curvature));
 
             float clump = HB_GrassClump(xz) * _HB_LayerGrassEdge[layer].y;
-            float rootHeight = HB_TerrainHeight(xz);
 
             ground *= 1.0 + clump * HB_GRASS_CLUMP_TONE;
 
@@ -302,8 +336,11 @@ void Cull(uint3 id : SV_DispatchThreadID)
     if (blade.rand >= HB_GrassKeep(gap, blade.level))
         return;
 
+    float4 card = _HB_LayerCard[blade.layer];
     float3 centre = blade.root + float3(0.0, blade.height * 0.5, 0.0);
-    float radius = max(blade.height * HB_GRASS_SWAY_ROOM, blade.width) + HB_GRASS_SPACING * HB_GrassScale(blade.level);
+    float span = card.x > 0.0 ? card.z : 0.0;
+    float radius = max(max(blade.height * HB_GRASS_SWAY_ROOM, blade.width), span)
+                 + HB_GRASS_SPACING * HB_GrassScale(blade.level);
 
     UNITY_UNROLL
     for (int plane = 0; plane < 6; plane++)
@@ -325,6 +362,12 @@ void Cull(uint3 id : SV_DispatchThreadID)
 
     if (!seen)
         return;
+
+    if (HB_GrassCard(blade.root.xz, blade.rand, card.x))
+    {
+        _HB_GrassCards.Append(drawn);
+        return;
+    }
 
     float pixels = HB_GrassPixels(blade.height, gap);
 

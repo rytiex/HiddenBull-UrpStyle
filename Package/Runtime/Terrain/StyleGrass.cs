@@ -34,9 +34,14 @@ namespace HiddenBull.UrpStyle
         const float CloseShare = 0.3f;
         const float SpareTufts = 1.25f;
         const string FlowerKeyword = "_HB_GRASS_FLOWERS";
+        const int CardVertices = 12;
+        const string CardKeyword = "_HB_GRASS_CARDS";
 
         static readonly ushort[] s_NearLeaf = { 0, 1, 2, 2, 1, 3, 2, 3, 4, 4, 3, 5, 4, 5, 6 };
         static readonly ushort[] s_FarLeaf = { 0, 1, 2, 2, 1, 3, 2, 3, 6 };
+        static readonly ushort[] s_SingleLeaf = { 0, 1, 6 };
+        static readonly ushort[][] s_LeafDetails = { s_NearLeaf, s_FarLeaf, s_SingleLeaf };
+        static readonly int[] s_BandLeaves = { NearLeaves, MidLeaves, FarLeaves };
 
         static readonly int s_GridId = Shader.PropertyToID("_HB_GrassGrid");
         static readonly int s_ReachId = Shader.PropertyToID("_HB_GrassReach");
@@ -55,6 +60,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_MidId = Shader.PropertyToID("_HB_GrassMid");
         static readonly int s_FarId = Shader.PropertyToID("_HB_GrassFar");
         static readonly int s_FlowersId = Shader.PropertyToID("_HB_GrassFlowers");
+        static readonly int s_CardsId = Shader.PropertyToID("_HB_GrassCards");
+        static readonly int s_LayerCardId = Shader.PropertyToID("_HB_LayerCard");
         static readonly int s_AirId = Shader.PropertyToID("_HB_GrassAir");
         static readonly int s_ClockId = Shader.PropertyToID("_HB_GrassClock");
         static readonly int s_TrailId = Shader.PropertyToID("_HB_GrassTrail");
@@ -85,6 +92,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_StyleId = Shader.PropertyToID("_HB_GrassStyle");
         static readonly int s_TerrainStyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_TerrainVariationId = Shader.PropertyToID("_HB_TerrainVariation");
+        static readonly int s_TerrainBrushId = Shader.PropertyToID("_HB_TerrainBrush");
+        static readonly int s_BrushId = Shader.PropertyToID("_HB_Brush");
 
         [StructLayout(LayoutKind.Sequential)]
         struct BoxData
@@ -103,6 +112,7 @@ namespace HiddenBull.UrpStyle
             internal float distance;
             internal int perSlot;
             internal int stamp;
+            internal int detail = -1;
             internal double lastUsed;
             internal GraphicsBuffer blades;
             internal GraphicsBuffer slots;
@@ -115,6 +125,8 @@ namespace HiddenBull.UrpStyle
             internal GraphicsBuffer flowers;
             internal GraphicsBuffer dispatch;
             internal GraphicsBuffer args;
+            internal GraphicsBuffer cards;
+            internal GraphicsBuffer cardArgs;
             internal GraphicsBuffer nearArgs;
             internal GraphicsBuffer midArgs;
             internal GraphicsBuffer farArgs;
@@ -128,6 +140,7 @@ namespace HiddenBull.UrpStyle
             internal MaterialPropertyBlock midBlock;
             internal MaterialPropertyBlock farBlock;
             internal MaterialPropertyBlock flowerBlock;
+            internal MaterialPropertyBlock cardBlock;
 
             internal void Release()
             {
@@ -142,6 +155,8 @@ namespace HiddenBull.UrpStyle
                 flowers?.Release();
                 dispatch?.Release();
                 args?.Release();
+                cards?.Release();
+                cardArgs?.Release();
                 nearArgs?.Release();
                 midArgs?.Release();
                 farArgs?.Release();
@@ -158,9 +173,9 @@ namespace HiddenBull.UrpStyle
         CommandBuffer m_Commands;
         Material m_Material;
         Material m_FlowerMaterial;
-        GraphicsBuffer m_NearIndices;
-        GraphicsBuffer m_MidIndices;
-        GraphicsBuffer m_FarIndices;
+        Material m_CardMaterial;
+        readonly GraphicsBuffer[] m_Indices = new GraphicsBuffer[9];
+
         Shader m_Shader;
         ComputeShader m_Compute;
         int m_PlaceKernel = -1;
@@ -192,6 +207,17 @@ namespace HiddenBull.UrpStyle
                                     MostRings);
             var view = Acquire(camera, side, reach * 2 + 1, rings, level.spacing, firstRing, level.distance);
             var stamp = Stamp(terrain, level.spacing);
+            var detail = Mathf.Clamp((int)level.bladeDetail, 0, s_LeafDetails.Length - 1);
+            var farDetail = Mathf.Min(detail + 1, s_LeafDetails.Length - 1);
+
+            if (view.detail != detail)
+            {
+                view.nearArgs.SetData(new[] { LeafArgs(s_LeafDetails[detail], NearLeaves) });
+                view.midArgs.SetData(new[] { LeafArgs(s_LeafDetails[farDetail], MidLeaves) });
+                view.farArgs.SetData(new[] { LeafArgs(s_LeafDetails[farDetail], FarLeaves) });
+                view.detail = detail;
+            }
+
             var origin = terrain.transform.position;
             var size = data.size;
             var viewer = StyleDebug.Viewer(camera);
@@ -285,6 +311,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetBufferCounterValue(view.mid, 0u);
             cmd.SetBufferCounterValue(view.far, 0u);
             cmd.SetBufferCounterValue(view.flowers, 0u);
+            cmd.SetBufferCounterValue(view.cards, 0u);
 
             var grid = new Vector4(level.spacing, view.side, view.perSlot, PixelSlope(camera));
             var reachData = new Vector4(level.distance, firstRing, BandShare, rings);
@@ -318,6 +345,8 @@ namespace HiddenBull.UrpStyle
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_MidId, view.mid);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_FarId, view.far);
                 cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_FlowersId, view.flowers);
+                cmd.SetComputeBufferParam(m_Compute, m_CullKernel, s_CardsId, view.cards);
+                cmd.SetComputeVectorArrayParam(m_Compute, s_LayerCardId, terrain.layerCard);
                 cmd.DispatchCompute(m_Compute, m_CullKernel, view.dispatch, 0u);
             }
 
@@ -325,6 +354,7 @@ namespace HiddenBull.UrpStyle
             cmd.CopyCounterValue(view.mid, view.midArgs, CountOffset);
             cmd.CopyCounterValue(view.far, view.farArgs, CountOffset);
             cmd.CopyCounterValue(view.flowers, view.args, CountOffset);
+            cmd.CopyCounterValue(view.cards, view.cardArgs, CountOffset);
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
 
@@ -349,14 +379,25 @@ namespace HiddenBull.UrpStyle
                 matProps = view.nearBlock
             };
 
-            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, m_NearIndices, view.nearArgs);
+            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, Indices(detail, 0),
+                                                     view.nearArgs);
             parameters.matProps = view.midBlock;
-            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, m_MidIndices, view.midArgs);
+            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, Indices(farDetail, 1),
+                                                     view.midArgs);
             parameters.matProps = view.farBlock;
-            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, m_FarIndices, view.farArgs);
+            Graphics.RenderPrimitivesIndexedIndirect(parameters, MeshTopology.Triangles, Indices(farDetail, 2),
+                                                     view.farArgs);
 
             if (data.flowerArray == null)
                 return;
+
+            Bind(view.cardBlock, view, view.cards, grid, reachData, cameraData, style, terrain);
+            view.cardBlock.SetTexture(s_FlowerHeadsId, data.flowerArray);
+            view.cardBlock.SetVectorArray(s_LayerCardId, terrain.layerCard);
+
+            parameters.material = m_CardMaterial;
+            parameters.matProps = view.cardBlock;
+            Graphics.RenderPrimitivesIndirect(parameters, MeshTopology.Triangles, view.cardArgs);
 
             Bind(view.flowerBlock, view, view.flowers, grid, reachData, cameraData, style, terrain);
             view.flowerBlock.SetTexture(s_FlowerHeadsId, data.flowerArray);
@@ -389,15 +430,14 @@ namespace HiddenBull.UrpStyle
             {
                 CoreUtils.Destroy(m_Material);
                 CoreUtils.Destroy(m_FlowerMaterial);
+                CoreUtils.Destroy(m_CardMaterial);
                 m_Material = CoreUtils.CreateEngineMaterial(shader);
                 m_FlowerMaterial = CoreUtils.CreateEngineMaterial(shader);
                 m_FlowerMaterial.EnableKeyword(FlowerKeyword);
+                m_CardMaterial = CoreUtils.CreateEngineMaterial(shader);
+                m_CardMaterial.EnableKeyword(CardKeyword);
                 m_Shader = shader;
             }
-
-            m_NearIndices ??= LeafIndices(s_NearLeaf, NearLeaves);
-            m_MidIndices ??= LeafIndices(s_FarLeaf, MidLeaves);
-            m_FarIndices ??= LeafIndices(s_FarLeaf, FarLeaves);
 
             m_Compute = compute;
             m_PlaceKernel = compute.HasKernel("Place") ? compute.FindKernel("Place") : -1;
@@ -427,6 +467,8 @@ namespace HiddenBull.UrpStyle
                 hash = hash * 31 + terrain.transform.position.GetHashCode();
                 hash = hash * 31 + data.look.style.GetHashCode();
                 hash = hash * 31 + data.look.variation.GetHashCode();
+                hash = hash * 31 + data.look.brush.GetHashCode();
+                hash = hash * 31 + (Shader.GetGlobalVector(s_BrushId).w > 0.5f ? 1 : 0);
 
                 for (var index = 0; index < terrain.boundLayers; index++)
                 {
@@ -474,6 +516,7 @@ namespace HiddenBull.UrpStyle
                                                                          layers > 0 ? 1f : 0f, -1f));
             cmd.SetComputeVectorParam(m_Compute, s_TerrainStyleId, data.look.style);
             cmd.SetComputeVectorParam(m_Compute, s_TerrainVariationId, data.look.variation);
+            cmd.SetComputeVectorParam(m_Compute, s_TerrainBrushId, data.look.brush);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerGrassId, terrain.layerGrass);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerGrassEdgeId, terrain.layerGrassEdge);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerVaryId, terrain.layerVary);
@@ -620,9 +663,12 @@ namespace HiddenBull.UrpStyle
                 mid = new GraphicsBuffer(GraphicsBuffer.Target.Append, midTufts, DrawnSize),
                 far = new GraphicsBuffer(GraphicsBuffer.Target.Append, farTufts, DrawnSize),
                 flowers = new GraphicsBuffer(GraphicsBuffer.Target.Append, Mathf.Min(blades, MostFlowers), DrawnSize),
+                cards = new GraphicsBuffer(GraphicsBuffer.Target.Append, farTufts, DrawnSize),
                 dispatch = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 3, sizeof(uint)),
                 args = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
                                           GraphicsBuffer.IndirectDrawArgs.size),
+                cardArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
+                                              GraphicsBuffer.IndirectDrawArgs.size),
                 nearArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
                                               GraphicsBuffer.IndirectDrawIndexedArgs.size),
                 midArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, 1,
@@ -638,7 +684,8 @@ namespace HiddenBull.UrpStyle
                 nearBlock = new MaterialPropertyBlock(),
                 midBlock = new MaterialPropertyBlock(),
                 farBlock = new MaterialPropertyBlock(),
-                flowerBlock = new MaterialPropertyBlock()
+                flowerBlock = new MaterialPropertyBlock(),
+                cardBlock = new MaterialPropertyBlock()
             };
 
             view.dispatch.SetData(new[] { (uint)Groups(perSlot), 0u, 1u });
@@ -646,9 +693,10 @@ namespace HiddenBull.UrpStyle
             {
                 new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = FlowerVertices }
             });
-            view.nearArgs.SetData(new[] { LeafArgs(s_NearLeaf, NearLeaves) });
-            view.midArgs.SetData(new[] { LeafArgs(s_FarLeaf, MidLeaves) });
-            view.farArgs.SetData(new[] { LeafArgs(s_FarLeaf, FarLeaves) });
+            view.cardArgs.SetData(new[]
+            {
+                new GraphicsBuffer.IndirectDrawArgs { vertexCountPerInstance = CardVertices }
+            });
 
             m_Views[camera] = view;
             return view;
@@ -675,6 +723,13 @@ namespace HiddenBull.UrpStyle
         static GraphicsBuffer.IndirectDrawIndexedArgs LeafArgs(ushort[] leaf, int leaves)
         {
             return new GraphicsBuffer.IndirectDrawIndexedArgs { indexCountPerInstance = (uint)(leaves * leaf.Length) };
+        }
+
+        GraphicsBuffer Indices(int detail, int band)
+        {
+            var index = detail * s_BandLeaves.Length + band;
+
+            return m_Indices[index] ??= LeafIndices(s_LeafDetails[detail], s_BandLeaves[band]);
         }
 
         static GraphicsBuffer LeafIndices(ushort[] pattern, int leaves)
@@ -726,12 +781,12 @@ namespace HiddenBull.UrpStyle
                 view.Release();
 
             m_Views.Clear();
-            m_NearIndices?.Release();
-            m_NearIndices = null;
-            m_MidIndices?.Release();
-            m_MidIndices = null;
-            m_FarIndices?.Release();
-            m_FarIndices = null;
+
+            for (var index = 0; index < m_Indices.Length; index++)
+            {
+                m_Indices[index]?.Release();
+                m_Indices[index] = null;
+            }
         }
 
         internal void Dispose()
@@ -741,6 +796,8 @@ namespace HiddenBull.UrpStyle
             m_Material = null;
             CoreUtils.Destroy(m_FlowerMaterial);
             m_FlowerMaterial = null;
+            CoreUtils.Destroy(m_CardMaterial);
+            m_CardMaterial = null;
             m_Shader = null;
             m_Compute = null;
             m_Commands?.Release();

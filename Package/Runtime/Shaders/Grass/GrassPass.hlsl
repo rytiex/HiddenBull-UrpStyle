@@ -14,11 +14,17 @@ StructuredBuffer<uint3> _HB_GrassBlades;
 StructuredBuffer<int4> _HB_GrassSlots;
 StructuredBuffer<HBGrassDrawn> _HB_GrassList;
 
-#if defined(_HB_GRASS_FLOWERS)
+#if defined(_HB_GRASS_FLOWERS) || defined(_HB_GRASS_CARDS)
 TEXTURE2D_ARRAY(_HB_FlowerHeads);
 SAMPLER(sampler_HB_FlowerHeads);
+#endif
 
+#if defined(_HB_GRASS_FLOWERS)
 float4 _HB_LayerFlower[16];
+#endif
+
+#if defined(_HB_GRASS_CARDS)
+float4 _HB_LayerCard[16];
 #endif
 
 float4 _HB_LayerGrassTip[16];
@@ -42,7 +48,7 @@ float _HB_ShelterPass;
 #define HB_GRASS_CUTOFF       0.5h
 #define HB_GRASS_DETAIL_SCALE 2.0h
 #define HB_GRASS_TIP_START    0.35h
-#define HB_GRASS_ROOT_SHADE   0.85h
+#define HB_GRASS_TOP_LIGHT    1.25h
 #define HB_GRASS_ROOT_BLEND   0.4h
 #define HB_GRASS_CALM_RINGS   8.0
 #define HB_GRASS_FILM_SPEC    0.04h
@@ -94,10 +100,11 @@ float _HB_ShelterPass;
 #define HB_BLADE_FLUTTER_MOST 0.15
 #define HB_BLADE_TONE         0.2
 #define HB_BLADE_ROUND        0.12
+#define HB_CARD_TONE_SHIFT    7.91
 #define HB_DEBUG_GRASS_CELLS  16
 #define HB_DEBUG_WEATHER_GUST 17
 
-#if defined(_HB_GRASS_FLOWERS)
+#if defined(_HB_GRASS_FLOWERS) || defined(_HB_GRASS_CARDS)
 #define HB_GRASS_CLIP(cover) clip(cover)
 #else
 #define HB_GRASS_CLIP(cover)
@@ -202,6 +209,69 @@ half4 HB_GrassTuft(HBGrassVaryings input, out half cover)
 
     cover = head.a - HB_GRASS_CUTOFF;
     return head;
+}
+
+#elif defined(_HB_GRASS_CARDS)
+
+HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID)
+{
+    HBGrassVaryings output = (HBGrassVaryings)0;
+
+    if (_HB_ShelterPass > 0.5)
+        return output;
+
+    HBGrassDrawn drawn = _HB_GrassList[instanceID];
+    uint index = drawn.index;
+    uint slot = index / HB_GRASS_PER_SLOT;
+    uint local = index - slot * HB_GRASS_PER_SLOT;
+    int4 owner = _HB_GrassSlots[slot];
+    int2 cell = owner.xy;
+    HBGrassBlade blade = HB_GrassUnpack(_HB_GrassBlades[index], cell, local, (uint)owner.z);
+    HBGrassMotion motion = HB_GrassMotion(drawn);
+    float4 card = _HB_LayerCard[blade.layer];
+
+    float gap = distance(blade.root, HB_GRASS_CAMERA);
+    float height = blade.height * motion.fade
+                 * (1.0 - HB_GRASS_SNOW_SHRINK * motion.snow) * (1.0 - HB_GRASS_PRESS_SHORT * motion.press);
+    float width = card.z * motion.fade;
+    uint plane = vertexID / 6u;
+    float2 corner = HB_GRASS_CORNERS[vertexID - plane * 6u];
+
+    float yaw = blade.rand * TWO_PI * 7.0 + float(plane) * HALF_PI;
+    float3 across = float3(cos(yaw), 0.0, sin(yaw));
+    float3 offset = across * ((corner.x - 0.5) * width);
+    float slope = -dot(offset.xz, blade.normal.xz) / max(blade.normal.y, 0.3);
+
+    float3 positionWS = blade.root + offset + float3(0.0, slope + (corner.y - HB_GRASS_SINK) * height, 0.0)
+                      + motion.sway * (corner.y * corner.y * height);
+    float tone = 0.0;
+
+#if defined(HB_GRASS_FORWARD)
+    float2 sun = normalize(_MainLightPosition.xz + 1e-4);
+    float toneTurn = frac(blade.rand * HB_CARD_TONE_SHIFT) * TWO_PI;
+
+    tone = (cos(toneTurn) * sun.x + sin(toneTurn) * sun.y) * HB_BLADE_TONE;
+#endif
+
+    output.positionWS = positionWS;
+    output.positionCS = TransformWorldToHClip(positionWS);
+    output.uv = float4(corner.x, tone, corner.y, gap);
+    output.weather = float2(motion.wet, motion.snow);
+    output.normalWS = blade.normal;
+    output.ground = blade.ground;
+    output.gust = float2(motion.press, motion.streak);
+    output.data = uint2(blade.layer, (uint)(cell.x * 73856093) ^ (uint)(cell.y * 19349663) ^ (blade.level * 83492791u));
+
+    return output;
+}
+
+half4 HB_GrassTuft(HBGrassVaryings input, out half cover)
+{
+    float slice = _HB_LayerCard[input.data.x].y;
+    half shape = half(SAMPLE_TEXTURE2D_ARRAY(_HB_FlowerHeads, sampler_HB_FlowerHeads, input.uv.xz, slice).a);
+
+    cover = shape - HB_GRASS_CUTOFF;
+    return half4(0.5h, 0.5h, 0.5h, 1.0h);
 }
 
 #else
@@ -389,18 +459,16 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
 
 #if defined(_HB_GRASS_FLOWERS)
     half3 albedo = tuft.rgb;
-    half shade = 1.0h;
 #else
     half calm = half(saturate(input.uv.w / (HB_GRASS_RING * HB_GRASS_CALM_RINGS)));
     half detail = lerp(1.0h, tuft.r * HB_GRASS_DETAIL_SCALE,
                        smoothstep(0.0h, HB_GRASS_ROOT_BLEND, height) * (1.0h - calm));
     float4 tip = _HB_LayerGrassTip[input.data.x];
     half tipShare = half(tip.w) * smoothstep(HB_GRASS_TIP_START, 1.0h, height);
-    half3 albedo = lerp(half3(input.ground), half3(tip.rgb), tipShare) * detail * (1.0h + half(input.uv.y));
+    half3 body = half3(input.ground) * lerp(1.0h, HB_GRASS_TOP_LIGHT, height * (1.0h - calm));
+    half3 albedo = lerp(body, half3(tip.rgb), tipShare) * detail * (1.0h + half(input.uv.y) * height);
 
     albedo *= (1.0h + half(input.gust.y) * height * HB_GRASS_SWEEP) * (1.0h - half(input.gust.x) * HB_GRASS_PRESS_DARK);
-
-    half shade = lerp(lerp(HB_GRASS_ROOT_SHADE, 1.0h, height), 1.0h, calm);
 #endif
 
     half snow = half(input.weather.y);
@@ -421,7 +489,7 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
                  + HB_GrassExtraLights(input.positionWS, input.positionCS.xy, normalWS, wrap, inverseWrap);
     half reach;
     half3 ambient = HB_ResolveAmbient(normalWS, HB_GradientAmbient(normalWS), 0.0h, 0.0h, 0.0h, reach);
-    half3 colour = albedo * (direct + ambient) * shade;
+    half3 colour = albedo * (direct + ambient);
     half wet = half(input.weather.x);
 
     UNITY_BRANCH

@@ -10,35 +10,29 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-02):** Phases 0–5, 7 and 8 are closed; 7 and 8 ran before 6 by my choice. Phase 5 Grass final
-state is the first block of 03 §9, Phase 7 Foliage + Billboards is 03 §4, Phase 8 Transparency is 03 §11 (sorted
-forward transparency replaced MBOIT, coloured glass shadows, blurred refraction, Transparency quality levels). Costs
-are the last sections of 08. Colliders, harvest, the billboard leaf light fix and the overlay camera with glass were
-not run or tested in Unity. The game has buildings that players build and tear down; vehicles use Moving, Static is
-only for what never moves.
+**Status (2026-11-07):** Phases 0–5, 7 and 8 and the polish batch before Phase 6 are closed; 7 and 8 ran before 6
+by my choice. Phase 5 Grass final state is the first block of 03 §9, Phase 7 Foliage + Billboards is 03 §4, Phase 8
+Transparency is 03 §11 (sorted forward transparency replaced MBOIT, coloured glass shadows, blurred refraction,
+Transparency quality levels). The polish batch rebuilt Receive Weather Moving (03 §7), added grass Blade Detail and
+texture cards (03 §9) and the Scene view bake banner with Auto Bake (03 §8). Costs are the last sections of 08.
+Colliders, harvest, the billboard leaf light fix and the overlay camera with glass were not run or tested in Unity.
+The game has buildings that players build and tear down; vehicles use Moving, Static is only for what never moves.
 
 Read before doing anything (do not ask me what these answer):
 
 1. Your memory index `MEMORY.md` and the memories it links (in
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding,
-   especially `polish-batch-2026-11-02.md` and `confirm-before-new-work.md`.
+   especially `water-system-plan.md` and `confirm-before-new-work.md`.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §7 Weather (the Moving parts: drops and flakes, Weather Body, step 5) and the
-   Weather point of §4.
+3. `Docs/Refactor/03-Feature-Spec.md` §10 Liquids, the first (final state) blocks of §8 Terrain and §9 Grass, and
+   the memory `water-system-plan.md`.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**Next job: the polish batch before Phase 6** (agreed with me on 2026-11-02, in this order, each one confirmed by me
-before it starts):
+**Next job: Phase 6 Liquids.** The polish batch before it is closed (2026-11-07): Moving weather (03 §7), grass
+Blade Detail and texture cards (03 §9), bake banner and Auto Bake (03 §8). Nothing from it is open.
 
-1. Done (closed 2026-11-03): the Receive Weather Moving rebuild, final state in 03 §7 (Weather Body slots, own rain
-   and snow clocks, fixed cell kinds, beads shrink one by one, bead plane from the smooth normal). The per-face
-   memory for flipped bodies was dropped.
-2. Next: Grass "Blade Detail" per quality level: fewer leaves per tuft and triangles per leaf, leaves widened to keep
-   coverage.
-3. Custom grass textures as alpha-cut cards per terrain layer, through the same GPU placement and brush shading.
-
-Then **Phase 6 Liquids** (05, 03 §10; old liquids in commit `3d4a06c`, see 06). Build each step with a debug view,
+**Phase 6 Liquids** (05, 03 §10; old liquids in commit `3d4a06c`, see 06). Build each step with a debug view,
 compile with `Tools~/Check-All.ps1 -Filter '<name>*'` (never the full table for small changes), and give me one
 test list per step. Respect the budgets in 01 §5. Lit has 95 slots left under its budget (the Moving triplanar
 row 64), so anything that touches Lit must cut something first. The cost measurement happens once, in Phase 12.

@@ -1256,6 +1256,26 @@
             Reads = 0
         }
         @{
+            Name = 'Grass Cards Forward'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_GRASS_FORWARD', '_HB_GRASS_CARDS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Cards vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_HB_GRASS_CARDS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Grass Forward (light list)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
             Entry = 'HB_GrassFragment'

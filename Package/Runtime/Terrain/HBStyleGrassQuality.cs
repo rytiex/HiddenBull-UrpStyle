@@ -12,6 +12,18 @@ namespace HiddenBull.UrpStyle
         Ultra = 4
     }
 
+    public enum HBStyleGrassBladeDetail
+    {
+        [InspectorName("Full (5 triangles)")]
+        Full = 0,
+
+        [InspectorName("Reduced (3 triangles)")]
+        Reduced = 1,
+
+        [InspectorName("Single (1 triangle)")]
+        Single = 2
+    }
+
     [Serializable]
     public struct HBStyleGrassLevel
     {
@@ -25,10 +37,15 @@ namespace HiddenBull.UrpStyle
         [Range(0.1f, 1f)]
         public float spacing;
 
-        public HBStyleGrassLevel(float distance, float spacing)
+        [Tooltip("Triangles per grass leaf near the camera; the farther bands use one step less. Fewer triangles " +
+                 "bend the leaf in coarser steps and save vertex work. Leaf count and width stay the same.")]
+        public HBStyleGrassBladeDetail bladeDetail;
+
+        public HBStyleGrassLevel(float distance, float spacing, HBStyleGrassBladeDetail bladeDetail)
         {
             this.distance = distance;
             this.spacing = spacing;
+            this.bladeDetail = bladeDetail;
         }
     }
 
@@ -41,19 +58,19 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Tooltip("Settings used when the level is Low.")]
-        HBStyleGrassLevel m_Low = new HBStyleGrassLevel(45f, 0.2f);
+        HBStyleGrassLevel m_Low = new HBStyleGrassLevel(45f, 0.2f, HBStyleGrassBladeDetail.Single);
 
         [SerializeField]
         [Tooltip("Settings used when the level is Medium.")]
-        HBStyleGrassLevel m_Medium = new HBStyleGrassLevel(50f, 0.15f);
+        HBStyleGrassLevel m_Medium = new HBStyleGrassLevel(50f, 0.15f, HBStyleGrassBladeDetail.Reduced);
 
         [SerializeField]
         [Tooltip("Settings used when the level is High.")]
-        HBStyleGrassLevel m_High = new HBStyleGrassLevel(75f, 0.125f);
+        HBStyleGrassLevel m_High = new HBStyleGrassLevel(75f, 0.125f, HBStyleGrassBladeDetail.Full);
 
         [SerializeField]
         [Tooltip("Settings used when the level is Ultra.")]
-        HBStyleGrassLevel m_Ultra = new HBStyleGrassLevel(100f, 0.1f);
+        HBStyleGrassLevel m_Ultra = new HBStyleGrassLevel(100f, 0.1f, HBStyleGrassBladeDetail.Full);
 
         public HBStyleGrassQualityLevel level
         {

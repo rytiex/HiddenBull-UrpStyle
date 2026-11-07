@@ -186,10 +186,20 @@ namespace HiddenBull.UrpStyle
 
         internal int FlowerSlice(HBStyleTerrainLayer layer)
         {
-            if (layer == null || layer.flowerTexture == null || m_FlowerArray == null || m_FlowerTextures == null)
+            return layer != null ? HeadSlice(layer.flowerTexture) : -1;
+        }
+
+        internal int CardSlice(HBStyleTerrainLayer layer)
+        {
+            return layer != null ? HeadSlice(layer.grassCardTexture) : -1;
+        }
+
+        int HeadSlice(Texture2D texture)
+        {
+            if (texture == null || m_FlowerArray == null || m_FlowerTextures == null)
                 return -1;
 
-            var slice = System.Array.IndexOf(m_FlowerTextures, layer.flowerTexture);
+            var slice = System.Array.IndexOf(m_FlowerTextures, texture);
 
             return slice < m_FlowerArray.depth ? slice : -1;
         }

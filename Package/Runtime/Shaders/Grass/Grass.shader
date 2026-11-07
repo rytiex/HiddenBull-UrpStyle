@@ -22,7 +22,7 @@ Shader "Hidden/HB URP Style/Grass"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma multi_compile_local _ _HB_GRASS_FLOWERS
+            #pragma multi_compile_local _ _HB_GRASS_FLOWERS _HB_GRASS_CARDS
 
             #pragma vertex HB_GrassVertex
             #pragma fragment HB_GrassFragment
@@ -51,7 +51,7 @@ Shader "Hidden/HB URP Style/Grass"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma multi_compile_local _ _HB_GRASS_FLOWERS
+            #pragma multi_compile_local _ _HB_GRASS_FLOWERS _HB_GRASS_CARDS
 
             #pragma vertex HB_GrassVertex
             #pragma fragment HB_GrassDepthFragment
@@ -73,7 +73,7 @@ Shader "Hidden/HB URP Style/Grass"
 
             HLSLPROGRAM
             #pragma target 4.5
-            #pragma multi_compile_local _ _HB_GRASS_FLOWERS
+            #pragma multi_compile_local _ _HB_GRASS_FLOWERS _HB_GRASS_CARDS
 
             #pragma vertex HB_GrassVertex
             #pragma fragment HB_GrassDepthNormalsFragment

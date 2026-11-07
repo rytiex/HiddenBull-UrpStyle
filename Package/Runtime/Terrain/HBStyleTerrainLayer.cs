@@ -146,7 +146,7 @@ namespace HiddenBull.UrpStyle
         [Range(0f, 10f)]
         [Tooltip("How far from a layer without grass, in metres, this grass starts to get shorter and sparser, " +
                  "until none is left at the border. 0 ends it sharply.")]
-        float m_GrassTransition = 1f;
+        float m_GrassTransition = 0.1f;
 
         [SerializeField]
         [Tooltip("Picture of the flower heads, cut out by alpha. It may hold several flowers side by side; set how " +
@@ -168,6 +168,23 @@ namespace HiddenBull.UrpStyle
         [Range(0.02f, 1f)]
         [Tooltip("Size of the biggest flower heads, in metres.")]
         float m_FlowerSize = 0.15f;
+
+        [SerializeField]
+        [Tooltip("Shape of one grass plant, cut out by alpha. Only the shape is used: the colour comes from the " +
+                 "ground and the Tip colour, as for the leaves. Cards grow on this layer only when it is set.")]
+        Texture2D m_GrassCardTexture;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How much of this layer's grass is drawn as cards instead of leaves: 0 for leaves only, 1 for " +
+                 "cards only. Cards grow in patches. A card is as tall as the grass there.")]
+        float m_GrassCardShare = 0.2f;
+
+        [SerializeField]
+        [Range(0.02f, 2f)]
+        [Tooltip("Width of a card, in metres. It stays the same however tall the grass grows; the card's height " +
+                 "follows the grass Height and the Card Texture stretches to fit.")]
+        float m_GrassCardSpan = 0.3f;
 
         public Texture2D albedo
         {
@@ -362,6 +379,24 @@ namespace HiddenBull.UrpStyle
         {
             get => m_FlowerSize;
             set => m_FlowerSize = Mathf.Clamp(value, 0.02f, 1f);
+        }
+
+        public Texture2D grassCardTexture
+        {
+            get => m_GrassCardTexture;
+            set => m_GrassCardTexture = value;
+        }
+
+        public float grassCardShare
+        {
+            get => m_GrassCardShare;
+            set => m_GrassCardShare = Mathf.Clamp01(value);
+        }
+
+        public float grassCardWidth
+        {
+            get => m_GrassCardSpan;
+            set => m_GrassCardSpan = Mathf.Clamp(value, 0.02f, 2f);
         }
     }
 }

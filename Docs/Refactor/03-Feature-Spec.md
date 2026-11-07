@@ -704,8 +704,17 @@ shader and the sky:
     trail map under snow within 32 m and darkens 35 % where it is pressed. **Distant grass:** from half the grass
     Distance on, the terrain draws the grass tone, speck and gust itself (`HB_TerrainDistantGrass`). **Layer defaults:**
     Size 1, Smoothness 0, Metallic 0, Wetness 1, Wet Gloss 1, Snow Cover 1, Variation off (colour 0.2 grey, alpha 1,
-    Shading 0), Grass Density 0, Height 0.095, Width 0.25, Curl 0.125, Variation 0.5, Transition 1, no default
-    textures (the user assigns them). All Quality levels default to High, never Ultra.
+    Shading 0), Grass Density 0, Height 0.095, Width 0.25, Curl 0.125, Variation 0.5, Transition 0.1 (was 1, changed
+    2026-11-07), Tip white, Tip Strength 0, Card Share 0.2, Card Width 0.3 m, no default textures (the user assigns
+    them). All Quality levels default to High, never Ultra.
+  - **Added in the polish batch (user, 2026-11-07):** **Scene view bake banner** (`StyleTerrainBakeWatch`): while a
+    terrain needs Bake, a dark strip with an orange edge at the top of every Scene view names it, with Bake and Auto
+    Bake buttons, whatever inspector is open. **Auto Bake** (off by default, per editor, also beside Preview in the
+    status bar) bakes 1.5 s after the last change and never while a control is held. **The ground no longer darkens
+    under grass** (the 0.55 shade made a 3 x jump between ground and leaves). Brush stamps are spaced by the texel of
+    the map being painted (hand map for Paint, grass map for the Grass tools, heightmap for sculpting), so a 1 m
+    brush paints a smooth line instead of separate dots. **Esc** also puts the tool away while the terrain inspector
+    has focus.
   - Gameplay query (user's footsteps; lands with layers in 4.2): `HBStyleTerrain` returns the strongest
     `HBStyleTerrainLayer` at a world point, and on request the point's 3 layers with weights, from a CPU copy of
     the control maps; 4.1 already brings height and normal queries.
@@ -714,7 +723,8 @@ shader and the sky:
 
 - **Painted** onto the terrain: each layer defines its grass, and a grass map raises or lowers density and height on
   top, like set-height on Unity terrain.
-- GPU generated around the camera as real leaves, never cards; per-quality Distance and Spacing.
+- GPU generated around the camera as real leaves; per-quality Distance, Spacing and Blade Detail. Since 2026-11-07 a
+  layer may also turn part of its grass into alpha-cut texture cards (see Cards below).
 - A **wind gust** travels across the grass as drifting patches that press it down (no whitening: user, 2026-10-31).
 - Flowers. Benders (`HBStyleBender`) press grass and snow. Grass has no brush pattern (removed by the user).
 - Respects camera culling mask; never drawn by overlay cameras.
@@ -723,22 +733,36 @@ shader and the sky:
   - **Rings:** `StyleGrass` keeps per camera up to 8 rings of 8 m cells; spacing and width double per ring, the first
     ring ends at Spacing x 200 x 2. Density falls as 1/r² from Spacing x 200 by per-tuft shrink. A cell is placed once
     and placed again only when the camera reaches it or paint, rules or layer settings change (at most 64 a frame;
-    a brush stroke refreshes only the painted cells). Quality holds only Distance + Spacing, plus Off: Low 45 / 0.2,
-    Medium 50 / 0.15, High 75 / 0.125, Ultra 100 / 0.1.
-  - **Leaves:** three indexed lists by tuft pixel height: close (8 leaves x 5 triangles, 12 px and up within 0.3 of the
-    first ring), mid (5 x 3, 5 px and up), far (3 x 3, every other ring). Tufts under 0.35 px are skipped. Cards, Grass
+    a brush stroke refreshes only the painted cells). Quality holds Distance + Spacing + Blade Detail, plus Off: Low
+    45 / 0.2 / Single, Medium 50 / 0.15 / Reduced, High 75 / 0.125 / Full, Ultra 100 / 0.1 / Full.
+  - **Leaves:** three indexed lists by tuft pixel height: close (8 leaves, 12 px and up within 0.3 of the first ring),
+    mid (5 leaves, 5 px and up), far (3 leaves, every other ring). Tufts under 0.35 px are skipped. Blade Detail
+    (2026-11-07) sets the triangles per leaf of the close list (Full 5, Reduced 3, Single 1); mid and far use one step
+    less. It only picks one of nine lazy index buffers, so the leaf count, width and shader stay the same. Cards, Grass
     Texture, the grass array and the fitted card shape are gone: density alone grows grass (GrassVersion 7 drops the old
     sub-asset on Bake). Leaf lean follows an 8 m direction field; width grows with distance without a cap; edge-on
     leaves stretch in view space; curl is per layer. HBStyleFeature forces Depth Priming, so fragments shade once.
   - **Per-tuft work in `Cull`:** wind, weather and bend are stored in the list element (index, motion, state); only leaf
     flutter stays in the vertex stage. `Place` stores root height + normal, height, width, layer, seed, ground colour,
     flower, snow patch and slope, so grass snow matches the ground at zero per-frame cost.
-  - **Look:** colour comes from the ground, light follows the ground normal, root shade 0.85, per-layer Variation scales
-    leaves 0.4 to 2 x. Additional lights without shadows. Removed by the user: clump tone, card variation, brush on
-    grass, translucency.
+  - **Look:** colour comes from the ground, light follows the ground normal, per-layer Variation scales leaves 0.4 to
+    2 x. Since 2026-11-07 the root is exactly the ground colour and the body brightens to 1.25 x at the top
+    (`HB_GRASS_TOP_LIGHT`, fading out with distance like the old root shade 0.85 it replaced); the per-leaf tone and
+    the Tip colour grow in with height. Placement shifts its layer lookup by the same brush-stroke offset the terrain
+    shader uses (`HB_GrassStrokeShift`, Look Brush Size and Brush Paint), so grass follows the painted layer edges;
+    it matches the terrain inside the brush fade and grow distance. Additional lights without shadows. Removed by the
+    user: clump tone, card variation, brush on grass, translucency.
   - **Weather:** wet darkens 30 % and adds a sky film scaled by the layer's Wet Gloss; snow whitens from the root, the
     shelter map is read per tuft, a bared place fills gradually through the cover map (§7).
   - **Flowers:** stem + head from the atlas, patches of one kind, a mark on the cached tuft, a fourth draw list.
+  - **Cards (2026-11-07):** per layer **Card Texture** (one plant, alpha shape only), **Share** (0–1, default 0.2) and
+    **Card Width** (metres, default 0.3). `Cull` turns tufts into cards in patches from the flower patch noise at a
+    shifted spot (no free bit in the blade data); a card tuft is drawn instead of its leaves, everywhere grass is
+    drawn. Two crossed vertical quads, height = the tuft height (grass Height and brush), width fixed, both shrinking
+    with the far fade; colour comes from the ground and Tip exactly as leaves. Card textures share the flower head
+    array (Bake, or the live preview, builds it), keyword `_HB_GRASS_CARDS`, a fifth draw list. Layer inspector: one
+    Grass section on a two-column grid (Density; Height | Width; Curl | Variation; Tip | Strength; Transition; Cards
+    | Share; Card Width), half-row sliders drawn by hand so they never collapse to a number field.
   - **Benders:** `HBStyleBender` (renamed from `HBStyleGrassBender`, GUID kept, nothing to re-add): Ball, Capsule or
     Box, Strength, Trail seconds. The 256 nearest within 30 m count. The trail lives in `StyleTrail`, owned by
     `HBStyleTerrain`, so it works with grass Off or no grass: ping-pong 256² maps over 64 m, per camera, made only when

@@ -95,6 +95,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_LayerGrassTip = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrassEdge = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerFlower = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly Vector4[] m_LayerCard = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVary = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVaryShape = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerVarySize = new Vector4[HBStyleTerrainData.MaxLayers];
@@ -129,6 +130,8 @@ namespace HiddenBull.UrpStyle
         internal Vector4[] layerGrassEdge => m_LayerGrassEdge;
 
         internal Vector4[] layerFlower => m_LayerFlower;
+
+        internal Vector4[] layerCard => m_LayerCard;
 
         internal Vector4[] layerVary => m_LayerVary;
 
@@ -581,6 +584,7 @@ namespace HiddenBull.UrpStyle
                     m_LayerGrassTip[index] = new Vector4(1f, 1f, 1f, 0f);
                     m_LayerGrassEdge[index] = Vector4.zero;
                     m_LayerFlower[index] = new Vector4(0f, 0f, -1f, 1f);
+                    m_LayerCard[index] = Vector4.zero;
                     m_LayerVary[index] = Vector4.zero;
                     continue;
                 }
@@ -609,6 +613,10 @@ namespace HiddenBull.UrpStyle
 
                 m_LayerFlower[index] = new Vector4(bloom >= 0 ? layer.flowerShare : 0f, layer.flowerSize, bloom,
                                                    layer.flowerVariants);
+
+                var card = m_Data.CardSlice(layer);
+                m_LayerCard[index] = new Vector4(card >= 0 ? layer.grassCardShare : 0f, Mathf.Max(card, 0),
+                                                 layer.grassCardWidth, 0f);
             }
 
             m_BoundControl = painted ? control : null;

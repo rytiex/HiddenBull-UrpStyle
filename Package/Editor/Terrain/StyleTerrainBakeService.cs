@@ -27,6 +27,12 @@ namespace HiddenBull.UrpStyle.Editor
             return baked ? StyleTerrainBakeState.UpToDate : StyleTerrainBakeState.NeedsBake;
         }
 
+        internal static string Key(HBStyleTerrainData data)
+        {
+            return StyleTerrainBaker.Signature(data) + "#" + StyleTerrainArrays.Signature(data) + "#" +
+                   StyleTerrainArrays.GrassSignature(data);
+        }
+
         internal static void Run(HBStyleTerrainData data)
         {
             if (data.terrainData == null)
