@@ -52,7 +52,8 @@ namespace HiddenBull.UrpStyle.Editor
             "Drag to place this plant. Going over the same place again adds nothing, and Min Distance keeps the " +
             "plants apart.",
             "Press where the ramp starts and drag to where it ends; letting go lays a straight slope between the " +
-            "two ground heights, as wide as the brush. Hardness keeps the full slope across that share of the width."
+            "two ground heights, as wide as the brush. The ramp is a straight strip that starts and ends exactly " +
+            "where you pressed and let go; Hardness keeps the full slope across that share of the width."
         };
 
         static readonly string[][] s_Hints =

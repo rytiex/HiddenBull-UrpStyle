@@ -29,7 +29,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Weather/Moving Body")] WeatherMovingBody = 22,
         [InspectorName("Liquid/Depth")] LiquidDepth = 23,
         [InspectorName("Liquid/Flow")] LiquidFlow = 24,
-        [InspectorName("Liquid/Waves")] LiquidWaves = 25
+        [InspectorName("Liquid/Waves")] LiquidWaves = 25,
+        [InspectorName("Liquid/Foam")] LiquidFoam = 26
     }
 
     static class StyleDebug
@@ -52,7 +53,7 @@ namespace HiddenBull.UrpStyle
             StyleDebugView.WeatherSnow or StyleDebugView.TerrainRings or StyleDebugView.TerrainLayers or
             StyleDebugView.TerrainCurvature or StyleDebugView.GrassDensity or StyleDebugView.FoliageCanopy or
             StyleDebugView.FoliageSway or StyleDebugView.LiquidDepth or StyleDebugView.LiquidFlow or
-            StyleDebugView.LiquidWaves;
+            StyleDebugView.LiquidWaves or StyleDebugView.LiquidFoam;
 
         internal static Camera Viewer(Camera camera)
         {

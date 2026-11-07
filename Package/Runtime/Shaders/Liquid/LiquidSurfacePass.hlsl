@@ -3,6 +3,7 @@
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleCore.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherSurface.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Transparency/StyleTransparency.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Transparency/StyleTransparentFog.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidLevel.hlsl"
@@ -10,10 +11,16 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
 TEXTURE2D(_HB_LiquidGradient);
+TEXTURE2D(_HB_LiquidFoamPattern);
+TEXTURE2D(_HB_LiquidCaustics);
 
 float4 _HB_LiquidOptics[4];
 float4 _HB_LiquidShore[4];
 float4 _HB_LiquidStyle[4];
+float4 _HB_LiquidFoam[4];
+float4 _HB_LiquidFoamShape[4];
+float4 _HB_LiquidCrest[4];
+float4 _HB_LiquidCausticGrid;
 
 float4 _HB_TerrainCamera;
 float4 _HB_LiquidRanges[12];
@@ -38,6 +45,50 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_BAKED_SOFTNESS 0.5h
 #define HB_LIQUID_DEBUG_RANGE    0.25h
 #define HB_LIQUID_DEBUG_AMBIENT  0.35h
+#define HB_LIQUID_FOAM_FROM      60.0
+#define HB_LIQUID_FOAM_RANGE     140.0
+#define HB_LIQUID_FOAM_FEATHER   0.06
+#define HB_LIQUID_FOAM_SOFT      0.4h
+#define HB_LIQUID_FOAM_VEIL      0.6h
+#define HB_LIQUID_FOAM_GLOW      0.45h
+#define HB_LIQUID_FOAM_MOST      0.85h
+#define HB_LIQUID_FOAM_TURN      0.3
+#define HB_LIQUID_FOAM_SPEED     0.025
+#define HB_LIQUID_FOAM_TIGHT     0.57
+#define HB_LIQUID_FOAM_TIGHT_TURN  1.9
+#define HB_LIQUID_FOAM_TIGHT_PACE  0.6
+#define HB_LIQUID_FOAM_TIGHT_SHARE 0.4h
+#define HB_LIQUID_STRIPE_SPAN    4.0
+#define HB_LIQUID_STRIPE_PACE    0.12
+#define HB_LIQUID_STRIPE_WOBBLE  0.5
+#define HB_LIQUID_STRIPE_FRONT   0.12
+#define HB_LIQUID_STRIPE_TAIL    0.55
+#define HB_LIQUID_SHORE_BASE     0.35
+#define HB_LIQUID_SHORE_SWELL    4.0
+#define HB_LIQUID_CREST_LIGHT    1.5h
+#define HB_LIQUID_CREST_SKY      0.5h
+#define HB_LIQUID_CREST_EARLY    0.5h
+#define HB_LIQUID_CREST_GRAIN    0.3h
+#define HB_LIQUID_CREST_BASE     0.5h
+#define HB_LIQUID_CREST_FROM     0.175h
+#define HB_LIQUID_CREST_HARD     0.02h
+#define HB_LIQUID_CREST_SOFT     0.5h
+#define HB_LIQUID_CREST_DAWN     4.0h
+#define HB_LIQUID_CAUSTIC_FOCUS  2.0
+#define HB_LIQUID_CAUSTIC_SHARP  0.25
+#define HB_LIQUID_CAUSTIC_GAIN   1.2h
+#define HB_LIQUID_CAUSTIC_SHORE  0.3
+#define HB_LIQUID_CAUSTIC_DEEP   3.0
+#define HB_LIQUID_CAUSTIC_BLUR   0.35
+#define HB_LIQUID_CAUSTIC_MOST   3.0
+#define HB_LIQUID_CAUSTIC_SECOND 0.731
+#define HB_LIQUID_CAUSTIC_SHIFT  0.37
+#define HB_LIQUID_CAUSTIC_SIZE   256.0
+#define HB_LIQUID_CAUSTIC_TINT   2.0h
+#define HB_LIQUID_CAUSTIC_MURK   0.996h
+#define HB_LIQUID_CAUSTIC_SUN    0.05h
+#define HB_LIQUID_CAUSTIC_NIGHT  0.35h
+#define HB_LIQUID_CAUSTIC_DUSK   0.1
 
 struct HBLiquidAttributes
 {
@@ -51,6 +102,7 @@ struct HBLiquidVaryings
     float3 positionWS : TEXCOORD0;
     float4 rest : TEXCOORD1;
     float4 wave : TEXCOORD2;
+    float4 foam : TEXCOORD3;
     UNITY_VERTEX_OUTPUT_STEREO
 };
 
@@ -65,6 +117,20 @@ struct HBLiquidLook
     half wrap;
     half softness;
     half pulse;
+    half3 foamTone;
+    half foamAmount;
+    float waterline;
+    float shoreFoam;
+    half3 crestTone;
+    half crestSoftness;
+    half caustics;
+};
+
+struct HBLiquidFoam
+{
+    half cover;
+    half band;
+    half grain;
 };
 
 float2 HB_LiquidUV(float2 xzWS)
@@ -116,17 +182,24 @@ HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
     HBWaterLevel water = HB_WaterLevel(uv, _HB_TerrainOrigin.y);
     HBLiquidWaveShape shape = HB_LiquidWaveShape(water.mix);
     HBLiquidSea sea = HB_LiquidSeaAt(xz, shape);
-    float near = HB_WaveNear(length(float3(xz.x, water.level, xz.y) - _HB_TerrainCamera.xyz));
+    float away = length(float3(xz.x, water.level, xz.y) - _HB_TerrainCamera.xyz);
+    float near = HB_WaveNear(away);
     float3 moved = float3(0.0, 0.0, 0.0);
+    float2 caps = float2(0.0, 0.0);
 
     UNITY_BRANCH
     if (shape.amount * near > 0.0)
         moved = HB_WaveOffset(xz, shape, sea, spacing) * near;
 
+    UNITY_BRANCH
+    if (shape.amount * sea.wind * near > 0.0)
+        caps = HB_WaveCaps(xz, shape, sea, spacing) * near;
+
     output.positionWS = float3(xz.x + moved.x, water.level + moved.y, xz.y + moved.z);
     output.positionCS = TransformWorldToHClip(output.positionWS);
     output.rest = float4(xz, sea.wind, sea.shore);
     output.wave = float4(moved.y, shape.amount, shape.height, shape.length);
+    output.foam = float4(caps.x, sea.depth, caps.y, shape.cap);
     return output;
 }
 
@@ -150,16 +223,26 @@ HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
             half4 depth = half4(SAMPLE_TEXTURE2D_LOD(_HB_LiquidGradient, sampler_LinearClamp, float2(u, v), 0));
             half4 optics = half4(_HB_LiquidOptics[slot]);
             half4 style = half4(_HB_LiquidStyle[slot]);
+            half4 foam = half4(_HB_LiquidFoam[slot]);
+            float4 foamShape = _HB_LiquidFoamShape[slot];
+            half4 crest = half4(_HB_LiquidCrest[slot]);
 
             look.tone += depth.rgb * share;
             look.murk += depth.a * share;
             look.shore += half3(_HB_LiquidShore[slot].rgb) * share;
             look.smoothness += optics.x * share;
+            look.caustics += optics.y * share;
             look.blur += optics.z * share;
             look.glow += optics.w * share;
             look.wrap += style.x * share;
             look.softness += style.y * share;
             look.pulse += style.z * share;
+            look.foamTone += foam.rgb * share;
+            look.foamAmount += foam.a * share;
+            look.waterline += foamShape.x * share;
+            look.shoreFoam += foamShape.y * share;
+            look.crestTone += crest.rgb * share;
+            look.crestSoftness += crest.a * share;
             total += share;
         }
     }
@@ -170,17 +253,195 @@ HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
     look.murk = saturate(look.murk * scale);
     look.shore *= scale;
     look.smoothness *= scale;
+    look.caustics *= scale;
     look.blur *= scale;
     look.glow *= scale;
     look.wrap *= scale;
     look.softness *= scale;
     look.pulse *= scale;
+    look.foamTone *= scale;
+    look.foamAmount *= scale;
+    look.waterline *= scale;
+    look.shoreFoam *= scale;
+    look.crestTone *= scale;
+    look.crestSoftness *= scale;
     return look;
 }
 
 float HB_LiquidBehind(float surfaceEye, float2 screenUV)
 {
     return LinearEyeDepth(SampleSceneDepth(screenUV), _ZBufferParams) - surfaceEye;
+}
+
+float2 HB_LiquidTurn(float2 value, float turn)
+{
+    float s, c;
+    sincos(turn, s, c);
+
+    return float2(c * value.x - s * value.y, s * value.x + c * value.y);
+}
+
+half HB_LiquidFoamRead(float2 xz, float2 dx, float2 dy, float scale, float turn, float pace)
+{
+    float2 flow = HB_WAVE_BOUND ? _HB_WaveFrame.xy : float2(0.0, 1.0);
+    float2 uv = HB_LiquidTurn(xz, turn) * scale + frac(flow * (HB_LIQUID_FOAM_SPEED * pace * _Time.y));
+
+    return half(SAMPLE_TEXTURE2D_GRAD(_HB_LiquidFoamPattern, sampler_trilinear_repeat, uv,
+                                      HB_LiquidTurn(dx, turn) * scale, HB_LiquidTurn(dy, turn) * scale).r);
+}
+
+half HB_LiquidFoamGrain(float2 restXZ, float2 restDx, float2 restDy, float4 mix)
+{
+    float2 xz = restXZ - _HB_TerrainOrigin.xz;
+    half grain = 0.0h;
+    half total = 0.0h;
+
+    UNITY_LOOP
+    for (int slot = 0; slot < HB_LIQUID_SLOTS; slot++)
+    {
+        half share = half(mix[slot]);
+
+        UNITY_BRANCH
+        if (share > HB_LIQUID_SHARE_MIN)
+        {
+            float scale = _HB_LiquidFoamShape[slot].z;
+            half coarse = HB_LiquidFoamRead(xz, restDx, restDy, scale, HB_LIQUID_FOAM_TURN, 1.0);
+            half fine = HB_LiquidFoamRead(xz, restDx, restDy, scale * HB_LIQUID_FOAM_TIGHT,
+                                          HB_LIQUID_FOAM_TIGHT_TURN, HB_LIQUID_FOAM_TIGHT_PACE);
+
+            grain += lerp(coarse, fine, HB_LIQUID_FOAM_TIGHT_SHARE) * share;
+            total += share;
+        }
+    }
+
+    return grain * rcp(max(total, HB_LIQUID_SHARE_MIN));
+}
+
+half HB_LiquidFoamCover(half amount, half grain)
+{
+    return saturate((amount * (1.0h + HB_LIQUID_FOAM_SOFT) - grain) / HB_LIQUID_FOAM_SOFT);
+}
+
+half HB_LiquidShoreFoam(float depth, half grain, float reach, float swell, out half band)
+{
+    float away = depth / max(HB_CALM_SLOPE, 1e-3);
+    float near = reach > 0.0 ? saturate(1.0 - away / reach) : 0.0;
+    float front = frac(away / HB_LIQUID_STRIPE_SPAN + _Time.y * HB_LIQUID_STRIPE_PACE
+                       + (float(grain) - 0.5) * HB_LIQUID_STRIPE_WOBBLE);
+    float stripe = smoothstep(0.0, HB_LIQUID_STRIPE_FRONT, front)
+                 * (1.0 - smoothstep(HB_LIQUID_STRIPE_FRONT, HB_LIQUID_STRIPE_TAIL, front));
+
+    band = half(near);
+    return half(near * near * HB_LIQUID_SHORE_BASE + stripe * near * swell);
+}
+
+HBLiquidFoam HB_LiquidFoamAt(HBLiquidLook look, float2 restXZ, float2 restDx, float2 restDy, float deep, float away,
+                             float4 carried, HBLiquidWaveShape shape)
+{
+    HBLiquidFoam foam = (HBLiquidFoam)0;
+    foam.grain = 0.5h;
+
+    half feather = half(saturate(deep / HB_LIQUID_FOAM_FEATHER));
+    half close = half(1.0 - saturate((away - HB_LIQUID_FOAM_FROM) / HB_LIQUID_FOAM_RANGE));
+    half strength = feather * close * look.foamAmount;
+
+    UNITY_BRANCH
+    if (strength > 0.0h)
+    {
+        half grain = HB_LiquidFoamGrain(restXZ, restDx, restDy, shape.mix);
+
+        foam.grain = grain;
+        half edge = half(1.0 - saturate(deep / max(look.waterline, 1e-3)));
+        float swell = saturate(shape.amount * shape.height * HB_LIQUID_SHORE_SWELL);
+        half shore = HB_LiquidShoreFoam(carried.y, grain, look.shoreFoam, swell, foam.band);
+        half veil = HB_LiquidFoamCover(edge * edge, grain) * strength * HB_LIQUID_FOAM_VEIL;
+        half spots = HB_LiquidFoamCover(saturate(shore + half(carried.x)), grain) * strength;
+        half solid = spots * spots;
+
+        foam.cover = min(solid + (1.0h - solid) * min(spots - solid + veil, HB_LIQUID_FOAM_GLOW),
+                         HB_LIQUID_FOAM_MOST);
+    }
+
+    return foam;
+}
+
+float HB_LiquidCausticFocus(float2 uv, float reach, float lod)
+{
+    float3 bent = SAMPLE_TEXTURE2D_LOD(_HB_LiquidCaustics, sampler_trilinear_repeat, uv, lod).xyz;
+    float spread = (1.0 + reach * bent.x) * (1.0 + reach * bent.y) - reach * reach * bent.z * bent.z;
+
+    return 1.0 / (abs(spread) + HB_LIQUID_CAUSTIC_SHARP);
+}
+
+half HB_LiquidCaustics(float3 floorWS, float surfaceY, half3 sunDirection, float4 mix)
+{
+    float depth = max(surfaceY - floorWS.y, 0.0);
+    float2 lit = floorWS.xz - _HB_TerrainOrigin.xz + float2(sunDirection.xz) * (depth / float(sunDirection.y));
+    float reach = min(depth, HB_LIQUID_CAUSTIC_DEEP) * HB_LIQUID_CAUSTIC_FOCUS;
+    float pixel = -TransformWorldToView(floorWS).z / (abs(UNITY_MATRIX_P[1][1]) * _ScaledScreenParams.y * 0.5);
+    float still = 2.0 / (1.0 + HB_LIQUID_CAUSTIC_SHARP);
+    float bright = 0.0;
+    float total = 0.0;
+
+    UNITY_LOOP
+    for (int slot = 0; slot < HB_LIQUID_SLOTS; slot++)
+    {
+        float share = mix[slot];
+
+        UNITY_BRANCH
+        if (share > HB_LIQUID_SHARE_MIN)
+        {
+            float tiles = _HB_LiquidCausticGrid.x / max(_HB_LiquidStyle[slot].w, 0.05);
+            float2 uv = lit * tiles;
+            float lod = min(depth * HB_LIQUID_CAUSTIC_BLUR, HB_LIQUID_CAUSTIC_MOST)
+                      + max(log2(max(pixel * tiles * HB_LIQUID_CAUSTIC_SIZE, 1e-4)), 0.0);
+            float focus = HB_LiquidCausticFocus(uv, reach, lod)
+                        + HB_LiquidCausticFocus(HB_WaveTurn(uv, 1.0) * HB_LIQUID_CAUSTIC_SECOND
+                                                + HB_LIQUID_CAUSTIC_SHIFT, reach, lod);
+
+            bright += max(focus - still, 0.0) * share;
+            total += share;
+        }
+    }
+
+    bright *= 0.5 * saturate(depth / HB_LIQUID_CAUSTIC_SHORE) * rcp(max(total, HB_LIQUID_SHARE_MIN));
+    return half(bright) * HB_LIQUID_CAUSTIC_GAIN;
+}
+
+half HB_LiquidFloorShadow(float3 floorWS)
+{
+#if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
+    half4 crisp = GetMainLightShadowParams();
+
+    crisp.y = SOFT_SHADOW_QUALITY_OFF;
+    return MainLightRealtimeShadow(TransformWorldToShadowCoord(floorWS), crisp, GetMainLightShadowSamplingData());
+#else
+    return 1.0h;
+#endif
+}
+
+half3 HB_LiquidRipples(float3 positionWS, half3 normalWS, half4 mix)
+{
+    half share = dot(mix, half4(_HB_LiquidFoamShape[0].w, _HB_LiquidFoamShape[1].w, _HB_LiquidFoamShape[2].w,
+                                _HB_LiquidFoamShape[3].w));
+
+    UNITY_BRANCH
+    if (HB_SURFACE_RAIN > 0.0 && share > 0.0h)
+    {
+        half detail = HB_WeatherDetail(positionWS);
+
+        UNITY_BRANCH
+        if (detail > 0.0h)
+        {
+            HBWeather weather = (HBWeather)0;
+            weather.rain = half(HB_SURFACE_RAIN) * HB_ShelterOpen(positionWS, half3(0.0h, 1.0h, 0.0h))
+                         * HB_ShelterCover(positionWS.xz) * detail * share;
+
+            normalWS = HB_RainRipples(positionWS, normalWS, weather);
+        }
+    }
+
+    return normalWS;
 }
 
 HBStyleData HB_LiquidStyle(HBLiquidLook look)
@@ -222,12 +483,13 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     shape.amount = input.wave.y;
     shape.height = input.wave.z;
     shape.length = input.wave.w;
+    shape.mix = float4(water.mix);
 
     float2 restDx = ddx(restXZ);
     float2 restDy = ddy(restXZ);
     float2 slope = float2(0.0, 0.0);
 
-    HBLiquidSea sea;
+    HBLiquidSea sea = (HBLiquidSea)0;
     sea.wind = input.rest.z;
     sea.shore = input.rest.w;
 
@@ -236,7 +498,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
         slope = HB_WaveSlope(restXZ, restDx, restDy, shape, sea);
 
     float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
-    half3 normalWS = half3(normalize(float3(-slope.x, 1.0, -slope.y)));
+    half3 normalWS = HB_LiquidRipples(input.positionWS, half3(normalize(float3(-slope.x, 1.0, -slope.y))),
+                                      water.mix);
     half3 viewWS = half3(GetWorldSpaceNormalizeViewDir(input.positionWS));
 
 #if defined(HB_STYLE_DEBUG)
@@ -255,6 +518,19 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     float thickness = max(HB_LiquidBehind(surfaceEye, screenUV), 0.0);
 
     HBLiquidLook look = HB_LiquidLookAt(water.mix, thickness);
+    HBLiquidFoam foam = HB_LiquidFoamAt(look, restXZ, restDx, restDy, thickness * abs(viewWS.y),
+                                        distance(input.positionWS, GetCameraPositionWS()), input.foam, shape);
+
+#if defined(HB_STYLE_DEBUG)
+    UNITY_BRANCH
+    if (HB_DEBUG_VIEW == HB_DEBUG_LIQUID_FOAM)
+    {
+        half3 ground = half3(0.02h, 0.05h, 0.12h) + half3(0.0h, 0.25h, 0.3h) * foam.band;
+
+        return half4(lerp(ground, half3(1.0h, 1.0h, 1.0h), foam.cover), 1.0h);
+    }
+#endif
+
     HBStyleData style = HB_LiquidStyle(look);
 
     float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
@@ -298,13 +574,44 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
               + look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * HB_LIQUID_GRAIN) * throb;
     half3 inscatter = look.tone * look.murk * lit;
 
+    half fold = half(input.foam.z);
+    half spread = lerp(HB_LIQUID_CREST_HARD, HB_LIQUID_CREST_SOFT, look.crestSoftness);
+    half rise = max(min(HB_LIQUID_CREST_FROM, half(input.foam.w) * HB_LIQUID_CREST_EARLY), 1e-3h);
+    half weave = (foam.grain - 0.5h) * HB_LIQUID_CREST_GRAIN;
+    half crested = saturate((fold - rise + spread - weave) / (2.0h * spread)) * smoothstep(0.0h, rise, fold);
+    half backlit = saturate(dot(viewWS, -sunDirection) * 0.5h + 0.5h);
+    half crest = crested * lerp(HB_LIQUID_CREST_BASE, 1.0h, backlit * backlit)
+               * saturate(1.0h - exp(-HB_LIQUID_CREST_DAWN * max(sunDirection.y, 0.0h)));
+
+    inscatter += (sunLight + skyLight * HB_LIQUID_CREST_SKY) * look.crestTone * (crest * HB_LIQUID_CREST_LIGHT);
+
+    UNITY_BRANCH
+    if (look.caustics > 0.0h && look.murk < HB_LIQUID_CAUSTIC_MURK && thickness > 0.0
+        && sunDirection.y > HB_LIQUID_CAUSTIC_SUN)
+    {
+        float3 floorWS = ComputeWorldSpacePosition(screenUV, SampleSceneDepth(screenUV), UNITY_MATRIX_I_VP);
+        half daylight = lerp(HB_LIQUID_CAUSTIC_NIGHT, 1.0h, half(saturate(_HB_SunDirection.y / HB_LIQUID_CAUSTIC_DUSK)));
+        half caustics = HB_LiquidCaustics(floorWS, input.positionWS.y, sunDirection, shape.mix)
+                      * (look.caustics * daylight);
+
+        UNITY_BRANCH
+        if (caustics > 0.0h)
+        {
+            half3 glint = lerp(half3(1.0h, 1.0h, 1.0h), look.tone, saturate(look.murk * HB_LIQUID_CAUSTIC_TINT));
+
+            inscatter += half3(mainLight.color) * glint
+                       * (caustics * HB_LiquidFloorShadow(floorWS) * (1.0h - look.murk));
+        }
+    }
+
     HBTransparentFog fog = HB_TransparentFog(input.positionWS);
-    half3 colour = (reflection + inscatter) * fog.clear + fog.colour;
+    half3 foamLit = look.foamTone * (skyLight + sunLight * saturate(dot(normalWS, sunDirection) * 0.5h + 0.5h));
+    half3 colour = lerp(reflection + inscatter, foamLit, foam.cover) * fog.clear + fog.colour;
 
     half3 through = PositivePow(clamp(look.shore, 1e-3h, 1.0h),
                                 half(min(thickness / HB_LIQUID_TINT_DEPTH, HB_LIQUID_TINT_MOST)))
                   * (1.0h - look.murk);
-    half3 tint = lerp(half3(1.0h, 1.0h, 1.0h), through, fog.clear);
+    half3 tint = lerp(half3(1.0h, 1.0h, 1.0h), through, fog.clear) * (1.0h - foam.cover);
     half blur = saturate(look.blur + look.murk * HB_LIQUID_MURK_BLUR) * fog.clear
               * saturate(look.murk * HB_LIQUID_EDGE_SOFT);
 

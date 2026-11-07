@@ -155,9 +155,6 @@ namespace HiddenBull.UrpStyle.Editor
                             break;
 
                         case StyleTerrainBrushTool.Smooth:
-                            if (x == 0 || z == 0 || x == width - 1 || z == length - 1)
-                                continue;
-
                             value += (Average(source, x, z) - value) * Math.Min(weight * settings.amount, 1f);
                             break;
 
@@ -181,7 +178,9 @@ namespace HiddenBull.UrpStyle.Editor
             var width = heights.GetLength(1);
             var runX = ramp.endX - ramp.startX;
             var runZ = ramp.endZ - ramp.startZ;
-            var run = Math.Max(runX * runX + runZ * runZ, 1e-6f);
+            var run = Math.Max((float)Math.Sqrt(runX * runX + runZ * runZ), 1e-3f);
+            var alongX = runX / run;
+            var alongZ = runZ / run;
 
             for (var z = 0; z < length; z++)
             {
@@ -189,14 +188,18 @@ namespace HiddenBull.UrpStyle.Editor
                 {
                     var px = ramp.cornerX + x * ramp.spacing - ramp.startX;
                     var pz = ramp.cornerZ + z * ramp.spacing - ramp.startZ;
-                    var t = Math.Max(0f, Math.Min(1f, (px * runX + pz * runZ) / run));
-                    var ox = px - runX * t;
-                    var oz = pz - runZ * t;
-                    var weight = Falloff((float)Math.Sqrt(ox * ox + oz * oz) / ramp.radius, ramp.hardness);
+                    var along = px * alongX + pz * alongZ;
+                    var across = px * alongZ - pz * alongX;
+
+                    if (along < 0f || along > run)
+                        continue;
+
+                    var weight = Falloff(Math.Abs(across) / ramp.radius, ramp.hardness);
 
                     if (weight <= 0f)
                         continue;
 
+                    var t = along / run;
                     var target = ramp.startHeight + (ramp.endHeight - ramp.startHeight) * t;
                     var value = heights[z, x];
 
@@ -274,15 +277,21 @@ namespace HiddenBull.UrpStyle.Editor
 
         static float Average(float[,] source, int x, int z)
         {
+            var length = source.GetLength(0);
+            var width = source.GetLength(1);
             var sum = 0f;
+            var count = 0;
 
-            for (var j = -1; j <= 1; j++)
+            for (var j = Math.Max(z - 1, 0); j <= Math.Min(z + 1, length - 1); j++)
             {
-                for (var i = -1; i <= 1; i++)
-                    sum += source[z + j, x + i];
+                for (var i = Math.Max(x - 1, 0); i <= Math.Min(x + 1, width - 1); i++)
+                {
+                    sum += source[j, i];
+                    count++;
+                }
             }
 
-            return sum / 9f;
+            return sum / count;
         }
     }
 }

@@ -1152,8 +1152,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 1300
-            Reads = 80
+            Slots = 1950
+            Reads = 90
         }
         @{
             Name = 'Liquid Surface (debug)'
@@ -1219,6 +1219,26 @@
             Name = 'Liquid Waves CalmTiles'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
             Entry = 'CalmTiles'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves Foam'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'Foam'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves Caustics'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'Caustics'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()

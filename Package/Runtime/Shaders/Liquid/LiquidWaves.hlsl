@@ -24,6 +24,7 @@ float4 _HB_LiquidCalmGrid;
 #define HB_WAVE_SECOND_SCALE  0.618
 #define HB_WAVE_SECOND_SHARE  0.7
 #define HB_WAVE_LENGTH_MIN    0.05
+#define HB_WAVE_SHARE_LEAST   1e-3
 #define HB_WAVE_FOLD_LIMIT    1.0
 #define HB_WAVE_SHOAL_DEPTH   8.0
 #define HB_WAVE_TROUGH        3.0
@@ -37,6 +38,13 @@ float4 _HB_LiquidCalmGrid;
 #define HB_WAVE_SHORE_LEAST   1e-3
 #define HB_WAVE_STREAM_TURN   1.0
 #define HB_WAVE_HEADING_SURE  0.25
+#define HB_WAVE_CAP_CALM      0.6
+#define HB_WAVE_CAP_STORM     0.22
+#define HB_WAVE_CAP_FROM      0.35
+#define HB_WAVE_CAP_RANGE     0.4
+#define HB_WAVE_TRAIL_STEP    1.6
+#define HB_WAVE_TRAIL_NEAR    0.7
+#define HB_WAVE_TRAIL_FAR     0.4
 #define HB_CALM_SLOPE         _HB_LiquidCalmGrid.x
 #define HB_CALM_TILE          _HB_LiquidCalmGrid.y
 #define HB_CALM_TILES         _HB_LiquidCalmGrid.z
@@ -48,12 +56,15 @@ struct HBLiquidWaveShape
     float height;
     float steepness;
     float length;
+    float cap;
+    float4 mix;
 };
 
 struct HBLiquidSea
 {
     float wind;
     float shore;
+    float depth;
 };
 
 HBLiquidWaveShape HB_LiquidWaveShape(half4 mix)
@@ -71,6 +82,8 @@ HBLiquidWaveShape HB_LiquidWaveShape(half4 mix)
         shape.height += wave.y * share;
         shape.steepness += wave.z * share;
         shape.length += wave.w * share;
+        shape.cap += (wave.x < 0.0 ? lerp(HB_WAVE_CAP_CALM, HB_WAVE_CAP_STORM, saturate(HB_WAVE_WIND))
+                                   : HB_WAVE_CAP_FROM) * share;
         total += share;
     }
 
@@ -80,6 +93,8 @@ HBLiquidWaveShape HB_LiquidWaveShape(half4 mix)
     shape.height *= scale;
     shape.steepness *= scale;
     shape.length = max(shape.length * scale, HB_WAVE_LENGTH_MIN);
+    shape.cap *= scale;
+    shape.mix = float4(mix);
 
     if (!HB_WAVE_BOUND)
         shape.amount = 0.0;
@@ -112,7 +127,7 @@ HBLiquidSea HB_LiquidSeaAt(float2 xzWS, HBLiquidWaveShape shape)
     float4 calm = HB_CALM_BOUND ? HB_LiquidCalmAt(xzWS) : float4(reach, 0.0, 0.0, 0.0);
 
     float open = saturate(calm.x / reach);
-    float shoal = min(open * open, calm.x / max(trough, 1e-3)) * (1.0 - saturate(flow.z));
+    float shoal = min(open, calm.x / max(trough, 1e-3)) * (1.0 - saturate(flow.z));
     float close = 1.0 - saturate(calm.x / HB_WAVE_SHORE_DEPTH);
     float rush = saturate(length(flow.xy) / HB_WAVE_STREAM_TURN);
     float turn = max(close * close * (3.0 - 2.0 * close) * calm.w, rush);
@@ -120,6 +135,7 @@ HBLiquidSea HB_LiquidSeaAt(float2 xzWS, HBLiquidWaveShape shape)
     HBLiquidSea sea;
     sea.wind = shoal * (1.0 - turn * HB_WAVE_SHORE_SHARE);
     sea.shore = shoal * turn * HB_WAVE_SHORE_GAIN;
+    sea.depth = calm.x;
     return sea;
 }
 
@@ -170,9 +186,13 @@ float2 HB_WaveTileHeading(float2 base, float2 tile)
     return dot(heading, heading) > HB_WAVE_HEADING_SURE ? heading : _HB_WaveFrame.xy;
 }
 
-float3 HB_WaveWindOffset(float2 restXZ, HBLiquidWaveShape shape, float spacing)
+float HB_WaveSlotLength(int slot)
 {
-    float wide = shape.length;
+    return max(_HB_LiquidWaves[slot].w, HB_WAVE_LENGTH_MIN);
+}
+
+float3 HB_WaveWindOffsetAt(float2 restXZ, float wide, float spacing)
+{
     float2 framed = HB_WaveFramed(restXZ / wide);
     float3 moved = float3(0.0, 0.0, 0.0);
 
@@ -222,6 +242,27 @@ float3 HB_WaveTileOffset(float2 restXZ, float spacing)
     return total;
 }
 
+float3 HB_WaveWindOffset(float2 restXZ, HBLiquidWaveShape shape, float spacing)
+{
+    float3 moved = float3(0.0, 0.0, 0.0);
+    float total = 0.0;
+
+    UNITY_LOOP
+    for (int slot = 0; slot < 4; slot++)
+    {
+        float share = shape.mix[slot];
+
+        UNITY_BRANCH
+        if (share > HB_WAVE_SHARE_LEAST)
+        {
+            moved += HB_WaveWindOffsetAt(restXZ, HB_WaveSlotLength(slot), spacing) * share;
+            total += share;
+        }
+    }
+
+    return moved * rcp(max(total, HB_WAVE_SHARE_LEAST));
+}
+
 float3 HB_WaveOffset(float2 restXZ, HBLiquidWaveShape shape, HBLiquidSea sea, float spacing)
 {
     float wind = shape.amount * sea.wind;
@@ -241,9 +282,41 @@ float3 HB_WaveOffset(float2 restXZ, HBLiquidWaveShape shape, HBLiquidSea sea, fl
     return moved;
 }
 
-float2 HB_WaveWindSlope(float2 restXZ, float2 restDx, float2 restDy, HBLiquidWaveShape shape)
+float2 HB_WaveCapsAt(float2 restXZ, HBLiquidWaveShape shape, HBLiquidSea sea, float wide, float spacing)
 {
-    float wide = shape.length;
+    float push = HB_WavePush(shape, sea.wind) * shape.amount * sea.wind;
+    float2 framed = HB_WaveFramed(restXZ / wide);
+    float2 caps = float2(0.0, 0.0);
+
+    UNITY_UNROLL
+    for (int past = 0; past < 3; past++)
+    {
+        float2 ahead = framed + float2(HB_WAVE_TRAIL_STEP * past, 0.0);
+        float2 bent = float2(0.0, 0.0);
+
+        UNITY_UNROLL
+        for (int band = 0; band < HB_WAVE_BANDS; band++)
+        {
+            float lod = max(log2(spacing / wide / _HB_WaveTexel[band]), 0.0);
+
+            bent += SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDerivative, sampler_trilinear_repeat,
+                                               ahead * _HB_WaveScale[band], band, lod).zw;
+        }
+
+        bent *= push;
+
+        float fold = -(bent.x + bent.y) - bent.x * bent.y;
+        float weight = past == 0 ? 1.0 : (past == 1 ? HB_WAVE_TRAIL_NEAR : HB_WAVE_TRAIL_FAR);
+
+        caps.x = max(caps.x, saturate((fold - shape.cap) / HB_WAVE_CAP_RANGE) * weight);
+        caps.y = past == 0 ? fold : caps.y;
+    }
+
+    return caps;
+}
+
+float2 HB_WaveWindSlopeAt(float2 restXZ, float2 restDx, float2 restDy, float wide)
+{
     float2 framed = HB_WaveFramed(restXZ / wide);
     float2 framedDx = HB_WaveFramed(restDx / wide);
     float2 framedDy = HB_WaveFramed(restDy / wide);
@@ -265,6 +338,48 @@ float2 HB_WaveWindSlope(float2 restXZ, float2 restDx, float2 restDy, HBLiquidWav
     }
 
     return HB_WaveWorld(bent) * HB_WAVE_SECOND_SHARE;
+}
+
+float2 HB_WaveCaps(float2 restXZ, HBLiquidWaveShape shape, HBLiquidSea sea, float spacing)
+{
+    float2 caps = float2(0.0, 0.0);
+    float total = 0.0;
+
+    UNITY_LOOP
+    for (int slot = 0; slot < 4; slot++)
+    {
+        float share = shape.mix[slot];
+
+        UNITY_BRANCH
+        if (share > HB_WAVE_SHARE_LEAST)
+        {
+            caps += HB_WaveCapsAt(restXZ, shape, sea, HB_WaveSlotLength(slot), spacing) * share;
+            total += share;
+        }
+    }
+
+    return caps * rcp(max(total, HB_WAVE_SHARE_LEAST));
+}
+
+float2 HB_WaveWindSlope(float2 restXZ, float2 restDx, float2 restDy, HBLiquidWaveShape shape)
+{
+    float2 slope = float2(0.0, 0.0);
+    float total = 0.0;
+
+    UNITY_LOOP
+    for (int slot = 0; slot < 4; slot++)
+    {
+        float share = shape.mix[slot];
+
+        UNITY_BRANCH
+        if (share > HB_WAVE_SHARE_LEAST)
+        {
+            slope += HB_WaveWindSlopeAt(restXZ, restDx, restDy, HB_WaveSlotLength(slot)) * share;
+            total += share;
+        }
+    }
+
+    return slope * rcp(max(total, HB_WAVE_SHARE_LEAST));
 }
 
 float2 HB_WaveTileSlope(float2 restXZ, float2 restDx, float2 restDy)

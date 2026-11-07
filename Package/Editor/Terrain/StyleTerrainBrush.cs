@@ -641,6 +641,45 @@ namespace HiddenBull.UrpStyle.Editor
             return flat > 1e-3f ? Mathf.Atan2(Mathf.Abs(run.y), flat) * Mathf.Rad2Deg : 0f;
         }
 
+        static void DrawRampCursor(HBStyleTerrainData data, Vector3 point, Color colour)
+        {
+            var post = Vector3.up * Mathf.Max(size * 0.25f, 1f);
+
+            if (s_Stroking)
+            {
+                DrawRamp(colour);
+                Handles.color = colour;
+                Handles.DrawAAPolyLine(3f, s_Last, s_Last + post);
+                Handles.DrawAAPolyLine(3f, s_RampEnd, s_RampEnd + post);
+                return;
+            }
+
+            Square(data, point, size * 0.5f);
+            Handles.DrawAAPolyLine(2.5f, s_Circle);
+            Handles.DrawAAPolyLine(3f, point, point + post);
+        }
+
+        static void Square(HBStyleTerrainData data, Vector3 centre, float half)
+        {
+            var origin = s_Terrain.transform.position;
+            var side = CursorSegments / 4;
+
+            for (var i = 0; i <= CursorSegments; i++)
+            {
+                var edge = Mathf.Min(i / side, 3);
+                var t = (float)(i - edge * side) / side * 2f - 1f;
+                var x = edge == 0 ? t : edge == 1 ? 1f : edge == 2 ? -t : -1f;
+                var z = edge == 0 ? -1f : edge == 1 ? t : edge == 2 ? 1f : -t;
+                var worldX = centre.x + x * half;
+                var worldZ = centre.z + z * half;
+                var u = Mathf.Clamp01((worldX - origin.x) / data.size.x);
+                var v = Mathf.Clamp01((worldZ - origin.z) / data.size.z);
+
+                s_Circle[i] = new Vector3(worldX, origin.y + data.terrainData.GetInterpolatedHeight(u, v) + 0.05f,
+                                          worldZ);
+            }
+        }
+
         static void DrawRamp(Color colour)
         {
             var run = s_RampEnd - s_Last;
@@ -877,6 +916,13 @@ namespace HiddenBull.UrpStyle.Editor
 
             Label(data, point, shift, colour);
             Handles.color = colour;
+
+            if (tool == StyleTerrainBrushTool.Ramp)
+            {
+                DrawRampCursor(data, point, colour);
+                return;
+            }
+
             Circle(data, point, size * 0.5f);
             Handles.DrawAAPolyLine(2.5f, s_Circle);
 
@@ -890,12 +936,6 @@ namespace HiddenBull.UrpStyle.Editor
             if (tool == StyleTerrainBrushTool.Holes)
             {
                 DrawGrid(data, point);
-                return;
-            }
-
-            if (tool == StyleTerrainBrushTool.Ramp && s_Stroking)
-            {
-                DrawRamp(colour);
                 return;
             }
 

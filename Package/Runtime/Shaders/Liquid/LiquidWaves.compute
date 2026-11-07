@@ -165,3 +165,87 @@ void CalmTiles(uint3 id : SV_DispatchThreadID)
 
     _HB_CalmTilesOut[id.xy] = heading;
 }
+
+#pragma kernel Foam
+
+RWTexture2D<float> _HB_FoamOut;
+
+float4 _HB_FoamBake;
+
+#define HB_FOAM_COARSE 12.0
+#define HB_FOAM_FINE   29.0
+#define HB_FOAM_GAIN   1.6
+#define HB_FOAM_SHARE  0.65
+
+float2 HB_FoamSite(float2 cell, float period)
+{
+    float2 wrapped = cell - floor(cell / period) * period;
+    float3 p = frac(float3(wrapped.xyx) * float3(0.1031, 0.1030, 0.0973));
+
+    p += dot(p, p.yzx + 33.33);
+
+    return frac((p.xx + p.yz) * p.zy);
+}
+
+float HB_FoamWalls(float2 position, float period)
+{
+    float2 corner = floor(position);
+    float nearest = 8.0;
+    float next = 8.0;
+
+    for (int z = -1; z <= 1; z++)
+    {
+        for (int x = -1; x <= 1; x++)
+        {
+            float2 cell = corner + float2(x, z);
+            float span = length(position - cell - HB_FoamSite(cell, period));
+
+            next = span < nearest ? nearest : min(next, span);
+            nearest = min(nearest, span);
+        }
+    }
+
+    return saturate((next - nearest) * HB_FOAM_GAIN);
+}
+
+[numthreads(8, 8, 1)]
+void Foam(uint3 id : SV_DispatchThreadID)
+{
+    if (any((float2)id.xy >= _HB_FoamBake.x))
+        return;
+
+    float2 uv = ((float2)id.xy + 0.5) / _HB_FoamBake.x;
+
+    _HB_FoamOut[id.xy] = lerp(HB_FoamWalls(uv * HB_FOAM_FINE + 0.37, HB_FOAM_FINE),
+                              HB_FoamWalls(uv * HB_FOAM_COARSE, HB_FOAM_COARSE), HB_FOAM_SHARE);
+}
+
+#pragma kernel Caustics
+
+#define HB_CAUSTIC_COUNT 16
+
+RWTexture2D<float4> _HB_CausticsOut;
+
+float4 _HB_CausticSet[HB_CAUSTIC_COUNT];
+float4 _HB_CausticBake;
+
+[numthreads(8, 8, 1)]
+void Caustics(uint3 id : SV_DispatchThreadID)
+{
+    if (any((float2)id.xy >= _HB_CausticBake.x))
+        return;
+
+    float2 position = ((float2)id.xy + 0.5) / _HB_CausticBake.x * _HB_CausticBake.y;
+    float3 bent = float3(0.0, 0.0, 0.0);
+
+    for (uint index = 0; index < HB_CAUSTIC_COUNT; index++)
+    {
+        float4 wave = _HB_CausticSet[index];
+        float2 direction = wave.xy / max(length(wave.xy), 1e-5);
+
+        bent -= float3(direction.x * direction.x, direction.y * direction.y, direction.x * direction.y)
+              * (wave.z * sin(dot(wave.xy, position) + wave.w));
+    }
+
+    _HB_CausticsOut[id.xy] = float4(bent, 0.0);
+}

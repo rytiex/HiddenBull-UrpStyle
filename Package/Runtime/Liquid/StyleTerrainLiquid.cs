@@ -32,6 +32,9 @@ namespace HiddenBull.UrpStyle
         static readonly int s_OpticsId = Shader.PropertyToID("_HB_LiquidOptics");
         static readonly int s_ShoreId = Shader.PropertyToID("_HB_LiquidShore");
         static readonly int s_StyleId = Shader.PropertyToID("_HB_LiquidStyle");
+        static readonly int s_FoamId = Shader.PropertyToID("_HB_LiquidFoam");
+        static readonly int s_FoamShapeId = Shader.PropertyToID("_HB_LiquidFoamShape");
+        static readonly int s_CrestId = Shader.PropertyToID("_HB_LiquidCrest");
         static readonly int s_WavesId = Shader.PropertyToID("_HB_LiquidWaves");
 
         static readonly Color s_Missing = new Color(0.2f, 0.2f, 0.2f, 1f);
@@ -47,6 +50,9 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_Optics = new Vector4[Slots];
         readonly Vector4[] m_Shore = new Vector4[Slots];
         readonly Vector4[] m_Style = new Vector4[Slots];
+        readonly Vector4[] m_Foam = new Vector4[Slots];
+        readonly Vector4[] m_FoamShape = new Vector4[Slots];
+        readonly Vector4[] m_Crest = new Vector4[Slots];
         readonly Vector4[] m_WaveShape = new Vector4[Slots];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
         readonly int[] m_Versions = new int[Slots];
@@ -517,6 +523,9 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_OpticsId, m_Optics);
             block.SetVectorArray(s_ShoreId, m_Shore);
             block.SetVectorArray(s_StyleId, m_Style);
+            block.SetVectorArray(s_FoamId, m_Foam);
+            block.SetVectorArray(s_FoamShapeId, m_FoamShape);
+            block.SetVectorArray(s_CrestId, m_Crest);
             block.SetVectorArray(s_WavesId, m_WaveShape);
         }
 
@@ -541,7 +550,10 @@ namespace HiddenBull.UrpStyle
                 {
                     m_Optics[slot] = new Vector4(0.65f, 0f, 0f, 0f);
                     m_Shore[slot] = s_Missing;
-                    m_Style[slot] = new Vector4(0.125f, 0.25f, 1f, 0f);
+                    m_Style[slot] = new Vector4(0.125f, 0.25f, 1f, 1f);
+                    m_Foam[slot] = Vector4.zero;
+                    m_FoamShape[slot] = new Vector4(0.1f, 0f, 0.125f, 0f);
+                    m_Crest[slot] = new Vector4(0.7f, 0.7f, 0.7f, 0.45f);
                     m_WaveShape[slot] = new Vector4(0f, 0f, 0f, 1f);
 
                     for (var x = 0; x < GradientSize; x++)
@@ -552,9 +564,21 @@ namespace HiddenBull.UrpStyle
 
                 Keys(liquid.depthGradient);
 
-                m_Optics[slot] = new Vector4(liquid.smoothness, 0f, liquid.refractionBlur, liquid.glow);
+                m_Optics[slot] = new Vector4(liquid.smoothness, liquid.caustics, liquid.refractionBlur, liquid.glow);
                 m_Shore[slot] = m_Colours[0];
-                m_Style[slot] = new Vector4(liquid.diffuseWrap, liquid.diffuseSoftness, liquid.pulse, 0f);
+                m_Style[slot] = new Vector4(liquid.diffuseWrap, liquid.diffuseSoftness, liquid.pulse,
+                                            liquid.causticScale);
+
+                var foam = liquid.foamColor.linear;
+
+                m_Foam[slot] = new Vector4(foam.r, foam.g, foam.b, liquid.foamAmount);
+                m_FoamShape[slot] = new Vector4(liquid.waterlineDepth, liquid.shoreFoam,
+                                                liquid.tiling * liquid.patternScale,
+                                                liquid.rainRipples ? 1f : 0f);
+
+                var crest = liquid.crestColor.linear;
+
+                m_Crest[slot] = new Vector4(crest.r, crest.g, crest.b, liquid.crestSoftness);
                 m_WaveShape[slot] = new Vector4(liquid.windWaves ? -1f : liquid.waves, liquid.waveHeight,
                                                 liquid.waveSteepness, liquid.waveLength);
 
