@@ -28,15 +28,19 @@ namespace HiddenBull.UrpStyle
             internal int count;
             internal Vector4 direction;
             internal Vector4 position;
+            internal Matrix4x4 view;
+            internal Matrix4x4 projection;
         }
 
         readonly ShadowSliceData[] m_Slices = new ShadowSliceData[MaxCascades];
 
         HBStyleTransparencyLevel m_Level;
 
+        internal TextureHandle tint { get; private set; }
+
         internal StyleTransparentShadowPass()
         {
-            renderPassEvent = RenderPassEvent.BeforeRenderingShadows;
+            renderPassEvent = RenderPassEvent.AfterRenderingShadows;
             profilingSampler = new ProfilingSampler("HB Style Transparent Shadows");
         }
 
@@ -49,6 +53,7 @@ namespace HiddenBull.UrpStyle
         {
             Shader.SetGlobalFloat(s_TintActiveId, 0f);
             Shader.SetGlobalFloat(s_TintCasterId, 0f);
+            tint = TextureHandle.nullHandle;
 
             if (m_Level.glassShadowResolution == HBStyleGlassShadowResolution.Off)
                 return;
@@ -125,6 +130,8 @@ namespace HiddenBull.UrpStyle
             data.count = count;
             data.direction = -visibleLight.localToWorldMatrix.GetColumn(2);
             data.position = visibleLight.localToWorldMatrix.GetColumn(3);
+            data.view = cameraData.GetViewMatrix();
+            data.projection = cameraData.GetProjectionMatrix();
 
             for (var i = 0; i < count; i++)
             {
@@ -149,6 +156,7 @@ namespace HiddenBull.UrpStyle
 
             builder.SetRenderAttachment(tintMap, 0);
             builder.SetGlobalTextureAfterPass(tintMap, s_TintMapId);
+            tint = tintMap;
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (PassData d, RasterGraphContext context) =>
@@ -170,6 +178,7 @@ namespace HiddenBull.UrpStyle
                 }
 
                 cmd.DisableScissorRect();
+                cmd.SetViewProjectionMatrices(d.view, d.projection);
                 cmd.SetGlobalMatrixArray(s_TintTransformsId, d.transforms);
                 cmd.SetGlobalFloat(s_TintCasterId, 0f);
                 cmd.SetGlobalFloat(s_TintActiveId, 1f);

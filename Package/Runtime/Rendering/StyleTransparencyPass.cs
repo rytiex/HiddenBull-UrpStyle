@@ -13,6 +13,9 @@ namespace HiddenBull.UrpStyle
         internal const string BlurShaderPath =
             "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/RefractionBlur.shader";
 
+        internal const string CutShaderPath =
+            "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidCut.shader";
+
         const int BlurLevels = 6;
         const float MinRefractionScale = 0.25f;
         const float WholeStage = 0f;
@@ -22,6 +25,7 @@ namespace HiddenBull.UrpStyle
         static readonly ShaderTagId s_NearestTag = new ShaderTagId("HBStyleTransparentNearest");
         static readonly ShaderTagId s_RefractiveTag = new ShaderTagId("HBStyleTransparentRefractive");
         static readonly ShaderTagId s_LiquidTag = new ShaderTagId("HBStyleLiquid");
+        static readonly ShaderTagId s_LiquidCutTag = new ShaderTagId("HBStyleLiquidCut");
         static readonly List<ShaderTagId> s_NearestTags = new List<ShaderTagId> { s_NearestTag, s_RefractiveTag };
         static readonly List<ShaderTagId> s_GlassTags = new List<ShaderTagId> { s_NearestTag };
         static readonly List<ShaderTagId> s_ForwardTags = new List<ShaderTagId>
@@ -38,6 +42,15 @@ namespace HiddenBull.UrpStyle
         static readonly int s_BlurSourceTexelId = Shader.PropertyToID("_HB_BlurSourceTexel");
         static readonly int s_BlurTargetSizeId = Shader.PropertyToID("_HB_BlurTargetSize");
         static readonly int s_BlurLodId = Shader.PropertyToID("_HB_BlurLod");
+        static readonly int s_CutIdsId = Shader.PropertyToID("_HB_LiquidCutIds");
+        static readonly int s_CutMaskId = Shader.PropertyToID("_HB_LiquidCutMask");
+        static readonly int s_CutStateId = Shader.PropertyToID("_HB_LiquidCutState");
+        static readonly int s_CutWriteId = Shader.PropertyToID("_HB_CutWrite");
+        static readonly int s_CutTargetId = Shader.PropertyToID("_HB_CutTarget");
+
+        static readonly Vector4 s_CutOut = new Vector4(1f, 0f, 0f, 0f);
+        static readonly Vector4 s_KeepIn = new Vector4(0f, 1f, 0f, 0f);
+        static readonly Vector4 s_CutOn = new Vector4(1f, 0f, 0f, 0f);
 
         static readonly string[] s_ForwardNames =
         {
@@ -49,6 +62,22 @@ namespace HiddenBull.UrpStyle
             internal RendererListHandle list;
             internal float stage;
             internal float simple;
+            internal bool cut;
+        }
+
+        struct CutDraw
+        {
+            internal Mesh mesh;
+            internal Matrix4x4 matrix;
+            internal Vector4 write;
+            internal float target;
+        }
+
+        class CutData
+        {
+            internal List<CutDraw> cuts;
+            internal Material material;
+            internal MaterialPropertyBlock block;
         }
 
         class CopyData
@@ -64,10 +93,14 @@ namespace HiddenBull.UrpStyle
         }
 
         readonly List<RendererList> m_Probes = new List<RendererList>(3);
+        readonly List<CutDraw> m_Cuts = new List<CutDraw>();
+        readonly Plane[] m_Planes = new Plane[6];
+        readonly MaterialPropertyBlock m_CutBlock = new MaterialPropertyBlock();
 
         StylePrecipitationPass m_Precipitation;
         HBStyleTransparencyLevel m_Level;
         Material m_BlurMaterial;
+        Material m_CutMaterial;
         ScriptableRenderContext m_Context;
         bool m_HasContext;
 
@@ -85,10 +118,14 @@ namespace HiddenBull.UrpStyle
             m_HasContext = true;
         }
 
-        internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality, Shader blurShader)
+        internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality, Shader blurShader,
+                            Shader cutShader)
         {
             if (m_BlurMaterial == null && blurShader != null)
                 m_BlurMaterial = CoreUtils.CreateEngineMaterial(blurShader);
+
+            if (m_CutMaterial == null && cutShader != null)
+                m_CutMaterial = CoreUtils.CreateEngineMaterial(cutShader);
 
             m_Precipitation = precipitation;
             m_Level = quality.current;
@@ -116,9 +153,15 @@ namespace HiddenBull.UrpStyle
 
             if (liquid)
             {
+                var cut = Cutters(cameraData.camera);
+
+                if (cut)
+                    RecordCut(renderGraph, colour, renderingData, cameraData, lightData);
+
                 var below = refraction ? RecordBackground(renderGraph, colour, cameraData) : default;
 
-                RecordLiquid(renderGraph, colour, depth, below, resourceData, renderingData, cameraData, lightData);
+                RecordLiquid(renderGraph, colour, depth, below, cut, resourceData, renderingData, cameraData,
+                             lightData);
             }
 
             var splitRain = raining && glass;
@@ -329,8 +372,120 @@ namespace HiddenBull.UrpStyle
             });
         }
 
+        bool Cutters(Camera camera)
+        {
+            m_Cuts.Clear();
+
+            var cutters = HBStyleLiquidCutter.enabledCutters;
+            var any = false;
+
+            if (m_CutMaterial == null || cutters.Count == 0)
+                return false;
+
+            GeometryUtility.CalculateFrustumPlanes(camera, m_Planes);
+
+            foreach (var cutter in cutters)
+            {
+                if (cutter == null || cutter.affects == 0 || !cutter.Spans(out var bounds))
+                    continue;
+
+                any = true;
+
+                if (!GeometryUtility.TestPlanesAABB(m_Planes, bounds))
+                    continue;
+
+                m_Cuts.Add(new CutDraw
+                {
+                    mesh = cutter.volume,
+                    matrix = cutter.transform.localToWorldMatrix,
+                    write = cutter.mode == HBStyleLiquidCutMode.KeepInside ? s_KeepIn : s_CutOut,
+                    target = (int)cutter.affects
+                });
+            }
+
+            return any;
+        }
+
+        void RecordCut(RenderGraph renderGraph, TextureHandle colour, UniversalRenderingData renderingData,
+                       UniversalCameraData cameraData, UniversalLightData lightData)
+        {
+            var descriptor = renderGraph.GetTextureDesc(colour);
+
+            descriptor.msaaSamples = MSAASamples.None;
+            descriptor.filterMode = FilterMode.Point;
+            descriptor.wrapMode = TextureWrapMode.Clamp;
+            descriptor.clearBuffer = true;
+            descriptor.clearColor = Color.clear;
+            descriptor.enableRandomWrite = false;
+            descriptor.useMipMap = false;
+            descriptor.autoGenerateMips = false;
+            descriptor.bindTextureMS = false;
+
+            descriptor.name = "_HB_LiquidCutIds";
+            descriptor.format = GraphicsFormat.R16_SFloat;
+
+            var ids = renderGraph.CreateTexture(descriptor);
+
+            descriptor.name = "_HB_LiquidCutMask";
+            descriptor.format = GraphicsFormat.R16G16_SFloat;
+
+            var mask = renderGraph.CreateTexture(descriptor);
+
+            descriptor.name = "_HB_LiquidCutDepth";
+            descriptor.depthBufferBits = DepthBits.Depth32;
+
+            var depth = renderGraph.CreateTexture(descriptor);
+
+            using (var builder = renderGraph.AddRasterRenderPass<DrawData>("HB Style Liquid Cut Ids", out var data,
+                                                                          profilingSampler))
+            {
+                var drawing = RenderingUtils.CreateDrawingSettings(s_LiquidCutTag, renderingData, cameraData,
+                                                                   lightData, SortingCriteria.CommonOpaque);
+
+                data.list = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing,
+                                                                                  Filtering(cameraData)));
+
+                builder.UseRendererList(data.list);
+                builder.SetRenderAttachment(ids, 0);
+                builder.SetRenderAttachmentDepth(depth, AccessFlags.ReadWrite);
+                builder.SetGlobalTextureAfterPass(ids, s_CutIdsId);
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc(static (DrawData d, RasterGraphContext context) =>
+                    context.cmd.DrawRendererList(d.list));
+            }
+
+            using (var builder = renderGraph.AddRasterRenderPass<CutData>("HB Style Liquid Cut Mask", out var data,
+                                                                         profilingSampler))
+            {
+                data.cuts = m_Cuts;
+                data.material = m_CutMaterial;
+                data.block = m_CutBlock;
+
+                builder.UseTexture(ids, AccessFlags.Read);
+                builder.SetRenderAttachment(mask, 0);
+                builder.SetRenderAttachmentDepth(depth, AccessFlags.Read);
+                builder.SetGlobalTextureAfterPass(mask, s_CutMaskId);
+                builder.UseAllGlobalTextures(true);
+                builder.AllowPassCulling(false);
+                builder.SetRenderFunc(static (CutData d, RasterGraphContext context) =>
+                {
+                    foreach (var cut in d.cuts)
+                    {
+                        if (cut.mesh == null)
+                            continue;
+
+                        d.block.SetVector(s_CutWriteId, cut.write);
+                        d.block.SetFloat(s_CutTargetId, cut.target);
+
+                        for (var part = 0; part < cut.mesh.subMeshCount; part++)
+                            context.cmd.DrawMesh(cut.mesh, cut.matrix, d.material, part, 0, d.block);
+                    }
+                });
+            }
+        }
+
         void RecordLiquid(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, TextureHandle background,
-                          UniversalResourceData resourceData, UniversalRenderingData renderingData,
+                          bool cut, UniversalResourceData resourceData, UniversalRenderingData renderingData,
                           UniversalCameraData cameraData, UniversalLightData lightData)
         {
             using var builder = renderGraph.AddRasterRenderPass<DrawData>("HB Style Liquid", out var data,
@@ -341,6 +496,7 @@ namespace HiddenBull.UrpStyle
 
             data.list = renderGraph.CreateRendererList(new RendererListParams(renderingData.cullResults, drawing,
                                                                               Filtering(cameraData)));
+            data.cut = cut;
 
             Read(builder, resourceData.cameraDepthTexture);
             Read(builder, background);
@@ -350,8 +506,13 @@ namespace HiddenBull.UrpStyle
             builder.SetRenderAttachmentDepth(depth, AccessFlags.ReadWrite);
             builder.UseAllGlobalTextures(true);
             builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (DrawData d, RasterGraphContext context) =>
-                context.cmd.DrawRendererList(d.list));
+            {
+                context.cmd.SetGlobalVector(s_CutStateId, d.cut ? s_CutOn : Vector4.zero);
+                context.cmd.DrawRendererList(d.list);
+                context.cmd.SetGlobalVector(s_CutStateId, Vector4.zero);
+            });
         }
 
         static void Read(IRasterRenderGraphBuilder builder, TextureHandle handle)
@@ -414,6 +575,8 @@ namespace HiddenBull.UrpStyle
             m_HasContext = false;
             CoreUtils.Destroy(m_BlurMaterial);
             m_BlurMaterial = null;
+            CoreUtils.Destroy(m_CutMaterial);
+            m_CutMaterial = null;
         }
     }
 }

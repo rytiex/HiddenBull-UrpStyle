@@ -132,6 +132,13 @@ namespace HiddenBull.UrpStyle
 
         internal static IReadOnlyList<HBStyleTerrain> active => s_Active;
 
+        internal bool LiquidTouches(Bounds volume)
+        {
+            return m_Data != null && m_Liquid.Touches(m_Data, transform.position, volume);
+        }
+
+        internal StyleLiquidCalm liquidCalm => m_Liquid.calm;
+
         internal Shader grassShader => m_GrassShader;
 
         internal ComputeShader grassCompute => m_GrassCompute;
@@ -497,8 +504,9 @@ namespace HiddenBull.UrpStyle
             var bounds = new Bounds(origin + size * 0.5f, size + Vector3.up * 2f);
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
-            m_Liquid.Draw(context, camera, m_Data, m_LiquidShader, m_WaveCompute, block, origin, local, m_LocalPlanes,
-                          viewer.farClipPlane, StyleTerrains.quality.current.detailRange, gameObject.layer);
+            m_Liquid.Draw(this, context, camera, m_Data, m_LiquidShader, m_WaveCompute, block, origin, local,
+                          m_LocalPlanes, viewer.farClipPlane, StyleTerrains.quality.current.detailRange,
+                          gameObject.layer);
             m_Grass.Draw(context, camera, this, m_Trail.Map(camera));
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;

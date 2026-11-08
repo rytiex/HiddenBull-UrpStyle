@@ -94,6 +94,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_TerrainVariationId = Shader.PropertyToID("_HB_TerrainVariation");
         static readonly int s_TerrainBrushId = Shader.PropertyToID("_HB_TerrainBrush");
         static readonly int s_BrushId = Shader.PropertyToID("_HB_Brush");
+        static readonly int s_BrushAtlasId = Shader.PropertyToID("_HB_BrushAtlas");
 
         [StructLayout(LayoutKind.Sequential)]
         struct BoxData
@@ -510,6 +511,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeTextureParam(m_Compute, m_PlaceKernel, s_MaskId,
                                        data.maskArray != null ? (Texture)data.maskArray : terrain.emptyArray);
             cmd.SetComputeTextureParam(m_Compute, m_PlaceKernel, s_GrassMapId, terrain.grassMap);
+            cmd.SetComputeTextureParam(m_Compute, m_PlaceKernel, s_BrushAtlasId, BrushAtlas());
             cmd.SetComputeVectorParam(m_Compute, s_SizeId, new Vector4(size.x, size.y, size.z, data.resolution));
             cmd.SetComputeVectorParam(m_Compute, s_OriginId, new Vector4(origin.x, origin.y, origin.z, 0f));
             cmd.SetComputeVectorParam(m_Compute, s_RootsId, Roots(terrain));
@@ -769,6 +771,13 @@ namespace HiddenBull.UrpStyle
             var wrapped = value % ring;
 
             return wrapped < 0 ? wrapped + ring : wrapped;
+        }
+
+        static Texture BrushAtlas()
+        {
+            var atlas = Shader.GetGlobalTexture(s_BrushAtlasId);
+
+            return atlas != null ? atlas : Texture2D.grayTexture;
         }
 
         static int Groups(int count)

@@ -50,6 +50,14 @@ float4 _HB_LiquidCalmGrid;
 #define HB_CALM_TILES         _HB_LiquidCalmGrid.z
 #define HB_CALM_BOUND         (_HB_LiquidCalmGrid.w > 0.5)
 
+#if defined(HB_LIQUID_POOL)
+static const float3 HB_WAVE_BAND_SHARE = float3(0.0, 0.2, 1.0);
+#define HB_WAVE_MIRROR 1
+#else
+static const float3 HB_WAVE_BAND_SHARE = float3(1.0, 1.0, 1.0);
+#define HB_WAVE_MIRROR 0
+#endif
+
 struct HBLiquidWaveShape
 {
     float amount;
@@ -122,6 +130,17 @@ HBLiquidSea HB_LiquidSeaAt(float2 xzWS, HBLiquidWaveShape shape)
     float size = shape.height * shape.length;
     float reach = HB_WAVE_SHOAL_DEPTH * max(size, 1.0);
     float trough = HB_WAVE_TROUGH * shape.amount * size;
+
+#if defined(HB_LIQUID_POOL)
+    float deep = max(HB_POOL_LEVEL - HB_POOL_BOTTOM, 0.0);
+    float rim = saturate(HB_PoolInward(xzWS) / max(HB_POOL_EDGE, 1e-3));
+
+    HBLiquidSea pool;
+    pool.wind = min(saturate(deep / reach), deep / max(trough, 1e-3)) * rim;
+    pool.shore = 0.0;
+    pool.depth = deep;
+    return pool;
+#else
     float2 uv = HB_LiquidTerrainUV(xzWS);
     float3 flow = HB_WaterInside(uv) ? HB_WaterFlow(uv) : float3(0.0, 0.0, 0.0);
     float4 calm = HB_CALM_BOUND ? HB_LiquidCalmAt(xzWS) : float4(reach, 0.0, 0.0, 0.0);
@@ -137,6 +156,7 @@ HBLiquidSea HB_LiquidSeaAt(float2 xzWS, HBLiquidWaveShape shape)
     sea.shore = shoal * turn * HB_WAVE_SHORE_GAIN;
     sea.depth = calm.x;
     return sea;
+#endif
 }
 
 float HB_WaveNear(float distance)
@@ -199,10 +219,22 @@ float3 HB_WaveWindOffsetAt(float2 restXZ, float wide, float spacing)
     UNITY_UNROLL
     for (int band = 0; band < HB_WAVE_BANDS; band++)
     {
-        float lod = max(log2(spacing / wide / _HB_WaveTexel[band]), 0.0);
+        UNITY_BRANCH
+        if (HB_WAVE_BAND_SHARE[band] > 0.0)
+        {
+            float lod = max(log2(spacing / wide / _HB_WaveTexel[band]), 0.0);
+            float3 ahead = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDisplacement, sampler_trilinear_repeat,
+                                                      framed * _HB_WaveScale[band], band, lod).xyz;
 
-        moved += SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDisplacement, sampler_trilinear_repeat,
-                                            framed * _HB_WaveScale[band], band, lod).xyz;
+#if HB_WAVE_MIRROR
+            float3 back = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDisplacement, sampler_trilinear_repeat,
+                                                     -framed * _HB_WaveScale[band], band, lod).xyz;
+
+            ahead = (ahead + float3(-back.x, back.y, -back.z)) * 0.5;
+#endif
+
+            moved += ahead * HB_WAVE_BAND_SHARE[band];
+        }
     }
 
     float2 pushed = HB_WaveWorld(moved.xz);
@@ -297,10 +329,20 @@ float2 HB_WaveCapsAt(float2 restXZ, HBLiquidWaveShape shape, HBLiquidSea sea, fl
         UNITY_UNROLL
         for (int band = 0; band < HB_WAVE_BANDS; band++)
         {
-            float lod = max(log2(spacing / wide / _HB_WaveTexel[band]), 0.0);
+            UNITY_BRANCH
+            if (HB_WAVE_BAND_SHARE[band] > 0.0)
+            {
+                float lod = max(log2(spacing / wide / _HB_WaveTexel[band]), 0.0);
+                float2 fold = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDerivative, sampler_trilinear_repeat,
+                                                         ahead * _HB_WaveScale[band], band, lod).zw;
 
-            bent += SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDerivative, sampler_trilinear_repeat,
-                                               ahead * _HB_WaveScale[band], band, lod).zw;
+#if HB_WAVE_MIRROR
+                fold = (fold + SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_WaveDerivative, sampler_trilinear_repeat,
+                                                          -ahead * _HB_WaveScale[band], band, lod).zw) * 0.5;
+#endif
+
+                bent += fold * HB_WAVE_BAND_SHARE[band];
+            }
         }
 
         bent *= push;
@@ -328,13 +370,23 @@ float2 HB_WaveWindSlopeAt(float2 restXZ, float2 restDx, float2 restDy, float wid
     UNITY_UNROLL
     for (int band = 0; band < HB_WAVE_BANDS; band++)
     {
-        float scale = _HB_WaveScale[band];
-        float2 first = SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_WaveDerivative, sampler_trilinear_repeat, framed * scale,
-                                                   band, framedDx * scale, framedDy * scale).xy;
-        float2 ahead = SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_WaveDerivative, sampler_trilinear_repeat, turned * scale,
-                                                   band, turnedDx * scale, turnedDy * scale).xy;
+        UNITY_BRANCH
+        if (HB_WAVE_BAND_SHARE[band] > 0.0)
+        {
+            float scale = _HB_WaveScale[band];
+            float2 first = SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_WaveDerivative, sampler_trilinear_repeat, framed * scale,
+                                                       band, framedDx * scale, framedDy * scale).xy;
+            float2 ahead = SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_WaveDerivative, sampler_trilinear_repeat, turned * scale,
+                                                       band, turnedDx * scale, turnedDy * scale).xy;
 
-        bent += first + HB_WaveTurn(ahead, -1.0) * HB_WAVE_SECOND_SCALE;
+#if HB_WAVE_MIRROR
+            first = (first - SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_WaveDerivative, sampler_trilinear_repeat,
+                                                         -framed * scale, band, framedDx * scale,
+                                                         framedDy * scale).xy) * 0.5;
+#endif
+
+            bent += (first + HB_WaveTurn(ahead, -1.0) * HB_WAVE_SECOND_SCALE) * HB_WAVE_BAND_SHARE[band];
+        }
     }
 
     return HB_WaveWorld(bent) * HB_WAVE_SECOND_SHARE;

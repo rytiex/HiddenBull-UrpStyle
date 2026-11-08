@@ -1106,6 +1106,16 @@
             Reads = 0
         }
         @{
+            Name = 'Terrain Forward (APV)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainForwardPass.hlsl'
+            Entry = 'HB_TerrainForwardFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_VOLUMES_L1')
+            Slots = 4600
+            Reads = 200
+        }
+        @{
             Name = 'Terrain vertex'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainForwardPass.hlsl'
             Entry = 'HB_TerrainForwardVertex'
@@ -1151,9 +1161,9 @@
             Entry = 'HB_LiquidFragment'
             Stage = 'ps'
             Urp = 'Full'
-            Defines = @()
-            Slots = 1950
-            Reads = 90
+            Defines = @('_ADDITIONAL_LIGHTS')
+            Slots = 2300
+            Reads = 100
         }
         @{
             Name = 'Liquid Surface (debug)'
@@ -1169,6 +1179,66 @@
             Name = 'Liquid Surface vertex'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
             Entry = 'HB_LiquidVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Surface (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_LIQUID_POOL', '_ADDITIONAL_LIGHTS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Surface vertex (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_LIQUID_POOL')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Cut Ids'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidCutFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Cut Ids (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidCutFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_LIQUID_POOL')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Cut Mask'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidCutPass.hlsl'
+            Entry = 'HB_LiquidCutMaskFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Cut Mask vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidCutPass.hlsl'
+            Entry = 'HB_LiquidCutVertex'
             Stage = 'vs'
             Urp = 'Minimal'
             Defines = @()

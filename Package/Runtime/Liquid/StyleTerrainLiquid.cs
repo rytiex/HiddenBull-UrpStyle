@@ -12,8 +12,6 @@ namespace HiddenBull.UrpStyle
 
         const int BatchSize = 1023;
         const int Slots = HBStyleTerrainData.LiquidSlots;
-        const int GradientSize = 64;
-        const int GradientKeys = 6;
         const int SeaRings = 6;
         const int SeaTiles = 3;
         const float SeaOverlap = 1f / (StyleTerrainTree.PatchQuads * 8f);
@@ -23,47 +21,25 @@ namespace HiddenBull.UrpStyle
         const int CutFrom = 32768;
         const float BoundsMargin = 1f;
         const float WaveMargin = 2f;
-        const float KeyGap = 1e-4f;
         const float DetailShare = 0.25f;
         const float LeafReach = 3f;
 
         static readonly int s_RangesId = Shader.PropertyToID("_HB_LiquidRanges");
-        static readonly int s_GradientId = Shader.PropertyToID("_HB_LiquidGradient");
-        static readonly int s_OpticsId = Shader.PropertyToID("_HB_LiquidOptics");
-        static readonly int s_ShoreId = Shader.PropertyToID("_HB_LiquidShore");
-        static readonly int s_StyleId = Shader.PropertyToID("_HB_LiquidStyle");
-        static readonly int s_FoamId = Shader.PropertyToID("_HB_LiquidFoam");
-        static readonly int s_FoamShapeId = Shader.PropertyToID("_HB_LiquidFoamShape");
-        static readonly int s_CrestId = Shader.PropertyToID("_HB_LiquidCrest");
-        static readonly int s_WavesId = Shader.PropertyToID("_HB_LiquidWaves");
 
-        static readonly Color s_Missing = new Color(0.2f, 0.2f, 0.2f, 1f);
+        static readonly int s_IdId = Shader.PropertyToID("_HB_LiquidId");
+        static readonly int s_KeepId = Shader.PropertyToID("_HB_LiquidKeep");
 
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
-        readonly StyleLiquidWaves m_Waves = new StyleLiquidWaves();
+        readonly StyleLiquidLook m_Look = new StyleLiquidLook();
         readonly StyleLiquidCalm m_Calm = new StyleLiquidCalm();
         readonly List<StyleTerrainNode> m_Nodes = new List<StyleTerrainNode>();
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Quarters = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Sea = new List<Matrix4x4>();
         readonly Vector4[] m_Ranges = new Vector4[StyleTerrainTree.MaxLevels];
-        readonly Vector4[] m_Optics = new Vector4[Slots];
-        readonly Vector4[] m_Shore = new Vector4[Slots];
-        readonly Vector4[] m_Style = new Vector4[Slots];
-        readonly Vector4[] m_Foam = new Vector4[Slots];
-        readonly Vector4[] m_FoamShape = new Vector4[Slots];
-        readonly Vector4[] m_Crest = new Vector4[Slots];
-        readonly Vector4[] m_WaveShape = new Vector4[Slots];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
-        readonly int[] m_Versions = new int[Slots];
-        readonly ushort[] m_Pixels = new ushort[GradientSize * Slots * 4];
-        readonly Color[] m_Colours = new Color[GradientKeys];
-        readonly float[] m_ColourTimes = new float[GradientKeys];
-        readonly float[] m_Alphas = new float[GradientKeys];
-        readonly float[] m_AlphaTimes = new float[GradientKeys];
 
         Material m_Material;
-        Texture2D m_Gradient;
         float[] m_LeafMin;
         float[] m_LeafMax;
         float[] m_WaterMin;
@@ -79,16 +55,26 @@ namespace HiddenBull.UrpStyle
         float m_BuiltRange = float.NaN;
         float m_Low;
         float m_High;
+        float m_Leaf;
 
-        internal void Draw(ScriptableRenderContext context, Camera camera, HBStyleTerrainData data, Shader shader,
+        StyleLiquidWaves m_Waves;
+
+        internal StyleLiquidCalm calm => m_Calm;
+
+        internal void Draw(Component owner, ScriptableRenderContext context, Camera camera, HBStyleTerrainData data,
+                           Shader shader,
                            ComputeShader waves, MaterialPropertyBlock block, Vector3 origin, Vector3 local,
                            float[] planes, float far, float detailRange, int layer)
         {
             if (!data.liquidOn || shader == null || !Ready(shader) || !Leaves(data))
                 return;
 
+            m_Waves ??= StyleLiquidWaves.Acquire();
+
             Bind(data, block);
             m_Waves.Bind(context, waves, block);
+            block.SetFloat(s_IdId, HBStyleLiquidCutter.TerrainKind);
+            block.SetFloat(s_KeepId, Kept(data, origin) ? 1f : 0f);
             m_Calm.Bind(context, waves, data, block);
 
             m_Tree.SetRanges(Mathf.Max(detailRange * DetailShare, m_Tree.leafSize * LeafReach));
@@ -137,13 +123,68 @@ namespace HiddenBull.UrpStyle
         internal void Dispose()
         {
             CoreUtils.Destroy(m_Material);
-            CoreUtils.Destroy(m_Gradient);
-            m_Waves.Dispose();
+            m_Look.Dispose();
+            if (m_Waves != null)
+                StyleLiquidWaves.Release();
+
+            m_Waves = null;
             m_Calm.Dispose();
             m_Material = null;
-            m_Gradient = null;
             m_Built = false;
             m_BuiltData = null;
+        }
+
+        internal bool Touches(HBStyleTerrainData data, Vector3 origin, Bounds volume)
+        {
+            var leaves = data != null ? data.patches : 0;
+
+            if (!m_Built || m_LeafMin == null || m_LeafMin.Length != leaves * leaves || m_Leaf <= 0f)
+                return false;
+
+            var min = volume.min - origin;
+            var max = volume.max - origin;
+            var span = leaves * m_Leaf;
+            var sea = data.seaLevel;
+
+            if (min.x < 0f || min.z < 0f || max.x > span || max.z > span)
+            {
+                if (min.y <= sea + WaveMargin && max.y >= sea - WaveMargin)
+                    return true;
+            }
+
+            if (max.x < 0f || max.z < 0f || min.x > span || min.z > span)
+                return false;
+
+            var x0 = Mathf.Clamp(Mathf.FloorToInt(min.x / m_Leaf), 0, leaves - 1);
+            var z0 = Mathf.Clamp(Mathf.FloorToInt(min.z / m_Leaf), 0, leaves - 1);
+            var x1 = Mathf.Clamp(Mathf.FloorToInt(max.x / m_Leaf), 0, leaves - 1);
+            var z1 = Mathf.Clamp(Mathf.FloorToInt(max.z / m_Leaf), 0, leaves - 1);
+
+            for (var z = z0; z <= z1; z++)
+            {
+                for (var x = x0; x <= x1; x++)
+                {
+                    var index = z * leaves + x;
+
+                    if (m_LeafMin[index] <= max.y && m_LeafMax[index] >= min.y)
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool Kept(HBStyleTerrainData data, Vector3 origin)
+        {
+            foreach (var cutter in HBStyleLiquidCutter.enabledCutters)
+            {
+                if (cutter != null && cutter.mode == HBStyleLiquidCutMode.KeepInside &&
+                    cutter.Affects(HBStyleLiquidCutTargets.Terrain) && cutter.Spans(out var volume) &&
+                    Touches(data, origin, volume))
+                    return true;
+            }
+
+            return false;
         }
 
         bool Ready(Shader shader)
@@ -388,6 +429,7 @@ namespace HiddenBull.UrpStyle
 
             m_Low = Empty;
             m_High = -Empty;
+            m_Leaf = leaf;
 
             for (var i = 0; i < m_LeafMin.Length; i++)
             {
@@ -501,158 +543,10 @@ namespace HiddenBull.UrpStyle
 
         void Bind(HBStyleTerrainData data, MaterialPropertyBlock block)
         {
-            var changed = m_Gradient == null;
-
             for (var slot = 0; slot < Slots; slot++)
-            {
-                var liquid = slot < data.liquidCount ? data.Liquid(slot) : null;
-                var version = liquid != null ? liquid.version : -1;
+                m_Layers[slot] = slot < data.liquidCount ? data.Liquid(slot) : null;
 
-                if (liquid == m_Layers[slot] && version == m_Versions[slot])
-                    continue;
-
-                m_Layers[slot] = liquid;
-                m_Versions[slot] = version;
-                changed = true;
-            }
-
-            if (changed)
-                Rebuild();
-
-            block.SetTexture(s_GradientId, m_Gradient);
-            block.SetVectorArray(s_OpticsId, m_Optics);
-            block.SetVectorArray(s_ShoreId, m_Shore);
-            block.SetVectorArray(s_StyleId, m_Style);
-            block.SetVectorArray(s_FoamId, m_Foam);
-            block.SetVectorArray(s_FoamShapeId, m_FoamShape);
-            block.SetVectorArray(s_CrestId, m_Crest);
-            block.SetVectorArray(s_WavesId, m_WaveShape);
-        }
-
-        void Rebuild()
-        {
-            if (m_Gradient == null)
-            {
-                m_Gradient = new Texture2D(GradientSize, Slots, TextureFormat.RGBAHalf, false, true)
-                {
-                    name = "HB Style Liquid Gradient",
-                    hideFlags = HideFlags.HideAndDontSave,
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear
-                };
-            }
-
-            for (var slot = 0; slot < Slots; slot++)
-            {
-                var liquid = m_Layers[slot];
-
-                if (liquid == null)
-                {
-                    m_Optics[slot] = new Vector4(0.65f, 0f, 0f, 0f);
-                    m_Shore[slot] = s_Missing;
-                    m_Style[slot] = new Vector4(0.125f, 0.25f, 1f, 1f);
-                    m_Foam[slot] = Vector4.zero;
-                    m_FoamShape[slot] = new Vector4(0.1f, 0f, 0.125f, 0f);
-                    m_Crest[slot] = new Vector4(0.7f, 0.7f, 0.7f, 0.45f);
-                    m_WaveShape[slot] = new Vector4(0f, 0f, 0f, 1f);
-
-                    for (var x = 0; x < GradientSize; x++)
-                        Write(slot, x, s_Missing, 1f);
-
-                    continue;
-                }
-
-                Keys(liquid.depthGradient);
-
-                m_Optics[slot] = new Vector4(liquid.smoothness, liquid.caustics, liquid.refractionBlur, liquid.glow);
-                m_Shore[slot] = m_Colours[0];
-                m_Style[slot] = new Vector4(liquid.diffuseWrap, liquid.diffuseSoftness, liquid.pulse,
-                                            liquid.causticScale);
-
-                var foam = liquid.foamColor.linear;
-
-                m_Foam[slot] = new Vector4(foam.r, foam.g, foam.b, liquid.foamAmount);
-                m_FoamShape[slot] = new Vector4(liquid.waterlineDepth, liquid.shoreFoam,
-                                                liquid.tiling * liquid.patternScale,
-                                                liquid.rainRipples ? 1f : 0f);
-
-                var crest = liquid.crestColor.linear;
-
-                m_Crest[slot] = new Vector4(crest.r, crest.g, crest.b, liquid.crestSoftness);
-                m_WaveShape[slot] = new Vector4(liquid.windWaves ? -1f : liquid.waves, liquid.waveHeight,
-                                                liquid.waveSteepness, liquid.waveLength);
-
-                for (var x = 0; x < GradientSize; x++)
-                {
-                    var at = (float)x / (GradientSize - 1);
-
-                    Write(slot, x, Colour(at), Alpha(at));
-                }
-            }
-
-            m_Gradient.SetPixelData(m_Pixels, 0);
-            m_Gradient.Apply(false, false);
-        }
-
-        void Keys(Gradient gradient)
-        {
-            var colours = gradient.colorKeys;
-            var alphas = gradient.alphaKeys;
-            var colourCount = Mathf.Clamp(colours.Length, 1, GradientKeys);
-
-            var alphaCount = Mathf.Clamp(alphas.Length, 1, GradientKeys);
-
-            for (var i = 0; i < GradientKeys; i++)
-            {
-                var colour = colours.Length > 0 ? colours[Mathf.Min(i, colourCount - 1)]
-                                                : new GradientColorKey(s_Missing, 0f);
-                var alpha = alphas.Length > 0 ? alphas[Mathf.Min(i, alphaCount - 1)] : new GradientAlphaKey(1f, 0f);
-                var linear = colour.color.linear;
-
-                m_Colours[i] = new Color(linear.r, linear.g, linear.b, 1f);
-                m_ColourTimes[i] = colour.time;
-                m_Alphas[i] = alpha.alpha;
-                m_AlphaTimes[i] = alpha.time;
-            }
-        }
-
-        Color Colour(float at)
-        {
-            var colour = m_Colours[0];
-
-            for (var stop = 1; stop < GradientKeys; stop++)
-            {
-                var gap = Mathf.Max(m_ColourTimes[stop] - m_ColourTimes[stop - 1], KeyGap);
-
-                colour = Color.LerpUnclamped(colour, m_Colours[stop],
-                                             Mathf.Clamp01((at - m_ColourTimes[stop - 1]) / gap));
-            }
-
-            return colour;
-        }
-
-        float Alpha(float at)
-        {
-            var alpha = m_Alphas[0];
-
-            for (var stop = 1; stop < GradientKeys; stop++)
-            {
-                var gap = Mathf.Max(m_AlphaTimes[stop] - m_AlphaTimes[stop - 1], KeyGap);
-
-                alpha = Mathf.LerpUnclamped(alpha, m_Alphas[stop], Mathf.Clamp01((at - m_AlphaTimes[stop - 1]) / gap));
-            }
-
-            return Mathf.Clamp01(alpha);
-        }
-
-        void Write(int slot, int x, Color colour, float alpha)
-        {
-            var index = (slot * GradientSize + x) * 4;
-
-            m_Pixels[index] = Mathf.FloatToHalf(colour.r);
-            m_Pixels[index + 1] = Mathf.FloatToHalf(colour.g);
-            m_Pixels[index + 2] = Mathf.FloatToHalf(colour.b);
-            m_Pixels[index + 3] = Mathf.FloatToHalf(alpha);
+            m_Look.Bind(block, m_Layers);
         }
     }
 }

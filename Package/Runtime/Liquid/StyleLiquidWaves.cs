@@ -70,6 +70,9 @@ namespace HiddenBull.UrpStyle
         CommandBuffer m_Commands;
         double m_Baked = double.NaN;
 
+        static StyleLiquidWaves s_Shared;
+        static int s_Users;
+
         static StyleLiquidWaves()
         {
             var taken = new HashSet<Vector2Int>();
@@ -123,9 +126,30 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static double time => Application.isPlaying ? Time.timeAsDouble : Time.realtimeSinceStartupAsDouble;
-
         internal static float Patch(int band) => s_Patch[band];
+
+        internal static Vector4 Wave(int slot) => s_Set[slot];
+
+        internal static float Phase(int slot, double now)
+        {
+            return (float)(s_Starts[slot] - s_Speeds[slot] * now % (2.0 * Math.PI));
+        }
+
+        internal static StyleLiquidWaves Acquire()
+        {
+            s_Users++;
+            return s_Shared ??= new StyleLiquidWaves();
+        }
+
+        internal static void Release()
+        {
+            if (--s_Users > 0)
+                return;
+
+            s_Shared?.Dispose();
+            s_Shared = null;
+            s_Users = 0;
+        }
 
         internal void Bind(ScriptableRenderContext context, ComputeShader compute, MaterialPropertyBlock block)
         {
@@ -137,7 +161,7 @@ namespace HiddenBull.UrpStyle
                 return;
             }
 
-            var now = time;
+            var now = HBStyleLiquid.time;
 
             if (now != m_Baked || !m_FoamBaked && m_FoamKernel >= 0)
             {
@@ -145,7 +169,7 @@ namespace HiddenBull.UrpStyle
                 m_Baked = now;
             }
 
-            var heading = StyleEnvironment.windHeading * Mathf.Deg2Rad;
+            var heading = HBStyleLiquid.windHeading * Mathf.Deg2Rad;
 
             block.SetTexture(s_DisplacementId, m_Displacement);
             block.SetTexture(s_DerivativeId, m_Derivative);
@@ -156,7 +180,7 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_TexelId, new Vector4(s_Patch[0] / Resolution, s_Patch[1] / Resolution,
                                                    s_Patch[2] / Resolution, 0f));
             block.SetVector(s_FrameId, new Vector4(Mathf.Sin(heading), Mathf.Cos(heading), 1f,
-                                                   StyleEnvironment.weather.z));
+                                                   HBStyleLiquid.wind));
         }
 
         internal void Dispose()
@@ -230,7 +254,7 @@ namespace HiddenBull.UrpStyle
             {
                 var wave = s_Set[slot];
 
-                wave.w = (float)(s_Starts[slot] - s_Speeds[slot] * now % (2.0 * Math.PI));
+                wave.w = Phase(slot, now);
                 m_Waves[slot] = wave;
             }
 

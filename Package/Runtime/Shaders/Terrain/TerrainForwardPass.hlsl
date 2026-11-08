@@ -246,7 +246,13 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
     inputData.shadowCoord = TransformWorldToShadowCoord(input.positionWS);
+#if (defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)) && \
+    !defined(EVALUATE_SH_VERTEX) && !defined(EVALUATE_SH_MIXED)
+    inputData.bakedGI = SampleProbeVolumePixel(half3(0.0h, 0.0h, 0.0h), GetAbsolutePositionWS(input.positionWS),
+                                               normalWS, inputData.viewDirectionWS, input.positionCS.xy);
+#else
     inputData.bakedGI = SampleSH(normalWS);
+#endif
     inputData.shadowMask = half4(1.0h, 1.0h, 1.0h, 1.0h);
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, true, wet * wetGloss);

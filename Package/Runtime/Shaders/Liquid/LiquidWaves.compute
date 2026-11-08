@@ -54,11 +54,13 @@ void Bake(uint3 id : SV_DispatchThreadID)
 
 Texture2D<float> _HB_CalmHeightmap;
 Texture2D<float2> _HB_CalmLevel;
+Texture2D<float> _HB_CalmHoles;
 Texture2D<float4> _HB_CalmFlow;
 Texture2D<float4> _HB_CalmIn;
 RWTexture2D<float4> _HB_CalmOut;
 RWTexture2D<float2> _HB_CalmTilesOut;
 SamplerState sampler_LinearClamp;
+SamplerState sampler_PointClamp;
 
 float4 _HB_CalmGrid;
 float4 _HB_CalmTerrain;
@@ -78,6 +80,8 @@ float4 _HB_CalmTile;
 #define HB_CALM_CUT        0.5
 #define HB_CALM_STREAM     0.01
 #define HB_CALM_SURE       0.25
+#define HB_CALM_OPEN       1e4
+#define HB_CALM_HOLE       0.5
 
 [numthreads(8, 8, 1)]
 void CalmSeed(uint3 id : SV_DispatchThreadID)
@@ -96,8 +100,9 @@ void CalmSeed(uint3 id : SV_DispatchThreadID)
     float cut = _HB_CalmLevel.Load(int3(min(uint2(uv * float2(width, height)), uint2(width, height) - 1), 0)).g;
     float level = HB_CALM_SEA + (raised * 65535.0 - 32768.0) / 32767.0 * HB_CALM_RANGE;
     float depth = cut >= HB_CALM_CUT ? 0.0 : max(level - ground, 0.0);
+    bool holed = _HB_CalmHoles.SampleLevel(sampler_PointClamp, uv, 0) < HB_CALM_HOLE;
 
-    _HB_CalmOut[id.xy] = float4(depth, 0.0, 0.0, 0.0);
+    _HB_CalmOut[id.xy] = holed ? float4(HB_CALM_OPEN, 1.0, 0.0, 0.0) : float4(depth, 0.0, 0.0, 0.0);
 }
 
 [numthreads(8, 8, 1)]
@@ -106,7 +111,15 @@ void CalmSpread(uint3 id : SV_DispatchThreadID)
     if (any(id.xy >= HB_CALM_SIZE))
         return;
 
-    float depth = _HB_CalmIn[id.xy].r;
+    float4 here = _HB_CalmIn[id.xy];
+
+    if (here.g > HB_CALM_HOLE)
+    {
+        _HB_CalmOut[id.xy] = here;
+        return;
+    }
+
+    float depth = here.r;
     int step = HB_CALM_STEP;
 
     for (int y = -1; y <= 1; y++)
@@ -127,6 +140,13 @@ void CalmSpread(uint3 id : SV_DispatchThreadID)
     _HB_CalmOut[id.xy] = float4(depth, 0.0, 0.0, 0.0);
 }
 
+float HB_CalmSolid(int2 at, float fallback)
+{
+    float4 calm = _HB_CalmIn[at];
+
+    return calm.g > HB_CALM_HOLE ? fallback : calm.r;
+}
+
 [numthreads(8, 8, 1)]
 void CalmFinish(uint3 id : SV_DispatchThreadID)
 {
@@ -135,15 +155,23 @@ void CalmFinish(uint3 id : SV_DispatchThreadID)
 
     int last = (int)HB_CALM_SIZE - 1;
     int2 at = (int2)id.xy;
-    float left = _HB_CalmIn[int2(max(at.x - 1, 0), at.y)].r;
-    float right = _HB_CalmIn[int2(min(at.x + 1, last), at.y)].r;
-    float down = _HB_CalmIn[int2(at.x, max(at.y - 1, 0))].r;
-    float up = _HB_CalmIn[int2(at.x, min(at.y + 1, last))].r;
+    float4 here = _HB_CalmIn[at];
+
+    if (here.g > HB_CALM_HOLE)
+    {
+        _HB_CalmOut[id.xy] = float4(here.r, 0.0, 0.0, 0.0);
+        return;
+    }
+
+    float left = HB_CalmSolid(int2(max(at.x - 1, 0), at.y), here.r);
+    float right = HB_CalmSolid(int2(min(at.x + 1, last), at.y), here.r);
+    float down = HB_CalmSolid(int2(at.x, max(at.y - 1, 0)), here.r);
+    float up = HB_CalmSolid(int2(at.x, min(at.y + 1, last)), here.r);
     float2 slope = float2(right - left, up - down) / (2.0 * HB_CALM_CELL);
     float steep = length(slope);
     float2 toward = steep > 1e-5 ? -slope / steep : float2(0.0, 0.0);
 
-    _HB_CalmOut[id.xy] = float4(_HB_CalmIn[at].r, toward, saturate(steep / HB_CALM_SLOPE));
+    _HB_CalmOut[id.xy] = float4(here.r, toward, saturate(steep / HB_CALM_SLOPE));
 }
 
 [numthreads(8, 8, 1)]

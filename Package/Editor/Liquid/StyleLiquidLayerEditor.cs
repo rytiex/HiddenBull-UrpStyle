@@ -22,7 +22,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_SurfaceFields =
         {
-            "m_Tiling", "m_NormalStrength", "m_Smoothness", "m_RefractionBlur", "m_RainRipples"
+            "m_Tiling", "m_NormalStrength", "m_Smoothness", "m_RefractionBlur", "m_Brush", "m_BrushSize",
+            "m_RainRipples"
         };
 
         static readonly string[] s_ColourFields =

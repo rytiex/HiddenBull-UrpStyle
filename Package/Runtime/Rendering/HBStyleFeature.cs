@@ -45,6 +45,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Shader m_LiquidCutShader;
+
+        [SerializeField]
+        [HideInInspector]
         Material m_TerrainVariants;
 
         StyleCameraStates m_Cameras;
@@ -56,6 +60,7 @@ namespace HiddenBull.UrpStyle
         StyleAntiAliasingPass m_AntiAliasingPass;
         StyleTransparencyPass m_TransparencyPass;
         StyleTransparentShadowPass m_TransparentShadowPass;
+        StyleOverlayShadowPass m_OverlayShadowPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -97,6 +102,7 @@ namespace HiddenBull.UrpStyle
             m_AntiAliasingPass = new StyleAntiAliasingPass();
             m_TransparencyPass = new StyleTransparencyPass();
             m_TransparentShadowPass = new StyleTransparentShadowPass();
+            m_OverlayShadowPass = new StyleOverlayShadowPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -107,6 +113,7 @@ namespace HiddenBull.UrpStyle
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
             m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
+            m_LiquidCutShader = Load(m_LiquidCutShader, StyleTransparencyPass.CutShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
@@ -131,10 +138,17 @@ namespace HiddenBull.UrpStyle
 
             m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
             m_TransparencyPass.Setup(kind == StyleCameraKind.Base ? m_PrecipitationPass : null, quality.transparency,
-                                     m_RefractionBlurShader);
+                                     m_RefractionBlurShader, m_LiquidCutShader);
             m_TransparentShadowPass.Setup(quality.transparency);
             renderer.EnqueuePass(m_TransparencyPass);
             renderer.EnqueuePass(m_TransparentShadowPass);
+
+            if (kind == StyleCameraKind.Overlay ||
+                kind == StyleCameraKind.Base && StyleOverlayShadowPass.Feeds(cameraData.camera))
+            {
+                m_OverlayShadowPass.Setup(shadows.level, m_TransparentShadowPass);
+                renderer.EnqueuePass(m_OverlayShadowPass);
+            }
 
             var antiAliasing = quality.antiAliasing;
 
@@ -239,6 +253,9 @@ namespace HiddenBull.UrpStyle
 
             m_TransparentShadowPass?.Dispose();
             m_TransparentShadowPass = null;
+
+            m_OverlayShadowPass?.Dispose();
+            m_OverlayShadowPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

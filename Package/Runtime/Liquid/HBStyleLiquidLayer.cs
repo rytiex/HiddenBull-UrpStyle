@@ -61,6 +61,17 @@ namespace HiddenBull.UrpStyle
         float m_RefractionBlur = 0.145f;
 
         [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How strongly the brush strokes break up the light and the reflections on the surface. The " +
+                 "strokes drift with the current and the wind. 0 turns them off.")]
+        float m_Brush = 0.5f;
+
+        [SerializeField]
+        [Range(0.1f, 4f)]
+        [Tooltip("How large the brush strokes are on the surface. 1 matches the stroke size of the Brush profile.")]
+        float m_BrushSize = 1f;
+
+        [SerializeField]
         [Tooltip("Rings spread across the surface wherever rain falls on it, never under a roof.")]
         bool m_RainRipples = true;
 
@@ -193,6 +204,10 @@ namespace HiddenBull.UrpStyle
 
         public float refractionBlur => m_RefractionBlur;
 
+        public float brush => m_Brush;
+
+        public float brushSize => m_BrushSize;
+
         public bool rainRipples => m_RainRipples;
 
         public Gradient depthGradient => m_DepthGradient ??= DepthGradient(Preset.Water);
@@ -264,6 +279,8 @@ namespace HiddenBull.UrpStyle
             m_NormalStrength = water ? 0.25f : 2f;
             m_Smoothness = lava ? 0.575f : 0.65f;
             m_RefractionBlur = water ? 0.145f : 0f;
+            m_Brush = 0.5f;
+            m_BrushSize = 1f;
             m_DiffuseWrap = lava ? 0.175f : 0.125f;
             m_DiffuseSoftness = lava ? 2f : 0.25f;
             m_Caustics = lava ? 0f : acid ? 0.085f : 0.05f;

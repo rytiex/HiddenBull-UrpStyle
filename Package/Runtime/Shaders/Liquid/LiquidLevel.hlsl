@@ -45,11 +45,32 @@ float HB_WaterHeight(float2 uv, float base)
     return base + HB_WATER_SEA_LEVEL + offset;
 }
 
+float4 HB_WaterMixAt(float2 uv)
+{
+    uint width;
+    uint height;
+    _HB_WaterMix.GetDimensions(width, height);
+
+    int2 last = int2(width, height) - 1;
+    float2 at = saturate(uv) * float2(width, height) - 0.5;
+    float2 base = floor(at);
+    float2 blend = at - base;
+    int2 low = clamp(int2(base), 0, last);
+    int2 high = clamp(int2(base) + 1, 0, last);
+
+    float4 a = LOAD_TEXTURE2D_LOD(_HB_WaterMix, low, 0);
+    float4 b = LOAD_TEXTURE2D_LOD(_HB_WaterMix, int2(high.x, low.y), 0);
+    float4 c = LOAD_TEXTURE2D_LOD(_HB_WaterMix, int2(low.x, high.y), 0);
+    float4 d = LOAD_TEXTURE2D_LOD(_HB_WaterMix, high, 0);
+
+    return lerp(lerp(a, b, blend.x), lerp(c, d, blend.x), blend.y);
+}
+
 HBWaterLevel HB_WaterLevel(float2 uv, float base)
 {
     bool inside = HB_WaterInside(uv);
     float cut = SAMPLE_TEXTURE2D_LOD(_HB_WaterLevel, sampler_PointClamp, uv, 0).g;
-    half4 mix = half4(SAMPLE_TEXTURE2D_LOD(_HB_WaterMix, sampler_LinearClamp, uv, 0));
+    half4 mix = half4(HB_WaterMixAt(uv));
 
     mix = inside ? mix : half4(0.0h, 0.0h, 0.0h, 0.0h);
 
@@ -64,6 +85,38 @@ HBWaterLevel HB_WaterLevel(float2 uv, float base)
 float3 HB_WaterFlow(float2 uv)
 {
     return SAMPLE_TEXTURE2D_LOD(_HB_WaterFlow, sampler_LinearClamp, uv, 0).rgb;
+}
+
+float4 _HB_PoolBox;
+float4 _HB_PoolFrame;
+float4 _HB_PoolDepth;
+
+#define HB_POOL_CENTRE _HB_PoolBox.xy
+#define HB_POOL_HALF   _HB_PoolBox.zw
+#define HB_POOL_TURN   _HB_PoolFrame.xy
+#define HB_POOL_LEVEL  _HB_PoolFrame.z
+#define HB_POOL_CELL   _HB_PoolFrame.w
+#define HB_POOL_BOTTOM _HB_PoolDepth.x
+#define HB_POOL_EDGE   _HB_PoolDepth.y
+
+float2 HB_PoolLocal(float2 xzWS)
+{
+    float2 away = xzWS - HB_POOL_CENTRE;
+
+    return float2(away.x * HB_POOL_TURN.y - away.y * HB_POOL_TURN.x, away.x * HB_POOL_TURN.x + away.y * HB_POOL_TURN.y);
+}
+
+float2 HB_PoolWorld(float2 local)
+{
+    return HB_POOL_CENTRE + float2(local.x * HB_POOL_TURN.y + local.y * HB_POOL_TURN.x,
+                                   local.y * HB_POOL_TURN.y - local.x * HB_POOL_TURN.x);
+}
+
+float HB_PoolInward(float2 xzWS)
+{
+    float2 inward = HB_POOL_HALF - abs(HB_PoolLocal(xzWS));
+
+    return min(inward.x, inward.y);
 }
 
 half3 HB_WaterTint(half4 mix)
