@@ -142,7 +142,13 @@ namespace HiddenBull.UrpStyle
         internal void BindLiquidLook(MaterialPropertyBlock block)
         {
             if (m_Data != null)
+            {
+                var size = m_Data.size;
+
                 m_Liquid.Bind(m_Data, block);
+                BindWater(block);
+                block.SetVector(s_SizeId, new Vector4(size.x, size.y, size.z, m_Data.resolution));
+            }
         }
 
         internal Shader grassShader => m_GrassShader;

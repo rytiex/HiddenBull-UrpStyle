@@ -19,7 +19,7 @@ Shader "HB URP Style/Terrain Liquid"
 
             ZWrite On
             ZTest LEqual
-            Cull Back
+            Cull Off
             Blend Off
 
             HLSLPROGRAM

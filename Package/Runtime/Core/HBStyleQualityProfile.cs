@@ -38,6 +38,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Transparency levels: refraction and the shadows glass casts.")]
         HBStyleTransparencyQuality m_Transparency = new HBStyleTransparencyQuality();
 
+        [SerializeField]
+        [Tooltip("Screen space reflection levels: how carefully liquid surfaces mirror the scene on screen.")]
+        HBStyleReflectionQuality m_Reflections = new HBStyleReflectionQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -53,5 +57,7 @@ namespace HiddenBull.UrpStyle
         public HBStyleAntiAliasingQuality antiAliasing => m_AntiAliasing;
 
         public HBStyleTransparencyQuality transparency => m_Transparency;
+
+        public HBStyleReflectionQuality reflections => m_Reflections;
     }
 }

@@ -488,7 +488,14 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     half3 direct = half3(_MainLightColor.rgb) * tone
                  + HB_GrassExtraLights(input.positionWS, input.positionCS.xy, normalWS, wrap, inverseWrap);
     half reach;
-    half3 ambient = HB_ResolveAmbient(normalWS, HB_GradientAmbient(normalWS), 0.0h, 0.0h, 0.0h, reach);
+#if defined(PROBE_VOLUMES_L1) || defined(PROBE_VOLUMES_L2)
+    half3 baked = SampleProbeVolumePixel(half3(0.0h, 0.0h, 0.0h), GetAbsolutePositionWS(input.positionWS), normalWS,
+                                         half3(GetWorldSpaceNormalizeViewDir(input.positionWS)),
+                                         input.positionCS.xy);
+#else
+    half3 baked = HB_GradientAmbient(normalWS);
+#endif
+    half3 ambient = HB_ResolveAmbient(normalWS, baked, 0.0h, 0.0h, 0.0h, reach);
     half3 colour = albedo * (direct + ambient);
     half wet = half(input.weather.x);
 

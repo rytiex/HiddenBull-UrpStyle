@@ -12,6 +12,7 @@ namespace HiddenBull.UrpStyle
         const float Buried = 0.5f;
         const float Above = 2f;
         const float SlopeSpan = 1f;
+        const float Nowhere = -1e9f;
         const float ShareLeast = 1e-3f;
         const float LengthLeast = 0.05f;
         const float FoldLimit = 1f;
@@ -212,6 +213,11 @@ namespace HiddenBull.UrpStyle
             slope.x = (WaterAt(source, here + across).level - WaterAt(source, here - across).level) / (SlopeSpan * 2f);
             slope.y = (WaterAt(source, here + along).level - WaterAt(source, here - along).level) / (SlopeSpan * 2f);
             return true;
+        }
+
+        internal static float EyeLevel(Component owner, Vector3 eye)
+        {
+            return TryGetView(eye, out var height, out _, out _, out var liquid) && liquid == owner ? height : Nowhere;
         }
 
         internal static void BindLook(Component liquid, MaterialPropertyBlock block)

@@ -2,6 +2,7 @@ Shader "Hidden/HB URP Style/Bake Proxy"
 {
     Properties
     {
+        _BaseColor("Albedo", Color) = (0.0, 0.0, 0.0, 1.0)
         [HDR] _EmissionColor("Emission", Color) = (0.0, 0.0, 0.0, 1.0)
     }
 
@@ -34,6 +35,7 @@ Shader "Hidden/HB URP Style/Bake Proxy"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
+                half4 _BaseColor;
                 half4 _EmissionColor;
             CBUFFER_END
 
@@ -43,6 +45,7 @@ Shader "Hidden/HB URP Style/Bake Proxy"
             {
                 MetaInput metaInput = (MetaInput)0;
 
+                metaInput.Albedo = _BaseColor.rgb;
                 metaInput.Emission = _EmissionColor.rgb;
 
                 return UniversalFragmentMeta(input, metaInput);

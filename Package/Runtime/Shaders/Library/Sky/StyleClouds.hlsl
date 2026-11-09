@@ -39,9 +39,16 @@ half HB_CloudWrappedDiffuse(half NdotL, half wrap, half softness)
     return smoothstep(e0, e1, d);
 }
 
-half4 HB_Clouds(half3 direction)
+float4 HB_CloudPlane(half3 direction)
 {
-    float scale = _HB_CloudParams.y;
+    float travel = HB_CloudTravel(direction.y, HB_CLOUD_LAYER_HEIGHT);
+    float spread = rsqrt((float)max((int)_HB_CloudParams.w, 1));
+
+    return float4(direction.xz * (travel * _HB_CloudParams.y), direction.xz * (_HB_CloudSlab.x * spread));
+}
+
+half4 HB_CloudsGrad(half3 direction, float4 planeDx, float4 planeDy)
+{
     float2 drift = _HB_CloudMotion.xy * _Time.y;
 
     int steps = max((int)_HB_CloudParams.w, 1);
@@ -58,12 +65,13 @@ half4 HB_Clouds(half3 direction)
     half towardSun = saturate(dot(direction, lightDirection));
 
     float travel = HB_CloudTravel(direction.y, HB_CLOUD_LAYER_HEIGHT);
-    float2 reference = direction.xz * (travel * scale);
-    float2 slab = direction.xz * (_HB_CloudSlab.x * spread);
-    float2 referenceDx = ddx(reference);
-    float2 referenceDy = ddy(reference);
-    float2 slabDx = ddx(slab);
-    float2 slabDy = ddy(slab);
+    float4 plane = HB_CloudPlane(direction);
+    float2 reference = plane.xy;
+    float2 slab = plane.zw;
+    float2 referenceDx = planeDx.xy;
+    float2 referenceDy = planeDy.xy;
+    float2 slabDx = planeDx.zw;
+    float2 slabDy = planeDy.zw;
 
     half middle = (steps - 1) * 0.5h;
     half taper = half(_HB_CloudSlab.y) * rcp(max(middle, 1.0h));
@@ -126,6 +134,13 @@ half4 HB_Clouds(half3 direction)
     }
 
     return half4(colour, alpha);
+}
+
+half4 HB_Clouds(half3 direction)
+{
+    float4 plane = HB_CloudPlane(direction);
+
+    return HB_CloudsGrad(direction, ddx(plane), ddy(plane));
 }
 
 half3 HB_SkyWithClouds(half3 direction)

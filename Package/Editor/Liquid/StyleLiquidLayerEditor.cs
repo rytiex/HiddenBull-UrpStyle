@@ -22,8 +22,9 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_SurfaceFields =
         {
-            "m_Tiling", "m_NormalMap", "m_NormalStrength", "m_Smoothness", "m_RefractionBlur", "m_Brush",
-            "m_BrushSize", "m_RainRipples"
+            "m_Tiling", "m_NormalMap", "m_NormalStrength", "m_RippleDrift", "m_Smoothness", "m_SurfaceDistortion",
+            "m_RefractionBlur",
+            "m_Brush", "m_BrushSize", "m_RainRipples"
         };
 
         static readonly string[] s_ColourFields =
@@ -36,19 +37,19 @@ namespace HiddenBull.UrpStyle.Editor
             "m_FoamColor", "m_WaterlineDepth", "m_FoamAmount", "m_ShoreFoam", "m_Bubbles", "m_Pulse", "m_PatternScale"
         };
 
-        static readonly string[] s_CrustFields = { "m_Crust", "m_CrustColor", "m_CrustMap", "m_DiffuseWrap",
-                                                   "m_DiffuseSoftness" };
+        static readonly string[] s_CrustFields = { "m_Crust", "m_CrustColor", "m_DiffuseWrap", "m_DiffuseSoftness" };
 
         static readonly string[] s_UnderFields =
         {
-            "m_LightShafts", "m_UnderBubbles", "m_Distortion", "m_UnderVisibility", "m_UnderLightDepth"
+            "m_LightShafts", "m_UnderBubbles", "m_Distortion", "m_SnellWindow", "m_UnderBlur", "m_UnderVisibility",
+            "m_UnderLightDepth"
         };
 
         static readonly GUIContent[] s_Presets =
         {
-            new GUIContent("Water", "Sets every setting to clear water. The crust map is kept."),
-            new GUIContent("Acid", "Sets every setting to a glowing, bubbling acid. The crust map is kept."),
-            new GUIContent("Lava", "Sets every setting to glowing melt under a drifting crust. The crust map is kept.")
+            new GUIContent("Water", "Sets every setting to clear water. The normal map is kept."),
+            new GUIContent("Acid", "Sets every setting to a glowing, bubbling acid. The normal map is kept."),
+            new GUIContent("Lava", "Sets every setting to glowing melt under a drifting crust. The normal map is kept.")
         };
 
         public override void OnInspectorGUI()

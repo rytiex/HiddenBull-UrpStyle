@@ -5,20 +5,18 @@
 
 TEXTURE2D(_HB_UnderColour);
 TEXTURE2D(_HB_UnderMask);
-TEXTURE2D(_HB_UnderHeight);
 TEXTURE2D_FLOAT(_HB_UnderDepth);
 
 float4 _HB_UnderView;
 float4 _HB_UnderMix;
+float4 _HB_UnderAhead;
 float4 _HB_UnderQuality;
 float4 _HB_LiquidUnder[4];
-float4 _HB_LiquidUnderFog[4];
 
-#define HB_UNDER_EMPTY          -5000.0
 #define HB_UNDER_FAR            10000.0
-#define HB_UNDER_RISE           1e-3
 #define HB_UNDER_SNELL          0.66
 #define HB_UNDER_SNELL_SOFT     0.06
+#define HB_UNDER_CLEAR          2.0
 #define HB_UNDER_LINE           1.5
 #define HB_UNDER_LINE_DARK      0.45h
 #define HB_UNDER_SEEN_LEAST     0.05
@@ -27,8 +25,13 @@ float4 _HB_LiquidUnderFog[4];
 #define HB_UNDER_WOBBLE_ROWS    37.0
 #define HB_UNDER_WOBBLE_COLUMNS 29.0
 #define HB_UNDER_WOBBLE_PACE    float2(1.7, 1.3)
+#define HB_UNDER_WOBBLE_NEAR    4.0
+#define HB_UNDER_WOBBLE_FAR     20.0
+#define HB_UNDER_AHEAD          12.0
+#define HB_UNDER_AHEAD_TAPS     4
 #define HB_UNDER_SHAFT_RANGE    24.0
 #define HB_UNDER_SHAFT_FADE     10.0
+#define HB_UNDER_SHAFT_DEEP     4.0
 #define HB_UNDER_SHAFT_GAIN     0.35h
 #define HB_UNDER_SHAFT_LOD      2.0
 #define HB_UNDER_SHAFT_SUN      0.05h
@@ -52,6 +55,14 @@ float4 _HB_LiquidUnderFog[4];
 #define HB_UNDER_BUBBLE_SEED    17.31
 #define HB_UNDER_BUBBLE_TWIST   6.0
 #define HB_UNDER_BUBBLE_TURN    0.7
+#define HB_UNDER_BUBBLE_TOP     0.75
+#define HB_UNDER_BLUR_NEAR      0.35
+#define HB_UNDER_BLUR_FULL      8.0
+#define HB_UNDER_BELOW          0.55h
+#define HB_UNDER_ABOVE          1.2h
+#define HB_UNDER_SUN            0.6h
+#define HB_UNDER_SUN_POWER      6.0h
+#define HB_UNDER_CAUSTICS       1.5h
 
 struct HBUnderVaryings
 {
@@ -76,47 +87,40 @@ bool HB_UnderSolid(float depth)
 #endif
 }
 
-float4 HB_UnderHash(float2 id)
-{
-    float4 p = frac(id.xyxy * float4(0.1031, 0.1030, 0.0973, 0.1099));
-    p += dot(p, p.wzxy + 33.33);
-    return frac((p.xxyz + p.yzzw) * p.zywx);
-}
-
 half4 HB_UnderMixed(float4 values[4], half4 mix)
 {
     return half4(values[0] * mix.x + values[1] * mix.y + values[2] * mix.z + values[3] * mix.w);
 }
 
-float HB_UnderPlane(float2 xz)
+float HB_UnderLevel(float2 xz)
 {
-    return _HB_UnderView.x + dot(_HB_UnderView.zw, xz - GetCameraPositionWS().xz);
+    float level = _HB_UnderView.x + dot(_HB_UnderView.zw, xz - GetCameraPositionWS().xz);
+
+    UNITY_BRANCH
+    if (_HB_UnderAhead.x > 0.5)
+    {
+        float2 uv = HB_LiquidUV(xz);
+
+        if (HB_WaterInside(uv))
+            level = HB_WaterHeight(uv, _HB_TerrainOrigin.y);
+    }
+
+    return level;
 }
 
-float HB_UnderSurfaceAt(float2 xz, out bool known)
+half HB_UnderBlurOf(half amount, float seen)
 {
-    known = false;
+    return amount * half(lerp(HB_UNDER_BLUR_NEAR, 1.0, saturate(seen / HB_UNDER_BLUR_FULL)));
+}
 
-    uint width;
-    uint height;
-    _HB_UnderHeight.GetDimensions(width, height);
+half3 HB_UnderBlurred(half3 sharp, float2 uv, half blur)
+{
+    UNITY_BRANCH
+    if (_HB_UnderQuality.w > 0.5 && blur > 0.0h)
+        sharp = lerp(sharp, HB_BackgroundSmooth(uv, blur * HB_REFRACTION_BLUR_MIPS),
+                     saturate(blur * half(HB_REFRACTION_BLUR_MIPS)));
 
-    float2 at = ((xz - _HB_UnderMap.xy) * (_HB_UnderMap.z * 0.5) + 0.5) * float2(width, height) - 0.5;
-    float2 base = floor(at);
-    float2 blend = at - base;
-    int2 low = int2(base);
-    int2 last = int2(width, height) - 1;
-
-    if (any(low < 0) || any(low + 1 > last))
-        return HB_UNDER_EMPTY;
-
-    float a = LOAD_TEXTURE2D_LOD(_HB_UnderHeight, low, 0).r;
-    float b = LOAD_TEXTURE2D_LOD(_HB_UnderHeight, low + int2(1, 0), 0).r;
-    float c = LOAD_TEXTURE2D_LOD(_HB_UnderHeight, low + int2(0, 1), 0).r;
-    float d = LOAD_TEXTURE2D_LOD(_HB_UnderHeight, low + int2(1, 1), 0).r;
-
-    known = min(min(a, b), min(c, d)) > HB_UNDER_EMPTY;
-    return lerp(lerp(a, b, blend.x), lerp(c, d, blend.x), blend.y);
+    return sharp;
 }
 
 bool HB_UnderAt(float3 positionWS)
@@ -127,51 +131,84 @@ bool HB_UnderAt(float3 positionWS)
     return known ? positionWS.y < surfaceY : _HB_UnderView.y > 0.5;
 }
 
-half3 HB_UnderLight(float3 eye, half4 mix, HBLiquidLook look, float lightDepth)
+half3 HB_UnderSky()
 {
-    Light mainLight = GetMainLight();
-    half3 sky = (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h))) * 0.5h;
-    half3 sun = half3(mainLight.color) * HB_LiquidFloorShadow(eye) * HB_LIQUID_SUN_SCATTER;
-    half dim = half(exp(-max(_HB_UnderView.x - eye.y, 0.0) / max(lightDepth, HB_UNDER_LIGHT_LEAST)));
-    half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * HB_LIQUID_GRAIN) * HB_LiquidThrob(mix);
-
-    return (sky + sun) * dim + glow;
+    return (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h))) * 0.5h;
 }
 
-half3 HB_UnderFog(half3 colour, half3 source, half4 mix, HBLiquidLook look, half3 lit, float path, bool exits,
-                  half window)
+half HB_UnderDim(float depth, float lightDepth)
 {
-    UNITY_BRANCH
-    if (exits && window < 1.0h)
-    {
-        HBLiquidLook deep = HB_LiquidLookAt(mix, HB_UNDER_FAR);
+    return half(exp(-max(depth, 0.0) / max(lightDepth, HB_UNDER_LIGHT_LEAST)));
+}
 
-        colour = lerp(deep.tone * lit, source, window);
+half4 HB_UnderMixAhead(float3 eye, float3 heading, float reach)
+{
+    half4 mix = half4(_HB_UnderMix);
+
+    UNITY_BRANCH
+    if (_HB_UnderAhead.x > 0.5)
+    {
+        float2 stride = heading.xz * (min(reach, HB_UNDER_AHEAD) / HB_UNDER_AHEAD_TAPS);
+        float2 at = eye.xz + stride * 0.5;
+        float4 slots = float4(HB_WATER_SEA_SLOT == float4(0.0, 1.0, 2.0, 3.0));
+        float4 sum = float4(0.0, 0.0, 0.0, 0.0);
+
+        UNITY_UNROLL
+        for (int tap = 0; tap < HB_UNDER_AHEAD_TAPS; tap++)
+        {
+            float2 uv = HB_LiquidUV(at + stride * tap);
+            float4 painted = HB_WaterInside(uv) ? SAMPLE_TEXTURE2D_LOD(_HB_WaterMix, sampler_LinearClamp, uv, 0)
+                                                : float4(0.0, 0.0, 0.0, 0.0);
+
+            sum += painted + saturate(1.0 - dot(painted, float4(1.0, 1.0, 1.0, 1.0))) * slots;
+        }
+
+        mix = half4(sum / HB_UNDER_AHEAD_TAPS);
     }
 
-    half3 through = PositivePow(clamp(look.shore, 1e-3h, 1.0h),
-                                half(min(path / HB_LIQUID_TINT_DEPTH, HB_LIQUID_TINT_MOST)))
-                  * (1.0h - look.murk);
-
-    return colour * through + look.tone * look.murk * lit;
+    return mix;
 }
 
-half3 HB_UnderCaustics(float3 floorWS, half4 mix, HBLiquidLook look)
+float HB_UnderAway(float2 uv, float3 eye)
+{
+    float raw = SampleSceneDepth(uv);
+    float hitAway = SAMPLE_TEXTURE2D_LOD(_HB_UnderMask, sampler_PointClamp, uv, 0).r;
+    float scene = HB_UnderSolid(raw) ? distance(eye, ComputeWorldSpacePosition(uv, raw, UNITY_MATRIX_I_VP))
+                                     : HB_UNDER_FAR;
+
+    return hitAway > 0.0 ? min(hitAway, scene) : scene;
+}
+
+half3 HB_UnderLight(float3 eye, float3 heading, HBLiquidLook look, float lightDepth)
+{
+    half3 sun = half3(GetMainLight().color);
+    half dim = HB_UnderDim(_HB_UnderView.x - eye.y, lightDepth);
+    half upward = half(saturate(heading.y * 0.5 + 0.5));
+    half toward = PositivePow(saturate(dot(half3(heading), half3(_MainLightPosition.xyz))), HB_UNDER_SUN_POWER);
+
+    return (HB_UnderSky() + sun * HB_LIQUID_SUN_SCATTER) * (dim * lerp(HB_UNDER_BELOW, HB_UNDER_ABOVE, upward))
+         + sun * (dim * HB_UNDER_SUN * toward);
+}
+
+half3 HB_UnderFog(half3 colour, HBLiquidLook look, half3 lit)
+{
+    return colour * (HB_LiquidGlowLift(look.tone, look.glow, lit) * HB_LiquidPassed(look.murk, look.tone, 1.0))
+         + look.tone * look.murk * (lit + look.glow);
+}
+
+half HB_UnderCaustics(float3 floorWS, float level, half4 mix, HBLiquidLook look)
 {
     half3 sunDirection = half3(_MainLightPosition.xyz);
-    half3 caustics = half3(0.0h, 0.0h, 0.0h);
+    half caustics = 0.0h;
 
     UNITY_BRANCH
     if (look.caustics > 0.0h && sunDirection.y > HB_LIQUID_CAUSTIC_SUN)
     {
-        half daylight = lerp(HB_LIQUID_CAUSTIC_NIGHT, 1.0h,
-                             half(saturate(_HB_SunDirection.y / HB_LIQUID_CAUSTIC_DUSK)));
-        half bright = HB_LiquidCaustics(floorWS, HB_UnderPlane(floorWS.xz), sunDirection, mix)
-                    * (look.caustics * daylight);
+        half bright = HB_LiquidCaustics(floorWS, level, sunDirection, mix) * look.caustics;
 
         UNITY_BRANCH
         if (bright > 0.0h)
-            caustics = half3(GetMainLight().color) * (bright * HB_LiquidFloorShadow(floorWS));
+            caustics = bright * HB_LiquidFloorShadow(floorWS) * HB_UNDER_CAUSTICS;
     }
 
     return caustics;
@@ -200,7 +237,7 @@ half HB_UnderShafts(float3 start, float3 heading, float path, half4 mix, half am
         {
             float along = begin + stride * index;
             float3 there = start + heading * along;
-            float under = HB_UnderPlane(there.xz) - there.y;
+            float under = _HB_UnderView.x + dot(_HB_UnderView.zw, there.xz - GetCameraPositionWS().xz) - there.y;
 
             if (under <= 0.0)
                 continue;
@@ -210,7 +247,7 @@ half HB_UnderShafts(float3 start, float3 heading, float path, half4 mix, half am
                                                 HB_UNDER_SHAFT_LOD);
 
             gathered += max(focus - still, 0.0) * float(HB_LiquidFloorShadow(there))
-                      * exp(-(along + under) / HB_UNDER_SHAFT_FADE);
+                      * exp(-along / HB_UNDER_SHAFT_FADE - under / HB_UNDER_SHAFT_DEEP);
         }
 
         shafts = half(gathered * stride) * amount * HB_UNDER_SHAFT_GAIN;
@@ -261,7 +298,7 @@ half HB_UnderBubbles(float3 eye, float3 heading, float away, half amount)
 
             march += min(exits.x, min(exits.y, exits.z)) + HB_UNDER_BUBBLE_NUDGE;
 
-            float4 chance = HB_UnderHash(block + ((fast ? floors.y : floors.x) + storey) * HB_UNDER_BUBBLE_SEED);
+            float4 chance = HB_LiquidHash4(block + ((fast ? floors.y : floors.x) + storey) * HB_UNDER_BUBBLE_SEED);
 
             if (chance.w > float(amount) * HB_UNDER_BUBBLE_SHARE)
                 continue;
@@ -284,7 +321,10 @@ half HB_UnderBubbles(float3 eye, float3 heading, float away, half amount)
             float edge = saturate((1.0 - span) / HB_UNDER_BUBBLE_EDGE);
             float rim = span * span * span * span * HB_UNDER_BUBBLE_RIM;
             float spark = saturate(1.0 - length(disc + HB_UNDER_BUBBLE_GLINT) * HB_UNDER_BUBBLE_SHARP);
-            float fade = saturate(1.0 - reach / range) * saturate(reach / HB_UNDER_BUBBLE_NEAR - 1.0);
+            float3 spot = eye + heading * reach;
+            float below = _HB_UnderView.x + dot(_HB_UnderView.zw, spot.xz - eye.xz) - spot.y;
+            float fade = saturate(1.0 - reach / range) * saturate(reach / HB_UNDER_BUBBLE_NEAR - 1.0)
+                       * saturate(below / HB_UNDER_BUBBLE_TOP);
             float look = (HB_UNDER_BUBBLE_BODY + rim) * edge + spark * spark * HB_UNDER_BUBBLE_SPARK;
 
             bubbles = max(bubbles, half(look * fade * fade));
@@ -316,18 +356,21 @@ half4 HB_UnderFragment(HBUnderVaryings input) : SV_Target
     UNITY_BRANCH
     if (under)
     {
-        half4 mix = half4(_HB_UnderMix);
-        half4 setting = HB_UnderMixed(_HB_LiquidUnder, mix);
-        half4 fog = HB_UnderMixed(_HB_LiquidUnderFog, mix);
+        half distortion = HB_UnderMixed(_HB_LiquidUnder, half4(_HB_UnderMix)).z;
         float2 bent = uv;
 
         UNITY_BRANCH
-        if (setting.z > 0.0h)
+        if (distortion > 0.0h)
+            distortion *= half(saturate((HB_UNDER_WOBBLE_FAR - HB_UnderAway(uv, eye))
+                                        / (HB_UNDER_WOBBLE_FAR - HB_UNDER_WOBBLE_NEAR)));
+
+        UNITY_BRANCH
+        if (distortion > 0.0h)
         {
             float2 wobble = float2(sin(uv.y * HB_UNDER_WOBBLE_ROWS + _Time.y * HB_UNDER_WOBBLE_PACE.x),
                                    cos(uv.x * HB_UNDER_WOBBLE_COLUMNS + _Time.y * HB_UNDER_WOBBLE_PACE.y));
 
-            bent = saturate(uv + wobble * (HB_UNDER_WOBBLE * float(setting.z)));
+            bent = saturate(uv + wobble * (HB_UNDER_WOBBLE * float(distortion)));
             source = half3(SAMPLE_TEXTURE2D_LOD(_HB_UnderColour, sampler_LinearClamp, bent, 0).rgb);
         }
 
@@ -340,35 +383,44 @@ half4 HB_UnderFragment(HBUnderVaryings input) : SV_Target
         float2 slope = _HB_UnderView.zw;
         float3 up = normalize(float3(-slope.x, 1.0, -slope.y));
         float scene = solid ? distance(nearWS, farWS) : HB_UNDER_FAR;
-        float climb = heading.y - dot(slope, heading.xz);
-        float rise = HB_UnderPlane(nearWS.xz) - nearWS.y;
-        float leave = climb > HB_UNDER_RISE ? max(rise, 0.0) / climb : HB_UNDER_FAR;
-        float path = hit ? max(hitAway - start, 0.0) : min(scene, leave);
+        float path = hit ? max(hitAway - start, 0.0) : scene;
+        half4 mix = HB_UnderMixAhead(eye, heading, path);
+        half4 setting = HB_UnderMixed(_HB_LiquidUnder, mix);
+        half4 fog = HB_UnderMixed(_HB_LiquidUnderFog, mix);
         float seen = path / max(float(fog.x), HB_UNDER_SEEN_LEAST);
 
-        exits = hit || leave < scene;
+        exits = hit;
         window = half(smoothstep(HB_UNDER_SNELL - HB_UNDER_SNELL_SOFT, HB_UNDER_SNELL + HB_UNDER_SNELL_SOFT,
                                  dot(heading, up)));
 
         HBLiquidLook look = HB_LiquidLookAt(mix, seen);
-        half3 lit = HB_UnderLight(eye, mix, look, fog.y);
 
-        colour = source;
+        if (exits)
+            look.murk = min(look.murk, half(saturate(path / HB_UNDER_CLEAR)));
+
+        half3 lit = HB_UnderLight(eye, heading, look, fog.y);
+
+        colour = HB_UnderBlurred(source, bent, HB_UnderBlurOf(setting.w, seen));
 
         UNITY_BRANCH
         if (!exits && solid)
-            colour += HB_UnderCaustics(farWS, mix, look);
+        {
+            float level = HB_UnderLevel(farWS.xz);
 
-        colour = HB_UnderFog(colour, source, mix, look, lit, seen, exits, window);
+            colour *= (1.0h + HB_UnderCaustics(farWS, level, mix, look)) * HB_UnderDim(level - farWS.y, fog.y);
+        }
 
-        Light mainLight = GetMainLight();
-        half3 sky = (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h)))
-                  * 0.5h;
-        half dim = half(exp(-max(_HB_UnderView.x - eye.y, 0.0) / max(float(fog.y), HB_UNDER_LIGHT_LEAST)));
+        colour = HB_UnderFog(colour, look, lit);
 
-        colour += half3(mainLight.color) * look.tone
-                * HB_UnderShafts(nearWS, heading, path, mix, setting.x, input.positionCS.xy);
-        colour += (sky + half3(mainLight.color) * 0.5h) * (HB_UnderBubbles(eye, heading, path, setting.y) * dim);
+        half3 sun = half3(GetMainLight().color);
+        half dim = HB_UnderDim(_HB_UnderView.x - eye.y, fog.y);
+
+        half entry = half(HB_UnderMixed(_HB_LiquidMolten, mix).w);
+
+        colour += sun * min(look.tone, 1.0h)
+                * HB_UnderShafts(nearWS, heading, path, mix, setting.x * entry, input.positionCS.xy);
+        colour += (HB_UnderSky() + sun * HB_LIQUID_SUN_SCATTER + look.glow)
+                * (HB_UnderBubbles(eye, heading, path, setting.y) * setting.y * dim);
     }
 
     colour *= 1.0h - seam * HB_UNDER_LINE_DARK;
@@ -402,14 +454,18 @@ half4 HB_UnderOverlayFragment(HBUnderVaryings input) : SV_Target
     if (!HB_UnderAt(positionWS))
         discard;
 
-    half4 mix = half4(_HB_UnderMix);
-    half4 fog = HB_UnderMixed(_HB_LiquidUnderFog, mix);
-    half3 source = half3(SAMPLE_TEXTURE2D_LOD(_HB_UnderColour, sampler_PointClamp, uv, 0).rgb);
     float3 eye = GetCameraPositionWS();
-    float seen = distance(eye, positionWS) / max(float(fog.x), HB_UNDER_SEEN_LEAST);
+    float away = distance(eye, positionWS);
+    float3 heading = (positionWS - eye) / max(away, HB_EPSILON);
+    half4 mix = HB_UnderMixAhead(eye, heading, away);
+    half4 fog = HB_UnderMixed(_HB_LiquidUnderFog, mix);
+    float seen = away / max(float(fog.x), HB_UNDER_SEEN_LEAST);
+    half3 source = HB_UnderBlurred(half3(SAMPLE_TEXTURE2D_LOD(_HB_UnderColour, sampler_PointClamp, uv, 0).rgb), uv,
+                                   HB_UnderBlurOf(HB_UnderMixed(_HB_LiquidUnder, mix).w, seen))
+                 * HB_UnderDim(HB_UnderLevel(positionWS.xz) - positionWS.y, fog.y);
     HBLiquidLook look = HB_LiquidLookAt(mix, seen);
-    half3 lit = HB_UnderLight(eye, mix, look, fog.y);
-    half3 colour = HB_UnderFog(source, source, mix, look, lit, seen, false, 1.0h);
+    half3 lit = HB_UnderLight(eye, heading, look, fog.y);
+    half3 colour = HB_UnderFog(source, look, lit);
 
 #if defined(HB_STYLE_DEBUG)
     UNITY_BRANCH

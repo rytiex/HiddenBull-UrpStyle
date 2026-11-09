@@ -99,6 +99,8 @@ namespace HiddenBull.UrpStyle
 
         StylePrecipitationPass m_Precipitation;
         HBStyleTransparencyLevel m_Level;
+        StyleReflectionHistoryPass m_History;
+        bool m_Reflecting;
         Material m_BlurMaterial;
         Material m_CutMaterial;
         ScriptableRenderContext m_Context;
@@ -120,8 +122,11 @@ namespace HiddenBull.UrpStyle
 
         internal bool liquidCut { get; private set; }
 
-        internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality, Shader blurShader,
-                            Shader cutShader)
+        internal bool canBlur => m_BlurMaterial != null;
+
+        internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality,
+                            HBStyleReflectionQuality reflections, StyleReflectionHistoryPass history,
+                            Shader blurShader, Shader cutShader)
         {
             if (m_BlurMaterial == null && blurShader != null)
                 m_BlurMaterial = CoreUtils.CreateEngineMaterial(blurShader);
@@ -131,12 +136,19 @@ namespace HiddenBull.UrpStyle
 
             m_Precipitation = precipitation;
             m_Level = quality.current;
+            m_History = history;
+
+            m_Reflecting = reflections.steps > 0;
+
             ConfigureInput(ScriptableRenderPassInput.Depth);
         }
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             liquidCut = false;
+
+            if (m_History != null)
+                m_History.glass = default;
 
             var resourceData = frameData.Get<UniversalResourceData>();
             var cameraData = frameData.Get<UniversalCameraData>();
@@ -170,9 +182,14 @@ namespace HiddenBull.UrpStyle
             }
 
             var splitRain = raining && glass;
+            var mirrorGlass = glass && m_Reflecting && m_History != null;
 
             if (!splitRain && !refractive)
             {
+                if (mirrorGlass)
+                    m_History.glass = RecordNearest(renderGraph, colour, depth, false, renderingData, cameraData,
+                                                    lightData);
+
                 if (raining)
                     m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.PlainStage, default);
 
@@ -182,6 +199,9 @@ namespace HiddenBull.UrpStyle
             }
 
             var nearest = RecordNearest(renderGraph, colour, depth, refractive, renderingData, cameraData, lightData);
+
+            if (mirrorGlass)
+                m_History.glass = nearest;
 
             if (splitRain)
                 m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.UnderStage, nearest);
@@ -246,6 +266,12 @@ namespace HiddenBull.UrpStyle
 
         TextureHandle RecordBackground(RenderGraph renderGraph, TextureHandle colour, UniversalCameraData cameraData)
         {
+            return RecordChain(renderGraph, colour, cameraData, "_HB_RefractionBackground", true);
+        }
+
+        internal TextureHandle RecordChain(RenderGraph renderGraph, TextureHandle colour,
+                                           UniversalCameraData cameraData, string name, bool global)
+        {
             var descriptor = renderGraph.GetTextureDesc(colour);
             var target = cameraData.cameraTargetDescriptor;
             var explicitSize = descriptor.sizeMode == TextureSizeMode.Explicit;
@@ -260,7 +286,7 @@ namespace HiddenBull.UrpStyle
                             : Vector2Int.Max(Vector2Int.RoundToInt((Vector2)sourceSize * scale), Vector2Int.one);
             var levels = Mathf.Min(BlurLevels, Mathf.FloorToInt(Mathf.Log(Mathf.Min(size.x, size.y), 2f)));
 
-            descriptor.name = "_HB_RefractionBackground";
+            descriptor.name = name;
             descriptor.sizeMode = TextureSizeMode.Explicit;
             descriptor.width = size.x;
             descriptor.height = size.y;
@@ -276,13 +302,13 @@ namespace HiddenBull.UrpStyle
             var background = renderGraph.CreateTexture(descriptor);
             var blurSize = Half(size, 1);
 
-            descriptor.name = "_HB_RefractionBlur";
+            descriptor.name = name + "Blur";
             descriptor.width = blurSize.x;
             descriptor.height = blurSize.y;
 
             var temp = renderGraph.CreateTexture(descriptor);
 
-            using var builder = renderGraph.AddUnsafePass<CopyData>("HB Style Refraction Background", out var data,
+            using var builder = renderGraph.AddUnsafePass<CopyData>("HB Style Blur Chain " + name, out var data,
                                                                    profilingSampler);
 
             data.source = colour;
@@ -297,7 +323,9 @@ namespace HiddenBull.UrpStyle
             builder.UseTexture(colour, AccessFlags.Read);
             builder.UseTexture(background, AccessFlags.ReadWrite);
             builder.UseTexture(temp, AccessFlags.ReadWrite);
-            builder.SetGlobalTextureAfterPass(background, s_BackgroundId);
+            if (global)
+                builder.SetGlobalTextureAfterPass(background, s_BackgroundId);
+
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (CopyData d, UnsafeGraphContext context) =>
@@ -490,8 +518,9 @@ namespace HiddenBull.UrpStyle
         }
 
         void RecordLiquid(RenderGraph renderGraph, TextureHandle colour, TextureHandle depth, TextureHandle background,
-                          bool cut, UniversalResourceData resourceData, UniversalRenderingData renderingData,
-                          UniversalCameraData cameraData, UniversalLightData lightData)
+                          bool cut, UniversalResourceData resourceData,
+                          UniversalRenderingData renderingData, UniversalCameraData cameraData,
+                          UniversalLightData lightData)
         {
             using var builder = renderGraph.AddRasterRenderPass<DrawData>("HB Style Liquid", out var data,
                                                                          profilingSampler);

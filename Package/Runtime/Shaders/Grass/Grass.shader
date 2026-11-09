@@ -31,6 +31,7 @@ Shader "Hidden/HB URP Style/Grass"
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile_fragment _ HB_STYLE_DEBUG
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
 
             #define HB_GRASS_FORWARD
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl"

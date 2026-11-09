@@ -277,3 +277,127 @@ void Caustics(uint3 id : SV_DispatchThreadID)
 
     _HB_CausticsOut[id.xy] = float4(bent, 0.0);
 }
+
+#pragma kernel PlateMask
+#pragma kernel PlateSpread
+#pragma kernel PlateFill
+#pragma kernel PlateTone
+
+Texture2D<float4> _HB_PlateNormal;
+RWStructuredBuffer<uint> _HB_PlateLabels;
+RWStructuredBuffer<float> _HB_PlateShape;
+RWTexture2D<float2> _HB_PlateOut;
+SamplerState sampler_LinearRepeat;
+
+float4 _HB_PlateBake;
+
+#define HB_PLATE_SIZE  ((int)_HB_PlateBake.x)
+#define HB_PLATE_LOD   _HB_PlateBake.y
+#define HB_PLATE_FLAT  0.4
+#define HB_PLATE_CRACK 0.7
+#define HB_PLATE_REACH 2
+#define HB_PLATE_SOLID 0.5
+
+static const int2 s_PlateAround[4] = { int2(1, 0), int2(-1, 0), int2(0, 1), int2(0, -1) };
+
+uint HB_PlateIndex(int2 at)
+{
+    uint2 wrapped = (uint2)(at + HB_PLATE_SIZE) % (uint)HB_PLATE_SIZE;
+
+    return (uint)(wrapped.y * HB_PLATE_SIZE + wrapped.x);
+}
+
+float HB_PlateSlope(int2 at)
+{
+    float2 uv = ((float2)at + 0.5) / HB_PLATE_SIZE;
+    float4 packed = _HB_PlateNormal.SampleLevel(sampler_LinearRepeat, uv, HB_PLATE_LOD);
+
+    packed.a *= packed.r;
+    return length(packed.ag * 2.0 - 1.0);
+}
+
+float HB_PlateHash(uint value)
+{
+    value ^= 2747636419u;
+    value *= 2654435769u;
+    value ^= value >> 16;
+    value *= 2654435769u;
+    value ^= value >> 16;
+    value *= 2654435769u;
+
+    return (float)value / 4294967295.0;
+}
+
+[numthreads(8, 8, 1)]
+void PlateMask(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_PLATE_SIZE))
+        return;
+
+    float steep = 0.0;
+
+    for (int y = -HB_PLATE_REACH; y <= HB_PLATE_REACH; y++)
+    {
+        for (int x = -HB_PLATE_REACH; x <= HB_PLATE_REACH; x++)
+            steep = max(steep, HB_PlateSlope((int2)id.xy + int2(x, y)));
+    }
+
+    float shape = 1.0 - smoothstep(HB_PLATE_FLAT, HB_PLATE_CRACK, steep);
+    uint index = HB_PlateIndex((int2)id.xy);
+
+    _HB_PlateShape[index] = shape;
+    _HB_PlateLabels[index] = shape > HB_PLATE_SOLID ? index + 1 : 0;
+}
+
+[numthreads(8, 8, 1)]
+void PlateSpread(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_PLATE_SIZE))
+        return;
+
+    uint index = HB_PlateIndex((int2)id.xy);
+    uint label = _HB_PlateLabels[index];
+
+    if (label == 0)
+        return;
+
+    for (int side = 0; side < 4; side++)
+    {
+        uint other = _HB_PlateLabels[HB_PlateIndex((int2)id.xy + s_PlateAround[side])];
+
+        if (other != 0)
+            label = min(label, other);
+    }
+
+    _HB_PlateLabels[index] = label;
+}
+
+[numthreads(8, 8, 1)]
+void PlateFill(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_PLATE_SIZE))
+        return;
+
+    uint index = HB_PlateIndex((int2)id.xy);
+    uint label = _HB_PlateLabels[index];
+
+    if (label != 0)
+        return;
+
+    for (int side = 0; side < 4; side++)
+        label = max(label, _HB_PlateLabels[HB_PlateIndex((int2)id.xy + s_PlateAround[side])]);
+
+    _HB_PlateLabels[index] = label;
+}
+
+[numthreads(8, 8, 1)]
+void PlateTone(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_PLATE_SIZE))
+        return;
+
+    uint index = HB_PlateIndex((int2)id.xy);
+    uint label = _HB_PlateLabels[index];
+
+    _HB_PlateOut[id.xy] = float2(_HB_PlateShape[index], label != 0 ? HB_PlateHash(label) : 0.5);
+}

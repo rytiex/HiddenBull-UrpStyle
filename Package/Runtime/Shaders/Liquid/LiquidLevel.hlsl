@@ -29,6 +29,7 @@ struct HBWaterLevel
 {
     float level;
     bool wet;
+    half fade;
     half4 mix;
 };
 
@@ -46,31 +47,44 @@ float HB_WaterHeight(float2 uv, float base)
     return base + HB_WATER_SEA_LEVEL + offset;
 }
 
-float4 HB_WaterMixAt(float2 uv)
+float4 HB_WaterSpline(TEXTURE2D_PARAM(map, samplerMap), float2 uv)
 {
     uint width;
     uint height;
-    _HB_WaterMix.GetDimensions(width, height);
+    map.GetDimensions(width, height);
 
-    int2 last = int2(width, height) - 1;
-    float2 at = saturate(uv) * float2(width, height) - 0.5;
+    float2 size = float2(width, height);
+    float2 at = saturate(uv) * size - 0.5;
     float2 base = floor(at);
-    float2 blend = at - base;
-    int2 low = clamp(int2(base), 0, last);
-    int2 high = clamp(int2(base) + 1, 0, last);
+    float2 f = at - base;
+    float2 f2 = f * f;
+    float2 f3 = f2 * f;
+    float2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+    float2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+    float2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+    float2 w3 = f3 / 6.0;
+    float2 g0 = w0 + w1;
+    float2 g1 = w2 + w3;
+    float2 low = (base - 0.5 + w1 / g0) / size;
+    float2 high = (base + 1.5 + w3 / g1) / size;
 
-    float4 a = LOAD_TEXTURE2D_LOD(_HB_WaterMix, low, 0);
-    float4 b = LOAD_TEXTURE2D_LOD(_HB_WaterMix, int2(high.x, low.y), 0);
-    float4 c = LOAD_TEXTURE2D_LOD(_HB_WaterMix, int2(low.x, high.y), 0);
-    float4 d = LOAD_TEXTURE2D_LOD(_HB_WaterMix, high, 0);
+    float4 a = SAMPLE_TEXTURE2D_LOD(map, samplerMap, low, 0);
+    float4 b = SAMPLE_TEXTURE2D_LOD(map, samplerMap, float2(high.x, low.y), 0);
+    float4 c = SAMPLE_TEXTURE2D_LOD(map, samplerMap, float2(low.x, high.y), 0);
+    float4 d = SAMPLE_TEXTURE2D_LOD(map, samplerMap, high, 0);
 
-    return lerp(lerp(a, b, blend.x), lerp(c, d, blend.x), blend.y);
+    return (a * g0.x + b * g1.x) * g0.y + (c * g0.x + d * g1.x) * g1.y;
+}
+
+float4 HB_WaterMixAt(float2 uv)
+{
+    return HB_WaterSpline(TEXTURE2D_ARGS(_HB_WaterMix, sampler_LinearClamp), uv);
 }
 
 HBWaterLevel HB_WaterLevel(float2 uv, float base)
 {
     bool inside = HB_WaterInside(uv);
-    float cut = SAMPLE_TEXTURE2D_LOD(_HB_WaterLevel, sampler_PointClamp, uv, 0).g;
+    float cut = SAMPLE_TEXTURE2D_LOD(_HB_WaterLevel, sampler_LinearClamp, uv, 0).g;
     half4 mix = half4(HB_WaterMixAt(uv));
 
     mix = inside ? mix : half4(0.0h, 0.0h, 0.0h, 0.0h);
@@ -78,6 +92,7 @@ HBWaterLevel HB_WaterLevel(float2 uv, float base)
     HBWaterLevel water;
     water.level = HB_WaterHeight(uv, base);
     water.wet = HB_WATER_ON > 0.5 && (!inside || cut < HB_WATER_DRY);
+    water.fade = inside ? half(saturate(1.0 - cut / HB_WATER_DRY)) : 1.0h;
     half rest = saturate(1.0h - dot(mix, half4(1.0h, 1.0h, 1.0h, 1.0h)));
     water.mix = mix + rest * half4(HB_WATER_SEA_SLOT == float4(0.0, 1.0, 2.0, 3.0));
     return water;
@@ -85,7 +100,7 @@ HBWaterLevel HB_WaterLevel(float2 uv, float base)
 
 float3 HB_WaterFlow(float2 uv)
 {
-    return SAMPLE_TEXTURE2D_LOD(_HB_WaterFlow, sampler_LinearClamp, uv, 0).rgb;
+    return HB_WaterSpline(TEXTURE2D_ARGS(_HB_WaterFlow, sampler_LinearClamp), uv).rgb;
 }
 
 float4 _HB_PoolBox;

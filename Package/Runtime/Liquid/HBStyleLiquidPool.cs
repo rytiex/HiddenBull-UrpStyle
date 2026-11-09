@@ -28,6 +28,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CalmGridId = Shader.PropertyToID("_HB_LiquidCalmGrid");
         static readonly int s_IdId = Shader.PropertyToID("_HB_LiquidId");
         static readonly int s_KeepId = Shader.PropertyToID("_HB_LiquidKeep");
+        static readonly int s_EyeId = Shader.PropertyToID("_HB_LiquidEye");
 
         static readonly Dictionary<int, Mesh> s_Grids = new Dictionary<int, Mesh>();
         static readonly List<HBStyleLiquidPool> s_Pools = new List<HBStyleLiquidPool>();
@@ -239,6 +240,7 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_CalmGridId, Vector4.zero);
             block.SetFloat(s_IdId, HBStyleLiquidCutter.PoolKind);
             block.SetFloat(s_KeepId, HBStyleLiquidCutter.Keeps(this, bounds) ? 1f : 0f);
+            block.SetFloat(s_EyeId, HBStyleLiquid.EyeLevel(this, camera.transform.position));
 
             var parameters = new RenderParams(material)
             {

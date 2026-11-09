@@ -153,6 +153,8 @@ namespace HiddenBull.UrpStyle
 
         internal void Bind(ScriptableRenderContext context, ComputeShader compute, MaterialPropertyBlock block)
         {
+            StyleLiquidPlates.Use(compute);
+
             if (!Ready(compute))
             {
                 Empty(block);

@@ -7,6 +7,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Brush/StyleBrush.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Shadow/StyleShadow.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Sky/StyleSky.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleScreenReflection.hlsl"
 
 #define HB_SELF_SHADOW_FADE     0.05h
 #define HB_REFLECTION_HORIZON   0.04h
@@ -16,6 +17,9 @@
 #define HB_SPECULAR_SHEEN_MOST  1.5h
 #define HB_SPECULAR_BRUSH       1.0h
 #define HB_WET_FILM_SMOOTHNESS  0.85h
+
+TEXTURE2D(_HB_SkyMap);
+float4 _HB_SkyMapSet;
 
 half3 HB_LightResponse(Light light, half3 normalWS, half3 surfaceNormalWS, HBStyleData style, half terminatorOffset)
 {
@@ -138,6 +142,31 @@ half3 HB_ProbeReflection(half3 reflectVector, float3 positionWS, half mip, float
     return irradiance;
 }
 
+half3 HB_SkyMapSample(half3 direction, half perceptualRoughness)
+{
+    float2 uv = PackNormalOctQuadEncode(normalize(float3(direction.xzy))) * 0.5 + 0.5;
+
+    return SAMPLE_TEXTURE2D_LOD(_HB_SkyMap, sampler_LinearClamp, uv,
+                                PerceptualRoughnessToMipmapLevel(perceptualRoughness)).rgb;
+}
+
+half3 HB_EnvironmentSky(half3 reflectVector, half3 normalWS, half perceptualRoughness)
+{
+    half roughness = perceptualRoughness * perceptualRoughness;
+    half3 skyDirection = normalize(lerp(reflectVector, normalWS, roughness));
+
+    half horizon = smoothstep(-HB_REFLECTION_HORIZON, HB_REFLECTION_HORIZON, skyDirection.y);
+    half3 sky;
+
+    UNITY_BRANCH
+    if (_HB_SkyMapSet.x > 0.5)
+        sky = HB_SkyMapSample(skyDirection, perceptualRoughness);
+    else
+        sky = HB_SkySample(skyDirection, max(skyDirection.y, 0.0h));
+
+    return lerp(HB_GradientAmbient(skyDirection), sky, horizon);
+}
+
 half3 HB_EnvironmentReflection(half3 reflectVector, half3 normalWS, float3 positionWS, half perceptualRoughness,
                                float2 screenUV, half skyVisibility)
 {
@@ -145,13 +174,7 @@ half3 HB_EnvironmentReflection(half3 reflectVector, half3 normalWS, float3 posit
     half weight;
 
     half3 probes = HB_ProbeReflection(reflectVector, positionWS, mip, screenUV, weight);
-
-    half roughness = perceptualRoughness * perceptualRoughness;
-    half3 skyDirection = normalize(lerp(reflectVector, normalWS, roughness));
-
-    half horizon = smoothstep(-HB_REFLECTION_HORIZON, HB_REFLECTION_HORIZON, skyDirection.y);
-    half3 sky = lerp(HB_GradientAmbient(skyDirection), HB_SkySample(skyDirection, max(skyDirection.y, 0.0h)),
-                     horizon) * skyVisibility;
+    half3 sky = HB_EnvironmentSky(reflectVector, normalWS, perceptualRoughness) * skyVisibility;
 
     return probes + sky * (1.0h - weight);
 }
@@ -285,7 +308,10 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
     half3 environmentSpecular = HB_EnvironmentReflection(reflectVector, inputData.normalWS, inputData.positionWS,
                                                          brdfData.perceptualRoughness,
-                                                         inputData.normalizedScreenSpaceUV, lightReach) * occlusion;
+                                                         inputData.normalizedScreenSpaceUV, lightReach);
+    half4 screen = HB_ScreenReflect(inputData.positionWS, reflectVector, brdfData.perceptualRoughness);
+
+    environmentSpecular = lerp(environmentSpecular, screen.rgb, screen.a) * occlusion;
     half gloss = 1.0h - brdfData.perceptualRoughness;
     half fresnelTerm = Pow4(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS))) * (gloss * gloss);
 
@@ -311,7 +337,10 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
         half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
         half3 environment = HB_EnvironmentReflection(reflectVector, inputData.normalWS, inputData.positionWS,
                                                      brdfData.perceptualRoughness,
-                                                     inputData.normalizedScreenSpaceUV, lightReach) * occlusion;
+                                                     inputData.normalizedScreenSpaceUV, lightReach);
+        half4 screen = HB_ScreenReflect(inputData.positionWS, reflectVector, brdfData.perceptualRoughness);
+
+        environment = lerp(environment, screen.rgb, screen.a) * occlusion;
         half gloss = 1.0h - brdfData.perceptualRoughness;
         half fresnelTerm = Pow4(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS))) * (gloss * gloss);
 

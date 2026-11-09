@@ -28,6 +28,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly int s_IdId = Shader.PropertyToID("_HB_LiquidId");
         static readonly int s_KeepId = Shader.PropertyToID("_HB_LiquidKeep");
+        static readonly int s_EyeId = Shader.PropertyToID("_HB_LiquidEye");
 
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly StyleLiquidLook m_Look = new StyleLiquidLook();
@@ -75,6 +76,7 @@ namespace HiddenBull.UrpStyle
             m_Waves.Bind(context, waves, block);
             block.SetFloat(s_IdId, HBStyleLiquidCutter.TerrainKind);
             block.SetFloat(s_KeepId, Kept(data, origin) ? 1f : 0f);
+            block.SetFloat(s_EyeId, HBStyleLiquid.EyeLevel(owner, camera.transform.position));
             m_Calm.Bind(context, waves, data, block);
 
             m_Tree.SetRanges(Mathf.Max(detailRange * DetailShare, m_Tree.leafSize * LeafReach));

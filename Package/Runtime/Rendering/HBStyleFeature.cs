@@ -53,6 +53,14 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Shader m_ReflectDepthShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Shader m_SkyMapShader;
+
+        [SerializeField]
+        [HideInInspector]
         Material m_TerrainVariants;
 
         StyleCameraStates m_Cameras;
@@ -66,6 +74,9 @@ namespace HiddenBull.UrpStyle
         StyleTransparentShadowPass m_TransparentShadowPass;
         StyleOverlayShadowPass m_OverlayShadowPass;
         StyleUnderwaterPass m_UnderwaterPass;
+        StyleUnderwaterHeightPass m_UnderwaterHeightPass;
+        StyleReflectionHistoryPass m_ReflectionHistoryPass;
+        StyleSkyMapPass m_SkyMapPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -109,6 +120,9 @@ namespace HiddenBull.UrpStyle
             m_TransparentShadowPass = new StyleTransparentShadowPass();
             m_OverlayShadowPass = new StyleOverlayShadowPass();
             m_UnderwaterPass = new StyleUnderwaterPass();
+            m_UnderwaterHeightPass = new StyleUnderwaterHeightPass();
+            m_ReflectionHistoryPass = new StyleReflectionHistoryPass();
+            m_SkyMapPass = new StyleSkyMapPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -121,6 +135,8 @@ namespace HiddenBull.UrpStyle
             m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
             m_LiquidCutShader = Load(m_LiquidCutShader, StyleTransparencyPass.CutShaderPath);
             m_UnderwaterShader = Load(m_UnderwaterShader, StyleUnderwaterPass.ShaderPath);
+            m_ReflectDepthShader = Load(m_ReflectDepthShader, StyleReflectionHistoryPass.DepthShaderPath);
+            m_SkyMapShader = Load(m_SkyMapShader, StyleSkyMapPass.ShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
@@ -144,9 +160,19 @@ namespace HiddenBull.UrpStyle
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
 
             m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
-            m_TransparencyPass.Setup(kind == StyleCameraKind.Base ? m_PrecipitationPass : null, quality.transparency,
+            var baseCamera = kind == StyleCameraKind.Base;
+
+            m_TransparencyPass.Setup(baseCamera ? m_PrecipitationPass : null, quality.transparency,
+                                     quality.reflections, baseCamera ? m_ReflectionHistoryPass : null,
                                      m_RefractionBlurShader, m_LiquidCutShader);
+            m_ReflectionHistoryPass.Setup(quality.reflections, m_ReflectDepthShader);
+            m_ReflectionHistoryPass.binder.Setup(baseCamera);
+            renderer.EnqueuePass(m_ReflectionHistoryPass.binder);
             m_TransparentShadowPass.Setup(quality.transparency);
+
+            if (kind == StyleCameraKind.Base)
+                renderer.EnqueuePass(m_UnderwaterHeightPass);
+
             renderer.EnqueuePass(m_TransparencyPass);
             renderer.EnqueuePass(m_TransparentShadowPass);
 
@@ -159,7 +185,8 @@ namespace HiddenBull.UrpStyle
 
             if (kind == StyleCameraKind.Overlay)
             {
-                m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, true, quality.transparency.level);
+                m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, m_UnderwaterHeightPass, true,
+                                       quality.transparency.level);
                 renderer.EnqueuePass(m_UnderwaterPass);
             }
 
@@ -189,7 +216,13 @@ namespace HiddenBull.UrpStyle
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
 
-            m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, false, quality.transparency.level);
+            renderer.EnqueuePass(m_ReflectionHistoryPass);
+
+            m_SkyMapPass.Setup(m_SkyMapShader, quality.reflections.skyMapSize);
+            renderer.EnqueuePass(m_SkyMapPass);
+
+            m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, m_UnderwaterHeightPass, false,
+                                   quality.transparency.level);
             renderer.EnqueuePass(m_UnderwaterPass);
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
@@ -275,6 +308,14 @@ namespace HiddenBull.UrpStyle
 
             m_UnderwaterPass?.Dispose();
             m_UnderwaterPass = null;
+
+            m_UnderwaterHeightPass?.Dispose();
+            m_UnderwaterHeightPass = null;
+            m_ReflectionHistoryPass?.Dispose();
+            m_ReflectionHistoryPass = null;
+
+            m_SkyMapPass?.Dispose();
+            m_SkyMapPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

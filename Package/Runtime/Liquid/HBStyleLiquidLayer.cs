@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace HiddenBull.UrpStyle
 {
@@ -56,8 +57,21 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
+        [Tooltip("How fast the small ripples, the crust and the brush strokes drift with the wind. 0 holds them " +
+                 "still; painted flow still moves them.")]
+        float m_RippleDrift = 1f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
         [Tooltip("How sharp the reflections and the sun's highlight are.")]
         float m_Smoothness = 0.65f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How much the ripples shift what is seen through the surface, and the sky seen from below it. " +
+                 "0 turns it off.")]
+        [FormerlySerializedAs("m_Refraction")]
+        float m_SurfaceDistortion = 1f;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -89,8 +103,9 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How much the liquid shines in its own colour, day and night, like acid or lava. Raise the " +
-                 "gradient's intensity above 1 for a glow strong enough to bloom.")]
+        [Tooltip("How much the liquid shines in its own colour, day and night, like acid or lava. It also lights " +
+                 "what lies in it, so it brightens without hiding the bottom. Raise the gradient's intensity " +
+                 "above 1 for a glow strong enough to bloom.")]
         float m_Glow;
 
         [SerializeField]
@@ -126,8 +141,8 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How strong all the foam is: waterline, shore foam and white caps. 0 turns it off.")]
-        float m_FoamAmount = 0.3f;
+        [Tooltip("How much of the surface the foam covers: waterline, shore foam and white caps. 0 turns it off.")]
+        float m_FoamAmount = 0.5f;
 
         [SerializeField]
         [Range(0f, 30f)]
@@ -146,31 +161,29 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0.1f, 8f)]
-        [Tooltip("Size of the foam cells, the sun glints, and the bubble and crust patches.")]
+        [Tooltip("Size of the foam cells, the sun glints, the bubbles and the crust patches.")]
         float m_PatternScale = 1f;
 
         [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How much of the surface a solid, drifting crust covers, as on lava. 0 turns it off.")]
+        [Tooltip("How much of each plate in the normal map cools into crust, as on lava, while its cracks keep " +
+                 "glowing. Foam and glow stay under the crust. 0 turns it off.")]
         float m_Crust;
 
         [SerializeField]
         [ColorUsage(false)]
-        [Tooltip("Colour of the crust.")]
+        [Tooltip("What the crust does to the liquid's colour and glow. Dark cools it to rock; white leaves it as " +
+                 "it is.")]
         Color m_CrustColor = Color.black;
 
         [SerializeField]
-        [Tooltip("Its brightness decides where the crust forms. Leave it empty for crust from the pattern alone.")]
-        Texture2D m_CrustMap;
-
-        [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How softly light wraps round foam and crust.")]
+        [Tooltip("How softly light wraps round the foam.")]
         float m_DiffuseWrap = 0.125f;
 
         [SerializeField]
         [Range(0f, 2f)]
-        [Tooltip("Width of each step between the tones of foam and crust.")]
+        [Tooltip("Width of each step between the tones of the foam.")]
         float m_DiffuseSoftness = 0.25f;
 
         [SerializeField]
@@ -189,6 +202,18 @@ namespace HiddenBull.UrpStyle
         float m_Distortion = 0.3f;
 
         [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How clearly the sky shows through the bright window above the camera while it is under the " +
+                 "surface. 1 is fully clear, 0.5 half, 0 closes the window.")]
+        float m_SnellWindow = 1f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How blurry things look while the camera is under the surface. Near things, the hands included, " +
+                 "soften a little and far things blur fully. 0 keeps everything sharp.")]
+        float m_UnderBlur = 0.5f;
+
+        [SerializeField]
         [Range(0.25f, 4f)]
         [Tooltip("How far you see while the camera is under the surface. 1 follows the Depth Gradient, 2 lets " +
                  "you see twice as far, 0.5 half as far.")]
@@ -198,7 +223,7 @@ namespace HiddenBull.UrpStyle
         [Min(0.5f)]
         [Tooltip("Depth in metres at which the light under the surface has faded to about a third. Lower values " +
                  "make deep water darker sooner.")]
-        float m_UnderLightDepth = 12f;
+        float m_UnderLightDepth = 18f;
 
         [System.NonSerialized]
         int m_Version;
@@ -219,7 +244,11 @@ namespace HiddenBull.UrpStyle
 
         public float normalStrength => m_NormalStrength;
 
+        public float rippleDrift => m_RippleDrift;
+
         public float smoothness => m_Smoothness;
+
+        public float surfaceDistortion => m_SurfaceDistortion;
 
         public float refractionBlur => m_RefractionBlur;
 
@@ -259,8 +288,6 @@ namespace HiddenBull.UrpStyle
 
         public Color crustColor => m_CrustColor;
 
-        public Texture2D crustMap => m_CrustMap;
-
         public float diffuseWrap => m_DiffuseWrap;
 
         public float diffuseSoftness => m_DiffuseSoftness;
@@ -270,6 +297,10 @@ namespace HiddenBull.UrpStyle
         public float underBubbles => m_UnderBubbles;
 
         public float distortion => m_Distortion;
+
+        public float snellWindow => m_SnellWindow;
+
+        public float underBlur => m_UnderBlur;
 
         public float underVisibility => m_UnderVisibility;
 
@@ -300,7 +331,9 @@ namespace HiddenBull.UrpStyle
             m_WaveSteepness = lava ? 2f : 1f;
             m_WaveLength = lava ? 0.45f : 1f;
             m_NormalStrength = water ? 0.25f : 2f;
+            m_RippleDrift = 1f;
             m_Smoothness = lava ? 0.575f : 0.65f;
+            m_SurfaceDistortion = water ? 1f : 0f;
             m_RefractionBlur = water ? 0.145f : 0f;
             m_Brush = 0.5f;
             m_BrushSize = 1f;
@@ -311,15 +344,17 @@ namespace HiddenBull.UrpStyle
             m_CausticScale = water ? 0.65f : 0.25f;
             m_CrestSoftness = water ? 0.45f : 0f;
             m_WaterlineDepth = lava ? 3f : acid ? 0.45f : 0.1f;
-            m_FoamAmount = lava ? 1f : 0.3f;
+            m_FoamAmount = 0.5f;
             m_ShoreFoam = lava ? 0f : 2.5f;
             m_Bubbles = lava ? 0.0225f : acid ? 0.125f : 0f;
             m_Pulse = lava ? 0.125f : acid ? 1.5f : 1f;
             m_PatternScale = acid ? 3f : 1f;
-            m_Crust = lava ? 0.865f : 0f;
+            m_Crust = lava ? 0.55f : 0f;
             m_LightShafts = lava ? 1f : acid ? 0.4f : 0.5f;
             m_UnderBubbles = lava ? 0f : acid ? 0.65f : 0.25f;
             m_Distortion = lava ? 1f : 0.3f;
+            m_SnellWindow = lava ? 0f : acid ? 0.5f : 1f;
+            m_UnderBlur = acid ? 0.6f : 0.5f;
             m_RainRipples = true;
 
             m_CrestColor = lava ? new Color(0.44339618f, 0.44339618f, 0.44339618f, 1f)
@@ -360,8 +395,8 @@ namespace HiddenBull.UrpStyle
                         new GradientColorKey(new Color(0.2601031f, 0.4245283f, 0f), 1f)
                     }, new[]
                     {
-                        new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.7538165f, 0.6500038f),
-                        new GradientAlphaKey(1f, 1f)
+                        new GradientAlphaKey(0.25f, 0f), new GradientAlphaKey(0.75f, 0.5f),
+                        new GradientAlphaKey(1f, 0.85f)
                     });
                     break;
 
@@ -373,9 +408,9 @@ namespace HiddenBull.UrpStyle
                         new GradientColorKey(new Color(0f, 0.0031320888f, 0.028301895f), 1f)
                     }, new[]
                     {
-                        new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.1254902f, 0.28824294f),
-                        new GradientAlphaKey(0.2509804f, 0.57941556f), new GradientAlphaKey(0.7538165f, 0.8f),
-                        new GradientAlphaKey(1f, 1f)
+                        new GradientAlphaKey(0.1f, 0f), new GradientAlphaKey(0.35f, 0.25f),
+                        new GradientAlphaKey(0.7f, 0.5f),
+                        new GradientAlphaKey(0.92f, 0.75f), new GradientAlphaKey(1f, 1f)
                     });
                     break;
             }

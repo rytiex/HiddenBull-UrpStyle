@@ -64,7 +64,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2550
+            Slots = 2720
             Reads = 60
         }
         @{
@@ -77,7 +77,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2550
+            Slots = 2720
             Reads = 60
         }
         @{
@@ -89,7 +89,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2550
+            Slots = 2720
             Reads = 60
         }
         @{
@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2550
+            Slots = 2720
             Reads = 60
         }
         @{
@@ -460,6 +460,16 @@
             Reads = 20
         }
         @{
+            Name = 'Sky Map'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Sky/SkyMapPass.hlsl'
+            Entry = 'HB_SkyMapFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 1100
+            Reads = 16
+        }
+        @{
             Name = 'Atmosphere fullscreen'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Atmosphere/AtmospherePass.hlsl'
             Entry = 'HB_AtmosphereFragment'
@@ -510,6 +520,16 @@
             Reads = 2
         }
         @{
+            Name = 'Reflect Depth'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Reflection/ReflectDepthPass.hlsl'
+            Entry = 'HB_ReflectDepthFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 20
+            Reads = 2
+        }
+        @{
             Name = 'Refraction Blur Downsample'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/RefractionBlurPass.hlsl'
             Entry = 'HB_RefractionDownsampleFragment'
@@ -547,8 +567,8 @@
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
                         '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2000
-            Reads = 45
+            Slots = 2130
+            Reads = 48
         }
         @{
             Name = 'Transparent Forward (tinted or refractive, brush)'
@@ -557,8 +577,8 @@
             Stage = 'ps'
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2200
-            Reads = 70
+            Slots = 2320
+            Reads = 75
         }
         @{
             Name = 'Particle Forward (lit, all)'
@@ -762,7 +782,7 @@
             Urp = 'Full'
             Defines = @('PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
             Slots = 1500
-            Reads = 30
+            Reads = 35
         }
         @{
             Name = 'Billboard Forward (debug)'
@@ -1112,7 +1132,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4600
+            Slots = 4740
             Reads = 200
         }
         @{
@@ -1162,8 +1182,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 2500
-            Reads = 110
+            Slots = 3700
+            Reads = 145
         }
         @{
             Name = 'Liquid Surface (debug)'
@@ -1242,8 +1262,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 720
-            Reads = 28
+            Slots = 770
+            Reads = 30
         }
         @{
             Name = 'Underwater Overlay'
@@ -1252,8 +1272,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 300
-            Reads = 20
+            Slots = 330
+            Reads = 22
         }
         @{
             Name = 'Underwater (debug)'
@@ -1366,6 +1386,46 @@
             Reads = 0
         }
         @{
+            Name = 'Liquid Waves PlateMask'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'PlateMask'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves PlateSpread'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'PlateSpread'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves PlateFill'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'PlateFill'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves PlateTone'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'PlateTone'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Grass Forward'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
             Entry = 'HB_GrassFragment'
@@ -1374,6 +1434,14 @@
             Defines = @('HB_GRASS_FORWARD')
             Slots = 2000
             Reads = 30
+        }
+        @{
+            Name = 'Grass Forward (probe volumes)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/GrassPass.hlsl'
+            Entry = 'HB_GrassFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('HB_GRASS_FORWARD', 'PROBE_VOLUMES_L1')
         }
         @{
             Name = 'Grass Forward (debug)'
