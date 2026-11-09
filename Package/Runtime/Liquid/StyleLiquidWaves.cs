@@ -155,9 +155,7 @@ namespace HiddenBull.UrpStyle
         {
             if (!Ready(compute))
             {
-                block.SetTexture(s_FoamId, Texture2D.grayTexture);
-                block.SetTexture(s_CausticsId, Texture2D.blackTexture);
-                block.SetVector(s_CausticGridId, Vector4.zero);
+                Empty(block);
                 return;
             }
 
@@ -169,6 +167,29 @@ namespace HiddenBull.UrpStyle
                 m_Baked = now;
             }
 
+            Apply(block);
+        }
+
+        internal static void BindBaked(MaterialPropertyBlock block)
+        {
+            if (s_Shared == null || s_Shared.m_Displacement == null)
+            {
+                Empty(block);
+                return;
+            }
+
+            s_Shared.Apply(block);
+        }
+
+        static void Empty(MaterialPropertyBlock block)
+        {
+            block.SetTexture(s_FoamId, Texture2D.grayTexture);
+            block.SetTexture(s_CausticsId, Texture2D.blackTexture);
+            block.SetVector(s_CausticGridId, Vector4.zero);
+        }
+
+        void Apply(MaterialPropertyBlock block)
+        {
             var heading = HBStyleLiquid.windHeading * Mathf.Deg2Rad;
 
             block.SetTexture(s_DisplacementId, m_Displacement);

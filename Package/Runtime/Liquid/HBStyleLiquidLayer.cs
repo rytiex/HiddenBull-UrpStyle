@@ -45,8 +45,13 @@ namespace HiddenBull.UrpStyle
         float m_Tiling = 0.125f;
 
         [SerializeField]
+        [Tooltip("Normal map of the small ripples. It repeats by Tiling, drifts with the wind and follows the " +
+                 "flow painted on the terrain liquid. Leave it empty for a surface shaped by the waves alone.")]
+        Texture2D m_NormalMap;
+
+        [SerializeField]
         [Range(0f, 2f)]
-        [Tooltip("How strongly the small ripples bend the surface.")]
+        [Tooltip("How strongly the small ripples of the Normal Map bend the surface.")]
         float m_NormalStrength = 0.25f;
 
         [SerializeField]
@@ -183,6 +188,18 @@ namespace HiddenBull.UrpStyle
         [Tooltip("How much the view sways while the camera is under the surface.")]
         float m_Distortion = 0.3f;
 
+        [SerializeField]
+        [Range(0.25f, 4f)]
+        [Tooltip("How far you see while the camera is under the surface. 1 follows the Depth Gradient, 2 lets " +
+                 "you see twice as far, 0.5 half as far.")]
+        float m_UnderVisibility = 1f;
+
+        [SerializeField]
+        [Min(0.5f)]
+        [Tooltip("Depth in metres at which the light under the surface has faded to about a third. Lower values " +
+                 "make deep water darker sooner.")]
+        float m_UnderLightDepth = 12f;
+
         [System.NonSerialized]
         int m_Version;
 
@@ -197,6 +214,8 @@ namespace HiddenBull.UrpStyle
         public float waveLength => m_WaveLength;
 
         public float tiling => Mathf.Max(m_Tiling, 0.01f);
+
+        public Texture2D normalMap => m_NormalMap;
 
         public float normalStrength => m_NormalStrength;
 
@@ -251,6 +270,10 @@ namespace HiddenBull.UrpStyle
         public float underBubbles => m_UnderBubbles;
 
         public float distortion => m_Distortion;
+
+        public float underVisibility => m_UnderVisibility;
+
+        public float underLightDepth => Mathf.Max(m_UnderLightDepth, 0.5f);
 
         internal int version => m_Version;
 

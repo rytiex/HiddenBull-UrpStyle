@@ -22,8 +22,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_SurfaceFields =
         {
-            "m_Tiling", "m_NormalStrength", "m_Smoothness", "m_RefractionBlur", "m_Brush", "m_BrushSize",
-            "m_RainRipples"
+            "m_Tiling", "m_NormalMap", "m_NormalStrength", "m_Smoothness", "m_RefractionBlur", "m_Brush",
+            "m_BrushSize", "m_RainRipples"
         };
 
         static readonly string[] s_ColourFields =
@@ -39,7 +39,10 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly string[] s_CrustFields = { "m_Crust", "m_CrustColor", "m_CrustMap", "m_DiffuseWrap",
                                                    "m_DiffuseSoftness" };
 
-        static readonly string[] s_UnderFields = { "m_LightShafts", "m_UnderBubbles", "m_Distortion" };
+        static readonly string[] s_UnderFields =
+        {
+            "m_LightShafts", "m_UnderBubbles", "m_Distortion", "m_UnderVisibility", "m_UnderLightDepth"
+        };
 
         static readonly GUIContent[] s_Presets =
         {

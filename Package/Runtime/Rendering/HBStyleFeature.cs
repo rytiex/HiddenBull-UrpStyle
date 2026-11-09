@@ -49,6 +49,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Shader m_UnderwaterShader;
+
+        [SerializeField]
+        [HideInInspector]
         Material m_TerrainVariants;
 
         StyleCameraStates m_Cameras;
@@ -61,6 +65,7 @@ namespace HiddenBull.UrpStyle
         StyleTransparencyPass m_TransparencyPass;
         StyleTransparentShadowPass m_TransparentShadowPass;
         StyleOverlayShadowPass m_OverlayShadowPass;
+        StyleUnderwaterPass m_UnderwaterPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -103,6 +108,7 @@ namespace HiddenBull.UrpStyle
             m_TransparencyPass = new StyleTransparencyPass();
             m_TransparentShadowPass = new StyleTransparentShadowPass();
             m_OverlayShadowPass = new StyleOverlayShadowPass();
+            m_UnderwaterPass = new StyleUnderwaterPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -114,6 +120,7 @@ namespace HiddenBull.UrpStyle
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
             m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
             m_LiquidCutShader = Load(m_LiquidCutShader, StyleTransparencyPass.CutShaderPath);
+            m_UnderwaterShader = Load(m_UnderwaterShader, StyleUnderwaterPass.ShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
 
             ForceDepthPriming();
@@ -150,6 +157,12 @@ namespace HiddenBull.UrpStyle
                 renderer.EnqueuePass(m_OverlayShadowPass);
             }
 
+            if (kind == StyleCameraKind.Overlay)
+            {
+                m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, true, quality.transparency.level);
+                renderer.EnqueuePass(m_UnderwaterPass);
+            }
+
             var antiAliasing = quality.antiAliasing;
 
             if (kind != StyleCameraKind.Isolated && cameraData.resolveFinalTarget &&
@@ -175,6 +188,9 @@ namespace HiddenBull.UrpStyle
 
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
+
+            m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, false, quality.transparency.level);
+            renderer.EnqueuePass(m_UnderwaterPass);
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
 
@@ -256,6 +272,9 @@ namespace HiddenBull.UrpStyle
 
             m_OverlayShadowPass?.Dispose();
             m_OverlayShadowPass = null;
+
+            m_UnderwaterPass?.Dispose();
+            m_UnderwaterPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

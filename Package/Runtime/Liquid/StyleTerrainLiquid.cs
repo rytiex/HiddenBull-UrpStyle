@@ -541,7 +541,7 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        void Bind(HBStyleTerrainData data, MaterialPropertyBlock block)
+        internal void Bind(HBStyleTerrainData data, MaterialPropertyBlock block)
         {
             for (var slot = 0; slot < Slots; slot++)
                 m_Layers[slot] = slot < data.liquidCount ? data.Liquid(slot) : null;

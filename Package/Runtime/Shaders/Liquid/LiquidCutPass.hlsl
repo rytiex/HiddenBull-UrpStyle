@@ -45,9 +45,11 @@ float4 HB_LiquidCutMaskFragment(HBLiquidCutVaryings input) : SV_Target
             discard;
     }
 
+    float3 across = cross(ddx(input.positionWS), ddy(input.positionWS));
+    float3 outward = dot(across, input.normalWS) < 0.0 ? -across : across;
     float3 ray = IsPerspectiveProjection() ? input.positionWS - GetCameraPositionWS() : GetViewForwardDir();
 
-    return _HB_CutWrite * (dot(input.normalWS, ray) > 0.0 ? 1.0 : -1.0);
+    return _HB_CutWrite * (dot(outward, ray) > 0.0 ? 1.0 : -1.0);
 }
 
 #endif

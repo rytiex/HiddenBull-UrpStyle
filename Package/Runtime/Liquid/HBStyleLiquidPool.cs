@@ -255,6 +255,12 @@ namespace HiddenBull.UrpStyle
             Graphics.RenderMesh(parameters, Grid(Count(size.x * 2f), Count(size.y * 2f)), 0, Matrix4x4.identity);
         }
 
+        internal void BindLook(MaterialPropertyBlock block)
+        {
+            m_Layers[0] = m_Layer;
+            m_Look.Bind(block, m_Layers);
+        }
+
         MaterialPropertyBlock Block(Camera camera)
         {
             if (m_Blocks.TryGetValue(camera, out var block))

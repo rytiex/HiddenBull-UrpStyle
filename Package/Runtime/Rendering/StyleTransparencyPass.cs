@@ -118,6 +118,8 @@ namespace HiddenBull.UrpStyle
             m_HasContext = true;
         }
 
+        internal bool liquidCut { get; private set; }
+
         internal void Setup(StylePrecipitationPass precipitation, HBStyleTransparencyQuality quality, Shader blurShader,
                             Shader cutShader)
         {
@@ -134,6 +136,8 @@ namespace HiddenBull.UrpStyle
 
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
+            liquidCut = false;
+
             var resourceData = frameData.Get<UniversalResourceData>();
             var cameraData = frameData.Get<UniversalCameraData>();
             var renderingData = frameData.Get<UniversalRenderingData>();
@@ -154,6 +158,7 @@ namespace HiddenBull.UrpStyle
             if (liquid)
             {
                 var cut = Cutters(cameraData.camera);
+                liquidCut = cut;
 
                 if (cut)
                     RecordCut(renderGraph, colour, renderingData, cameraData, lightData);

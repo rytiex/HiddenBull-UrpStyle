@@ -1162,8 +1162,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 2300
-            Reads = 100
+            Slots = 2500
+            Reads = 110
         }
         @{
             Name = 'Liquid Surface (debug)'
@@ -1212,6 +1212,56 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Mask'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidMaskFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 100
+            Reads = 4
+        }
+        @{
+            Name = 'Liquid Height vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidHeightVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Underwater'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
+            Entry = 'HB_UnderFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @()
+            Slots = 720
+            Reads = 28
+        }
+        @{
+            Name = 'Underwater Overlay'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
+            Entry = 'HB_UnderOverlayFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @()
+            Slots = 300
+            Reads = 20
+        }
+        @{
+            Name = 'Underwater (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
+            Entry = 'HB_UnderFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_STYLE_DEBUG')
             Slots = 0
             Reads = 0
         }

@@ -20,6 +20,15 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CrestId = Shader.PropertyToID("_HB_LiquidCrest");
         static readonly int s_WavesId = Shader.PropertyToID("_HB_LiquidWaves");
         static readonly int s_StrokesId = Shader.PropertyToID("_HB_LiquidBrush");
+        static readonly int s_RippleId = Shader.PropertyToID("_HB_LiquidRipple");
+        static readonly int s_UnderId = Shader.PropertyToID("_HB_LiquidUnder");
+        static readonly int s_UnderFogId = Shader.PropertyToID("_HB_LiquidUnderFog");
+
+        static readonly int[] s_NormalIds =
+        {
+            Shader.PropertyToID("_HB_LiquidNormal0"), Shader.PropertyToID("_HB_LiquidNormal1"),
+            Shader.PropertyToID("_HB_LiquidNormal2"), Shader.PropertyToID("_HB_LiquidNormal3")
+        };
 
         static readonly Color s_Missing = new Color(0.2f, 0.2f, 0.2f, 1f);
 
@@ -31,6 +40,9 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_Crest = new Vector4[Slots];
         readonly Vector4[] m_WaveShape = new Vector4[Slots];
         readonly Vector4[] m_Strokes = new Vector4[Slots];
+        readonly Vector4[] m_Ripple = new Vector4[Slots];
+        readonly Vector4[] m_Under = new Vector4[Slots];
+        readonly Vector4[] m_UnderFog = new Vector4[Slots];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
         readonly int[] m_Versions = new int[Slots];
         readonly ushort[] m_Pixels = new ushort[GradientSize * Slots * 4];
@@ -70,6 +82,16 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_CrestId, m_Crest);
             block.SetVectorArray(s_WavesId, m_WaveShape);
             block.SetVectorArray(s_StrokesId, m_Strokes);
+            block.SetVectorArray(s_RippleId, m_Ripple);
+            block.SetVectorArray(s_UnderId, m_Under);
+            block.SetVectorArray(s_UnderFogId, m_UnderFog);
+
+            for (var slot = 0; slot < Slots; slot++)
+            {
+                var normal = m_Layers[slot] != null ? m_Layers[slot].normalMap : null;
+
+                block.SetTexture(s_NormalIds[slot], normal != null ? normal : Texture2D.normalTexture);
+            }
         }
 
         internal void Dispose()
@@ -111,6 +133,9 @@ namespace HiddenBull.UrpStyle
                     m_Crest[slot] = new Vector4(0.7f, 0.7f, 0.7f, 0.45f);
                     m_WaveShape[slot] = new Vector4(0f, 0f, 0f, 1f);
                     m_Strokes[slot] = Vector4.zero;
+                    m_Ripple[slot] = Vector4.zero;
+                    m_Under[slot] = Vector4.zero;
+                    m_UnderFog[slot] = new Vector4(1f, 12f, 0f, 0f);
 
                     for (var x = 0; x < GradientSize; x++)
                         Write(slot, x, s_Missing, 1f);
@@ -138,6 +163,10 @@ namespace HiddenBull.UrpStyle
                 m_WaveShape[slot] = new Vector4(liquid.windWaves ? -1f : liquid.waves, liquid.waveHeight,
                                                 liquid.waveSteepness, liquid.waveLength);
                 m_Strokes[slot] = new Vector4(liquid.brush, liquid.brushSize, 0f, 0f);
+                m_Ripple[slot] = new Vector4(liquid.tiling, liquid.normalMap != null ? liquid.normalStrength : 0f, 0f,
+                                             0f);
+                m_Under[slot] = new Vector4(liquid.lightShafts, liquid.underBubbles, liquid.distortion, 0f);
+                m_UnderFog[slot] = new Vector4(liquid.underVisibility, liquid.underLightDepth, 0f, 0f);
 
                 for (var x = 0; x < GradientSize; x++)
                 {

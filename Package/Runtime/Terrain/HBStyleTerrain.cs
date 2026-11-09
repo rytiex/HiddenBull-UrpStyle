@@ -139,6 +139,12 @@ namespace HiddenBull.UrpStyle
 
         internal StyleLiquidCalm liquidCalm => m_Liquid.calm;
 
+        internal void BindLiquidLook(MaterialPropertyBlock block)
+        {
+            if (m_Data != null)
+                m_Liquid.Bind(m_Data, block);
+        }
+
         internal Shader grassShader => m_GrassShader;
 
         internal ComputeShader grassCompute => m_GrassCompute;

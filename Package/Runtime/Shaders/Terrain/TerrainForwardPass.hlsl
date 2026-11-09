@@ -30,7 +30,7 @@
 #define HB_WATER_DEBUG_DARK         0.15h
 #define HB_WATER_DEBUG_FASTEST      6.0h
 #define HB_WATER_DEBUG_STRIPE       1.0
-#define HB_WATER_DEBUG_CELL         4.0
+#define HB_WATER_DEBUG_CELL         1.0
 #define HB_WATER_DEBUG_STRIPE_DIM   0.55h
 #define HB_GRASS_FAR_START          _HB_TerrainGrassFar.x
 #define HB_GRASS_FAR_END            _HB_TerrainGrassFar.y

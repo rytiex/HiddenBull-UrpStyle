@@ -70,5 +70,60 @@ Shader "HB URP Style/Terrain Liquid"
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "LiquidMask"
+            Tags
+            {
+                "LightMode" = "HBStyleLiquidMask"
+            }
+
+            ZWrite On
+            ZTest LEqual
+            Cull Off
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_LiquidVertex
+            #pragma fragment HB_LiquidMaskFragment
+
+            #pragma multi_compile_local _ HB_LIQUID_POOL
+
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "LiquidHeight"
+            Tags
+            {
+                "LightMode" = "HBStyleLiquidHeight"
+            }
+
+            ZWrite Off
+            ZTest Always
+            Cull Off
+            BlendOp Max
+            Blend One One
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_LiquidHeightVertex
+            #pragma fragment HB_LiquidHeightFragment
+
+            #pragma multi_compile_local _ HB_LIQUID_POOL
+
+            #pragma multi_compile_instancing
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl"
+            ENDHLSL
+        }
     }
 }

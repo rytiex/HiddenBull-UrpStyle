@@ -11,6 +11,7 @@ namespace HiddenBull.UrpStyle
         const float NormalSpan = 0.5f;
         const float Buried = 0.5f;
         const float Above = 2f;
+        const float SlopeSpan = 1f;
         const float ShareLeast = 1e-3f;
         const float LengthLeast = 0.05f;
         const float FoldLimit = 1f;
@@ -187,6 +188,38 @@ namespace HiddenBull.UrpStyle
         internal static bool TryGetSubmerged(Vector3 position, out float height, out Component liquid)
         {
             return Find(position, false, true, out height, out liquid);
+        }
+
+        internal static bool TryGetView(Vector3 position, out float height, out Vector4 mix, out Vector2 slope,
+                                         out Component liquid)
+        {
+            mix = Vector4.zero;
+            slope = Vector2.zero;
+
+            if (!Find(position, false, true, out height, out liquid) || !TrySource(liquid, out var source))
+                return false;
+
+            var here = new Vector2(position.x, position.z);
+
+            mix = WaterAt(source, here).mix;
+
+            if (source.pool != null)
+                return true;
+
+            var across = Vector2.right * SlopeSpan;
+            var along = Vector2.up * SlopeSpan;
+
+            slope.x = (WaterAt(source, here + across).level - WaterAt(source, here - across).level) / (SlopeSpan * 2f);
+            slope.y = (WaterAt(source, here + along).level - WaterAt(source, here - along).level) / (SlopeSpan * 2f);
+            return true;
+        }
+
+        internal static void BindLook(Component liquid, MaterialPropertyBlock block)
+        {
+            if (liquid is HBStyleLiquidPool pool)
+                pool.BindLook(block);
+            else if (liquid is HBStyleTerrain terrain)
+                terrain.BindLiquidLook(block);
         }
 
         static bool Find(Vector3 position, bool over, bool waves, out float height, out Component liquid)
@@ -636,6 +669,13 @@ namespace HiddenBull.UrpStyle
             var v = (position.y - source.origin.z) / Mathf.Max(size.z, 1e-3f);
 
             if (u < 0f || u > 1f || v < 0f || v > 1f)
+                return false;
+
+            var terrainData = source.data.terrainData;
+            var holes = terrainData.holesResolution;
+
+            if (holes > 0 && terrainData.IsHole(Mathf.Clamp((int)(u * holes), 0, holes - 1),
+                                                   Mathf.Clamp((int)(v * holes), 0, holes - 1)))
                 return false;
 
             height = source.data.terrainData.GetInterpolatedHeight(u, v) + source.origin.y;
