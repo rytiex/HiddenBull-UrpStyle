@@ -276,7 +276,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(input.positionWS, normalWS);
-        half cover = HB_ShelterCover(input.positionWS.xz);
+        half cover = HB_ShelterCover(input.positionWS);
 
         colour.rgb = half3(open, open * cover, open * cover);
     }

@@ -26,6 +26,11 @@ namespace HiddenBull.UrpStyle
         const float Near = 0.1f;
         const double FreshSeconds = 0.5;
         const float PlantPass = 2f;
+        const float RoofReach = 0.75f;
+        const float NoLiquid = -1e6f;
+        const string RoofPass = "LiquidRoof";
+        const string RoofIdsPass = "LiquidRoofIds";
+        const string RoofLevelPass = "LiquidRoofLevel";
 
         sealed class Map
         {
@@ -82,11 +87,34 @@ namespace HiddenBull.UrpStyle
         {
             internal RendererListHandle list;
             internal bool near;
+            internal bool roof;
+            internal bool cut;
+            internal float reach;
+            internal Camera camera;
             internal int mask;
             internal Matrix4x4 skyView;
             internal Matrix4x4 skyProjection;
             internal Matrix4x4 cameraView;
             internal Matrix4x4 cameraProjection;
+        }
+
+        class RoofData
+        {
+            internal Camera camera;
+            internal float reach;
+            internal bool cut;
+            internal Matrix4x4 skyView;
+            internal Matrix4x4 skyProjection;
+            internal Matrix4x4 cameraView;
+            internal Matrix4x4 cameraProjection;
+        }
+
+        class RoofCutData
+        {
+            internal List<StyleTransparencyPass.CutDraw> cuts;
+            internal Material material;
+            internal MaterialPropertyBlock block;
+            internal RoofData view;
         }
 
         class UnderData
@@ -108,6 +136,7 @@ namespace HiddenBull.UrpStyle
             internal Vector4 farHeight;
             internal bool noUnderside;
             internal bool noCover;
+            internal Texture noCoverTexture;
             internal bool hasFar;
         }
 
@@ -144,6 +173,8 @@ namespace HiddenBull.UrpStyle
             internal ComputeShader compute;
             internal int kernel;
             internal TextureHandle top;
+            internal TextureHandle liquid;
+            internal bool hasLiquid;
             internal TextureHandle from;
             internal TextureHandle state;
             internal TextureHandle cover;
@@ -197,6 +228,14 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CoverFromId = Shader.PropertyToID("_HB_ShelterCoverFrom");
         static readonly int s_CoverStateId = Shader.PropertyToID("_HB_ShelterCoverState");
         static readonly int s_CoverStepId = Shader.PropertyToID("_HB_ShelterCoverStep");
+        static readonly int s_LiquidId = Shader.PropertyToID("_HB_ShelterLiquid");
+        static readonly int s_CutIdsId = Shader.PropertyToID("_HB_LiquidCutIds");
+        static readonly int s_CutMaskId = Shader.PropertyToID("_HB_LiquidCutMask");
+        static readonly int s_CutStateId = Shader.PropertyToID("_HB_LiquidCutState");
+        static readonly int s_CutWriteId = Shader.PropertyToID("_HB_CutWrite");
+        static readonly int s_CutTargetId = Shader.PropertyToID("_HB_CutTarget");
+        static readonly Vector4 s_CutOn = new Vector4(1f, 0f, 0f, 0f);
+        static readonly Color s_NoLiquid = new Color(NoLiquid, 0f, 0f, 0f);
 
         static readonly Vector4[] s_Masks = new Vector4[StyleWeatherMasks.Limit];
 
@@ -204,10 +243,14 @@ namespace HiddenBull.UrpStyle
         readonly HashSet<Camera> m_Wanted = new HashSet<Camera>();
         readonly Dictionary<Camera, Map> m_Maps = new Dictionary<Camera, Map>();
         readonly List<Camera> m_Stale = new List<Camera>();
+        readonly List<StyleTransparencyPass.CutDraw> m_Cuts = new List<StyleTransparencyPass.CutDraw>();
 
         ComputeShader m_Compute;
         Shader m_UndersideShader;
         Material m_UndersideMaterial;
+        Material m_CutMaterial;
+        MaterialPropertyBlock m_CutBlock;
+        Texture2D m_NoCover;
         int m_PreviewKernel = -1;
         int m_HeightsKernel = -1;
         int m_DilateXKernel = -1;
@@ -245,6 +288,8 @@ namespace HiddenBull.UrpStyle
 
         internal static int coverId => s_CoverId;
 
+        internal Texture noCover => m_NoCover;
+
         internal bool TryGetMap(Camera camera, out Binding binding)
         {
             binding = default;
@@ -267,8 +312,22 @@ namespace HiddenBull.UrpStyle
 
         internal static Vector4 State(bool far) => new Vector4(1f, far ? 1f : 0f, 0f, 0f);
 
-        internal void Setup(ComputeShader compute, Shader underside, HBStyleWeatherQuality quality)
+        internal void Setup(ComputeShader compute, Shader underside, Shader cut, HBStyleWeatherQuality quality)
         {
+            m_CutMaterial ??= cut != null ? CoreUtils.CreateEngineMaterial(cut) : null;
+            m_CutBlock ??= new MaterialPropertyBlock();
+
+            if (m_NoCover == null)
+            {
+                m_NoCover = new Texture2D(1, 1, TextureFormat.RGFloat, false, true)
+                {
+                    name = "HB Style Shelter No Cover",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                m_NoCover.SetPixel(0, 0, new Color(1f, NoLiquid, 0f, 0f));
+                m_NoCover.Apply(false, true);
+            }
+
             m_UndersideShader = underside;
             m_UndersideMaterial ??= underside != null ? CoreUtils.CreateEngineMaterial(underside) : null;
             m_Resolution = (int)quality.current.shelterResolution;
@@ -376,8 +435,13 @@ namespace HiddenBull.UrpStyle
             map.viewProjection = viewProjection;
             map.height = height;
 
+            var liquids = HBStyleLiquid.any;
+            var mask = liquids && Cutters(sky.origin)
+                ? RecordRoofCut(renderGraph, frameData, sky, skyProjection, resolution)
+                : TextureHandle.nullHandle;
+
             RecordTopDepth(renderGraph, frameData, "HB Style Shelter Depth", sky.culling, sky.view, skyProjection,
-                           depth, true);
+                           depth, true, liquids, mask);
 
             var far = map.farValid ? renderGraph.ImportTexture(map.far) : TextureHandle.nullHandle;
 
@@ -388,7 +452,7 @@ namespace HiddenBull.UrpStyle
                 far = renderGraph.ImportTexture(AcquireFar(map));
 
                 RecordTopDepth(renderGraph, frameData, "HB Style Shelter Far", sky.farCulling, sky.farView,
-                               farProjection, far, false);
+                               farProjection, far, false, liquids, TextureHandle.nullHandle);
 
                 map.farViewProjection = farProjection * sky.farView;
                 map.farHeight = HeightParams(sky.farOrigin.y, FarResolution);
@@ -430,8 +494,12 @@ namespace HiddenBull.UrpStyle
                              bound, s_TargetId, height, reach);
             }
 
+            var level = liquids
+                ? RecordRoofLevel(renderGraph, frameData, sky, skyProjection, resolution, mask)
+                : TextureHandle.nullHandle;
+
             var cover = m_UncoverKernel >= 0
-                ? RecordUncover(renderGraph, map, bound, viewProjection, height)
+                ? RecordUncover(renderGraph, map, bound, level, viewProjection, height)
                 : TextureHandle.nullHandle;
 
             var drops = bound;
@@ -464,6 +532,7 @@ namespace HiddenBull.UrpStyle
                 data.farHeight = map.farHeight;
                 data.noUnderside = !under.IsValid();
                 data.noCover = !cover.IsValid();
+                data.noCoverTexture = m_NoCover;
                 data.hasFar = far.IsValid();
 
                 builder.UseTexture(bound, AccessFlags.Read);
@@ -505,7 +574,7 @@ namespace HiddenBull.UrpStyle
                         context.cmd.SetGlobalTexture(s_UnderId, Texture2D.blackTexture);
 
                     if (d.noCover)
-                        context.cmd.SetGlobalTexture(s_CoverId, Texture2D.whiteTexture);
+                        context.cmd.SetGlobalTexture(s_CoverId, d.noCoverTexture);
 
                     context.cmd.SetGlobalMatrix(s_ViewProjId, d.viewProjection);
                     context.cmd.SetGlobalVector(s_HeightId, d.height);
@@ -633,8 +702,8 @@ namespace HiddenBull.UrpStyle
                                Mathf.Round(SystemInfo.graphicsUVStartsAtTop ? -moved.y : moved.y));
         }
 
-        TextureHandle RecordUncover(RenderGraph renderGraph, Map map, TextureHandle top, Matrix4x4 viewProjection,
-                                    Vector4 height)
+        TextureHandle RecordUncover(RenderGraph renderGraph, Map map, TextureHandle top, TextureHandle liquid,
+                                    Matrix4x4 viewProjection, Vector4 height)
         {
             var resolution = (int)height.z;
             var keep = map.coverState != null && map.coverState.rt.width == resolution;
@@ -648,7 +717,7 @@ namespace HiddenBull.UrpStyle
                          "_HB_ShelterCoverState");
             AcquireCover(ref map.coverNext, resolution, GraphicsFormat.R32G32_SFloat, FilterMode.Point,
                          "_HB_ShelterCoverNext");
-            AcquireCover(ref map.cover, resolution, GraphicsFormat.R16_SFloat, FilterMode.Bilinear,
+            AcquireCover(ref map.cover, resolution, GraphicsFormat.R32G32_SFloat, FilterMode.Bilinear,
                          "_HB_ShelterCover");
 
             var from = renderGraph.ImportTexture(map.coverState);
@@ -661,14 +730,21 @@ namespace HiddenBull.UrpStyle
             data.compute = m_Compute;
             data.kernel = m_UncoverKernel;
             data.top = top;
+            data.hasLiquid = liquid.IsValid();
+            data.liquid = data.hasLiquid ? liquid : top;
             data.from = from;
             data.state = state;
             data.cover = cover;
             data.height = height;
-            data.step = new Vector4(shift.x, shift.y, Mathf.Min(rate / settings.uncoverTime, 1f), 0f);
+            data.step = new Vector4(shift.x, shift.y, Mathf.Min(rate / settings.uncoverTime, 1f),
+                                    data.hasLiquid ? 1f : 0f);
             data.groups = (resolution + 7) / 8;
 
             builder.UseTexture(data.top, AccessFlags.Read);
+
+            if (data.hasLiquid)
+                builder.UseTexture(data.liquid, AccessFlags.Read);
+
             builder.UseTexture(data.from, AccessFlags.Read);
             builder.UseTexture(data.state, AccessFlags.Write);
             builder.UseTexture(data.cover, AccessFlags.Write);
@@ -678,6 +754,7 @@ namespace HiddenBull.UrpStyle
                 var cmd = context.cmd;
 
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_SourceId, d.top);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_LiquidId, d.liquid);
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverFromId, d.from);
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverStateId, d.state);
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverId, d.cover);
@@ -735,8 +812,182 @@ namespace HiddenBull.UrpStyle
             return margin > 0f ? Mathf.Max(1, Mathf.RoundToInt(margin / (Extent / resolution))) : 0;
         }
 
+        bool Cutters(Vector3 origin)
+        {
+            m_Cuts.Clear();
+
+            if (m_CutMaterial == null)
+                return false;
+
+            var area = new Bounds(new Vector3(origin.x, origin.y - Depth * 0.5f, origin.z),
+                                  new Vector3(Extent, Depth, Extent));
+            var keeping = false;
+
+            foreach (var cutter in HBStyleLiquidCutter.enabledCutters)
+            {
+                if (cutter == null || cutter.affects == 0)
+                    continue;
+
+                keeping |= cutter.mode == HBStyleLiquidCutMode.KeepInside;
+
+                if (!cutter.Spans(out var bounds) || !bounds.Intersects(area))
+                    continue;
+
+                m_Cuts.Add(new StyleTransparencyPass.CutDraw
+                {
+                    mesh = cutter.volume,
+                    matrix = cutter.transform.localToWorldMatrix,
+                    write = StyleTransparencyPass.CutWrite(cutter.mode),
+                    target = (int)cutter.affects
+                });
+            }
+
+            return keeping || m_Cuts.Count > 0;
+        }
+
+        void Roof(RoofData data, ContextContainer frameData, Matrix4x4 skyView, Matrix4x4 skyProjection, float reach,
+                  bool cut)
+        {
+            var cameraData = frameData.Get<UniversalCameraData>();
+            var resourceData = frameData.Get<UniversalResourceData>();
+
+            data.camera = cameraData.camera;
+            data.reach = reach;
+            data.cut = cut;
+            data.skyView = skyView;
+            data.skyProjection = skyProjection;
+            data.cameraView = cameraData.GetViewMatrix();
+            data.cameraProjection = GL.GetGPUProjectionMatrix(cameraData.GetProjectionMatrix(),
+                                                              !resourceData.isActiveTargetBackBuffer);
+        }
+
+        static void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach, bool cut)
+        {
+            cmd.SetGlobalVector(s_CutStateId, cut ? s_CutOn : Vector4.zero);
+            HBStyleLiquid.DrawRoof(cmd, camera, pass, reach);
+            cmd.SetGlobalVector(s_CutStateId, Vector4.zero);
+        }
+
+        static void DrawRoofView(RasterCommandBuffer cmd, RoofData d, string pass)
+        {
+            RenderingUtils.SetViewAndProjectionMatrices(cmd, d.skyView, d.skyProjection, false);
+            DrawRoof(cmd, d.camera, pass, d.reach, d.cut);
+            RenderingUtils.SetViewAndProjectionMatrices(cmd, d.cameraView, d.cameraProjection, true);
+        }
+
+        TextureHandle RecordRoofCut(RenderGraph renderGraph, ContextContainer frameData, View sky,
+                                    Matrix4x4 skyProjection, int resolution)
+        {
+            var colour = new TextureDesc(resolution, resolution)
+            {
+                format = GraphicsFormat.R16_SFloat,
+                filterMode = FilterMode.Point,
+                clearBuffer = true,
+                clearColor = Color.clear,
+                name = "HB Style Shelter Liquid Ids"
+            };
+
+            var ids = renderGraph.CreateTexture(colour);
+
+            colour.format = GraphicsFormat.R16G16_SFloat;
+            colour.name = "HB Style Shelter Liquid Cut";
+
+            var mask = renderGraph.CreateTexture(colour);
+            var depth = renderGraph.CreateTexture(new TextureDesc(resolution, resolution)
+            {
+                depthBufferBits = DepthBits.Depth32,
+                clearBuffer = true,
+                name = "HB Style Shelter Liquid Depth"
+            });
+
+            using (var builder = renderGraph.AddRasterRenderPass<RoofData>("HB Style Shelter Liquid Ids", out var data,
+                                                                          profilingSampler))
+            {
+                Roof(data, frameData, sky.view, skyProjection, Extent * RoofReach, false);
+
+                builder.SetRenderAttachment(ids, 0);
+                builder.SetRenderAttachmentDepth(depth, AccessFlags.Write);
+                builder.SetGlobalTextureAfterPass(ids, s_CutIdsId);
+                builder.AllowPassCulling(false);
+                builder.AllowGlobalStateModification(true);
+                builder.SetRenderFunc(static (RoofData d, RasterGraphContext context) =>
+                    DrawRoofView(context.cmd, d, RoofIdsPass));
+            }
+
+            using (var builder = renderGraph.AddRasterRenderPass<RoofCutData>("HB Style Shelter Liquid Cut",
+                                                                             out var data, profilingSampler))
+            {
+                data.cuts = m_Cuts;
+                data.material = m_CutMaterial;
+                data.block = m_CutBlock;
+                data.view ??= new RoofData();
+                Roof(data.view, frameData, sky.view, skyProjection, Extent * RoofReach, false);
+
+                builder.UseTexture(ids, AccessFlags.Read);
+                builder.SetRenderAttachment(mask, 0);
+                builder.SetRenderAttachmentDepth(depth, AccessFlags.Read);
+                builder.SetGlobalTextureAfterPass(mask, s_CutMaskId);
+                builder.AllowPassCulling(false);
+                builder.AllowGlobalStateModification(true);
+                builder.SetRenderFunc(static (RoofCutData d, RasterGraphContext context) =>
+                {
+                    var view = d.view;
+
+                    RenderingUtils.SetViewAndProjectionMatrices(context.cmd, view.skyView, view.skyProjection, false);
+
+                    foreach (var cut in d.cuts)
+                    {
+                        if (cut.mesh == null)
+                            continue;
+
+                        d.block.SetVector(s_CutWriteId, cut.write);
+                        d.block.SetFloat(s_CutTargetId, cut.target);
+
+                        for (var part = 0; part < cut.mesh.subMeshCount; part++)
+                            context.cmd.DrawMesh(cut.mesh, cut.matrix, d.material, part, 0, d.block);
+                    }
+
+                    RenderingUtils.SetViewAndProjectionMatrices(context.cmd, view.cameraView, view.cameraProjection,
+                                                                true);
+                });
+            }
+
+            return mask;
+        }
+
+        TextureHandle RecordRoofLevel(RenderGraph renderGraph, ContextContainer frameData, View sky,
+                                      Matrix4x4 skyProjection, int resolution, TextureHandle mask)
+        {
+            var level = renderGraph.CreateTexture(new TextureDesc(resolution, resolution)
+            {
+                format = GraphicsFormat.R32_SFloat,
+                filterMode = FilterMode.Point,
+                name = "HB Style Shelter Liquid Level"
+            });
+
+            using var builder = renderGraph.AddRasterRenderPass<RoofData>("HB Style Shelter Liquid Level", out var data,
+                                                                         profilingSampler);
+
+            Roof(data, frameData, sky.view, skyProjection, Extent * RoofReach, mask.IsValid());
+
+            if (mask.IsValid())
+                builder.UseTexture(mask, AccessFlags.Read);
+
+            builder.SetRenderAttachment(level, 0);
+            builder.AllowPassCulling(false);
+            builder.AllowGlobalStateModification(true);
+            builder.SetRenderFunc(static (RoofData d, RasterGraphContext context) =>
+            {
+                context.cmd.ClearRenderTarget(RTClearFlags.Color, s_NoLiquid, 1f, 0u);
+                DrawRoofView(context.cmd, d, RoofLevelPass);
+            });
+
+            return level;
+        }
+
         void RecordTopDepth(RenderGraph renderGraph, ContextContainer frameData, string name, CullingResults culling,
-                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target, bool near)
+                            Matrix4x4 skyView, Matrix4x4 skyProjection, TextureHandle target, bool near, bool roof,
+                            TextureHandle mask)
         {
             var cameraData = frameData.Get<UniversalCameraData>();
             var resourceData = frameData.Get<UniversalResourceData>();
@@ -764,6 +1015,10 @@ namespace HiddenBull.UrpStyle
                 isPassTagName = false
             });
             data.near = near;
+            data.roof = roof;
+            data.cut = mask.IsValid();
+            data.reach = (near ? Extent : FarExtent) * RoofReach;
+            data.camera = cameraData.camera;
             data.mask = cameraData.camera.cullingMask;
             data.skyView = skyView;
             data.skyProjection = skyProjection;
@@ -773,6 +1028,10 @@ namespace HiddenBull.UrpStyle
 
             builder.UseRendererList(data.list);
             builder.SetRenderAttachmentDepth(target, AccessFlags.Write);
+
+            if (mask.IsValid())
+                builder.UseTexture(mask, AccessFlags.Read);
+
             builder.AllowPassCulling(false);
             builder.AllowGlobalStateModification(true);
             builder.SetRenderFunc(static (SkyData d, RasterGraphContext context) =>
@@ -787,6 +1046,9 @@ namespace HiddenBull.UrpStyle
                     StylePlantSystem.DrawShelter(context.cmd, d.mask, null);
                 else
                     StylePlantSystem.DrawFarShelter(context.cmd, d.mask);
+
+                if (d.roof)
+                    DrawRoof(context.cmd, d.camera, RoofPass, d.reach, d.cut);
 
                 context.cmd.SetGlobalFloat(s_PassId, 0f);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.cameraView, d.cameraProjection, true);
@@ -980,6 +1242,10 @@ namespace HiddenBull.UrpStyle
 
             CoreUtils.Destroy(m_UndersideMaterial);
             m_UndersideMaterial = null;
+            CoreUtils.Destroy(m_CutMaterial);
+            m_CutMaterial = null;
+            CoreUtils.Destroy(m_NoCover);
+            m_NoCover = null;
 
             m_Views.Clear();
             m_Wanted.Clear();

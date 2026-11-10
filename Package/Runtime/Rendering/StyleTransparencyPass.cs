@@ -65,7 +65,7 @@ namespace HiddenBull.UrpStyle
             internal bool cut;
         }
 
-        struct CutDraw
+        internal struct CutDraw
         {
             internal Mesh mesh;
             internal Matrix4x4 matrix;
@@ -405,6 +405,11 @@ namespace HiddenBull.UrpStyle
             });
         }
 
+        internal static Vector4 CutWrite(HBStyleLiquidCutMode mode)
+        {
+            return mode == HBStyleLiquidCutMode.KeepInside ? s_KeepIn : s_CutOut;
+        }
+
         bool Cutters(Camera camera)
         {
             m_Cuts.Clear();
@@ -431,7 +436,7 @@ namespace HiddenBull.UrpStyle
                 {
                     mesh = cutter.volume,
                     matrix = cutter.transform.localToWorldMatrix,
-                    write = cutter.mode == HBStyleLiquidCutMode.KeepInside ? s_KeepIn : s_CutOut,
+                    write = CutWrite(cutter.mode),
                     target = (int)cutter.affects
                 });
             }

@@ -247,7 +247,7 @@ half4 HB_PlantColour(Varyings input, bool frontFace)
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(restWS, inputData.normalWS);
-        half cover = HB_ShelterCover(restWS.xz);
+        half cover = HB_ShelterCover(restWS);
 
         colour.rgb = half3(open, open * cover, open * cover);
     }

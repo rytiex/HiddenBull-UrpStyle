@@ -20,7 +20,8 @@ RWTexture2D<float> _HB_ShelterTarget;
 RWTexture2D<float> _HB_ShelterDropsTarget;
 Texture2D<float2> _HB_ShelterCoverFrom;
 RWTexture2D<float2> _HB_ShelterCoverState;
-RWTexture2D<float> _HB_ShelterCover;
+RWTexture2D<float2> _HB_ShelterCover;
+Texture2D<float> _HB_ShelterLiquid;
 
 float4x4 _HB_ShelterViewProj;
 float4 _HB_ShelterHeight;
@@ -43,6 +44,7 @@ float4 _HB_ShelterCoverStep;
 #define HB_MASK_TEXEL     _HB_ShelterMaskCount.z
 #define HB_COVER_SHIFT    ((int2)_HB_ShelterCoverStep.xy)
 #define HB_COVER_STEP     _HB_ShelterCoverStep.z
+#define HB_COVER_LIQUID   _HB_ShelterCoverStep.w
 
 #define HB_PREVIEW_RANGE  10.0
 #define HB_EMPTY_MARGIN   0.05
@@ -264,5 +266,7 @@ void Uncover(uint3 id : SV_DispatchThreadID)
     age = saturate(age + HB_COVER_STEP);
 
     _HB_ShelterCoverState[texel] = float2(age, top);
-    _HB_ShelterCover[texel] = age;
+    float liquid = HB_COVER_LIQUID > 0.5 ? _HB_ShelterLiquid.Load(int3(texel, 0)) : HB_NONE;
+
+    _HB_ShelterCover[texel] = float2(age, liquid);
 }

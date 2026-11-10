@@ -10,7 +10,7 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-07):** Phases 0–5, 7 and 8 and the polish batch before Phase 6 are closed; 7 and 8 ran before 6
+**Status (2026-11-10):** Phases 0–5, 7 and 8 and the polish batch before Phase 6 are closed; 7 and 8 ran before 6
 by my choice. Phase 5 Grass final state is the first block of 03 §9, Phase 7 Foliage + Billboards is 03 §4, Phase 8
 Transparency is 03 §11 (sorted forward transparency replaced MBOIT, coloured glass shadows, blurred refraction,
 Transparency quality levels). The polish batch rebuilt Receive Weather Moving (03 §7), added grass Blade Detail and
@@ -29,8 +29,35 @@ Read before doing anything (do not ask me what these answer):
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**Next job: Phase 6 Liquids.** The polish batch before it is closed (2026-11-07): Moving weather (03 §7), grass
-Blade Detail and texture cards (03 §9), bake banner and Auto Bake (03 §8). Nothing from it is open.
+**Phase 6 Liquids is in progress (2026-11-10).** Committed so far: terrain liquids, foam, caustics, pools,
+cutters, underwater, ripples, SSR (`a20c5fa`..`7139c18`). On top of that, uncommitted work in the tree: the
+shelter liquid roof (rain and snow stop at the water level, the cutter cut mask in the shelter map). The tree was
+reset on 2026-11-10 to the exact state of 00:11 UTC, because the rounds after it went wrong. A copy of the tree
+before that reset is in
+`C:\Users\rytie\AppData\Local\Temp\claude\a5d0939c0293cfef\61e7a00b-7560-4e58-98f0-07281820c594\scratchpad\before-revert`
+(it may be gone; it is only a reference). The memory `liquid-old-look-port.md` "Roof round 2..5" notes describe
+that reverted code, not the tree.
+
+**Next job: the six open liquid points, one at a time.** They are in my words below; take them literally. Before each
+one, write in one or two lines what you understood and wait for my "evet". One change per point, then my check.
+
+1. With baked light, snow on the terrain shows dark wavy stripes (the sand layer's ripples). Without a bake there
+   are none. The same kind of APV problem happened on the terrain before and we solved it; use the same solution.
+   Tried alone and failed: snow flattening the layer normal, snow fading bakedTones, snow lifting the layer AO.
+2. Rain and snow are cut exactly at the water line, even a bit below it. They must end a bit above the water and
+   soft, and this must also work in the far shelter map.
+3. Cutter: the water's top surface also has an underside. The cutter does not cut that underside, so from inside
+   the cut water (inside the cutter, below the level) the water surface is visible. That is the only problem.
+   Lead (not tested): the camera "LiquidCut" depth pass in `TerrainLiquid.shader` is `Cull Back`.
+4. Cutter: when the screen is under water, rain and snow inside the cutter disappear while I move.
+5. Cutter: add a "roof" bool (Cut Out only) so moving things like boats do not carry rain and snow down. It worked
+   in the reverted code: HBStyleLiquidCutter.roof, shelter cut mask .b, the top depth roof ignores .b, the level
+   pass counts it.
+6. Objects and the water floor do not get wet. It worked in the reverted code: a shore band in HB_ShelterCover
+   (shore = saturate(1 - (y - level) / 0.6), wet += shore, snow *= 1 - shore) plus HBWeather.gloss = 1 - sunk so
+   the ground under water darkens but does not shine.
+
+After these: movement trails, then optimisation (Measure), then Phase 6 close.
 
 **Phase 6 Liquids** (05, 03 §10; old liquids in commit `3d4a06c`, see 06). Build each step with a debug view,
 compile with `Tools~/Check-All.ps1 -Filter '<name>*'` (never the full table for small changes), and give me one
@@ -50,7 +77,9 @@ Working rules:
   only when I say "her şey iyi durumda" or close it explicitly.
 - Read the code before asking me to test. Use the package's own static registries, never FindObjects APIs.
 - Run `Tools~/Check-All.ps1` only from PowerShell, never from Bash.
-- Before every hand-off, compile offline and say "compiled offline, not run in Unity".
+- Before every hand-off, compile offline and end with "offline derlendi, Unity'de denenmedi".
+- Keep each file's line endings (some files are CRLF, some LF).
+- When I describe a problem, take my words literally; never replace them with your own theory.
 - Simulate logic as C# with Unity's Roslyn csc (see the memories).
 - If Edit/Bash calls get no verdict from the safety classifier: write the full files into the scratchpad with
   Write, then copy them into `Package/` with a single `cp -r`.

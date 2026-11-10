@@ -139,6 +139,12 @@ namespace HiddenBull.UrpStyle
 
         internal StyleLiquidCalm liquidCalm => m_Liquid.calm;
 
+        internal void DrawLiquidRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach)
+        {
+            if (m_Data != null)
+                m_Liquid.DrawRoof(cmd, camera, m_Data, pass, reach);
+        }
+
         internal void BindLiquidLook(MaterialPropertyBlock block)
         {
             if (m_Data != null)

@@ -54,6 +54,8 @@ namespace HiddenBull.UrpStyle
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[StyleLiquidLook.Slots];
         readonly Dictionary<Camera, MaterialPropertyBlock> m_Blocks = new Dictionary<Camera, MaterialPropertyBlock>();
 
+        Camera m_Drawn;
+
         StyleLiquidWaves m_Waves;
 
         public static bool any => s_Pools.Count > 0;
@@ -198,6 +200,8 @@ namespace HiddenBull.UrpStyle
 
         void Draw(ScriptableRenderContext context, Camera camera)
         {
+            m_Drawn = null;
+
             if (m_Layer == null || camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
                 return;
 
@@ -255,6 +259,23 @@ namespace HiddenBull.UrpStyle
             };
 
             Graphics.RenderMesh(parameters, Grid(Count(size.x * 2f), Count(size.y * 2f)), 0, Matrix4x4.identity);
+            m_Drawn = camera;
+        }
+
+        internal void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass)
+        {
+            if (camera != m_Drawn || s_Material == null || !m_Blocks.TryGetValue(camera, out var block))
+                return;
+
+            var index = s_Material.FindPass(pass);
+
+            if (index < 0)
+                return;
+
+            var size = half;
+            var grid = Grid(Count(size.x * 2f), Count(size.y * 2f));
+
+            cmd.DrawMesh(grid, Matrix4x4.identity, s_Material, 0, index, block);
         }
 
         internal void BindLook(MaterialPropertyBlock block)

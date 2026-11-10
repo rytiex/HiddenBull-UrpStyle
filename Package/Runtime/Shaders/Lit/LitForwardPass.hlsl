@@ -252,7 +252,7 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(inputData.positionWS, inputData.normalWS);
-        half cover = HB_ShelterCover(inputData.positionWS.xz);
+        half cover = HB_ShelterCover(inputData.positionWS);
 
         colour.rgb = half3(open, open * cover, open * cover);
     }

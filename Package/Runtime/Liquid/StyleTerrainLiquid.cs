@@ -30,6 +30,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_KeepId = Shader.PropertyToID("_HB_LiquidKeep");
         static readonly int s_EyeId = Shader.PropertyToID("_HB_LiquidEye");
 
+        static readonly Matrix4x4[] s_Batch = new Matrix4x4[BatchSize];
+
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly StyleLiquidLook m_Look = new StyleLiquidLook();
         readonly StyleLiquidCalm m_Calm = new StyleLiquidCalm();
@@ -37,6 +39,8 @@ namespace HiddenBull.UrpStyle
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Quarters = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Sea = new List<Matrix4x4>();
+        readonly List<Matrix4x4> m_RoofFull = new List<Matrix4x4>();
+        readonly List<Matrix4x4> m_RoofQuarters = new List<Matrix4x4>();
         readonly Vector4[] m_Ranges = new Vector4[StyleTerrainTree.MaxLevels];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
 
@@ -59,6 +63,11 @@ namespace HiddenBull.UrpStyle
         float m_Leaf;
 
         StyleLiquidWaves m_Waves;
+        Camera m_Camera;
+        MaterialPropertyBlock m_Block;
+        Vector3 m_Origin;
+        Vector3 m_Local;
+        float m_RoofReach = -1f;
 
         internal StyleLiquidCalm calm => m_Calm;
 
@@ -67,6 +76,9 @@ namespace HiddenBull.UrpStyle
                            ComputeShader waves, MaterialPropertyBlock block, Vector3 origin, Vector3 local,
                            float[] planes, float far, float detailRange, int layer)
         {
+            m_Camera = null;
+            m_RoofReach = -1f;
+
             if (!data.liquidOn || shader == null || !Ready(shader) || !Leaves(data))
                 return;
 
@@ -89,7 +101,7 @@ namespace HiddenBull.UrpStyle
 
             block.SetVectorArray(s_RangesId, m_Ranges);
             m_Tree.Select(local.x, local.y, local.z, planes, far, m_Nodes);
-            Fill(origin);
+            Fill(origin, m_Full, m_Quarters);
             Sea(origin, local, planes, far, data.seaLevel, out var seaBounds);
 
             var parameters = new RenderParams(m_Material)
@@ -120,6 +132,11 @@ namespace HiddenBull.UrpStyle
                 parameters.worldBounds = seaBounds;
                 Submit(parameters, HBStyleTerrain.Patch(false), m_Sea);
             }
+
+            m_Camera = camera;
+            m_Block = block;
+            m_Origin = origin;
+            m_Local = local;
         }
 
         internal void Dispose()
@@ -446,10 +463,10 @@ namespace HiddenBull.UrpStyle
                                WaveMargin);
         }
 
-        void Fill(Vector3 origin)
+        void Fill(Vector3 origin, List<Matrix4x4> full, List<Matrix4x4> quarters)
         {
-            m_Full.Clear();
-            m_Quarters.Clear();
+            full.Clear();
+            quarters.Clear();
 
             foreach (var node in m_Nodes)
             {
@@ -462,9 +479,9 @@ namespace HiddenBull.UrpStyle
                 matrix.m23 = origin.z + node.z;
 
                 if (node.size < m_Tree.leafSize * (1 << node.level) * 0.75f)
-                    m_Quarters.Add(matrix);
+                    quarters.Add(matrix);
                 else
-                    m_Full.Add(matrix);
+                    full.Add(matrix);
             }
         }
 
@@ -540,6 +557,41 @@ namespace HiddenBull.UrpStyle
                 var count = Mathf.Min(BatchSize, instances.Count - start);
 
                 Graphics.RenderMeshInstanced(parameters, mesh, 0, instances, count, start);
+            }
+        }
+
+        internal void DrawRoof(RasterCommandBuffer cmd, Camera camera, HBStyleTerrainData data, string pass,
+                               float reach)
+        {
+            if (camera != m_Camera || m_Material == null || data == null || !data.liquidOn)
+                return;
+
+            var index = m_Material.FindPass(pass);
+
+            if (index < 0)
+                return;
+
+            if (reach != m_RoofReach)
+            {
+                m_Tree.Select(m_Local.x, m_Local.y, m_Local.z, null, reach, m_Nodes);
+                Fill(m_Origin, m_RoofFull, m_RoofQuarters);
+                Sea(m_Origin, m_Local, null, reach, data.seaLevel, out _);
+                m_RoofReach = reach;
+            }
+
+            Instanced(cmd, HBStyleTerrain.Patch(false), m_RoofFull, index);
+            Instanced(cmd, HBStyleTerrain.Patch(true), m_RoofQuarters, index);
+            Instanced(cmd, HBStyleTerrain.Patch(false), m_Sea, index);
+        }
+
+        void Instanced(RasterCommandBuffer cmd, Mesh mesh, List<Matrix4x4> instances, int pass)
+        {
+            for (var start = 0; start < instances.Count; start += BatchSize)
+            {
+                var count = Mathf.Min(BatchSize, instances.Count - start);
+
+                instances.CopyTo(start, s_Batch, 0, count);
+                cmd.DrawMeshInstanced(mesh, 0, m_Material, pass, s_Batch, count, m_Block);
             }
         }
 

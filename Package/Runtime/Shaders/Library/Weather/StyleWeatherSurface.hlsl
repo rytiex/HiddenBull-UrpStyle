@@ -218,7 +218,7 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     UNITY_BRANCH
     if (wet > 0.0h || cover > 0.0h)
     {
-        half uncovered = HB_ShelterCover(positionWS.xz);
+        half uncovered = HB_ShelterCover(positionWS);
 
         wet *= uncovered;
         cover *= uncovered;
@@ -473,7 +473,7 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS,
     else
     {
         half open = HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0
-                  ? HB_ShelterOpen(positionWS, normalWS) * HB_ShelterCover(positionWS.xz) : 0.0h;
+                  ? HB_ShelterOpen(positionWS, normalWS) * HB_ShelterCover(positionWS) : 0.0h;
 
         wet = half(HB_SURFACE_WET) * open;
         snow = half(HB_SURFACE_SNOW) * open;

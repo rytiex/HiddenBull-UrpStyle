@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle
 {
@@ -184,6 +185,21 @@ namespace HiddenBull.UrpStyle
             level = water.level;
             mix = water.mix;
             return water.wet && (!Ground(source, position, out var ground) || ground < level);
+        }
+
+        internal static void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach)
+        {
+            foreach (var terrain in HBStyleTerrain.active)
+            {
+                if (terrain != null)
+                    terrain.DrawLiquidRoof(cmd, camera, pass, reach);
+            }
+
+            foreach (var pool in HBStyleLiquidPool.pools)
+            {
+                if (pool != null)
+                    pool.DrawRoof(cmd, camera, pass);
+            }
         }
 
         internal static bool TryGetSubmerged(Vector3 position, out float height, out Component liquid)

@@ -158,7 +158,7 @@ half4 HB_BillboardColour(Varyings input)
     if (HB_DEBUG_VIEW == HB_DEBUG_SHELTER)
     {
         half open = HB_ShelterOpen(weatherWS, half3(0.0h, 1.0h, 0.0h)) * normal.a;
-        half cover = HB_ShelterCover(weatherWS.xz);
+        half cover = HB_ShelterCover(weatherWS);
 
         colour.rgb = half3(open, open * cover, open * cover);
     }

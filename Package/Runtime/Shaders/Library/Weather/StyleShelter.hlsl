@@ -29,6 +29,8 @@ float4 _HB_ShelterFarHeight;
 #define HB_SHELTER_RANGE         0.6
 #define HB_SHELTER_EMPTY_MARGIN  0.05
 #define HB_SHELTER_UNDER_SOFT    0.05
+#define HB_SHELTER_LIQUID_BIAS   0.05
+#define HB_SHELTER_LIQUID_SOFT   0.05
 
 half4 HB_ShelterBSpline(half t)
 {
@@ -91,7 +93,7 @@ half HB_ShelterFarCovered(float2 uv, float y)
     return half(lerp(lerp(covered.w, covered.z, blend.x), lerp(covered.x, covered.y, blend.x), blend.y));
 }
 
-half HB_ShelterCover(float2 xz)
+half HB_ShelterCover(float3 positionWS)
 {
     half cover = 1.0h;
 
@@ -99,10 +101,15 @@ half HB_ShelterCover(float2 xz)
     if (HB_SHELTER_BOUND > 0.5)
     {
         float edge;
-        float2 uv = HB_ShelterUV(_HB_ShelterViewProj, xz, edge);
+        float2 uv = HB_ShelterUV(_HB_ShelterViewProj, positionWS.xz, edge);
 
         if (edge > 0.0)
-            cover = half(SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).r);
+        {
+            float2 state = SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).rg;
+            float under = saturate((state.y - positionWS.y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
+
+            cover = half(state.x * (1.0 - under));
+        }
     }
 
     return cover;

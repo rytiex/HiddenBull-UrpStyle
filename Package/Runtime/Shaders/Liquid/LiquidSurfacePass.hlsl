@@ -123,6 +123,7 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_STREAM_SHEAR   0.6
 #define HB_LIQUID_STREAM_STREAK  0.12
 #define HB_LIQUID_STREAM_SPAN    1.0
+#define HB_LIQUID_ROOF_LIFT      0.25
 #define HB_LIQUID_CELLS          4
 #define HB_LIQUID_CELL_SIZE      2.0
 #define HB_LIQUID_STREAM_STRETCH 0.35
@@ -311,15 +312,9 @@ void HB_LiquidCut(float4 positionCS)
     }
 }
 
-HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
+float2 HB_LiquidGridXZ(HBLiquidAttributes input, out float spacing)
 {
-    HBLiquidVaryings output = (HBLiquidVaryings)0;
-
-    UNITY_SETUP_INSTANCE_ID(input);
-    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-
     float2 xz;
-    float spacing;
 
 #if defined(HB_LIQUID_POOL)
     xz = HB_PoolWorld((input.positionOS.xz * 2.0 - 1.0) * HB_POOL_HALF);
@@ -352,6 +347,18 @@ HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
     }
 #endif
 
+    return xz;
+}
+
+HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
+{
+    HBLiquidVaryings output = (HBLiquidVaryings)0;
+
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+    float spacing;
+    float2 xz = HB_LiquidGridXZ(input, spacing);
     HBWaterLevel water = HB_LiquidWaterAt(xz);
     HBLiquidWaveShape shape = HB_LiquidWaveShape(water.mix);
     HBLiquidSea sea = HB_LiquidSeaAt(xz, shape);
@@ -976,7 +983,7 @@ half HB_LiquidFloorShadow(float3 floorWS)
 #endif
 }
 
-half3 HB_LiquidRipples(float3 positionWS, half3 normalWS, half4 mix)
+half3 HB_LiquidRipples(float3 positionWS, float restY, half3 normalWS, half4 mix)
 {
     half share = dot(mix, half4(_HB_LiquidFoamShape[0].w, _HB_LiquidFoamShape[1].w, _HB_LiquidFoamShape[2].w,
                                 _HB_LiquidFoamShape[3].w));
@@ -990,8 +997,10 @@ half3 HB_LiquidRipples(float3 positionWS, half3 normalWS, half4 mix)
         if (detail > 0.0h)
         {
             HBWeather weather = (HBWeather)0;
-            weather.rain = half(HB_SURFACE_RAIN) * HB_ShelterOpen(positionWS, half3(0.0h, 1.0h, 0.0h))
-                         * HB_ShelterCover(positionWS.xz) * detail * share;
+            float3 roofWS = float3(positionWS.x, restY + HB_LIQUID_ROOF_LIFT, positionWS.z);
+
+            weather.rain = half(HB_SURFACE_RAIN) * HB_ShelterOpen(roofWS, half3(0.0h, 1.0h, 0.0h))
+                         * HB_ShelterCover(roofWS) * detail * share;
 
             normalWS = HB_RainRipples(positionWS, normalWS, weather);
         }
@@ -1405,8 +1414,9 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     half far = HB_LiquidFarOf(even, rippleSet);
 
     ripple.xy *= 1.0h - far * HB_LIQUID_FAR_FLATTEN;
-    half3 normalWS = HB_LiquidRipples(input.positionWS, normalize(half3(ripple.x - half(slope.x), ripple.z,
-                                                                        ripple.y - half(slope.y))), water.mix);
+    half3 normalWS = HB_LiquidRipples(input.positionWS, input.positionWS.y - input.wave.x,
+                                       normalize(half3(ripple.x - half(slope.x), ripple.z, ripple.y - half(slope.y))),
+                                       water.mix);
     half3 viewWS = half3(GetWorldSpaceNormalizeViewDir(input.positionWS));
 
 #if defined(HB_STYLE_DEBUG)
@@ -1653,6 +1663,37 @@ float HB_LiquidHeightFragment(HBLiquidVaryings input) : SV_Target
 
     if (!water.wet)
         discard;
+
+    return input.positionWS.y;
+}
+
+HBLiquidVaryings HB_LiquidRoofVertex(HBLiquidAttributes input)
+{
+    HBLiquidVaryings output = (HBLiquidVaryings)0;
+
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+
+    float spacing;
+    float2 xz = HB_LiquidGridXZ(input, spacing);
+    HBWaterLevel water = HB_LiquidWaterAt(xz);
+
+    output.positionWS = float3(xz.x, water.level, xz.y);
+    output.positionCS = TransformWorldToHClip(output.positionWS);
+    output.rest = float4(xz, 0.0, 0.0);
+    return output;
+}
+
+float HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
+{
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+    HBWaterLevel water = HB_LiquidWaterAt(input.rest.xy);
+
+    if (!water.wet)
+        discard;
+
+    HB_LiquidCut(input.positionCS);
 
     return input.positionWS.y;
 }

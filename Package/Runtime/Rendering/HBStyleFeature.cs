@@ -204,7 +204,7 @@ namespace HiddenBull.UrpStyle
 
             m_Cameras.Touch(cameraData.camera);
 
-            m_ShelterPass.Setup(m_ShelterCompute, m_UndersideShader, quality.weather);
+            m_ShelterPass.Setup(m_ShelterCompute, m_UndersideShader, m_LiquidCutShader, quality.weather);
             renderer.EnqueuePass(m_ShelterPass);
 
             if (StylePlantSystem.active || StyleTerrains.growing)

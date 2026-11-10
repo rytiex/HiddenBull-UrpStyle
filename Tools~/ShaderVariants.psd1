@@ -1256,6 +1256,46 @@
             Reads = 0
         }
         @{
+            Name = 'Liquid Roof vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidRoofVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Roof fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidRoofFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Roof vertex (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidRoofVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_LIQUID_POOL')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Roof fragment (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidRoofFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_LIQUID_POOL')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Underwater'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
             Entry = 'HB_UnderFragment'
