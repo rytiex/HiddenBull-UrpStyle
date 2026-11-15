@@ -1356,6 +1356,16 @@
             Reads = 0
         }
         @{
+            Name = 'Liquid Cut Footprint'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidCutPass.hlsl'
+            Entry = 'HB_LiquidCutFootprintFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Liquid Cut Mask vertex'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidCutPass.hlsl'
             Entry = 'HB_LiquidCutVertex'

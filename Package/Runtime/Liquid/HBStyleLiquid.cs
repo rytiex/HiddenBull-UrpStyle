@@ -202,6 +202,47 @@ namespace HiddenBull.UrpStyle
             }
         }
 
+        internal static bool TryGetUncut(Vector3 position, out float height)
+        {
+            height = 0f;
+
+            Refresh();
+
+            var here = new Vector2(position.x, position.z);
+            var nearest = float.MaxValue;
+
+            foreach (var terrain in HBStyleTerrain.active)
+            {
+                if (!TrySource(terrain, out var source) || !Surface(source, here, true, out var surface, out _))
+                    continue;
+
+                var apart = Mathf.Abs(surface - position.y);
+
+                if (apart >= nearest)
+                    continue;
+
+                nearest = apart;
+                height = surface;
+            }
+
+            foreach (var pool in HBStyleLiquidPool.pools)
+            {
+                if (pool == null || !TrySource(pool, out var source) ||
+                    !Surface(source, here, true, out var surface, out _))
+                    continue;
+
+                var apart = Mathf.Abs(surface - position.y);
+
+                if (apart >= nearest)
+                    continue;
+
+                nearest = apart;
+                height = surface;
+            }
+
+            return nearest < float.MaxValue;
+        }
+
         internal static bool TryGetSubmerged(Vector3 position, out float height, out Component liquid)
         {
             return Find(position, false, true, out height, out liquid);

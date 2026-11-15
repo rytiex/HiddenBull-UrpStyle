@@ -29,6 +29,7 @@ namespace HiddenBull.UrpStyle
         const float NoHeight = -1e6f;
         const float Away = 1e9f;
         const int MaxReach = 12;
+        const int FootprintPass = 1;
         const string LevelIdsPass = "LiquidRoofIds";
         const string LevelPass = "LiquidRoofLevel";
 
@@ -119,6 +120,7 @@ namespace HiddenBull.UrpStyle
         class LevelCutData
         {
             internal List<StyleTransparencyPass.CutDraw> cuts;
+            internal List<float> planes;
             internal Material material;
             internal MaterialPropertyBlock block;
             internal LevelData view;
@@ -236,6 +238,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CutMaskId = Shader.PropertyToID("_HB_LiquidCutMask");
         static readonly int s_CutStateId = Shader.PropertyToID("_HB_LiquidCutState");
         static readonly int s_CutWriteId = Shader.PropertyToID("_HB_CutWrite");
+        static readonly int s_CutPlaneId = Shader.PropertyToID("_HB_CutPlane");
         static readonly int s_CutTargetId = Shader.PropertyToID("_HB_CutTarget");
         static readonly Vector4 s_CutOn = new Vector4(1f, 0f, 0f, 0f);
         static readonly Color s_NoLiquid = new Color(NoHeight, 0f, 0f, 0f);
@@ -250,6 +253,7 @@ namespace HiddenBull.UrpStyle
         readonly Dictionary<Camera, Map> m_Maps = new Dictionary<Camera, Map>();
         readonly List<Camera> m_Stale = new List<Camera>();
         readonly List<StyleTransparencyPass.CutDraw> m_Cuts = new List<StyleTransparencyPass.CutDraw>();
+        readonly List<float> m_Planes = new List<float>();
 
         ComputeShader m_Compute;
         Shader m_UndersideShader;
@@ -882,6 +886,7 @@ namespace HiddenBull.UrpStyle
         bool Cutters(Vector3 origin, float extent)
         {
             m_Cuts.Clear();
+            m_Planes.Clear();
 
             if (m_CutMaterial == null)
                 return false;
@@ -901,6 +906,13 @@ namespace HiddenBull.UrpStyle
 
                 if ((!keep && cutter.roof) || !cutter.Spans(out var bounds) || !bounds.Intersects(area))
                     continue;
+
+                var crossed = HBStyleLiquid.TryGetUncut(bounds.center, out var surface);
+
+                if (!keep && !crossed)
+                    continue;
+
+                m_Planes.Add(crossed ? surface : bounds.center.y);
 
                 m_Cuts.Add(new StyleTransparencyPass.CutDraw
                 {
@@ -983,6 +995,7 @@ namespace HiddenBull.UrpStyle
                                                                               out var data, profilingSampler))
             {
                 data.cuts = m_Cuts;
+                data.planes = m_Planes;
                 data.material = m_CutMaterial;
                 data.block = m_CutBlock;
                 data.view ??= new LevelData();
@@ -990,7 +1003,6 @@ namespace HiddenBull.UrpStyle
 
                 builder.UseTexture(ids, AccessFlags.Read);
                 builder.SetRenderAttachment(mask, 0);
-                builder.SetRenderAttachmentDepth(depth, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(mask, s_CutMaskId);
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
@@ -1000,16 +1012,19 @@ namespace HiddenBull.UrpStyle
 
                     RenderingUtils.SetViewAndProjectionMatrices(context.cmd, view.skyView, view.skyProjection, false);
 
-                    foreach (var cut in d.cuts)
+                    for (var index = 0; index < d.cuts.Count; index++)
                     {
+                        var cut = d.cuts[index];
+
                         if (cut.mesh == null)
                             continue;
 
+                        d.block.SetFloat(s_CutPlaneId, d.planes[index]);
                         d.block.SetVector(s_CutWriteId, cut.write);
                         d.block.SetFloat(s_CutTargetId, cut.target);
 
                         for (var part = 0; part < cut.mesh.subMeshCount; part++)
-                            context.cmd.DrawMesh(cut.mesh, cut.matrix, d.material, part, 0, d.block);
+                            context.cmd.DrawMesh(cut.mesh, cut.matrix, d.material, part, FootprintPass, d.block);
                     }
 
                     RenderingUtils.SetViewAndProjectionMatrices(context.cmd, view.cameraView, view.cameraProjection,

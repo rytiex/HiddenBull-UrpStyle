@@ -513,7 +513,9 @@ namespace HiddenBull.UrpStyle
             }
 
             m_Watch.Restart();
-            m_Tree.Select(local.x, local.y, local.z, m_LocalPlanes, viewer.farClipPlane, m_Nodes);
+            var reach = Reach(viewer);
+
+            m_Tree.Select(local.x, local.y, local.z, m_LocalPlanes, reach, m_Nodes);
             Fill(origin, m_Full, m_Quarters);
 
             m_Trail.Run(context, camera, this);
@@ -523,7 +525,7 @@ namespace HiddenBull.UrpStyle
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
             m_Liquid.Draw(this, context, camera, m_Data, m_LiquidShader, m_WaveCompute, block, origin, local,
-                          m_LocalPlanes, viewer.farClipPlane, StyleTerrains.quality.current.detailRange,
+                          m_LocalPlanes, reach, StyleTerrains.quality.current.detailRange,
                           gameObject.layer);
             m_Grass.Draw(context, camera, this, m_Trail.Map(camera));
 
@@ -815,6 +817,17 @@ namespace HiddenBull.UrpStyle
 
                 Graphics.RenderMeshInstanced(parameters, mesh, 0, instances, count, start);
             }
+        }
+
+        static float Reach(Camera viewer)
+        {
+            var far = viewer.farClipPlane;
+            var half = viewer.orthographic
+                ? viewer.orthographicSize
+                : far * Mathf.Tan(viewer.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            var side = half * viewer.aspect;
+
+            return Mathf.Sqrt(far * far + half * half + side * side);
         }
 
         internal static Mesh Patch(bool quarter)

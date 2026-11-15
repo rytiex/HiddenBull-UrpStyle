@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace HiddenBull.UrpStyle
 {
@@ -91,6 +92,19 @@ namespace HiddenBull.UrpStyle
             snowClock = 0.0;
             instant = true;
             StylePrecipitation.Reset();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void OnSubsystemRegistration()
+        {
+            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
+        }
+
+        static void OnActiveSceneChanged(Scene from, Scene to)
+        {
+            if (Application.isPlaying)
+                Reset();
         }
 
         static float Toward(float value, float target, float rise, float fall)
