@@ -538,12 +538,14 @@ namespace HiddenBull.UrpStyle
             if (StyleTerrains.shelter != null && StyleTerrains.shelter.TryGetMap(camera, out var map))
             {
                 cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.mapId, map.map);
+                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.ageId, map.age);
                 cmd.SetComputeVectorArrayParam(m_Compute, StyleShelterPass.areaId, map.areas);
                 cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, map.state);
                 return;
             }
 
             cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.mapId, StyleShelterPass.empty);
+            cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.ageId, Texture2D.whiteTexture);
             cmd.SetComputeVectorArrayParam(m_Compute, StyleShelterPass.areaId, StyleShelterPass.noAreas);
             cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, Vector4.zero);
         }

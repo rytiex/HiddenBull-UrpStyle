@@ -6,12 +6,15 @@
 #define HB_SHELTER_CASCADES 3
 
 TEXTURE2D_ARRAY(_HB_Shelter);
+TEXTURE2D(_HB_ShelterAge);
 
 float4 _HB_ShelterArea[HB_SHELTER_CASCADES];
 float4 _HB_ShelterState;
 
 #define HB_SHELTER_BOUND         _HB_ShelterState.x
 #define HB_SHELTER_SIZE          _HB_ShelterState.y
+#define HB_SHELTER_SHORE_FADE    _HB_ShelterState.z
+#define HB_SHELTER_SHORE_TOP     _HB_ShelterState.w
 #define HB_SHELTER_BLEND_TEXELS  16.0
 
 #define HB_SHELTER_LIFT          0.35
@@ -21,6 +24,7 @@ float4 _HB_ShelterState;
 #define HB_SHELTER_UNDER_SOFT    0.05
 #define HB_SHELTER_LIQUID_BIAS   -0.45
 #define HB_SHELTER_LIQUID_SOFT   0.3
+#define HB_SHELTER_SHORE_SUNK    0.1
 
 struct HBShelterSpot
 {
@@ -105,19 +109,42 @@ half HB_ShelterCoarse(float3 uv, float y)
     return lerp(lerp(covered.w, covered.z, blend.x), lerp(covered.x, covered.y, blend.x), blend.y);
 }
 
-half HB_ShelterCoverAt(HBShelterSpot spot, float y)
+float2 HB_ShelterStateAt(HBShelterSpot spot)
 {
-    half cover = 1.0h;
+    float2 state = float2(HB_SHELTER_NONE * 10.0, HB_SHELTER_NONE * 10.0);
 
     if (spot.edge > 0.0)
-    {
-        float2 state = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_LinearClamp, spot.uv.xy, spot.uv.z, 0).ba;
-        float under = saturate((state.x - y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
+        state = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_LinearClamp, spot.uv.xy, spot.uv.z, 0).ba;
 
-        cover = half(state.y * (1.0 - under));
-    }
+    return state;
+}
 
-    return cover;
+half HB_ShelterAgeAt(HBShelterSpot spot)
+{
+    half age = 1.0h;
+
+    if (spot.edge > 0.0 && spot.uv.z < 0.5)
+        age = SAMPLE_TEXTURE2D_LOD(_HB_ShelterAge, sampler_LinearClamp, spot.uv.xy, 0).r;
+
+    return age;
+}
+
+half HB_ShelterCoverOf(float2 state, half age, float y)
+{
+    float under = saturate((state.x - y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
+
+    return age * half(1.0 - under);
+}
+
+half HB_ShelterCoverAt(HBShelterSpot spot, float y)
+{
+    return HB_ShelterCoverOf(HB_ShelterStateAt(spot), HB_ShelterAgeAt(spot), y);
+}
+
+half2 HB_ShelterShore(float2 state, float y)
+{
+    return half2(saturate(HB_SHELTER_SHORE_TOP - (y - state.y) * HB_SHELTER_SHORE_FADE),
+                 saturate(1.0 + (y - state.x) / HB_SHELTER_SHORE_SUNK));
 }
 
 half HB_ShelterOpenAt(HBShelterSpot spot, float y)

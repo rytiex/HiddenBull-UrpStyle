@@ -28,6 +28,7 @@ namespace HiddenBull.UrpStyle
         const float PlantPass = 2f;
         const float NoHeight = -1e6f;
         const float Away = 1e9f;
+        const float ShoreSoftest = 0.3f;
         const int MaxReach = 12;
         const int FootprintPass = 1;
         const string LevelIdsPass = "LiquidRoofIds";
@@ -81,6 +82,7 @@ namespace HiddenBull.UrpStyle
         {
             internal RTHandle map;
             internal RTHandle drops;
+            internal RTHandle age;
             internal Vector4[] areas;
             internal Vector4 state;
         }
@@ -208,6 +210,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly int s_MapId = Shader.PropertyToID("_HB_Shelter");
         static readonly int s_DropsId = Shader.PropertyToID("_HB_ShelterDrops");
+        static readonly int s_AgeId = Shader.PropertyToID("_HB_ShelterAge");
         static readonly int s_AreaId = Shader.PropertyToID("_HB_ShelterArea");
         static readonly int s_StateId = Shader.PropertyToID("_HB_ShelterState");
         static readonly int s_PassId = Shader.PropertyToID("_HB_ShelterPass");
@@ -282,6 +285,8 @@ namespace HiddenBull.UrpStyle
 
         internal static int dropsId => s_DropsId;
 
+        internal static int ageId => s_AgeId;
+
         internal static int areaId => s_AreaId;
 
         internal static int stateId => s_StateId;
@@ -332,12 +337,19 @@ namespace HiddenBull.UrpStyle
 
             binding.map = map.packed;
             binding.drops = map.drops;
+            binding.age = map.coverState;
             binding.areas = map.areas;
             binding.state = State(map.resolution);
             return true;
         }
 
-        internal static Vector4 State(int resolution) => new Vector4(1f, resolution, 0f, 0f);
+        internal static Vector4 State(int resolution)
+        {
+            var reach = StyleEnvironment.targetProfile.weather.shoreReach;
+            var fade = 1f / Mathf.Max(reach, ShoreSoftest);
+
+            return new Vector4(1f, resolution, fade, 0.5f + reach * 0.5f * fade);
+        }
 
         internal void Setup(ComputeShader compute, Shader underside, Shader cut, HBStyleWeatherQuality quality)
         {
@@ -357,8 +369,9 @@ namespace HiddenBull.UrpStyle
             m_FinishFarKernel = Kernel(compute, "FinishFar");
         }
 
-        internal static bool Needed() => StyleWeatherState.active || StyleDebug.view == StyleDebugView.WeatherShelter ||
-                                StyleDebug.previewShelter;
+        internal static bool Needed() => StyleWeatherState.active || HBStyleLiquid.any ||
+                                         StyleDebug.view == StyleDebugView.WeatherShelter ||
+                                         StyleDebug.previewShelter;
 
         static float Reach(int cascade)
         {
@@ -482,7 +495,7 @@ namespace HiddenBull.UrpStyle
 
             var drops = renderGraph.ImportTexture(map.drops);
 
-            RecordFinish(renderGraph, map, packed, raw, drops);
+            var age = RecordFinish(renderGraph, map, packed, raw, drops);
 
             using (var builder = renderGraph.AddUnsafePass<BindData>("HB Style Shelter Bind", out var data))
             {
@@ -494,6 +507,8 @@ namespace HiddenBull.UrpStyle
                 builder.SetGlobalTextureAfterPass(packed, s_MapId);
                 builder.UseTexture(drops, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(drops, s_DropsId);
+                builder.UseTexture(age, AccessFlags.Read);
+                builder.SetGlobalTextureAfterPass(age, s_AgeId);
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc(static (BindData d, UnsafeGraphContext context) =>
@@ -616,7 +631,7 @@ namespace HiddenBull.UrpStyle
             builder.SetRenderFunc(static (FinishData d, ComputeGraphContext context) => Finish(d, context.cmd));
         }
 
-        void RecordFinish(RenderGraph renderGraph, Map map, TextureHandle packed, TextureHandle raw,
+        TextureHandle RecordFinish(RenderGraph renderGraph, Map map, TextureHandle packed, TextureHandle raw,
                           TextureHandle drops)
         {
             var resolution = map.resolution;
@@ -658,6 +673,8 @@ namespace HiddenBull.UrpStyle
             (map.coverState, map.coverNext) = (map.coverNext, map.coverState);
             map.coverCentre = here;
             map.coverKept = true;
+
+            return data.state;
         }
 
         static void FillMasks(FinishData data, Vector3 centre, float extent)
@@ -863,8 +880,10 @@ namespace HiddenBull.UrpStyle
                                             name: "_HB_ShelterBelow");
                 map.raw = Field(resolution, GraphicsFormat.R32G32B32A32_SFloat, "_HB_ShelterRaw");
                 map.drops = Field(resolution, GraphicsFormat.R32_SFloat, "_HB_ShelterDrops");
-                map.coverState = Field(resolution, GraphicsFormat.R32G32_SFloat, "_HB_ShelterCoverState");
-                map.coverNext = Field(resolution, GraphicsFormat.R32G32_SFloat, "_HB_ShelterCoverNext");
+                map.coverState = Field(resolution, GraphicsFormat.R32G32_SFloat, "_HB_ShelterCoverState",
+                                       FilterMode.Bilinear);
+                map.coverNext = Field(resolution, GraphicsFormat.R32G32_SFloat, "_HB_ShelterCoverNext",
+                                      FilterMode.Bilinear);
                 map.packed = RTHandles.Alloc(resolution, resolution, slices: Cascades,
                                              colorFormat: GraphicsFormat.R32G32B32A32_SFloat,
                                              filterMode: FilterMode.Bilinear, wrapMode: TextureWrapMode.Clamp,
@@ -877,9 +896,10 @@ namespace HiddenBull.UrpStyle
             return map;
         }
 
-        static RTHandle Field(int resolution, GraphicsFormat format, string name)
+        static RTHandle Field(int resolution, GraphicsFormat format, string name,
+                              FilterMode filter = FilterMode.Point)
         {
-            return RTHandles.Alloc(resolution, resolution, colorFormat: format, filterMode: FilterMode.Point,
+            return RTHandles.Alloc(resolution, resolution, colorFormat: format, filterMode: filter,
                                    wrapMode: TextureWrapMode.Clamp, enableRandomWrite: true, name: name);
         }
 
@@ -1040,7 +1060,7 @@ namespace HiddenBull.UrpStyle
         {
             var level = renderGraph.CreateTexture(new TextureDesc(resolution, resolution)
             {
-                format = GraphicsFormat.R32_SFloat,
+                format = GraphicsFormat.R32G32_SFloat,
                 filterMode = FilterMode.Point,
                 name = "HB Style Shelter Liquid Level"
             });

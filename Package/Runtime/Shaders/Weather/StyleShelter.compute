@@ -12,7 +12,7 @@
 
 Texture2D<float> _HB_ShelterTop;
 Texture2D<float> _HB_ShelterBelow;
-Texture2D<float> _HB_ShelterLiquid;
+Texture2D<float2> _HB_ShelterLiquid;
 Texture2D<float4> _HB_ShelterRaw;
 RWTexture2D<float4> _HB_ShelterRawTarget;
 Texture2D<float2> _HB_ShelterCarry;
@@ -61,6 +61,9 @@ float4 _HB_ShelterCoverStep;
 #define HB_NONE           -1e6
 #define HB_NONE_ABOVE     -1e5
 #define HB_COVER_CLEAR    0.5
+#define HB_WASH_REACH     2.5
+#define HB_WASH_RINGS     3
+#define HB_WASH_SPOKES    8
 
 float2 HB_CellWorld(int2 texel, int size)
 {
@@ -78,6 +81,26 @@ int2 HB_DrawnTexel(float2 world, int size)
     return clamp((int2)floor(uv * size), 0, size - 1);
 }
 
+float HB_Wash(int2 drawn, int size, float crest)
+{
+    float reach = HB_WASH_REACH * size / HB_CELL_EXTENT;
+
+    for (int ring = 1; ring <= HB_WASH_RINGS; ring++)
+    {
+        float radius = reach * ring / HB_WASH_RINGS;
+
+        for (int spoke = 0; spoke < HB_WASH_SPOKES; spoke++)
+        {
+            float turn = (spoke + 0.5 * ring) * (TWO_PI / HB_WASH_SPOKES);
+            int2 other = drawn + (int2)round(float2(cos(turn), sin(turn)) * radius);
+
+            crest = max(crest, _HB_ShelterLiquid.Load(int3(clamp(other, 0, size - 1), 0)).y);
+        }
+    }
+
+    return crest;
+}
+
 [numthreads(8, 8, 1)]
 void Unpack(uint3 id : SV_DispatchThreadID)
 {
@@ -93,11 +116,15 @@ void Unpack(uint3 id : SV_DispatchThreadID)
     float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
     float under = _HB_ShelterBelow.Load(drawn) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
     float nearest = max(HB_HEIGHT_BIAS, HB_HEIGHT_SCALE + HB_HEIGHT_BIAS);
-    float liquid = HB_CELL_LIQUID ? _HB_ShelterLiquid.Load(drawn) : HB_NONE;
+    float2 liquid = HB_CELL_LIQUID ? _HB_ShelterLiquid.Load(drawn) : float2(HB_NONE, 0.0);
+    float touch = HB_NONE;
+
+    if (liquid.x > HB_NONE_ABOVE)
+        touch = liquid.x + HB_Wash(drawn.xy, size, liquid.y);
 
     _HB_ShelterRawTarget[texel] = float4(top > lowest + HB_EMPTY_MARGIN ? top : HB_NONE,
                                          HB_CELL_UNDER && under < nearest - HB_UNDER_EMPTY ? under : HB_NONE,
-                                         liquid, 0.0);
+                                         liquid.x, touch);
 }
 
 [numthreads(8, 8, 1)]
@@ -206,7 +233,7 @@ void Finish(uint3 id : SV_DispatchThreadID)
     age = saturate(age + HB_COVER_STEP);
 
     _HB_ShelterCoverState[texel] = float2(age, raw.r);
-    _HB_ShelterMapTarget[uint3(id.xy, 0)] = float4(domes.x, raw.g, raw.b, age);
+    _HB_ShelterMapTarget[uint3(id.xy, 0)] = float4(domes.x, raw.g, raw.b, raw.a);
     _HB_ShelterDropsTarget[texel] = max(domes.y, raw.b);
 }
 
@@ -222,7 +249,7 @@ void FinishFar(uint3 id : SV_DispatchThreadID)
     float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
     float2 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
 
-    _HB_ShelterMapTarget[uint3(id.xy, (uint)HB_SLICE)] = float4(domes.x, raw.g, raw.b, 1.0);
+    _HB_ShelterMapTarget[uint3(id.xy, (uint)HB_SLICE)] = float4(domes.x, raw.g, raw.b, raw.a);
 }
 
 [numthreads(8, 8, 1)]
@@ -248,20 +275,13 @@ void Preview(uint3 id : SV_DispatchThreadID)
     int channel = (int)HB_PREVIEW_CHANNEL;
     float4 colour = float4(0.05, 0.1, 0.35, 1.0);
 
-    if (channel == 3)
-    {
-        colour = float4(1.0, packed.a, packed.a, 1.0);
-    }
-    else
-    {
-        float height = channel == 0 ? packed.r : channel == 1 ? packed.g : packed.b;
+    float height = packed[channel];
 
-        if (height > HB_NONE_ABOVE)
-        {
-            float level = saturate((height - HB_PREVIEW_EYE) / (2.0 * HB_PREVIEW_RANGE) + 0.5);
+    if (height > HB_NONE_ABOVE)
+    {
+        float level = saturate((height - HB_PREVIEW_EYE) / (2.0 * HB_PREVIEW_RANGE) + 0.5);
 
-            colour = float4(level, level, level, 1.0);
-        }
+        colour = float4(level, level, level, 1.0);
     }
 
     float2 fromCentre = abs((float2)id.xy + 0.5 - size * 0.5);

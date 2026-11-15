@@ -149,7 +149,7 @@ half4 HB_BillboardColour(Varyings input)
 
     HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
 
-    half wet = weather.wet;
+    half wet = weather.wet * weather.gloss;
     half snow = weather.snow;
 
     half4 colour = HB_StyleLit(inputData, surfaceData, HB_BillboardStyle(), HB_NoBrush(), false, wet);

@@ -239,7 +239,7 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 
-    half wet = max(weather.wet, weather.flow);
+    half wet = max(weather.wet, weather.flow) * weather.gloss;
     half snow = weather.snow;
 #else
     half wet = 0.0h;

@@ -238,7 +238,7 @@ half4 HB_PlantColour(Varyings input, bool frontFace)
     inputData.normalWS = HB_RainRipples(restWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 
-    half wet = max(weather.wet, weather.flow);
+    half wet = max(weather.wet, weather.flow) * weather.gloss;
     half snow = weather.snow;
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, brushed, wet);

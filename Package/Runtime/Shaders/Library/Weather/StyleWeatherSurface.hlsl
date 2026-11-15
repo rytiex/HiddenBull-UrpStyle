@@ -22,6 +22,7 @@
 
 #define HB_WET_DARKEN           0.2h
 #define HB_GROUND_WET_DARKEN    0.3h
+#define HB_GROUND_SHORE_DARKEN  half(_HB_WeatherClocks.w)
 #define HB_WET_FLAT_SMOOTHNESS  0.92h
 #define HB_WET_WALL_SMOOTHNESS  0.6h
 
@@ -90,6 +91,8 @@ struct HBWeather
     half rain;
     half flow;
     half3 flowBend;
+    half gloss;
+    half shore;
 };
 
 struct HBWeatherMaterial
@@ -211,18 +214,36 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     weather.rain = 0.0h;
     weather.flow = 0.0h;
     weather.flowBend = half3(0.0h, 0.0h, 0.0h);
+    weather.gloss = 1.0h;
+    weather.shore = 0.0h;
 
     half wet = half(HB_SURFACE_WET) * (wetLimit > 0.0h ? 1.0h : 0.0h);
     half cover = half(HB_SURFACE_SNOW) * snowLimit;
+    half shore = 0.0h;
+
+    HBShelterSpot spot = (HBShelterSpot)0;
+    float2 state = float2(HB_SHELTER_NONE * 10.0, HB_SHELTER_NONE * 10.0);
 
     UNITY_BRANCH
-    if (wet > 0.0h || cover > 0.0h)
+    if (HB_SHELTER_BOUND > 0.5)
     {
-        half uncovered;
-        half exposure = HB_ShelterExposure(positionWS, normalWS, uncovered);
+        spot = HB_ShelterSpot(positionWS.xz + float2(normalWS.xz) * HB_SHELTER_LIFT);
+        state = HB_ShelterStateAt(spot);
+
+        half2 wash = HB_ShelterShore(state, positionWS.y);
+
+        shore = wash.x;
+        weather.gloss = wash.y;
+    }
+
+    UNITY_BRANCH
+    if (wet > 0.0h || cover > 0.0h || shore > 0.0h)
+    {
+        half uncovered = HB_ShelterCoverOf(state, HB_ShelterAgeAt(spot), positionWS.y);
+        half exposure = HB_ShelterOpenAt(spot, positionWS.y);
 
         wet *= uncovered;
-        cover *= uncovered;
+        cover *= uncovered * (1.0h - shore);
 
         float3 boundsMin = ground ? positionWS - 1e3 : unity_RendererBounds_Min.xyz;
         float3 boundsMax = ground ? positionWS + 1e3 : unity_RendererBounds_Max.xyz;
@@ -281,8 +302,11 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
 
         half reach = open * (1.0h - weather.snow);
 
-        weather.wet = soaked * reach * wetLimit;
-        weather.rain = rain * reach * detail;
+        half washed = saturate((shore - patches * HB_WET_PATCH_DELAY * HB_WET_SPREAD) / (1.0h - HB_WET_SPREAD));
+
+        weather.shore = washed * wetLimit;
+        weather.wet = max(soaked * reach * wetLimit, weather.shore);
+        weather.rain = rain * reach * detail * weather.gloss;
 
         half steepFlow = saturate((HB_FLOW_STEEP - normalWS.y) / HB_FLOW_STEEP_EDGE);
 
@@ -402,6 +426,8 @@ HBWeather HB_ResolveMovingWeather(float3 positionWS, half3 normalWS, half3 geome
 {
     HBWeather weather;
     weather.rain = 0.0h;
+    weather.gloss = 1.0h;
+    weather.shore = 0.0h;
     weather.flowBend = half3(0.0h, 0.0h, 0.0h);
 
     half up = saturate(normalWS.y * HB_FLAKE_UP);
@@ -462,6 +488,16 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS,
     half snow;
     float2 clocks;
 
+    HBShelterSpot spot = (HBShelterSpot)0;
+    float2 shelter = float2(HB_SHELTER_NONE * 10.0, HB_SHELTER_NONE * 10.0);
+
+    UNITY_BRANCH
+    if (HB_SHELTER_BOUND > 0.5)
+    {
+        spot = HB_ShelterSpot(positionWS.xz + float2(normalWS.xz) * HB_SHELTER_LIFT);
+        shelter = HB_ShelterStateAt(spot);
+    }
+
     UNITY_BRANCH
     if ((body & HB_BODY_TRACKED) != 0u)
     {
@@ -477,11 +513,8 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS,
 
         UNITY_BRANCH
         if (HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0)
-        {
-            half uncovered;
-
-            open = HB_ShelterExposure(positionWS, normalWS, uncovered) * uncovered;
-        }
+            open = HB_ShelterOpenAt(spot, positionWS.y)
+                 * HB_ShelterCoverOf(shelter, HB_ShelterAgeAt(spot), positionWS.y);
 
         wet = half(HB_SURFACE_WET) * open;
         snow = half(HB_SURFACE_SNOW) * open;
@@ -489,6 +522,12 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS,
     }
 
     weather = HB_ResolveMovingWeather(positionWS, normalWS, geometryWS, anchorOS, material, wet, snow, clocks);
+
+    half2 wash = HB_ShelterShore(shelter, positionWS.y);
+
+    weather.wet = max(weather.wet, wash.x * material.wetness);
+    weather.snow *= 1.0h - wash.x;
+    weather.gloss = wash.y;
 #else
     weather = HB_ResolveSurfaceWeather(positionWS, normalWS, brushCoverage, material.wetness, material.snowCover,
                                        false, 1.0h);
@@ -544,10 +583,11 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         half gloss = max(surfaceData.smoothness, lerp(HB_WET_WALL_SMOOTHNESS, HB_WET_FLAT_SMOOTHNESS, flat));
 
         if (ground)
-            surfaceData.albedo *= 1.0h - HB_GROUND_WET_DARKEN * wet;
+            surfaceData.albedo *= 1.0h - HB_GROUND_WET_DARKEN * wet - HB_GROUND_SHORE_DARKEN * weather.shore;
         else
             surfaceData.albedo = PositivePow(max(surfaceData.albedo, 0.0h), 1.0h + wet)
                                * (1.0h - HB_WET_DARKEN * wet) * (1.0h - HB_FLOW_DARKEN * flow);
+        shine *= weather.gloss;
         surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet * shine);
         surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow * shine);
 

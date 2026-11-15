@@ -109,6 +109,7 @@ namespace HiddenBull.UrpStyle
             {
                 Bind(renderGraph, builder, shelter.map, StyleShelterPass.mapId);
                 Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
+                Bind(renderGraph, builder, shelter.age, StyleShelterPass.ageId);
                 Array.Copy(shelter.areas, passData.shelterAreas, StyleShelterPass.Cascades);
                 passData.shelterState = shelter.state;
                 passData.bindShelter = true;
@@ -137,6 +138,7 @@ namespace HiddenBull.UrpStyle
                 else if (data.resetShelter)
                 {
                     context.cmd.SetGlobalTexture(StyleShelterPass.mapId, data.noShelter);
+                    context.cmd.SetGlobalTexture(StyleShelterPass.ageId, Texture2D.whiteTexture);
                     context.cmd.SetGlobalVector(StyleShelterPass.stateId, Vector4.zero);
                 }
             });

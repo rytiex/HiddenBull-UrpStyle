@@ -53,9 +53,9 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly GUIContent s_ShelterChannelLabel = new GUIContent("Channel",
             "Roof Top and Underside show heights (blue is empty, darker is lower). Liquid Level shows where rain " +
-            "and snow stop at a liquid. Cover Age is red where a roof was just removed.");
+            "and snow stop at a liquid. Wave Reach shows how high the waves wet the shore.");
 
-        static readonly string[] s_ShelterChannels = { "Roof Top", "Underside", "Liquid Level", "Cover Age" };
+        static readonly string[] s_ShelterChannels = { "Roof Top", "Underside", "Liquid Level", "Wave Reach" };
 
         Vector2 m_Scroll;
 

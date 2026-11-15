@@ -124,6 +124,7 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_STREAM_STREAK  0.12
 #define HB_LIQUID_STREAM_SPAN    1.0
 #define HB_LIQUID_ROOF_LIFT      0.75
+#define HB_LIQUID_CREST_SHARE    0.5
 #define HB_LIQUID_CELLS          4
 #define HB_LIQUID_CELL_SIZE      2.0
 #define HB_LIQUID_STREAM_STRETCH 0.35
@@ -1712,7 +1713,7 @@ float HB_LiquidRoofIdsFragment(HBLiquidVaryings input, out float depth : SV_Dept
     return _HB_LiquidId;
 }
 
-float HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
+float2 HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
@@ -1723,7 +1724,12 @@ float HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
 
     HB_LiquidCut(input.positionCS);
 
-    return water.level;
+    HBLiquidWaveShape shape = HB_LiquidWaveShape(water.mix);
+    HBLiquidSea sea = HB_LiquidSeaAt(input.rest.xy, shape);
+    float crest = HB_WAVE_TROUGH * shape.amount * shape.height * shape.length * saturate(sea.wind + sea.shore)
+                * HB_LIQUID_CREST_SHARE;
+
+    return float2(water.level, crest);
 }
 
 #endif

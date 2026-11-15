@@ -191,7 +191,8 @@ namespace HiddenBull.UrpStyle
             globals._HB_WeatherSurface = new Vector4(StyleWeatherState.wetness, StyleWeatherState.snow,
                                                      StyleWeatherState.rain, (float)StyleWeatherState.fallClock);
             globals._HB_WeatherClocks = new Vector4((float)StyleWeatherState.rainClock,
-                                                   (float)StyleWeatherState.snowClock, 0f, 0f);
+                                                   (float)StyleWeatherState.snowClock, 0f,
+                                                   weather.shoreDarkening);
             globals._HB_WeatherLook = new Vector4(rainColor.r, rainColor.g, rainColor.b,
                                                   quality.current.detailDistance);
             globals._HB_Precipitation = new Vector4(weather.rainOpacity, weather.rainWidth, weather.snowSize,

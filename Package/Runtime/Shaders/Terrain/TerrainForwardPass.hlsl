@@ -238,7 +238,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
     HB_SoftenBrushUnderSnow(weather.snow, style);
 
-    half wet = max(weather.wet, weather.flow);
+    half wet = max(weather.wet, weather.flow) * weather.gloss;
 
     InputData inputData = (InputData)0;
     inputData.positionWS = input.positionWS;

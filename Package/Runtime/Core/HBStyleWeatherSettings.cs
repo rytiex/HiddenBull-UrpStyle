@@ -91,6 +91,19 @@ namespace HiddenBull.UrpStyle
                  "and melts over Dry Time and Melt Time.")]
         float m_UncoverTime = 5f;
 
+        [SerializeField]
+        [Range(0f, 3f)]
+        [Tooltip("How far above the reach of the waves a liquid keeps the ground and objects wet, in metres. " +
+                 "The wetness fades out over this height and no snow settles inside it. At 0 only what the waves " +
+                 "reach stays wet.")]
+        float m_ShoreReach = 0.1f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How much darker the terrain gets where a liquid wets it and under the liquid, on top of the " +
+                 "darkening every wet ground gets.")]
+        float m_ShoreDarkening = 0.2f;
+
         public Color rainColor => m_RainColor;
 
         public float rainOpacity => m_RainOpacity;
@@ -122,5 +135,9 @@ namespace HiddenBull.UrpStyle
         public float meltTime => m_MeltTime;
 
         public float uncoverTime => m_UncoverTime;
+
+        public float shoreReach => m_ShoreReach;
+
+        public float shoreDarkening => m_ShoreDarkening;
     }
 }
