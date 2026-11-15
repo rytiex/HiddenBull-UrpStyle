@@ -535,21 +535,16 @@ namespace HiddenBull.UrpStyle
 
         void Shelter(CommandBuffer cmd, Camera camera)
         {
-            if (StyleTerrains.shelter != null && StyleTerrains.shelter.TryGetMap(camera, out var map) &&
-                map.depth != null)
+            if (StyleTerrains.shelter != null && StyleTerrains.shelter.TryGetMap(camera, out var map))
             {
-                Texture cover = map.cover != null ? map.cover.rt : Texture2D.whiteTexture;
-
-                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.depthId, map.depth);
-                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.coverId, cover);
-                cmd.SetComputeMatrixParam(m_Compute, StyleShelterPass.viewProjectionId, map.viewProjection);
-                cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.heightId, map.height);
-                cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, StyleShelterPass.State(false));
+                cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.mapId, map.map);
+                cmd.SetComputeVectorArrayParam(m_Compute, StyleShelterPass.areaId, map.areas);
+                cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, map.state);
                 return;
             }
 
-            cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.depthId, Texture2D.blackTexture);
-            cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.coverId, Texture2D.whiteTexture);
+            cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.mapId, StyleShelterPass.empty);
+            cmd.SetComputeVectorArrayParam(m_Compute, StyleShelterPass.areaId, StyleShelterPass.noAreas);
             cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, Vector4.zero);
         }
 

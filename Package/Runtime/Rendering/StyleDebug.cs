@@ -43,6 +43,8 @@ namespace HiddenBull.UrpStyle
         internal static bool previewShelter;
         internal static bool previewGameCamera;
         internal static Texture shelterPreview;
+        internal static int shelterCascade;
+        internal static int shelterChannel;
 
         internal static int rainDrops;
         internal static int snowFlakes;

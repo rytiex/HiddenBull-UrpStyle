@@ -30,8 +30,6 @@ namespace HiddenBull.UrpStyle
         static readonly int s_KeepId = Shader.PropertyToID("_HB_LiquidKeep");
         static readonly int s_EyeId = Shader.PropertyToID("_HB_LiquidEye");
 
-        static readonly Matrix4x4[] s_Batch = new Matrix4x4[BatchSize];
-
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly StyleLiquidLook m_Look = new StyleLiquidLook();
         readonly StyleLiquidCalm m_Calm = new StyleLiquidCalm();
@@ -39,8 +37,6 @@ namespace HiddenBull.UrpStyle
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Quarters = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_Sea = new List<Matrix4x4>();
-        readonly List<Matrix4x4> m_RoofFull = new List<Matrix4x4>();
-        readonly List<Matrix4x4> m_RoofQuarters = new List<Matrix4x4>();
         readonly Vector4[] m_Ranges = new Vector4[StyleTerrainTree.MaxLevels];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
 
@@ -67,7 +63,6 @@ namespace HiddenBull.UrpStyle
         MaterialPropertyBlock m_Block;
         Vector3 m_Origin;
         Vector3 m_Local;
-        float m_RoofReach = -1f;
 
         internal StyleLiquidCalm calm => m_Calm;
 
@@ -77,7 +72,6 @@ namespace HiddenBull.UrpStyle
                            float[] planes, float far, float detailRange, int layer)
         {
             m_Camera = null;
-            m_RoofReach = -1f;
 
             if (!data.liquidOn || shader == null || !Ready(shader) || !Leaves(data))
                 return;
@@ -560,8 +554,7 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal void DrawRoof(RasterCommandBuffer cmd, Camera camera, HBStyleTerrainData data, string pass,
-                               float reach)
+        internal void DrawLevel(RasterCommandBuffer cmd, Camera camera, HBStyleTerrainData data, string pass)
         {
             if (camera != m_Camera || m_Material == null || data == null || !data.liquidOn)
                 return;
@@ -571,29 +564,7 @@ namespace HiddenBull.UrpStyle
             if (index < 0)
                 return;
 
-            if (reach != m_RoofReach)
-            {
-                m_Tree.Select(m_Local.x, m_Local.y, m_Local.z, null, reach, m_Nodes, true);
-                Fill(m_Origin, m_RoofFull, m_RoofQuarters);
-                Sea(m_Origin, new Vector3(m_Local.x, data.seaLevel, m_Local.z), null, reach, data.seaLevel,
-                    out _);
-                m_RoofReach = reach;
-            }
-
-            Instanced(cmd, HBStyleTerrain.Patch(false), m_RoofFull, index);
-            Instanced(cmd, HBStyleTerrain.Patch(true), m_RoofQuarters, index);
-            Instanced(cmd, HBStyleTerrain.Patch(false), m_Sea, index);
-        }
-
-        void Instanced(RasterCommandBuffer cmd, Mesh mesh, List<Matrix4x4> instances, int pass)
-        {
-            for (var start = 0; start < instances.Count; start += BatchSize)
-            {
-                var count = Mathf.Min(BatchSize, instances.Count - start);
-
-                instances.CopyTo(start, s_Batch, 0, count);
-                cmd.DrawMeshInstanced(mesh, 0, m_Material, pass, s_Batch, count, m_Block);
-            }
+            cmd.DrawMesh(HBStyleTerrain.Patch(false), Matrix4x4.identity, m_Material, 0, index, m_Block);
         }
 
         internal void Bind(HBStyleTerrainData data, MaterialPropertyBlock block)

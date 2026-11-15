@@ -60,6 +60,11 @@ namespace HiddenBull.UrpStyle
                  "it only changes a liquid its volume actually touches.")]
         HBStyleLiquidCutTargets m_Affects = HBStyleLiquidCutTargets.Terrain | HBStyleLiquidCutTargets.Pool;
 
+        [SerializeField]
+        [Tooltip("Cut Out only. Rain and snow still stop at the liquid level inside the volume, so a boat does not " +
+                 "let them fall through to the floor below it. Leave it off for a dry hole such as a dock or a pit.")]
+        bool m_Roof;
+
         Mesh m_Solid;
         Vector3[] m_Points;
         int[] m_Corners;
@@ -86,6 +91,12 @@ namespace HiddenBull.UrpStyle
         {
             get => m_Affects;
             set => m_Affects = value;
+        }
+
+        public bool roof
+        {
+            get => m_Roof;
+            set => m_Roof = value;
         }
 
         internal static List<HBStyleLiquidCutter> enabledCutters => s_Enabled;

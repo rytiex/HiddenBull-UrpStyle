@@ -123,20 +123,13 @@ half HB_DropSheltered(float3 positionWS)
     UNITY_BRANCH
     if (HB_SHELTER_BOUND > 0.5)
     {
-        float4 clip = mul(_HB_ShelterViewProj, float4(positionWS.x, 0.0, positionWS.z, 1.0));
-        float2 uv = clip.xy;
-#if UNITY_UV_STARTS_AT_TOP
-        uv.y = -uv.y;
-#endif
-        uv = uv * 0.5 + 0.5;
+        float2 uv = (positionWS.xz - _HB_ShelterArea[0].xy) * _HB_ShelterArea[0].z + 0.5;
 
         if (all(uv > 0.0) && all(uv < 1.0))
         {
-            float depth = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDrops, sampler_PointClamp, uv, 0).r;
-            float roof = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
-            float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
+            float roof = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDrops, sampler_PointClamp, uv, 0).r;
 
-            sheltered = roof > empty ? half(saturate((roof + HB_LANDING - positionWS.y) / HB_LANDING)) : 0.0h;
+            sheltered = roof > HB_SHELTER_NONE ? half(saturate((roof + HB_LANDING - positionWS.y) / HB_LANDING)) : 0.0h;
         }
     }
 

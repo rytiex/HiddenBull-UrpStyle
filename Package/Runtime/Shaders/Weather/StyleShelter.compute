@@ -1,30 +1,33 @@
 #pragma kernel Preview
 #pragma kernel Heights
+#pragma kernel Unpack
 #pragma kernel DilateX
 #pragma kernel DilateZ
-#pragma kernel Masks
-#pragma kernel Uncover
+#pragma kernel Finish
+#pragma kernel FinishFar
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
 #define HB_MASK_LIMIT 16
 
-Texture2D<float> _HB_ShelterDepth;
-RWTexture2D<float4> _HB_ShelterPreview;
-RWTexture2D<float2> _HB_ShelterHeights;
-Texture2D<float> _HB_ShelterSource;
-Texture2D<float> _HB_ShelterUnder;
+Texture2D<float> _HB_ShelterTop;
+Texture2D<float> _HB_ShelterBelow;
+Texture2D<float> _HB_ShelterLiquid;
+Texture2D<float4> _HB_ShelterRaw;
+RWTexture2D<float4> _HB_ShelterRawTarget;
 Texture2D<float2> _HB_ShelterCarry;
 RWTexture2D<float2> _HB_ShelterCarryTarget;
-RWTexture2D<float> _HB_ShelterTarget;
-RWTexture2D<float> _HB_ShelterDropsTarget;
 Texture2D<float2> _HB_ShelterCoverFrom;
 RWTexture2D<float2> _HB_ShelterCoverState;
-RWTexture2D<float2> _HB_ShelterCover;
-Texture2D<float> _HB_ShelterLiquid;
+RWTexture2DArray<float4> _HB_ShelterMapTarget;
+RWTexture2D<float> _HB_ShelterDropsTarget;
+Texture2DArray<float4> _HB_ShelterMap;
+RWTexture2D<float4> _HB_ShelterPreview;
+RWTexture2D<float2> _HB_ShelterHeights;
 
 float4x4 _HB_ShelterViewProj;
 float4 _HB_ShelterHeight;
+float4 _HB_ShelterCell;
 float4 _HB_ShelterPreviewArea;
 float4 _HB_ShelterDilate;
 float4 _HB_ShelterMasks[HB_MASK_LIMIT];
@@ -34,17 +37,21 @@ float4 _HB_ShelterCoverStep;
 #define HB_HEIGHT_SCALE   _HB_ShelterHeight.x
 #define HB_HEIGHT_BIAS    _HB_ShelterHeight.y
 #define HB_RESOLUTION     _HB_ShelterHeight.z
+#define HB_SLICE          _HB_ShelterHeight.w
 
-#define HB_AREA_CENTRE    _HB_ShelterPreviewArea.xy
-#define HB_AREA_SIZE      _HB_ShelterPreviewArea.z
-#define HB_AREA_EYE       _HB_ShelterPreviewArea.w
+#define HB_CELL_CENTRE    _HB_ShelterCell.xy
+#define HB_CELL_EXTENT    _HB_ShelterCell.z
+#define HB_CELL_LIQUID    (fmod(_HB_ShelterCell.w, 2.0) > 0.5)
+#define HB_CELL_UNDER     (_HB_ShelterCell.w > 1.5)
+
+#define HB_PREVIEW_SLICE   _HB_ShelterPreviewArea.x
+#define HB_PREVIEW_CHANNEL _HB_ShelterPreviewArea.y
+#define HB_PREVIEW_EYE     _HB_ShelterPreviewArea.z
 #define HB_REACH          ((int)_HB_ShelterDilate.x)
 #define HB_MASK_COUNT     ((int)_HB_ShelterMaskCount.x)
 #define HB_MASK_BLOCKING  ((int)_HB_ShelterMaskCount.y)
-#define HB_MASK_TEXEL     _HB_ShelterMaskCount.z
 #define HB_COVER_SHIFT    ((int2)_HB_ShelterCoverStep.xy)
 #define HB_COVER_STEP     _HB_ShelterCoverStep.z
-#define HB_COVER_LIQUID   _HB_ShelterCoverStep.w
 
 #define HB_PREVIEW_RANGE  10.0
 #define HB_EMPTY_MARGIN   0.05
@@ -52,88 +59,45 @@ float4 _HB_ShelterCoverStep;
 #define HB_UNDER_EMPTY    0.05
 #define HB_OVERHANG_CLEAR 0.5
 #define HB_NONE           -1e6
+#define HB_NONE_ABOVE     -1e5
 #define HB_COVER_CLEAR    0.5
-#define HB_COVER_SKIN     0.25
 
-[numthreads(8, 8, 1)]
-void Preview(uint3 id : SV_DispatchThreadID)
+float2 HB_CellWorld(int2 texel, int size)
 {
-    int size = (int)HB_RESOLUTION;
+    return HB_CELL_CENTRE + ((float2)texel + 0.5 - size * 0.5) * (HB_CELL_EXTENT / size);
+}
 
-    if (any((int2)id.xy >= size))
-        return;
-
-    float2 world = HB_AREA_CENTRE + ((float2)id.xy + 0.5 - size * 0.5) * (HB_AREA_SIZE / size);
-    float4 clip = mul(_HB_ShelterViewProj, float4(world.x, 0.0, world.y, 1.0));
-    float2 uv = clip.xy;
+int2 HB_DrawnTexel(float2 world, int size)
+{
+    float2 uv = mul(_HB_ShelterViewProj, float4(world.x, 0.0, world.y, 1.0)).xy;
 #if UNITY_UV_STARTS_AT_TOP
     uv.y = -uv.y;
 #endif
     uv = uv * 0.5 + 0.5;
 
-    int2 texel = clamp((int2)floor(uv * size), 0, size - 1);
-    float depth = _HB_ShelterDepth.Load(int3(texel, 0));
-    float height = depth * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
-    float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
-
-    float4 colour = float4(0.05, 0.1, 0.35, 1.0);
-
-    if (height > lowest + HB_EMPTY_MARGIN)
-    {
-        float level = saturate((height - HB_AREA_EYE) / (2.0 * HB_PREVIEW_RANGE) + 0.5);
-        colour = float4(level, level, level, 1.0);
-    }
-
-    float2 fromCentre = abs((float2)id.xy + 0.5 - size * 0.5);
-
-    if (max(fromCentre.x, fromCentre.y) < 2.0)
-        colour = float4(1.0, 0.2, 0.1, 1.0);
-
-    _HB_ShelterPreview[id.xy] = colour;
-}
-
-float2 HB_HeightAt(uint2 id, int size)
-{
-    float2 world = HB_AREA_CENTRE + ((float2)id + 0.5 - size * 0.5) * (HB_AREA_SIZE / size);
-    float4 clip = mul(_HB_ShelterViewProj, float4(world.x, 0.0, world.y, 1.0));
-    float2 uv = clip.xy;
-#if UNITY_UV_STARTS_AT_TOP
-    uv.y = -uv.y;
-#endif
-    uv = uv * 0.5 + 0.5;
-
-    int2 texel = clamp((int2)floor(uv * size), 0, size - 1);
-    float height = _HB_ShelterDepth.Load(int3(texel, 0)) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
-    float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
-    float under = _HB_ShelterUnder.Load(int3(texel, 0)) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
-    float nearest = max(HB_HEIGHT_BIAS, HB_HEIGHT_SCALE + HB_HEIGHT_BIAS);
-
-    return float2(height > lowest + HB_EMPTY_MARGIN ? height : HB_NONE,
-                  under < nearest - HB_UNDER_EMPTY ? under : HB_NONE);
+    return clamp((int2)floor(uv * size), 0, size - 1);
 }
 
 [numthreads(8, 8, 1)]
-void Heights(uint3 id : SV_DispatchThreadID)
+void Unpack(uint3 id : SV_DispatchThreadID)
 {
     int size = (int)HB_RESOLUTION;
+    int2 texel = (int2)id.xy;
 
-    if (any((int2)id.xy >= size))
+    if (any(texel >= size))
         return;
 
-    _HB_ShelterHeights[id.xy] = HB_HeightAt(id.xy, size);
-}
+    int3 drawn = int3(HB_DrawnTexel(HB_CellWorld(texel, size), size), 0);
 
-float HB_TopHeight(int2 texel, int size)
-{
-    return _HB_ShelterSource.Load(int3(clamp(texel, 0, size - 1), 0)) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
-}
-
-float HB_UnderHeight(int2 texel, int size)
-{
-    float height = _HB_ShelterUnder.Load(int3(clamp(texel, 0, size - 1), 0)) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
+    float top = _HB_ShelterTop.Load(drawn) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
+    float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
+    float under = _HB_ShelterBelow.Load(drawn) * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
     float nearest = max(HB_HEIGHT_BIAS, HB_HEIGHT_SCALE + HB_HEIGHT_BIAS);
+    float liquid = HB_CELL_LIQUID ? _HB_ShelterLiquid.Load(drawn) : HB_NONE;
 
-    return height > nearest - HB_UNDER_EMPTY ? HB_NONE : height;
+    _HB_ShelterRawTarget[texel] = float4(top > lowest + HB_EMPTY_MARGIN ? top : HB_NONE,
+                                         HB_CELL_UNDER && under < nearest - HB_UNDER_EMPTY ? under : HB_NONE,
+                                         liquid, 0.0);
 }
 
 [numthreads(8, 8, 1)]
@@ -152,11 +116,10 @@ void DilateX(uint3 id : SV_DispatchThreadID)
         if (abs(i) > HB_REACH)
             continue;
 
-        int2 other = texel + int2(i, 0);
-        float under = HB_UnderHeight(other, size);
+        float2 other = _HB_ShelterRaw.Load(int3(clamp(texel + int2(i, 0), 0, size - 1), 0)).rg;
 
-        if (under > overhang.y)
-            overhang = float2(HB_TopHeight(other, size), under);
+        if (other.y > overhang.y)
+            overhang = other;
     }
 
     _HB_ShelterCarryTarget[texel] = overhang;
@@ -171,8 +134,8 @@ void DilateZ(uint3 id : SV_DispatchThreadID)
     if (any(texel >= size))
         return;
 
-    float receiver = HB_TopHeight(texel, size);
-    float highest = receiver;
+    float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
+    float highest = raw.r;
 
     for (int i = -HB_MAX_REACH; i <= HB_MAX_REACH; i++)
     {
@@ -181,36 +144,16 @@ void DilateZ(uint3 id : SV_DispatchThreadID)
 
         float2 overhang = _HB_ShelterCarry.Load(int3(clamp(texel + int2(0, i), 0, size - 1), 0));
 
-        if (overhang.y > receiver + HB_OVERHANG_CLEAR)
+        if (overhang.y > raw.r + HB_OVERHANG_CLEAR)
             highest = max(highest, overhang.x);
     }
 
-    _HB_ShelterTarget[texel] = (highest - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE;
+    _HB_ShelterRawTarget[texel] = float4(highest, raw.gba);
 }
 
-float2 HB_MaskTexel(float3 centre, int size)
+float2 HB_Domes(float2 world, float top)
 {
-    float2 uv = mul(_HB_ShelterViewProj, float4(centre.x, 0.0, centre.z, 1.0)).xy;
-#if UNITY_UV_STARTS_AT_TOP
-    uv.y = -uv.y;
-#endif
-    return (uv * 0.5 + 0.5) * size;
-}
-
-[numthreads(8, 8, 1)]
-void Masks(uint3 id : SV_DispatchThreadID)
-{
-    int size = (int)HB_RESOLUTION;
-    int2 texel = (int2)id.xy;
-
-    if (any(texel >= size))
-        return;
-
-    float source = _HB_ShelterSource.Load(int3(texel, 0));
-    float height = source * HB_HEIGHT_SCALE + HB_HEIGHT_BIAS;
-    float surface = height;
-    float drops = height;
-    float2 here = (float2)texel + 0.5;
+    float2 heights = float2(top, top);
 
     for (int i = 0; i < HB_MASK_LIMIT; i++)
     {
@@ -218,7 +161,7 @@ void Masks(uint3 id : SV_DispatchThreadID)
             break;
 
         float4 mask = _HB_ShelterMasks[i];
-        float2 offset = (here - HB_MaskTexel(mask.xyz, size)) * HB_MASK_TEXEL;
+        float2 offset = world - mask.xz;
         float reach = mask.w * mask.w - dot(offset, offset);
 
         if (reach <= 0.0)
@@ -226,18 +169,17 @@ void Masks(uint3 id : SV_DispatchThreadID)
 
         float dome = mask.y + sqrt(reach);
 
-        surface = max(surface, dome);
+        heights.x = max(heights.x, dome);
 
         if (i < HB_MASK_BLOCKING)
-            drops = max(drops, dome);
+            heights.y = max(heights.y, dome);
     }
 
-    _HB_ShelterTarget[texel] = surface > height ? (surface - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
-    _HB_ShelterDropsTarget[texel] = drops > height ? (drops - HB_HEIGHT_BIAS) / HB_HEIGHT_SCALE : source;
+    return heights;
 }
 
 [numthreads(8, 8, 1)]
-void Uncover(uint3 id : SV_DispatchThreadID)
+void Finish(uint3 id : SV_DispatchThreadID)
 {
     int size = (int)HB_RESOLUTION;
     int2 texel = (int2)id.xy;
@@ -245,29 +187,87 @@ void Uncover(uint3 id : SV_DispatchThreadID)
     if (any(texel >= size))
         return;
 
-    float top = HB_TopHeight(texel, size);
-    float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
-    float liquid = HB_COVER_LIQUID > 0.5 ? _HB_ShelterLiquid.Load(int3(texel, 0)) : HB_NONE;
-
-    if (top <= lowest + HB_EMPTY_MARGIN || top <= liquid + HB_COVER_SKIN)
-        top = HB_NONE;
+    float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
+    float2 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
 
     int2 from = texel + HB_COVER_SHIFT;
-    float2 state = float2(1.0, top);
+    float2 state = float2(1.0, raw.r);
 
     if (all(from >= 0) && all(from < size))
         state = _HB_ShelterCoverFrom.Load(int3(from, 0));
 
     float age = state.x;
 
-    if (top > state.y + HB_COVER_CLEAR)
+    if (raw.r > state.y + HB_COVER_CLEAR)
         age = 1.0;
-    else if (top < state.y - HB_COVER_CLEAR)
+    else if (raw.r < state.y - HB_COVER_CLEAR)
         age = 0.0;
 
     age = saturate(age + HB_COVER_STEP);
 
-    _HB_ShelterCoverState[texel] = float2(age, top);
+    _HB_ShelterCoverState[texel] = float2(age, raw.r);
+    _HB_ShelterMapTarget[uint3(id.xy, 0)] = float4(domes.x, raw.g, raw.b, age);
+    _HB_ShelterDropsTarget[texel] = max(domes.y, raw.b);
+}
 
-    _HB_ShelterCover[texel] = float2(age, liquid);
+[numthreads(8, 8, 1)]
+void FinishFar(uint3 id : SV_DispatchThreadID)
+{
+    int size = (int)HB_RESOLUTION;
+    int2 texel = (int2)id.xy;
+
+    if (any(texel >= size))
+        return;
+
+    float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
+    float2 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
+
+    _HB_ShelterMapTarget[uint3(id.xy, (uint)HB_SLICE)] = float4(domes.x, raw.g, raw.b, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Heights(uint3 id : SV_DispatchThreadID)
+{
+    int size = (int)HB_RESOLUTION;
+
+    if (any((int2)id.xy >= size))
+        return;
+
+    _HB_ShelterHeights[id.xy] = _HB_ShelterMap.Load(int4(id.xy, 0, 0)).rg;
+}
+
+[numthreads(8, 8, 1)]
+void Preview(uint3 id : SV_DispatchThreadID)
+{
+    int size = (int)HB_RESOLUTION;
+
+    if (any((int2)id.xy >= size))
+        return;
+
+    float4 packed = _HB_ShelterMap.Load(int4(id.xy, (int)HB_PREVIEW_SLICE, 0));
+    int channel = (int)HB_PREVIEW_CHANNEL;
+    float4 colour = float4(0.05, 0.1, 0.35, 1.0);
+
+    if (channel == 3)
+    {
+        colour = float4(1.0, packed.a, packed.a, 1.0);
+    }
+    else
+    {
+        float height = channel == 0 ? packed.r : channel == 1 ? packed.g : packed.b;
+
+        if (height > HB_NONE_ABOVE)
+        {
+            float level = saturate((height - HB_PREVIEW_EYE) / (2.0 * HB_PREVIEW_RANGE) + 0.5);
+
+            colour = float4(level, level, level, 1.0);
+        }
+    }
+
+    float2 fromCentre = abs((float2)id.xy + 0.5 - size * 0.5);
+
+    if (max(fromCentre.x, fromCentre.y) < 2.0)
+        colour = float4(1.0, 0.2, 0.1, 1.0);
+
+    _HB_ShelterPreview[id.xy] = colour;
 }

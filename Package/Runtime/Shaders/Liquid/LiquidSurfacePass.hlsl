@@ -999,8 +999,10 @@ half3 HB_LiquidRipples(float3 positionWS, float restY, half3 normalWS, half4 mix
             HBWeather weather = (HBWeather)0;
             float3 roofWS = float3(positionWS.x, restY + HB_LIQUID_ROOF_LIFT, positionWS.z);
 
-            weather.rain = half(HB_SURFACE_RAIN) * HB_ShelterOpen(roofWS, half3(0.0h, 1.0h, 0.0h))
-                         * HB_ShelterCover(roofWS) * detail * share;
+            half uncovered;
+
+            weather.rain = half(HB_SURFACE_RAIN) * HB_ShelterExposure(roofWS, half3(0.0h, 1.0h, 0.0h), uncovered)
+                         * uncovered * detail * share;
 
             normalWS = HB_RainRipples(positionWS, normalWS, weather);
         }
@@ -1669,6 +1671,8 @@ float HB_LiquidHeightFragment(HBLiquidVaryings input) : SV_Target
     return input.positionWS.y;
 }
 
+float4 _HB_ShelterDrawArea;
+
 HBLiquidVaryings HB_LiquidRoofVertex(HBLiquidAttributes input)
 {
     HBLiquidVaryings output = (HBLiquidVaryings)0;
@@ -1676,25 +1680,43 @@ HBLiquidVaryings HB_LiquidRoofVertex(HBLiquidAttributes input)
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
+#if defined(HB_LIQUID_POOL)
     float spacing;
     float2 xz = HB_LiquidGridXZ(input, spacing);
-    HBWaterLevel water = HB_LiquidWaterAt(xz);
+#else
+    float2 xz = _HB_ShelterDrawArea.xy + input.positionOS.xz * _HB_ShelterDrawArea.z;
+#endif
 
-    output.positionWS = float3(xz.x, water.level, xz.y);
+    output.positionWS = float3(xz.x, _HB_ShelterDrawArea.w, xz.y);
     output.positionCS = TransformWorldToHClip(output.positionWS);
     output.rest = float4(xz, 0.0, 0.0);
     return output;
 }
 
-float _HB_LiquidRoofLift;
+float HB_LiquidRoofDepth(float2 xz, float level)
+{
+    return saturate(TransformWorldToHClip(float3(xz.x, level, xz.y)).z);
+}
 
-float HB_LiquidRoofFragment(HBLiquidVaryings input, out float depth : SV_Depth) : SV_Target
+float HB_LiquidRoofIdsFragment(HBLiquidVaryings input, out float depth : SV_Depth) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     HBWaterLevel water = HB_LiquidWaterAt(input.rest.xy);
 
-    depth = TransformWorldToHClip(float3(input.rest.x, water.level + _HB_LiquidRoofLift, input.rest.y)).z;
+    depth = HB_LiquidRoofDepth(input.rest.xy, water.level);
+
+    if (!water.wet)
+        discard;
+
+    return _HB_LiquidId;
+}
+
+float HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
+{
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+
+    HBWaterLevel water = HB_LiquidWaterAt(input.rest.xy);
 
     if (!water.wet)
         discard;

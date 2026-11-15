@@ -128,33 +128,6 @@ Shader "HB URP Style/Terrain Liquid"
 
         Pass
         {
-            Name "LiquidRoof"
-            Tags
-            {
-                "LightMode" = "HBStyleLiquidRoof"
-            }
-
-            ZWrite On
-            ZTest LEqual
-            Cull Off
-            ColorMask 0
-
-            HLSLPROGRAM
-            #pragma target 4.5
-
-            #pragma vertex HB_LiquidRoofVertex
-            #pragma fragment HB_LiquidRoofFragment
-
-            #pragma multi_compile_local _ HB_LIQUID_POOL
-
-            #pragma multi_compile_instancing
-
-            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl"
-            ENDHLSL
-        }
-
-        Pass
-        {
             Name "LiquidRoofIds"
             Tags
             {
@@ -170,7 +143,7 @@ Shader "HB URP Style/Terrain Liquid"
             #pragma target 4.5
 
             #pragma vertex HB_LiquidRoofVertex
-            #pragma fragment HB_LiquidCutFragment
+            #pragma fragment HB_LiquidRoofIdsFragment
 
             #pragma multi_compile_local _ HB_LIQUID_POOL
 

@@ -218,7 +218,8 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     UNITY_BRANCH
     if (wet > 0.0h || cover > 0.0h)
     {
-        half uncovered = HB_ShelterCover(positionWS);
+        half uncovered;
+        half exposure = HB_ShelterExposure(positionWS, normalWS, uncovered);
 
         wet *= uncovered;
         cover *= uncovered;
@@ -233,7 +234,7 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
 
         half edgeBrush = 0.5h + brushCoverage * HB_WEATHER_EDGE_BRUSH;
         half facing = saturate((normalWS.y + HB_FACING_DOWN) / HB_FACING_EDGE);
-        half open = saturate((HB_ShelterOpen(positionWS, normalWS) - 0.5h) * HB_WEATHER_CONTRAST + edgeBrush)
+        half open = saturate((exposure - 0.5h) * HB_WEATHER_CONTRAST + edgeBrush)
                   * facing;
         half patches = HB_WeatherPatches(positionWS);
         half edge = half(1.0 - saturate(min(toEdge.x, toEdge.y) / HB_SNOW_EDGE_WIDTH));
@@ -472,8 +473,15 @@ HBWeather HB_ResolveWeather(float3 positionWS, half3 normalWS, half3 geometryWS,
     }
     else
     {
-        half open = HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0
-                  ? HB_ShelterOpen(positionWS, normalWS) * HB_ShelterCover(positionWS) : 0.0h;
+        half open = 0.0h;
+
+        UNITY_BRANCH
+        if (HB_SURFACE_WET > 0.0 || HB_SURFACE_SNOW > 0.0)
+        {
+            half uncovered;
+
+            open = HB_ShelterExposure(positionWS, normalWS, uncovered) * uncovered;
+        }
 
         wet = half(HB_SURFACE_WET) * open;
         snow = half(HB_SURFACE_SNOW) * open;

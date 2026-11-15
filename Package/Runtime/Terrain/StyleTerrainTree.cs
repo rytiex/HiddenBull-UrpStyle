@@ -116,16 +116,16 @@ namespace HiddenBull.UrpStyle
         }
 
         internal void Select(float cameraX, float cameraY, float cameraZ, float[] planes, float reach,
-                             List<StyleTerrainNode> output, bool flat = false)
+                             List<StyleTerrainNode> output)
         {
             output.Clear();
 
             if (m_Levels > 0)
-                Select(m_Levels - 1, 0, 0, cameraX, cameraY, cameraZ, planes, reach, output, flat);
+                Select(m_Levels - 1, 0, 0, cameraX, cameraY, cameraZ, planes, reach, output);
         }
 
         bool Select(int level, int x, int z, float cameraX, float cameraY, float cameraZ, float[] planes, float reach,
-                    List<StyleTerrainNode> output, bool flat)
+                    List<StyleTerrainNode> output)
         {
             var size = m_LeafSize * (1 << level);
             var minX = x * size - offset;
@@ -141,10 +141,7 @@ namespace HiddenBull.UrpStyle
             if (distance > m_Ranges[level])
                 return false;
 
-            var away = flat ? Distance(cameraX, minY, cameraZ, minX, minY, minZ, minX + size, maxY, minZ + size)
-                            : distance;
-
-            if (away > reach)
+            if (distance > reach)
                 return true;
 
             if (planes != null && !Visible(planes, minX, minY, minZ, minX + size, maxY, minZ + size))
@@ -163,7 +160,7 @@ namespace HiddenBull.UrpStyle
                 var childX = 2 * x + (child & 1);
                 var childZ = 2 * z + (child >> 1);
 
-                if (!Select(level - 1, childX, childZ, cameraX, cameraY, cameraZ, planes, reach, output, flat))
+                if (!Select(level - 1, childX, childZ, cameraX, cameraY, cameraZ, planes, reach, output))
                 {
                     output.Add(new StyleTerrainNode
                     {

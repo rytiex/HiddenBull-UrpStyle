@@ -3,34 +3,65 @@
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleCore.hlsl"
 
-TEXTURE2D_FLOAT(_HB_ShelterDepth);
-TEXTURE2D_FLOAT(_HB_ShelterUnder);
-TEXTURE2D_FLOAT(_HB_ShelterFarDepth);
-TEXTURE2D(_HB_ShelterCover);
+#define HB_SHELTER_CASCADES 3
 
-float4x4 _HB_ShelterViewProj;
-float4 _HB_ShelterHeight;
+TEXTURE2D_ARRAY(_HB_Shelter);
+
+float4 _HB_ShelterArea[HB_SHELTER_CASCADES];
 float4 _HB_ShelterState;
-float4x4 _HB_ShelterFarViewProj;
-float4 _HB_ShelterFarHeight;
 
-#define HB_SHELTER_HEIGHT_SCALE  _HB_ShelterHeight.x
-#define HB_SHELTER_HEIGHT_BIAS   _HB_ShelterHeight.y
-#define HB_SHELTER_RESOLUTION    _HB_ShelterHeight.z
 #define HB_SHELTER_BOUND         _HB_ShelterState.x
-#define HB_SHELTER_FAR_BOUND     _HB_ShelterState.y
-#define HB_SHELTER_FAR_SCALE     _HB_ShelterFarHeight.x
-#define HB_SHELTER_FAR_BIAS      _HB_ShelterFarHeight.y
-#define HB_SHELTER_FAR_SIZE      _HB_ShelterFarHeight.z
+#define HB_SHELTER_SIZE          _HB_ShelterState.y
 #define HB_SHELTER_BLEND_TEXELS  16.0
 
 #define HB_SHELTER_LIFT          0.35
 #define HB_SHELTER_BIAS          0.1
 #define HB_SHELTER_RANGE         0.6
-#define HB_SHELTER_EMPTY_MARGIN  0.05
+#define HB_SHELTER_NONE          -1e5
 #define HB_SHELTER_UNDER_SOFT    0.05
 #define HB_SHELTER_LIQUID_BIAS   -0.45
 #define HB_SHELTER_LIQUID_SOFT   0.3
+
+struct HBShelterSpot
+{
+    float3 uv;
+    float3 next;
+    float edge;
+};
+
+HBShelterSpot HB_ShelterSpot(float2 xz)
+{
+    float2 a = (xz - _HB_ShelterArea[0].xy) * _HB_ShelterArea[0].z;
+    float2 b = (xz - _HB_ShelterArea[1].xy) * _HB_ShelterArea[1].z;
+    float2 c = (xz - _HB_ShelterArea[2].xy) * _HB_ShelterArea[2].z;
+
+    float inA = 0.5 - max(abs(a.x), abs(a.y));
+    float inB = 0.5 - max(abs(b.x), abs(b.y));
+    float inC = 0.5 - max(abs(c.x), abs(c.y));
+
+    HBShelterSpot spot;
+
+    if (inA > 0.0)
+    {
+        spot.uv = float3(a + 0.5, 0.0);
+        spot.next = float3(b + 0.5, inB > 0.0 ? 1.0 : -1.0);
+        spot.edge = inA;
+    }
+    else if (inB > 0.0)
+    {
+        spot.uv = float3(b + 0.5, 1.0);
+        spot.next = float3(c + 0.5, inC > 0.0 ? 2.0 : -1.0);
+        spot.edge = inB;
+    }
+    else
+    {
+        spot.uv = float3(c + 0.5, 2.0);
+        spot.next = float3(0.0, 0.0, -1.0);
+        spot.edge = inC;
+    }
+
+    return spot;
+}
 
 half4 HB_ShelterBSpline(half t)
 {
@@ -49,48 +80,82 @@ half HB_ShelterBlock(half4 values, half2 weightX, half2 weightZ)
 }
 
 // One Gather returns four texels in the order x (0, 1), y (1, 1), z (1, 0), w (0, 0).
-half4 HB_ShelterCovered(float2 uv, float y)
+half4 HB_ShelterCovered(float3 uv, float y)
 {
-    float4 depth = GATHER_RED_TEXTURE2D(_HB_ShelterDepth, sampler_PointClamp, uv);
-    float4 roof = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
-    float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
-    float4 covered = saturate((roof - y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE);
+    float4 roof = _HB_Shelter.GatherRed(sampler_PointClamp, uv);
 
-    return half4(roof > empty ? covered : 0.0);
+    return half4(roof > HB_SHELTER_NONE ? saturate((roof - y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 0.0);
 }
 
-half HB_ShelterOverhang(float2 cell, float2 blend, float y)
+half HB_ShelterOverhang(float3 uv, float2 blend, float y)
 {
-    float4 depth = GATHER_RED_TEXTURE2D(_HB_ShelterUnder, sampler_PointClamp, (cell + 1.0) / HB_SHELTER_RESOLUTION);
-    float4 under = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
-    float nearest = max(HB_SHELTER_HEIGHT_BIAS, HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS);
-    float4 overhang = under < nearest - HB_SHELTER_EMPTY_MARGIN ? saturate((under - y) / HB_SHELTER_UNDER_SOFT) : 0.0;
+    float4 under = _HB_Shelter.GatherGreen(sampler_PointClamp, uv);
+    float4 overhang = under > HB_SHELTER_NONE ? saturate((under - y) / HB_SHELTER_UNDER_SOFT) : 0.0;
 
     return half(lerp(lerp(overhang.w, overhang.z, blend.x), lerp(overhang.x, overhang.y, blend.x), blend.y));
 }
 
-float2 HB_ShelterUV(float4x4 viewProjection, float2 xz, out float edge)
+half HB_ShelterCoarse(float3 uv, float y)
 {
-    float2 uv = mul(viewProjection, float4(xz.x, 0.0, xz.y, 1.0)).xy;
-#if UNITY_UV_STARTS_AT_TOP
-    uv.y = -uv.y;
-#endif
-    edge = 0.5 - 0.5 * max(abs(uv.x), abs(uv.y));
-    return uv * 0.5 + 0.5;
+    float2 position = uv.xy * HB_SHELTER_SIZE - 0.5;
+    float2 cell = floor(position);
+    half2 blend = half2(position - cell);
+    half4 covered = HB_ShelterCovered(float3((cell + 1.0) / HB_SHELTER_SIZE, uv.z), y);
+
+    return lerp(lerp(covered.w, covered.z, blend.x), lerp(covered.x, covered.y, blend.x), blend.y);
 }
 
-half HB_ShelterFarCovered(float2 uv, float y)
+half HB_ShelterCoverAt(HBShelterSpot spot, float y)
 {
-    float2 position = uv * HB_SHELTER_FAR_SIZE - 0.5;
-    float2 cell = floor(position);
-    float2 blend = position - cell;
+    half cover = 1.0h;
 
-    float4 depth = GATHER_RED_TEXTURE2D(_HB_ShelterFarDepth, sampler_PointClamp, (cell + 1.0) / HB_SHELTER_FAR_SIZE);
-    float4 roof = depth * HB_SHELTER_FAR_SCALE + HB_SHELTER_FAR_BIAS;
-    float empty = HB_SHELTER_FAR_BIAS + min(HB_SHELTER_FAR_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
-    float4 covered = roof > empty ? saturate((roof - y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 0.0;
+    if (spot.edge > 0.0)
+    {
+        float2 state = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_LinearClamp, spot.uv.xy, spot.uv.z, 0).ba;
+        float under = saturate((state.x - y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
 
-    return half(lerp(lerp(covered.w, covered.z, blend.x), lerp(covered.x, covered.y, blend.x), blend.y));
+        cover = half(state.y * (1.0 - under));
+    }
+
+    return cover;
+}
+
+half HB_ShelterOpenAt(HBShelterSpot spot, float y)
+{
+    half covered = 0.0h;
+
+    UNITY_BRANCH
+    if (spot.edge > 0.0)
+    {
+        float size = HB_SHELTER_SIZE;
+        float2 position = spot.uv.xy * size - 0.5;
+        float2 cell = floor(position);
+
+        half4 weightX = HB_ShelterBSpline(half(position.x - cell.x));
+        half4 weightZ = HB_ShelterBSpline(half(position.y - cell.y));
+
+        float3 corner = float3(cell / size, spot.uv.z);
+        float step = 2.0 / size;
+
+        covered = HB_ShelterBlock(HB_ShelterCovered(corner, y), weightX.xy, weightZ.xy)
+                + HB_ShelterBlock(HB_ShelterCovered(corner + float3(step, 0.0, 0.0), y), weightX.zw, weightZ.xy)
+                + HB_ShelterBlock(HB_ShelterCovered(corner + float3(0.0, step, 0.0), y), weightX.xy, weightZ.zw)
+                + HB_ShelterBlock(HB_ShelterCovered(corner + float3(step, step, 0.0), y), weightX.zw, weightZ.zw);
+
+        covered = max(covered, HB_ShelterOverhang(float3((cell + 1.0) / size, spot.uv.z), position - cell, y));
+
+        half share = half(saturate(spot.edge * size / HB_SHELTER_BLEND_TEXELS));
+
+        UNITY_BRANCH
+        if (share < 1.0h)
+        {
+            half outer = spot.next.z >= 0.0 ? HB_ShelterCoarse(spot.next, y) : 0.0h;
+
+            covered = lerp(outer, covered, share);
+        }
+    }
+
+    return 1.0h - saturate(covered);
 }
 
 half HB_ShelterCover(float3 positionWS)
@@ -99,18 +164,7 @@ half HB_ShelterCover(float3 positionWS)
 
     UNITY_BRANCH
     if (HB_SHELTER_BOUND > 0.5)
-    {
-        float edge;
-        float2 uv = HB_ShelterUV(_HB_ShelterViewProj, positionWS.xz, edge);
-
-        if (edge > 0.0)
-        {
-            float2 state = SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).rg;
-            float under = saturate((state.y - positionWS.y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
-
-            cover = half(state.x * (1.0 - under));
-        }
-    }
+        cover = HB_ShelterCoverAt(HB_ShelterSpot(positionWS.xz), positionWS.y);
 
     return cover;
 }
@@ -121,47 +175,24 @@ half HB_ShelterOpen(float3 positionWS, half3 normalWS)
 
     UNITY_BRANCH
     if (HB_SHELTER_BOUND > 0.5)
+        open = HB_ShelterOpenAt(HB_ShelterSpot(positionWS.xz + float2(normalWS.xz) * HB_SHELTER_LIFT), positionWS.y);
+
+    return open;
+}
+
+half HB_ShelterExposure(float3 positionWS, half3 normalWS, out half cover)
+{
+    half open = 1.0h;
+
+    cover = 1.0h;
+
+    UNITY_BRANCH
+    if (HB_SHELTER_BOUND > 0.5)
     {
-        float2 probe = positionWS.xz + float2(normalWS.xz) * HB_SHELTER_LIFT;
-        float edge;
-        float2 uv = HB_ShelterUV(_HB_ShelterViewProj, probe, edge);
-        half covered = 0.0h;
-        half nearShare = 0.0h;
+        HBShelterSpot spot = HB_ShelterSpot(positionWS.xz + float2(normalWS.xz) * HB_SHELTER_LIFT);
 
-        UNITY_BRANCH
-        if (edge > 0.0)
-        {
-            float size = HB_SHELTER_RESOLUTION;
-            float2 position = uv * size - 0.5;
-            float2 cell = floor(position);
-
-            half4 weightX = HB_ShelterBSpline(half(position.x - cell.x));
-            half4 weightZ = HB_ShelterBSpline(half(position.y - cell.y));
-
-            float2 corner = cell / size;
-            float step = 2.0 / size;
-            float y = positionWS.y;
-
-            covered = HB_ShelterBlock(HB_ShelterCovered(corner, y), weightX.xy, weightZ.xy)
-                    + HB_ShelterBlock(HB_ShelterCovered(corner + float2(step, 0.0), y), weightX.zw, weightZ.xy)
-                    + HB_ShelterBlock(HB_ShelterCovered(corner + float2(0.0, step), y), weightX.xy, weightZ.zw)
-                    + HB_ShelterBlock(HB_ShelterCovered(corner + float2(step, step), y), weightX.zw, weightZ.zw);
-
-            covered = max(covered, HB_ShelterOverhang(cell, position - cell, y));
-            nearShare = half(saturate(edge * size / HB_SHELTER_BLEND_TEXELS));
-        }
-
-        UNITY_BRANCH
-        if (nearShare < 1.0h && HB_SHELTER_FAR_BOUND > 0.5)
-        {
-            float farEdge;
-            float2 farUV = HB_ShelterUV(_HB_ShelterFarViewProj, probe, farEdge);
-            half far = farEdge > 0.0 ? HB_ShelterFarCovered(farUV, positionWS.y) : 0.0h;
-
-            covered = lerp(far, covered, nearShare);
-        }
-
-        open = 1.0h - saturate(covered);
+        cover = HB_ShelterCoverAt(spot, positionWS.y);
+        open = HB_ShelterOpenAt(spot, positionWS.y);
     }
 
     return open;

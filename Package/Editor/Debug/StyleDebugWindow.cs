@@ -46,6 +46,17 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_ShelterCameras = { "Scene View", "Game" };
 
+        static readonly GUIContent s_ShelterCascadeLabel = new GUIContent("Cascade",
+            "Which shelter cascade to show: Near is 160 m around the camera, Middle 640 m, Far 2560 m.");
+
+        static readonly string[] s_ShelterCascades = { "Near", "Middle", "Far" };
+
+        static readonly GUIContent s_ShelterChannelLabel = new GUIContent("Channel",
+            "Roof Top and Underside show heights (blue is empty, darker is lower). Liquid Level shows where rain " +
+            "and snow stop at a liquid. Cover Age is red where a roof was just removed.");
+
+        static readonly string[] s_ShelterChannels = { "Roof Top", "Underside", "Liquid Level", "Cover Age" };
+
         Vector2 m_Scroll;
 
         [MenuItem("Tools/HiddenBull/URP Style/Debug")]
@@ -127,6 +138,10 @@ namespace HiddenBull.UrpStyle.Editor
                                                s_ShelterCameras);
 
             StyleDebug.previewGameCamera = camera == 1;
+            StyleDebug.shelterCascade = EditorGUILayout.Popup(s_ShelterCascadeLabel, StyleDebug.shelterCascade,
+                                                              s_ShelterCascades);
+            StyleDebug.shelterChannel = EditorGUILayout.Popup(s_ShelterChannelLabel, StyleDebug.shelterChannel,
+                                                              s_ShelterChannels);
 
             var texture = StyleDebug.shelterPreview;
 

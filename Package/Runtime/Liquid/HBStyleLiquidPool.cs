@@ -262,7 +262,7 @@ namespace HiddenBull.UrpStyle
             m_Drawn = camera;
         }
 
-        internal void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass)
+        internal void DrawLevel(RasterCommandBuffer cmd, Camera camera, string pass)
         {
             if (camera != m_Drawn || s_Material == null || !m_Blocks.TryGetValue(camera, out var block))
                 return;

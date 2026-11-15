@@ -255,21 +255,16 @@ float2 HB_GrassWeather(HBGrassBlade blade)
         UNITY_BRANCH
         if (HB_SHELTER_BOUND > 0.5)
         {
-            float edge;
-            float2 uv = HB_ShelterUV(_HB_ShelterViewProj, blade.root.xz, edge);
+            HBShelterSpot spot = HB_ShelterSpot(blade.root.xz);
 
-            if (edge > 0.0)
+            if (spot.edge > 0.0)
             {
-                float depth = SAMPLE_TEXTURE2D_LOD(_HB_ShelterDepth, sampler_PointClamp, uv, 0).r;
-                float roof = depth * HB_SHELTER_HEIGHT_SCALE + HB_SHELTER_HEIGHT_BIAS;
-                float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
+                float roof = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_PointClamp, spot.uv.xy, spot.uv.z, 0).r;
 
-                open = roof > empty ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 1.0;
-
-                float2 state = SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).rg;
-                float under = saturate((state.y - blade.root.y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
-
-                uncovered = state.x * (1.0 - under);
+                open = roof > HB_SHELTER_NONE
+                     ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE)
+                     : 1.0;
+                uncovered = HB_ShelterCoverAt(spot, blade.root.y);
             }
         }
 

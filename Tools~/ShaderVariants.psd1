@@ -652,9 +652,9 @@
             Reads = 0
         }
         @{
-            Name = 'Shelter Masks'
+            Name = 'Shelter Unpack'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/StyleShelter.compute'
-            Entry = 'Masks'
+            Entry = 'Unpack'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()
@@ -662,9 +662,19 @@
             Reads = 0
         }
         @{
-            Name = 'Shelter Uncover'
+            Name = 'Shelter Finish'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/StyleShelter.compute'
-            Entry = 'Uncover'
+            Entry = 'Finish'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Shelter Finish Far'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/StyleShelter.compute'
+            Entry = 'FinishFar'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()

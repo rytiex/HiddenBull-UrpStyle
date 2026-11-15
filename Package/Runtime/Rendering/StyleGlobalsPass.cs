@@ -35,10 +35,9 @@ namespace HiddenBull.UrpStyle
             public Texture skyLut;
             public bool resetShelter;
             public bool bindShelter;
-            public bool noUnderside;
-            public bool noCover;
-            public Texture noCoverTexture;
-            public StyleShelterPass.Binding shelter;
+            public Vector4[] shelterAreas;
+            public Vector4 shelterState;
+            public Texture noShelter;
             public GraphicsBuffer bodies;
             public Vector4[] bodyStates;
             public int bodyCount;
@@ -102,25 +101,17 @@ namespace HiddenBull.UrpStyle
             passData.bodyStates = states;
             passData.bodyCount = StyleWeatherBodies.slotCount;
 
+            passData.shelterAreas ??= new Vector4[StyleShelterPass.Cascades];
+            passData.noShelter = StyleShelterPass.empty;
+
             if (kind == StyleCameraKind.Overlay && m_Shelter != null &&
                 m_Shelter.TryGetMap(cameraData.baseCamera, out var shelter))
             {
-                var depth = Bind(renderGraph, builder, shelter.depth, StyleShelterPass.depthId);
-
-                Bind(renderGraph, builder, shelter.under, StyleShelterPass.underId);
-                Bind(renderGraph, builder, shelter.far, StyleShelterPass.farDepthId);
-                Bind(renderGraph, builder, shelter.cover, StyleShelterPass.coverId);
-
-                if (shelter.drops != null && shelter.drops != shelter.depth)
-                    Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
-                else if (depth.IsValid())
-                    builder.SetGlobalTextureAfterPass(depth, StyleShelterPass.dropsId);
-
-                passData.noUnderside = shelter.under == null;
-                passData.noCover = shelter.cover == null;
-                passData.noCoverTexture = m_Shelter.noCover;
+                Bind(renderGraph, builder, shelter.map, StyleShelterPass.mapId);
+                Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
+                Array.Copy(shelter.areas, passData.shelterAreas, StyleShelterPass.Cascades);
+                passData.shelterState = shelter.state;
                 passData.bindShelter = true;
-                passData.shelter = shelter;
             }
 
             passData.resetShelter = kind != StyleCameraKind.Overlay || !passData.bindShelter;
@@ -140,21 +131,12 @@ namespace HiddenBull.UrpStyle
 
                 if (data.bindShelter)
                 {
-                    if (data.noUnderside)
-                        context.cmd.SetGlobalTexture(StyleShelterPass.underId, Texture2D.blackTexture);
-
-                    if (data.noCover)
-                        context.cmd.SetGlobalTexture(StyleShelterPass.coverId, data.noCoverTexture);
-
-                    context.cmd.SetGlobalMatrix(StyleShelterPass.viewProjectionId, data.shelter.viewProjection);
-                    context.cmd.SetGlobalVector(StyleShelterPass.heightId, data.shelter.height);
-                    context.cmd.SetGlobalMatrix(StyleShelterPass.farViewProjectionId, data.shelter.farViewProjection);
-                    context.cmd.SetGlobalVector(StyleShelterPass.farHeightId, data.shelter.farHeight);
-                    context.cmd.SetGlobalVector(StyleShelterPass.stateId,
-                                                StyleShelterPass.State(data.shelter.far != null));
+                    context.cmd.SetGlobalVectorArray(StyleShelterPass.areaId, data.shelterAreas);
+                    context.cmd.SetGlobalVector(StyleShelterPass.stateId, data.shelterState);
                 }
                 else if (data.resetShelter)
                 {
+                    context.cmd.SetGlobalTexture(StyleShelterPass.mapId, data.noShelter);
                     context.cmd.SetGlobalVector(StyleShelterPass.stateId, Vector4.zero);
                 }
             });

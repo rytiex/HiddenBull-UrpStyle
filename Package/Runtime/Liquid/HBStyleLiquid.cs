@@ -187,18 +187,18 @@ namespace HiddenBull.UrpStyle
             return water.wet && (!Ground(source, position, out var ground) || ground < level);
         }
 
-        internal static void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach)
+        internal static void DrawLevel(RasterCommandBuffer cmd, Camera camera, string pass)
         {
             foreach (var terrain in HBStyleTerrain.active)
             {
                 if (terrain != null)
-                    terrain.DrawLiquidRoof(cmd, camera, pass, reach);
+                    terrain.DrawLiquidLevel(cmd, camera, pass);
             }
 
             foreach (var pool in HBStyleLiquidPool.pools)
             {
                 if (pool != null)
-                    pool.DrawRoof(cmd, camera, pass);
+                    pool.DrawLevel(cmd, camera, pass);
             }
         }
 
