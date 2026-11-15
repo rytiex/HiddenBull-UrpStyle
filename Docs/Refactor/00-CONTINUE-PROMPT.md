@@ -10,59 +10,47 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-10):** Phases 0–5, 7 and 8 and the polish batch before Phase 6 are closed; 7 and 8 ran before 6
-by my choice. Phase 5 Grass final state is the first block of 03 §9, Phase 7 Foliage + Billboards is 03 §4, Phase 8
-Transparency is 03 §11 (sorted forward transparency replaced MBOIT, coloured glass shadows, blurred refraction,
-Transparency quality levels). The polish batch rebuilt Receive Weather Moving (03 §7), added grass Blade Detail and
-texture cards (03 §9) and the Scene view bake banner with Auto Bake (03 §8). Costs are the last sections of 08.
-Colliders, harvest, the billboard leaf light fix and the overlay camera with glass were not run or tested in Unity.
-The game has buildings that players build and tear down; vehicles use Moving, Static is only for what never moves.
+**Status (2026-11-15):** Phases 0–8 are closed; 7 and 8 ran before 6 by my choice. Phase 6 Liquids closed on
+2026-11-15: its final state is the first block of 03 §10, and the shelter system, rewritten in that phase as one
+cascaded map, is the first block of 03 §7. Phase 5 Grass is the first block of 03 §9, Phase 7 Foliage + Billboards is
+03 §4, Phase 8 Transparency is 03 §11. Costs are the last sections of 08. The game has buildings that players build
+and tear down; vehicles use Moving, Static is only for what never moves.
 
 Read before doing anything (do not ask me what these answer):
 
 1. Your memory index `MEMORY.md` and the memories it links (in
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding,
-   especially `water-system-plan.md` and `confirm-before-new-work.md`.
+   especially `confirm-before-new-work.md` and `shelter-rewrite-plan.md`.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §10 Liquids, the first (final state) blocks of §8 Terrain and §9 Grass, and
-   the memory `water-system-plan.md`.
+3. `Docs/Refactor/03-Feature-Spec.md` §12 Cavity, the Decal line of §4, and the first blocks of §7 and §10.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**Phase 6 Liquids is in progress (2026-11-10).** Committed so far: terrain liquids, foam, caustics, pools,
-cutters, underwater, ripples, SSR (`a20c5fa`..`7139c18`). On top of that, uncommitted work in the tree: the
-shelter liquid roof (rain and snow stop at the water level, the cutter cut mask in the shelter map). The tree was
-reset on 2026-11-10 to the exact state of 00:11 UTC, because the rounds after it went wrong. A copy of the tree
-before that reset is in
-`C:\Users\rytie\AppData\Local\Temp\claude\a5d0939c0293cfef\61e7a00b-7560-4e58-98f0-07281820c594\scratchpad\before-revert`
-(it may be gone; it is only a reference). The memory `liquid-old-look-port.md` "Roof round 2..5" notes describe
-that reverted code, not the tree.
+**The tree may hold uncommitted work.** When Phase 6 closed, everything since commit `6f77f07` was uncommitted:
+the shelter rewrite, shore wetness, movement trails, the Weather Mask Box shape, the liquid preset defaults and the
+phase-close docs. Git is my job; do not commit, only check `git status` so you know what you are standing on.
 
-**Next job: the six open liquid points, one at a time.** They are in my words below; take them literally. Before each
-one, write in one or two lines what you understood and wait for my "evet". One change per point, then my check.
+**Compiled offline and seen working by me in Unity at the close:** the shelter rewrite, the waterline band, the
+cutter hole and the Roof option, the cut from below the surface, shore wetness with Shore Reach and Shore Darkening,
+movement trails with Ripples, the Weather Mask Box shape, the scene-change reset, the sun highlight under clouds, the
+thin refractive glass fix, the overlay shadow point.
 
-1. With baked light, snow on the terrain shows dark wavy stripes (the sand layer's ripples). Without a bake there
-   are none. The same kind of APV problem happened on the terrain before and we solved it; use the same solution.
-   Tried alone and failed: snow flattening the layer normal, snow fading bakedTones, snow lifting the layer AO.
-2. Rain and snow are cut exactly at the water line, even a bit below it. They must end a bit above the water and
-   soft, and this must also work in the far shelter map.
-3. Cutter: the water's top surface also has an underside. The cutter does not cut that underside, so from inside
-   the cut water (inside the cutter, below the level) the water surface is visible. That is the only problem.
-   Lead (not tested): the camera "LiquidCut" depth pass in `TerrainLiquid.shader` is `Cull Back`.
-4. Cutter: when the screen is under water, rain and snow inside the cutter disappear while I move.
-5. Cutter: add a "roof" bool (Cut Out only) so moving things like boats do not carry rain and snow down. It worked
-   in the reverted code: HBStyleLiquidCutter.roof, shelter cut mask .b, the top depth roof ignores .b, the level
-   pass counts it.
-6. Objects and the water floor do not get wet. It worked in the reverted code: a shore band in HB_ShelterCover
-   (shore = saturate(1 - (y - level) / 0.6), wet += shore, snow *= 1 - shore) plus HBWeather.gloss = 1 - sunk so
-   the ground under water darkens but does not shine.
+**Not run or not confirmed in Unity:** the slow return of snow after a roof is removed since the cover age moved to
+its own texture; `HBStyleLiquid.TryGetDepth`; the overlay camera with glass; whether the outer shelter cascade
+(2560 m) hitches on the frame it is redrawn; colliders, harvest and the billboard leaf light fix from Phase 7.
 
-After these: movement trails, then optimisation (Measure), then Phase 6 close.
+**Every surface shader sits within a few slots of its budget** (Lit 2726 / 2730, Terrain APV 4744 / 4750, Liquid
+Surface 3704 / 3705, Foliage 2466 / 2500). Anything that adds to one of them must cut something first or come with
+a measured budget raise that I approve.
 
-**Phase 6 Liquids** (05, 03 §10; old liquids in commit `3d4a06c`, see 06). Build each step with a debug view,
-compile with `Tools~/Check-All.ps1 -Filter '<name>*'` (never the full table for small changes), and give me one
-test list per step. Respect the budgets in 01 §5. Lit has 95 slots left under its budget (the Moving triplanar
-row 64), so anything that touches Lit must cut something first. The cost measurement happens once, in Phase 12.
+**Next job: Phase 9 Cavity + Decal** (05, 03 §12 and the Decal line of 03 §4). Start with a design talk: name the
+first step in one line and wait for my yes. Two things I may ask for before it, so ask me which comes first:
+
+- A measuring step. No cost in this project has ever been measured in milliseconds; every number in 08 is a static
+  instruction count. The plan keeps the measurement for Phase 12.
+- Making `Tools~/Check-All.ps1` compile variants in parallel. A full run takes about 160 s.
+
+For the Bake Panel in Phase 12: it must check that APV Dilation is on (04 §1.25).
 
 Working rules:
 
@@ -74,12 +62,17 @@ Working rules:
 - After "devam edelim", name the next step in one line and wait for my yes before creating any new file, tool,
   scene or feature.
 - Build in small visible steps, each with a debug view, and wait for my check between steps. A phase is closed
-  only when I say "her şey iyi durumda" or close it explicitly.
-- Read the code before asking me to test. Use the package's own static registries, never FindObjects APIs.
-- Run `Tools~/Check-All.ps1` only from PowerShell, never from Bash.
+  only when I say "her şey iyi durumda" or close it explicitly. When a system has needed patch after patch, say so
+  and propose rebuilding it in one job with one ordered test list.
+- Read the code before asking me to test. When two code-read explanations have failed, stop guessing and ask me
+  for the debug view that shows the data (Show Shelter Map solved in one look what three patches did not).
+- When I describe a problem, take my words literally; never replace them with your own theory. Restate what you
+  understood in one or two lines and wait for my "evet" before a fix that is not obvious.
+- Use the package's own static registries, never FindObjects APIs.
+- Run `Tools~/Check-All.ps1` only from PowerShell, never from Bash, and filter its output with
+  `6>&1 2>&1 | Out-String -Stream | Select-String` (it prints with Write-Host).
 - Before every hand-off, compile offline and end with "offline derlendi, Unity'de denenmedi".
-- Keep each file's line endings (some files are CRLF, some LF).
-- When I describe a problem, take my words literally; never replace them with your own theory.
+- Keep each file's line endings (some files are CRLF, some LF, a few are mixed).
 - Simulate logic as C# with Unity's Roslyn csc (see the memories).
 - If Edit/Bash calls get no verdict from the safety classifier: write the full files into the scratchpad with
   Write, then copy them into `Package/` with a single `cp -r`.

@@ -42,6 +42,10 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Screen space reflection levels: how carefully liquid surfaces mirror the scene on screen.")]
         HBStyleReflectionQuality m_Reflections = new HBStyleReflectionQuality();
 
+        [SerializeField]
+        [Tooltip("Cavity levels: how far the edge lines and corner darkening of Lit objects reach.")]
+        HBStyleCavityQuality m_Cavity = new HBStyleCavityQuality();
+
         public HBStyleShadowQuality shadows => m_Shadows;
 
         public HBStyleAtmosphereQuality atmosphere => m_Atmosphere;
@@ -59,5 +63,7 @@ namespace HiddenBull.UrpStyle
         public HBStyleTransparencyQuality transparency => m_Transparency;
 
         public HBStyleReflectionQuality reflections => m_Reflections;
+
+        public HBStyleCavityQuality cavity => m_Cavity;
     }
 }

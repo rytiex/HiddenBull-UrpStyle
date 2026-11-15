@@ -48,6 +48,13 @@ transparency on the way. Final state in `03` §11, offline costs in `08`. The ov
 user. Before Phase 6 comes a polish batch the user agreed on 2026-11-02: the Moving weather rebuild, grass Blade
 Detail per quality level, then custom grass texture cards per terrain layer.
 
+**Phase 6 closed (user, 2026-11-15).** Final state in `03` §10 and the shelter block at the top of `03` §7, costs
+in `08`. On the way the old liquid look was ported back (2026-11-09), screen-space reflections were added for every
+glossy surface, and the shelter system was rewritten as one cascaded map because the near and far maps could not
+agree. The phase also brought shore wetness, movement trails, the cutter Roof option and the Box shape of the
+Weather Mask. The liquid optimisation step was not run: it needs a measuring tool, and the cost measurement stays
+in Phase 12. Next by the table: Phase 9 Cavity + Decal.
+
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start
 instead of a retrofit; the terrain-specific weather parts land with Terrain. The first Foliage + Billboards build was

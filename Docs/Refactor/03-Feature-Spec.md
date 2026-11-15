@@ -163,6 +163,30 @@ shader and the sky:
 
 ## 7. Weather — Change
 
+**Shelter, final state (rewritten 2026-11-15 during Phase 6; it replaces every near / far description below).**
+
+- One map, three cascades of the same resolution around the base camera: 160 m, 640 m, 2560 m. `_HB_Shelter` is a
+  `Texture2DArray` (RGBA32F): R roof top (with Weather Masks), G underside (overhangs), B liquid rest level,
+  A wave reach (level + local crest, spread 2.5 m onto the shore). `_HB_ShelterArea[3]` holds centre and
+  1 / extent, `_HB_ShelterState` holds bound, resolution and the shore fade.
+- At most one cascade is redrawn per frame: cascade 0 every 0.25 s or after 8 m (every repaint outside Play mode),
+  cascade 1 after 32 m, cascade 2 after 128 m. The cascade 0 finish kernel (Weather Masks, cover age) runs every
+  frame. Kernels: Unpack, DilateX, DilateZ, Finish, FinishFar, Heights, Preview.
+- **Cover age** (snow and wetness return slowly after a roof is removed) lives in `_HB_ShelterAge`, cascade 0 only,
+  and reads the roof channel only, never the liquid.
+- **Liquid level** is one quad per terrain that samples the level map, plus the pool boxes. There is no liquid roof
+  in the roof channel and no liquid quadtree in the shelter.
+- **Cutters in the shelter**: a top-down parity mask of each Cut Out cutter, clipped at the live wave height at the
+  cutter (`HBStyleLiquid.TryGetUncut`), so the hole below matches the cut in the liquid. Cutters with Roof are
+  skipped.
+- One read path for everything: `HB_ShelterSpot` picks the cascade, `HB_ShelterExposure` returns open and cover;
+  Lit, Terrain, Foliage, Billboard, Liquid, Grass and precipitation use it. Rain, snow and wetness end 0.15 m
+  above the liquid level and are back at full strength at 0.45 m, in every cascade.
+- **Weather Mask** has Shape Sphere (dome) or Box (flat roof at the top of the box, follows position, yaw and
+  scale, for vehicles and canopies).
+- Settled snow and wetness reset when the active scene changes in Play mode.
+- Debug: Weather/Shelter view (red = cover age or under the liquid) and Show Shelter Map with Cascade and Channel.
+
 - Shelter: top-down sky depth near (≈160 m, 512²) + far (≈1 km) for the base camera only.
 - **Roof margin**: occluder heights are dilated outward (configurable, default ~0.4 m) so snow/rain do not
   leak just inside walls and under eaves. Plus `HBStyleWeatherZone` (box) that forces "indoors".
@@ -904,6 +928,37 @@ shader and the sky:
       (Low 0, Medium 0.5, High 0.75, Ultra 1). Quality profiles saved earlier read 0 until it is set.
 
 ## 10. Liquids — Keep look, Change structure
+
+Final state at Phase 6 close (2026-11-15). The lines after this block are the original plan.
+
+- **Look**: the old package's liquid shading was ported 1:1 onto the v1 skeleton on 2026-11-09 (the leaner rebuild
+  had lost the approved look). Two-layer normals plus a swell layer, glints, directional flow in 2 m cells, cellular
+  foam, lava crust from a baked plate map, acid bubbles, per-channel absorption along the view path, Snell window
+  per layer, underwater composite with shafts, caustics and bubbles. `HBStyleLiquidLayer` presets (Water, Acid,
+  Lava) carry the values of the sandbox layer assets since 2026-11-15; normal maps are not part of a preset.
+- **Structure**: connected liquid lives on `HBStyleTerrain` (level map, mix map, flow map, up to four layers, sea
+  outside the terrain); `HBStyleLiquidPool` is an isolated box. Both draw through `HB URP Style/Terrain Liquid`
+  in the transparency pass, sorted forward.
+- **Screen-space reflections** (`StyleReflectionHistoryPass`, Reflections section of the Quality profile) are read
+  by every glossy surface, not only liquids.
+- **Cutters** (`HBStyleLiquidCutter`: Box, Sphere, Mesh; Cut Out or Keep Inside; Affects Terrain / Pool). The
+  camera mask counts cutter faces behind the liquid surface; the surface id pass draws both sides (`Cull Off`), so
+  the cut also works from below the level. **Roof** (Cut Out only): rain and snow still stop at the liquid level
+  inside the volume, for boats.
+- **Shore wetness**: a wet band above the reach of the waves, no snow inside it, ground below the level darkens
+  without wet-film shine. Works in dry weather while a liquid exists. Weather settings **Shore Reach** (0–3 m,
+  default 0.1, the edge never fades over less than 0.3 m) and **Shore Darkening** (terrain only, default 0.2).
+  Static and Moving surfaces, plants and billboards take it; grass only loses its snow there.
+- **Movement trails**: `HBStyleLiquidTrail` (Width, Lifetime, Ripples) on anything that moves at the surface.
+  `StyleLiquidWake` keeps a 256² world-anchored map per camera (64 m, 28 m used) with a height + velocity wave
+  solver that does not depend on the frame pacing, linear foam fade over Lifetime, play mode only, the 32 nearest
+  trails. The surface adds its foam and tilts its normal. Debug view Liquid/Trails.
+- **Weather on liquids**: see the shelter block at the top of §7. Rain rings test the shelter 0.75 m above the rest
+  level.
+- **Queries**: `HBStyleLiquid.TryGetHeight / TryGetSurface / TryGetDepth` (waves optional), floater component.
+- Not done, by decision: waterfalls, liquid joins between pools, wetness that stays on a Moving object after it
+  leaves the liquid, a shore band that follows single waves (the map refreshes four times a second).
+- Not verified in Unity at close: `TryGetDepth`, the overlay camera with glass in front of a liquid.
 
 - Look approved: depth gradient (colour keys = colour, alpha keys = how hidden the floor is, path-based),
   caustics, cellular foam, waterline veil, crest light and foam trails, wind-driven white caps.

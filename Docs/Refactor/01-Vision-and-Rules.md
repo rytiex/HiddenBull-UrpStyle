@@ -100,16 +100,16 @@ budgeted variant. Shaders with no URP counterpart (Sky) are budgeted absolutely.
 
 | Shader / pass | Budget (instruction slots) | Texture reads |
 |---|---|---|
-| Lit forward (all features on) | ≤ 2550 (raised from 2500 on 2026-10-25 for the weather overhang check) | ≤ 60 |
+| Lit forward (all features on) | ≤ 2730 (2500 at the start; raised for the overhang check, reflections, the overlay shadow point and shore wetness, last on 2026-11-15) | ≤ 60 |
 | Lit forward (albedo only) | ≤ 500 | ≤ 9 (raised from 8 on 2026-10-24 for the Fog + Horizon split) |
 | Foliage forward | ≤ 2500 | ≤ 60 |
-| Terrain forward | ≤ 3500 | ≤ 140 |
+| Terrain forward | ≤ 4500 (APV variant ≤ 4750) | ≤ 175 (APV ≤ 200) |
 | Grass | ≤ 2000 | ≤ 30 |
-| Liquid surface | ≤ 3500 | ≤ 120 |
+| Liquid surface | ≤ 3705 (raised from 3500 for the old look port, reflections and trails) | ≤ 145 |
 | Sky | ≤ 1500 | ≤ 20 |
-| Billboard | ≤ 1500 | ≤ 30 |
-| Transparent forward (alpha, all) | ≤ 2000 | ≤ 45 |
-| Transparent forward (tinted or refractive) | ≤ 2200 (raised from 2000 on 2026-11-02 for the blurred refraction read) | ≤ 70 |
+| Billboard | ≤ 1500 | ≤ 36 |
+| Transparent forward (alpha, all) | ≤ 2130 | ≤ 48 |
+| Transparent forward (tinted or refractive) | ≤ 2320 | ≤ 75 |
 | Particle forward (lit, all) | ≤ 1400 | ≤ 36 |
 
 Frame targets on the reference GPU at 1080p (Ultra, busy scene): whole package ≤ 4 ms GPU above plain URP;

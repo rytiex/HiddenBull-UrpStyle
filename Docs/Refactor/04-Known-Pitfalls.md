@@ -31,6 +31,11 @@ Read this before touching the related system. Each entry: **symptom → cause �
 | 1.22 | Grass flicker while moving with a first-person hand in view | Hi-Z tests last frame's depth, and the hand turns with the camera | Depth closer than 1.5 m is never an occluder (`HB_OCCLUSION_CLOSEST`); boxes grow by camera travel |
 | 1.23 | Compute "property not set" naming a kernel after adding a kernel | Kernel indices cached by C# that ran before the shader changed | Look kernels up on every Ready, no static cache |
 | 1.24 | Coloured glass shadows flicker while the camera moves | The reduced-size tint atlas used URP's full-size cascade snapping | Extract the cascade matrices again at the atlas size (`ExtractDirectionalLightMatrix`) and use those for drawing and reading |
+| 1.25 | Dark lines along height contours on the terrain, only with baked light | APV **Dilation** was off: invalid probes under the ground stay black and bleed in where the surface nears each probe layer | Not a shader bug. Tick Dilation under Probe Invalidity Settings and rebake; the Bake Panel must check it (Phase 12) |
+| 1.26 | Snow and wetness wiped in square blocks while the camera moves, Play mode only | The liquid "roof" in the shelter came from the camera's liquid quadtree and existed under land too; its squares came and went with LOD and reset the cover age. The editor fills the age at once, so it only showed in Play mode | Nothing in the shelter may depend on the camera's LOD. The liquid level is written from the level map and is not a roof. Look at Show Shelter Map before any theory |
+| 1.27 | The cutter hole in the shelter map changed shape with the camera position | The cut mask shader took its ray from the game camera (`IsPerspectiveProjection`, `_WorldSpaceCameraPos`) while it drew into a top-down target | A pass that draws into another view must not read camera globals; the shelter uses its own Footprint pass |
+| 1.28 | From inside a cutter below the level the water surface was still drawn | The surface id pass for the cut mask was `Cull Back`, so the underside had no id and no depth | Passes that feed a mask draw both faces whenever the surface itself does |
+| 1.29 | Trail ripples turned into a checker pattern in the Scene view only | A position-Verlet wave step assumes equal frame times; the Scene view repaints unevenly | Keep height and velocity as separate state for any per-frame simulation. Size the push by a displacement, not a force: the stiff surface swallowed a force of 8 m/s² into a 1 cm dent |
 
 ## 2. Shader authoring traps
 
@@ -116,3 +121,10 @@ Read this before touching the related system. Each entry: **symptom → cause �
   near-flat surface avoids the problem entirely (v1 spec).
 - Near the end of a session, never revert working code to "start over" — fix forward and keep turns short.
 - `delayCall` / editor hooks: guard against stacking and destroyed targets.
+- A system that needs a patch every round has the wrong structure: the shelter took six patches in one day and
+  was then rewritten in one job, which worked first time. Two maps with different contents can never agree; one
+  format, one read path.
+- A global value where a local one is needed gets rejected (the shore band first used one swell for the whole
+  terrain and wet every low place).
+- `Check-All.ps1` prints with `Write-Host`; filter it with `6>&1 2>&1 | Out-String -Stream | Select-String`. A full
+  run takes about 160 s (161 variants, one after another).

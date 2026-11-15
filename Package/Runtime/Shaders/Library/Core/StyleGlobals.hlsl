@@ -41,6 +41,7 @@ CBUFFER_START(HBStyleFrame)
     float4 _HB_FogPaint;
     float4 _HB_Debug;
     float4 _HB_WeatherClocks;
+    float4 _HB_Cavity;
 CBUFFER_END
 
 #define HB_TIME_OF_DAY _HB_Environment.x

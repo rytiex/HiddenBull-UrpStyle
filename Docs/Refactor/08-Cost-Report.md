@@ -623,3 +623,51 @@ at half or quarter of the main shadow map (2048² at Half with a 4096 shadow map
 
 The user saw almost no ms difference between Low and Ultra in the test scene, where refraction and glass shadows
 are cheap. Transparency ≤ 0.6 ms without refraction and the refraction cost are measured in a build in Phase 12.
+
+## Phase 6 — Liquids
+
+### Phase 6 closed (2026-11-15): final offline costs (compiled offline; the user confirmed the look in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Liquid Surface | 3704 | 144 | – | 3705 / 145 — OK, 1 slot left |
+| Liquid Surface (pool) | 2801 | 105 | – | – |
+| Liquid Surface vertex / vertex (pool) | 664 / 222 | 47 / 16 | – | – |
+| Underwater | 764 | 30 | – | 770 / 30 — OK |
+| Underwater Overlay | 325 | 21 | – | 330 / 22 — OK |
+| Liquid Mask | 49 | 3 | – | 100 / 4 — OK |
+| Liquid level fragment (shelter) / pool | 180 / 46 | 11 / 1 | – | – |
+| Liquid Cut Mask / Footprint | 31 / 26 | 1 / 1 | – | – |
+| Liquid Waves Wake (trail kernel) | 107 | 7 | – | – |
+| Shelter Unpack / Finish / Finish Far | 88 / 86 / 59 | 4 / 2 / 1 | – | – |
+| Shelter Margin X / Z | 33 / 38 | 1 / 2 | – | – |
+| Lit forward (all, triplanar, moving) | 3774 | 148 | 2726 / 47 | 2730 / 60 — OK, 4 slots left |
+| Lit forward (all, triplanar) | 3740 | 147 | 2692 / 46 | 2730 / 60 — OK |
+| Lit forward (albedo only) | 1341 | 109 | 293 / 8 | 500 / 9 — OK |
+| Foliage forward (all, GPU) | 3514 | 139 | 2466 / 38 | 2500 / 60 — OK |
+| Billboard forward | 2346 | 137 | 1298 / 36 | 1500 / 36 — OK |
+| Terrain forward | 4316 | 162 | 3268 / 61 | 4500 / 175 — OK |
+| Terrain forward (APV) | 4744 | 187 | – | 4750 / 200 — OK |
+| Transparent forward (alpha, all) | 2127 | 48 | – | 2130 / 48 — OK |
+| Transparent forward (tinted or refractive, brush) | 2312 | 75 | – | 2320 / 75 — OK |
+| Grass forward / Grass Cull | 357 / 444 | 5 / 7 | – | 2000 / 30 — OK |
+
+Budgets moved in this phase, each by the measured amount: Lit 2550 → 2730 (screen-space reflections, the overlay
+shadow point, shore wetness on Moving surfaces), Terrain forward (APV) → 4750, Liquid Surface 3500 → 3705 (the old
+look port, reflections, trails), Billboard reads 30 → 36, Transparent forward 2000 → 2130 and 2200 → 2320. Every
+surface family now sits within a few slots of its budget; nothing more fits without cutting first.
+
+The shelter rewrite made the surface read cheaper (Lit −8 slots, Terrain −14, Liquid −14 at the time): one array
+with gathers replaced four textures and two matrices.
+
+Per frame, by reading the code and not by measurement: the old shelter culled and drew every opaque object within
+160 m twice in every frame plus five 512² compute passes. The new one redraws one cascade at a time (cascade 0 four
+times a second, the outer ones on 32 m and 128 m of camera travel) and runs one 512² finish kernel per frame. The
+outer cascade covers 2560 m and may show as a hitch on the frame it is redrawn; not measured.
+
+Memory (computed, shelter resolution 512): the shelter array is 3 × 512² RGBA32F = 12.6 MB, plus 4.2 MB of raw
+heights, 2 × 2.1 MB of cover state, 1 MB of drops and two D16 scratch targets (1 MB). A trail map is three 256²
+RGBA16F textures (1.6 MB) per camera, only while trails exist.
+
+Not measured, left for Phase 12: the ms cost of the liquid surface, reflections, underwater, the shelter redraw
+frames and the trail solver.

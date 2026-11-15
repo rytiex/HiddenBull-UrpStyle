@@ -54,6 +54,7 @@ CBUFFER_START(UnityPerMaterial)
     half _FlakeDensity;
     half _FlakeSize;
     half _FlakeLife;
+    half _Cavity;
 #ifdef HB_TRANSPARENT
     half _BlendMode;
     half _StrokeAlpha;

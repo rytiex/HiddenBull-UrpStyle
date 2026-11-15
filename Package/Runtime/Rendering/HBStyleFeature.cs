@@ -48,6 +48,10 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [HideInInspector]
+        Shader m_CavityShader;
+
+        [SerializeField]
+        [HideInInspector]
         Shader m_RefractionBlurShader;
 
         [SerializeField]
@@ -75,6 +79,7 @@ namespace HiddenBull.UrpStyle
         StyleShelterPass m_ShelterPass;
         StyleDepthPyramidPass m_PyramidPass;
         StyleAtmospherePass m_AtmospherePass;
+        StyleCavityPass m_CavityPass;
         StylePrecipitationPass m_PrecipitationPass;
         StyleAntiAliasingPass m_AntiAliasingPass;
         StyleTransparencyPass m_TransparencyPass;
@@ -121,6 +126,7 @@ namespace HiddenBull.UrpStyle
             m_ShelterPass = new StyleShelterPass();
             m_PyramidPass = new StyleDepthPyramidPass();
             m_AtmospherePass = new StyleAtmospherePass();
+            m_CavityPass = new StyleCavityPass();
             m_PrecipitationPass = new StylePrecipitationPass();
             m_AntiAliasingPass = new StyleAntiAliasingPass();
             m_TransparencyPass = new StyleTransparencyPass();
@@ -138,6 +144,7 @@ namespace HiddenBull.UrpStyle
             m_UndersideShader = Load(m_UndersideShader, StyleShelterPass.UndersidePath);
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
+            m_CavityShader = Load(m_CavityShader, StyleCavityPass.ShaderPath);
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
             m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
             m_LiquidCutShader = Load(m_LiquidCutShader, StyleTransparencyPass.CutShaderPath);
@@ -220,6 +227,15 @@ namespace HiddenBull.UrpStyle
                 renderer.EnqueuePass(m_PyramidPass);
             }
 
+            var cavity = StyleEnvironment.targetProfile.cavity;
+
+            if (quality.cavity.reach > 0f &&
+                (StyleDebug.view == StyleDebugView.Cavity || cavity.ridge > 0f || cavity.valley > 0f))
+            {
+                m_CavityPass.Setup(m_CavityShader);
+                renderer.EnqueuePass(m_CavityPass);
+            }
+
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
 
@@ -297,6 +313,8 @@ namespace HiddenBull.UrpStyle
 
             m_AtmospherePass?.Dispose();
             m_AtmospherePass = null;
+            m_CavityPass?.Dispose();
+            m_CavityPass = null;
 
             m_PrecipitationPass?.Dispose();
             m_PrecipitationPass = null;

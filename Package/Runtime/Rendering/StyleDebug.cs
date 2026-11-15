@@ -32,7 +32,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Liquid/Waves")] LiquidWaves = 25,
         [InspectorName("Liquid/Foam")] LiquidFoam = 26,
         [InspectorName("Liquid/Underwater")] LiquidUnderwater = 27,
-        [InspectorName("Liquid/Trails")] LiquidTrails = 28
+        [InspectorName("Liquid/Trails")] LiquidTrails = 28,
+        [InspectorName("Cavity/Edges")] Cavity = 29
     }
 
     static class StyleDebug

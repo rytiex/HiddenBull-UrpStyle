@@ -74,6 +74,8 @@ Shader "HB URP Style/Lit"
         _FlakeSize("Flake Size", Range(0.005, 0.1)) = 0.0125
         _FlakeLife("Flake Life", Range(0.2, 20.0)) = 2.0
 
+        [ToggleUI] _Cavity("Cavity", Float) = 1.0
+
         [ToggleUI] _AlphaClipEnabled("Alpha Clip", Float) = 0.0
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0

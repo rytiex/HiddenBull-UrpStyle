@@ -58,7 +58,7 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Pass | Event | Runs when |
 |---|---|---|
 | Globals (frame CBUFFER, environment, brush, quality) | BeforeRenderingShadows (must be before shadow casters) | always |
-| Shelter (top-down sky depth, near + far, with margin dilation, timed cover map) | BeforeRenderingShadows | weather active |
+| Shelter (three cascades in one array: roof top, underside, liquid level, wave reach; one cascade redrawn per frame at most; cover age for cascade 0) | AfterRenderingShadows | weather active or a liquid exists |
 | Glass shadow tint atlas (`StyleTransparentShadowPass`, per cascade) | BeforeRenderingShadows | Glass Shadow Resolution > Off and the main light casts shadows |
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |

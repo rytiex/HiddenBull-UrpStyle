@@ -490,6 +490,26 @@
             Reads = 0
         }
         @{
+            Name = 'Cavity fullscreen'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Cavity/CavityPass.hlsl'
+            Entry = 'HB_CavityFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Cavity fullscreen (debug)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Cavity/CavityPass.hlsl'
+            Entry = 'HB_CavityDebugFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Anti Aliasing fullscreen'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AntiAliasing/AntiAliasingPass.hlsl'
             Entry = 'HB_AntiAliasingFragment'
