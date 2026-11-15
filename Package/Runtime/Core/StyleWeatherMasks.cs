@@ -17,6 +17,10 @@ namespace HiddenBull.UrpStyle
             internal Scene scene;
             internal Vector3 position;
             internal float radius;
+            internal bool box;
+            internal Vector3 half;
+            internal Vector2 turn;
+            internal float rise;
             internal bool blocking;
             internal bool gradual;
             internal float clearTime;
@@ -27,6 +31,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly List<Dome> s_Domes = new List<Dome>();
         static readonly Vector4[] s_Picked = new Vector4[Limit];
+        static readonly Vector4[] s_PickedBoxes = new Vector4[Limit];
         static readonly float[] s_Distances = new float[Limit];
         static readonly bool[] s_Blocking = new bool[Limit];
 
@@ -104,6 +109,22 @@ namespace HiddenBull.UrpStyle
             dome.scene = mask.gameObject.scene;
             dome.position = mask.transform.position;
             dome.radius = mask.radius;
+            dome.box = mask.shape == HBStyleWeatherMaskShape.Box;
+
+            if (dome.box)
+            {
+                var transform = mask.transform;
+                var half = mask.scaledSize * 0.5f;
+                var right = transform.right;
+                var up = transform.up;
+                var forward = transform.forward;
+                var heading = new Vector2(right.x, right.z);
+
+                dome.half = half;
+                dome.turn = heading.sqrMagnitude > 1e-6f ? heading.normalized : Vector2.right;
+                dome.rise = Mathf.Abs(right.y) * half.x + Mathf.Abs(up.y) * half.y + Mathf.Abs(forward.y) * half.z;
+                dome.radius = new Vector2(half.x, half.z).magnitude;
+            }
             dome.blocking = mask.blockPrecipitation;
             dome.gradual = mask.transition == HBStyleWeatherMaskTransition.Gradual;
             dome.clearTime = mask.clearTime;
@@ -159,7 +180,7 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static int Collect(Vector2 centre, float reach, Vector4[] masks, out int blocking)
+        internal static int Collect(Vector2 centre, float reach, Vector4[] masks, Vector4[] boxes, out int blocking)
         {
             Tick();
 
@@ -200,7 +221,18 @@ namespace HiddenBull.UrpStyle
                     picked++;
                 }
 
-                s_Picked[slot] = new Vector4(position.x, position.y, position.z, radius);
+                if (dome.box)
+                {
+                    s_Picked[slot] = new Vector4(position.x, position.y + dome.rise, position.z, -1f);
+                    s_PickedBoxes[slot] = new Vector4(dome.half.x * dome.open, dome.half.z * dome.open, dome.turn.x,
+                                                      dome.turn.y);
+                }
+                else
+                {
+                    s_Picked[slot] = new Vector4(position.x, position.y, position.z, radius);
+                    s_PickedBoxes[slot] = Vector4.zero;
+                }
+
                 s_Distances[slot] = away;
                 s_Blocking[slot] = dome.blocking;
             }
@@ -209,16 +241,22 @@ namespace HiddenBull.UrpStyle
 
             for (var i = 0; i < picked; i++)
             {
-                if (s_Blocking[i])
-                    masks[blocking++] = s_Picked[i];
+                if (!s_Blocking[i])
+                    continue;
+
+                boxes[blocking] = s_PickedBoxes[i];
+                masks[blocking++] = s_Picked[i];
             }
 
             var next = blocking;
 
             for (var i = 0; i < picked; i++)
             {
-                if (!s_Blocking[i])
-                    masks[next++] = s_Picked[i];
+                if (s_Blocking[i])
+                    continue;
+
+                boxes[next] = s_PickedBoxes[i];
+                masks[next++] = s_Picked[i];
             }
 
             return picked;

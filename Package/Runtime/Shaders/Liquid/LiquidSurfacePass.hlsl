@@ -14,6 +14,7 @@ TEXTURE2D(_HB_LiquidGradient);
 TEXTURE2D(_HB_LiquidFoamPattern);
 TEXTURE2D(_HB_LiquidCaustics);
 TEXTURE2D(_HB_LiquidCutMask);
+TEXTURE2D(_HB_LiquidWake);
 TEXTURE2D(_HB_LiquidNormal0);
 TEXTURE2D(_HB_LiquidNormal1);
 TEXTURE2D(_HB_LiquidNormal2);
@@ -36,6 +37,7 @@ float4 _HB_LiquidCrest[4];
 float4 _HB_LiquidCausticGrid;
 float4 _HB_LiquidBrush[4];
 float4 _HB_LiquidCutState;
+float4 _HB_LiquidWakeState;
 float _HB_LiquidKeep;
 float _HB_LiquidId;
 float _HB_LiquidEye;
@@ -125,6 +127,10 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_STREAM_SPAN    1.0
 #define HB_LIQUID_ROOF_LIFT      0.75
 #define HB_LIQUID_CREST_SHARE    0.5
+#define HB_LIQUID_WAKE_SPAN      64.0
+#define HB_LIQUID_WAKE_REACH     28.0
+#define HB_LIQUID_WAKE_EDGE      4.0
+#define HB_LIQUID_WAKE_GRAIN     0.35h
 #define HB_LIQUID_CELLS          4
 #define HB_LIQUID_CELL_SIZE      2.0
 #define HB_LIQUID_STREAM_STRETCH 0.35
@@ -1455,6 +1461,23 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
         return half4(lerp(ground, half3(1.0h, 1.0h, 1.0h), foam.cover), 1.0h);
     }
 #endif
+
+    UNITY_BRANCH
+    if (_HB_LiquidWakeState.x > 0.5)
+    {
+        float2 apart = abs(restXZ - _HB_LiquidWakeState.yz);
+        half inside = half(saturate((HB_LIQUID_WAKE_REACH - max(apart.x, apart.y)) / HB_LIQUID_WAKE_EDGE));
+        half3 wake = SAMPLE_TEXTURE2D_LOD(_HB_LiquidWake, sampler_trilinear_repeat,
+                                          restXZ / HB_LIQUID_WAKE_SPAN, 0).rgb * inside;
+
+        foam.cover = min(foam.cover + wake.b * lerp(HB_LIQUID_WAKE_GRAIN, 1.0h, foam.grain), HB_LIQUID_FOAM_MOST);
+        normalWS += half3(wake.r, 0.0h, wake.g);
+
+#if defined(HB_STYLE_DEBUG)
+        if (HB_DEBUG_VIEW == HB_DEBUG_LIQUID_WAKE)
+            return half4(0.5h + wake.r * 0.5h, 0.5h + wake.g * 0.5h, wake.b, 1.0h);
+#endif
+    }
 
     normalWS = NormalizeNormalPerPixel(normalWS + half3(foam.bend.x, 0.0h, foam.bend.y) * HB_LIQUID_BUBBLE_BEND)
              * (front ? 1.0h : -1.0h);

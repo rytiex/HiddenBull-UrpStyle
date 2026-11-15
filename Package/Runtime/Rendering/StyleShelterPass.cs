@@ -188,6 +188,7 @@ namespace HiddenBull.UrpStyle
             internal Vector4 step;
             internal Vector4 count;
             internal Vector4[] masks;
+            internal Vector4[] boxes;
             internal int groups;
         }
 
@@ -228,6 +229,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_MapTargetId = Shader.PropertyToID("_HB_ShelterMapTarget");
         static readonly int s_DropsTargetId = Shader.PropertyToID("_HB_ShelterDropsTarget");
         static readonly int s_MasksId = Shader.PropertyToID("_HB_ShelterMasks");
+        static readonly int s_MaskBoxesId = Shader.PropertyToID("_HB_ShelterMaskBoxes");
         static readonly int s_MaskCountId = Shader.PropertyToID("_HB_ShelterMaskCount");
         static readonly int s_CoverFromId = Shader.PropertyToID("_HB_ShelterCoverFrom");
         static readonly int s_CoverStateId = Shader.PropertyToID("_HB_ShelterCoverState");
@@ -247,6 +249,7 @@ namespace HiddenBull.UrpStyle
         static readonly Color s_NoLiquid = new Color(NoHeight, 0f, 0f, 0f);
 
         static readonly Vector4[] s_Masks = new Vector4[StyleWeatherMasks.Limit];
+        static readonly Vector4[] s_MaskBoxes = new Vector4[StyleWeatherMasks.Limit];
         static readonly Vector4[] s_NoAreas = NoAreas();
 
         static Texture2DArray s_Empty;
@@ -680,9 +683,11 @@ namespace HiddenBull.UrpStyle
         static void FillMasks(FinishData data, Vector3 centre, float extent)
         {
             var count = StyleWeatherMasks.Collect(new Vector2(centre.x, centre.z), extent * 0.5f, s_Masks,
-                                                  out var blocking);
+                                                  s_MaskBoxes, out var blocking);
 
             data.masks ??= new Vector4[StyleWeatherMasks.Limit];
+            data.boxes ??= new Vector4[StyleWeatherMasks.Limit];
+            Array.Copy(s_MaskBoxes, data.boxes, StyleWeatherMasks.Limit);
             data.count = new Vector4(count, blocking, 0f, 0f);
             Array.Copy(s_Masks, data.masks, StyleWeatherMasks.Limit);
         }
@@ -704,6 +709,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeVectorParam(d.compute, s_CellId, d.cell);
             cmd.SetComputeVectorParam(d.compute, s_MaskCountId, d.count);
             cmd.SetComputeVectorArrayParam(d.compute, s_MasksId, d.masks);
+            cmd.SetComputeVectorArrayParam(d.compute, s_MaskBoxesId, d.boxes);
             cmd.DispatchCompute(d.compute, d.kernel, d.groups, d.groups, 1);
         }
 

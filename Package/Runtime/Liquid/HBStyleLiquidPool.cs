@@ -229,6 +229,7 @@ namespace HiddenBull.UrpStyle
             m_Layers[0] = m_Layer;
             m_Look.Bind(block, m_Layers);
             m_Waves.Bind(context, m_WaveCompute, block);
+            StyleLiquidWake.Run(context, camera, m_WaveCompute);
 
             var size = half;
             var heading = turn;

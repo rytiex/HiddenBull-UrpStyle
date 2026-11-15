@@ -80,6 +80,7 @@ namespace HiddenBull.UrpStyle
 
             Bind(data, block);
             m_Waves.Bind(context, waves, block);
+            StyleLiquidWake.Run(context, camera, waves);
             block.SetFloat(s_IdId, HBStyleLiquidCutter.TerrainKind);
             block.SetFloat(s_KeepId, Kept(data, origin) ? 1f : 0f);
             block.SetFloat(s_EyeId, HBStyleLiquid.EyeLevel(owner, camera.transform.position));

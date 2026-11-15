@@ -24,6 +24,7 @@ float4 _HB_WaterTint[4];
 #define HB_DEBUG_LIQUID_WAVES 25
 #define HB_DEBUG_LIQUID_FOAM  26
 #define HB_DEBUG_LIQUID_UNDER 27
+#define HB_DEBUG_LIQUID_WAKE  28
 
 struct HBWaterLevel
 {

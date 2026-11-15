@@ -31,6 +31,7 @@ float4 _HB_ShelterCell;
 float4 _HB_ShelterPreviewArea;
 float4 _HB_ShelterDilate;
 float4 _HB_ShelterMasks[HB_MASK_LIMIT];
+float4 _HB_ShelterMaskBoxes[HB_MASK_LIMIT];
 float4 _HB_ShelterMaskCount;
 float4 _HB_ShelterCoverStep;
 
@@ -188,13 +189,26 @@ float2 HB_Domes(float2 world, float top)
             break;
 
         float4 mask = _HB_ShelterMasks[i];
+        float4 box = _HB_ShelterMaskBoxes[i];
         float2 offset = world - mask.xz;
-        float reach = mask.w * mask.w - dot(offset, offset);
+        float dome = mask.y;
 
-        if (reach <= 0.0)
-            continue;
+        if (mask.w < 0.0)
+        {
+            float2 local = float2(dot(offset, box.zw), dot(offset, float2(-box.w, box.z)));
 
-        float dome = mask.y + sqrt(reach);
+            if (any(abs(local) > box.xy))
+                continue;
+        }
+        else
+        {
+            float reach = mask.w * mask.w - dot(offset, offset);
+
+            if (reach <= 0.0)
+                continue;
+
+            dome += sqrt(reach);
+        }
 
         heights.x = max(heights.x, dome);
 

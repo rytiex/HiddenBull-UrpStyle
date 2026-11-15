@@ -1192,7 +1192,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3700
+            Slots = 3705
             Reads = 145
         }
         @{
@@ -1479,6 +1479,16 @@
             Name = 'Liquid Waves PlateTone'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
             Entry = 'PlateTone'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Waves Wake'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
+            Entry = 'Wake'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()

@@ -401,3 +401,101 @@ void PlateTone(uint3 id : SV_DispatchThreadID)
 
     _HB_PlateOut[id.xy] = float2(_HB_PlateShape[index], label != 0 ? HB_PlateHash(label) : 0.5);
 }
+
+#pragma kernel Wake
+
+Texture2D<float4> _HB_WakeState;
+RWTexture2D<float4> _HB_WakeStateOut;
+RWTexture2D<float4> _HB_WakeLookOut;
+StructuredBuffer<float4> _HB_WakeStamps;
+
+float4 _HB_WakeFrame;
+float4 _HB_WakeFrom;
+
+#define HB_WAKE_SIZE    256
+#define HB_WAKE_SPAN    64.0
+#define HB_WAKE_SPEED   2.0
+#define HB_WAKE_DAMP    0.6
+#define HB_WAKE_SETTLE  0.15
+#define HB_WAKE_SMOOTH  0.5
+#define HB_WAKE_FASTEST 4.0
+#define HB_WAKE_PUSH    1.5
+#define HB_WAKE_TILT    1.0
+#define HB_WAKE_STAMP   2
+#define HB_WAKE_LIMIT   32
+
+float HB_WakeHeight(int2 texel)
+{
+    return _HB_WakeState.Load(int3(texel & (HB_WAKE_SIZE - 1), 0)).r;
+}
+
+float HB_WakeApart(float2 xz, float2 from, float2 to)
+{
+    float2 span = to - from;
+    float along = saturate(dot(xz - from, span) / max(dot(span, span), 1e-6));
+
+    return distance(xz, from + span * along);
+}
+
+[numthreads(8, 8, 1)]
+void Wake(uint3 id : SV_DispatchThreadID)
+{
+    float texel = HB_WAKE_SPAN / HB_WAKE_SIZE;
+    float step = _HB_WakeFrame.z;
+    int half_size = HB_WAKE_SIZE / 2;
+    int2 here = (int2)id.xy;
+    int2 anchor = (int2)floor(_HB_WakeFrame.xy / texel);
+    int2 earlier = (int2)floor(_HB_WakeFrom.xy / texel);
+    int2 spot = anchor + ((here - anchor + half_size) & (HB_WAKE_SIZE - 1));
+    int2 held = earlier + ((here - earlier + half_size) & (HB_WAKE_SIZE - 1));
+    float2 xz = (float2(spot - half_size) + 0.5) * texel;
+    float4 state = _HB_WakeState.Load(int3(here, 0));
+
+    if (_HB_WakeFrame.w > 0.5 || any(spot != held))
+        state = float4(0.0, 0.0, 0.0, 0.0);
+
+    float left = HB_WakeHeight(here + int2(-1, 0));
+    float right = HB_WakeHeight(here + int2(1, 0));
+    float back = HB_WakeHeight(here + int2(0, -1));
+    float ahead = HB_WakeHeight(here + int2(0, 1));
+
+    float around = left + right + back + ahead;
+    float pull = HB_WAKE_SPEED * HB_WAKE_SPEED / (texel * texel);
+    float velocity = (state.g + (around - 4.0 * state.r) * pull * step) * exp(-step * HB_WAKE_DAMP);
+    float foam = max(state.b - step * state.a, 0.0);
+    float rate = state.a;
+    int count = min((int)_HB_WakeFrom.z, HB_WAKE_LIMIT);
+    float sunk = 0.0;
+
+    for (int index = 0; index < count; index++)
+    {
+        float4 head = _HB_WakeStamps[index * HB_WAKE_STAMP];
+        float4 tail = _HB_WakeStamps[index * HB_WAKE_STAMP + 1];
+        float fall = saturate(1.0 - HB_WakeApart(xz, tail.xy, head.xy) / max(head.z, texel));
+
+        if (fall <= 0.0)
+            continue;
+
+        float press = head.w * fall;
+
+        sunk += press * tail.w;
+
+        if (press > foam)
+        {
+            foam = press;
+            rate = tail.z;
+        }
+    }
+
+    velocity = clamp(velocity, -HB_WAKE_FASTEST, HB_WAKE_FASTEST);
+
+    float height = (state.r + velocity * step) * exp(-step * HB_WAKE_SETTLE);
+
+    height = lerp(height, around * 0.25, saturate(step * HB_WAKE_SMOOTH));
+    height -= sunk * step * HB_WAKE_PUSH;
+
+    float2 slope = float2(right - left, ahead - back) * (0.5 / texel) * HB_WAKE_TILT;
+
+    _HB_WakeStateOut[id.xy] = float4(clamp(height, -1.0, 1.0), velocity, foam, rate);
+    _HB_WakeLookOut[id.xy] = float4(clamp(-slope, -1.0, 1.0), foam, 0.0);
+}

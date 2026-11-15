@@ -6,7 +6,9 @@ namespace HiddenBull.UrpStyle.Editor
     [CanEditMultipleObjects]
     sealed class StyleWeatherMaskEditor : UnityEditor.Editor
     {
+        SerializedProperty m_Shape;
         SerializedProperty m_Radius;
+        SerializedProperty m_Size;
         SerializedProperty m_BlockPrecipitation;
         SerializedProperty m_Transition;
         SerializedProperty m_ClearTime;
@@ -14,7 +16,9 @@ namespace HiddenBull.UrpStyle.Editor
 
         void OnEnable()
         {
+            m_Shape = serializedObject.FindProperty("m_Shape");
             m_Radius = serializedObject.FindProperty("m_Radius");
+            m_Size = serializedObject.FindProperty("m_Size");
             m_BlockPrecipitation = serializedObject.FindProperty("m_BlockPrecipitation");
             m_Transition = serializedObject.FindProperty("m_Transition");
             m_ClearTime = serializedObject.FindProperty("m_ClearTime");
@@ -24,7 +28,16 @@ namespace HiddenBull.UrpStyle.Editor
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-            EditorGUILayout.PropertyField(m_Radius);
+            EditorGUILayout.PropertyField(m_Shape);
+
+            var box = m_Shape.enumValueIndex == (int)HBStyleWeatherMaskShape.Box;
+
+            if (m_Shape.hasMultipleDifferentValues || !box)
+                EditorGUILayout.PropertyField(m_Radius);
+
+            if (m_Shape.hasMultipleDifferentValues || box)
+                EditorGUILayout.PropertyField(m_Size);
+
             EditorGUILayout.PropertyField(m_BlockPrecipitation);
             EditorGUILayout.PropertyField(m_Transition);
 
