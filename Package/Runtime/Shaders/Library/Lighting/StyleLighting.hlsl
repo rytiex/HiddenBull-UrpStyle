@@ -179,6 +179,19 @@ half3 HB_EnvironmentReflection(half3 reflectVector, half3 normalWS, float3 posit
     return probes + sky * (1.0h - weight);
 }
 
+#define HB_SUN_GLOSS half(1.0 - _HB_CloudLook.w)
+
+#ifdef HB_OVERLAY_SHADOW
+float _HB_OverlayShadow;
+
+float3 HB_OverlayShadowPosition(float3 shadowPosition, float3 positionWS)
+{
+    float3 away = positionWS - _WorldSpaceCameraPos;
+
+    return dot(away, away) < _HB_OverlayShadow ? _WorldSpaceCameraPos : shadowPosition;
+}
+#endif
+
 half3 HB_DirectSpecular(BRDFData brdfData, half3 normalWS, half3 lightDirection, half3 viewDirection, half softness,
                         half offset)
 {
@@ -200,7 +213,7 @@ half3 HB_DirectSpecular(BRDFData brdfData, half3 normalWS, half3 lightDirection,
 
 half3 HB_LightContribution(Light light, half3 toneNormal, half3 surfaceNormal, HBStyleData style,
                            half terminatorOffset, half3 diffuse, BRDFData brdfData, InputData inputData,
-                           SurfaceData surfaceData, half wet)
+                           SurfaceData surfaceData, half wet, half gloss)
 {
     half3 radiance = HB_LightResponse(light, toneNormal, surfaceNormal, style, terminatorOffset);
     half3 colour = radiance * diffuse;
@@ -211,14 +224,14 @@ half3 HB_LightContribution(Light light, half3 toneNormal, half3 surfaceNormal, H
 
 #if defined(_HB_SPECULAR)
     colour += radiance * HB_DirectSpecular(brdfData, inputData.normalWS, light.direction, inputData.viewDirectionWS,
-                                           style.diffuseSoftness, terminatorOffset);
+                                           style.diffuseSoftness, terminatorOffset) * gloss;
 #elif defined(HB_WEATHER)
     UNITY_BRANCH
     if (wet > 0.0h)
     {
         colour += radiance * HB_DirectSpecular(brdfData, inputData.normalWS, light.direction,
                                                inputData.viewDirectionWS, style.diffuseSoftness, terminatorOffset)
-                * wet;
+                * (wet * gloss);
     }
 #endif
 
@@ -261,6 +274,10 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 
 #ifdef HB_SHADOW_LIFT
     shadowPosition += _MainLightPosition.xyz * HB_SHADOW_LIFT;
+#endif
+
+#ifdef HB_OVERLAY_SHADOW
+    shadowPosition = HB_OverlayShadowPosition(shadowPosition, inputData.positionWS);
 #endif
 
     inputData.shadowCoord = HB_ShadowCoordAt(shadowPosition, inputData.shadowCoord);
@@ -354,7 +371,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 #endif
     {
         colour += HB_LightContribution(mainLight, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                       brdfData, inputData, surfaceData, wet);
+                                       brdfData, inputData, surfaceData, wet, HB_SUN_GLOSS);
     }
 
 #if defined(_ADDITIONAL_LIGHTS)
@@ -375,7 +392,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
         #endif
             {
                 colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                               brdfData, inputData, surfaceData, wet);
+                                               brdfData, inputData, surfaceData, wet, 1.0h);
             }
         }
     #endif
@@ -388,7 +405,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
         #endif
             {
                 colour += HB_LightContribution(light, toneNormal, surfaceNormal, style, terminatorOffset, diffuse,
-                                               brdfData, inputData, surfaceData, wet);
+                                               brdfData, inputData, surfaceData, wet, 1.0h);
             }
         LIGHT_LOOP_END
     }

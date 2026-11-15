@@ -11,6 +11,7 @@ float _HB_TransparentStage;
 
 #define HB_NEAREST_MIN_EYE      1e-3
 #define HB_NEAREST_MARGIN       0.01
+#define HB_NEAREST_EXACT        0.001
 
 #define HB_REFRACTION_DEPTH     0.25
 #define HB_REFRACTION_NEAR      0.05
@@ -33,16 +34,18 @@ bool HB_InFrontOfNearest(uint2 pixel, float eye)
     return nearest > 0.0 && eye * nearest < 1.0 + HB_NEAREST_MARGIN;
 }
 
-bool HB_InFrontOfRefractive(uint2 pixel, float eye)
+bool HB_InFrontOfRefractive(uint2 pixel, float eye, float margin)
 {
     float refractive = LOAD_TEXTURE2D(_HB_TransparentNearest, pixel).g;
 
-    return refractive <= 0.0 || eye * refractive < 1.0 + HB_NEAREST_MARGIN;
+    return refractive <= 0.0 || eye * refractive < 1.0 + margin;
 }
 
-bool HB_TransparentOutsideStage(uint2 pixel, float eye)
+bool HB_TransparentOutsideStage(uint2 pixel, float eye, bool facing)
 {
-    return HB_TRANSPARENT_SPLIT && HB_TRANSPARENT_FRONT != HB_InFrontOfRefractive(pixel, eye);
+    float margin = facing ? HB_NEAREST_MARGIN : HB_NEAREST_EXACT;
+
+    return HB_TRANSPARENT_SPLIT && HB_TRANSPARENT_FRONT != HB_InFrontOfRefractive(pixel, eye, margin);
 }
 
 float2 HB_RefractionOffset(float3 positionWS, half3 normalWS, half3 viewDirectionWS, half strength,

@@ -123,7 +123,7 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_STREAM_SHEAR   0.6
 #define HB_LIQUID_STREAM_STREAK  0.12
 #define HB_LIQUID_STREAM_SPAN    1.0
-#define HB_LIQUID_ROOF_LIFT      0.25
+#define HB_LIQUID_ROOF_LIFT      0.75
 #define HB_LIQUID_CELLS          4
 #define HB_LIQUID_CELL_SIZE      2.0
 #define HB_LIQUID_STREAM_STRETCH 0.35
@@ -1497,7 +1497,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     half3 reflection = EnvironmentBRDFSpecular(brdfData, fresnelTerm) * environment;
 
     reflection += HB_LightResponse(mainLight, litNormalWS, normalWS, style, brush.coverage * HB_LIQUID_BRUSH_SHADING)
-                * HB_DirectSpecular(brdfData, litNormalWS, sunDirection, viewWS, style.diffuseSoftness, 0.0h);
+                * HB_DirectSpecular(brdfData, litNormalWS, sunDirection, viewWS, style.diffuseSoftness, 0.0h)
+                * HB_SUN_GLOSS;
     half3 extraLight = half3(0.0h, 0.0h, 0.0h);
     half3 extraFoam = half3(0.0h, 0.0h, 0.0h);
 
@@ -1506,7 +1507,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
 
     float pattern = HB_LiquidMixed(_HB_LiquidFoamShape, water.mix).z;
 
-    reflection += sunLight * HB_LiquidGlints(restXZ, restDx, restDy, pattern, normalWS, viewWS, sunDirection);
+    reflection += sunLight * HB_LiquidGlints(restXZ, restDx, restDy, pattern, normalWS, viewWS, sunDirection)
+                * HB_SUN_GLOSS;
     reflection *= saturate(look.murk * HB_LIQUID_EDGE_SOFT);
 
     half3 skyLight = (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h)))
@@ -1684,18 +1686,22 @@ HBLiquidVaryings HB_LiquidRoofVertex(HBLiquidAttributes input)
     return output;
 }
 
-float HB_LiquidRoofFragment(HBLiquidVaryings input) : SV_Target
+float _HB_LiquidRoofLift;
+
+float HB_LiquidRoofFragment(HBLiquidVaryings input, out float depth : SV_Depth) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     HBWaterLevel water = HB_LiquidWaterAt(input.rest.xy);
+
+    depth = TransformWorldToHClip(float3(input.rest.x, water.level + _HB_LiquidRoofLift, input.rest.y)).z;
 
     if (!water.wet)
         discard;
 
     HB_LiquidCut(input.positionCS);
 
-    return input.positionWS.y;
+    return water.level;
 }
 
 #endif

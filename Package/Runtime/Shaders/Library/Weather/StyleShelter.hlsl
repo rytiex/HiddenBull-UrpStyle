@@ -29,8 +29,8 @@ float4 _HB_ShelterFarHeight;
 #define HB_SHELTER_RANGE         0.6
 #define HB_SHELTER_EMPTY_MARGIN  0.05
 #define HB_SHELTER_UNDER_SOFT    0.05
-#define HB_SHELTER_LIQUID_BIAS   0.05
-#define HB_SHELTER_LIQUID_SOFT   0.05
+#define HB_SHELTER_LIQUID_BIAS   -0.45
+#define HB_SHELTER_LIQUID_SOFT   0.3
 
 half4 HB_ShelterBSpline(half t)
 {

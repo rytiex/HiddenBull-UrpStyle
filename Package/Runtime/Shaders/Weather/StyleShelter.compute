@@ -53,6 +53,7 @@ float4 _HB_ShelterCoverStep;
 #define HB_OVERHANG_CLEAR 0.5
 #define HB_NONE           -1e6
 #define HB_COVER_CLEAR    0.5
+#define HB_COVER_SKIN     0.25
 
 [numthreads(8, 8, 1)]
 void Preview(uint3 id : SV_DispatchThreadID)
@@ -246,8 +247,9 @@ void Uncover(uint3 id : SV_DispatchThreadID)
 
     float top = HB_TopHeight(texel, size);
     float lowest = HB_HEIGHT_BIAS + min(HB_HEIGHT_SCALE, 0.0);
+    float liquid = HB_COVER_LIQUID > 0.5 ? _HB_ShelterLiquid.Load(int3(texel, 0)) : HB_NONE;
 
-    if (top <= lowest + HB_EMPTY_MARGIN)
+    if (top <= lowest + HB_EMPTY_MARGIN || top <= liquid + HB_COVER_SKIN)
         top = HB_NONE;
 
     int2 from = texel + HB_COVER_SHIFT;
@@ -266,7 +268,6 @@ void Uncover(uint3 id : SV_DispatchThreadID)
     age = saturate(age + HB_COVER_STEP);
 
     _HB_ShelterCoverState[texel] = float2(age, top);
-    float liquid = HB_COVER_LIQUID > 0.5 ? _HB_ShelterLiquid.Load(int3(texel, 0)) : HB_NONE;
 
     _HB_ShelterCover[texel] = float2(age, liquid);
 }

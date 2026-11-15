@@ -265,7 +265,11 @@ float2 HB_GrassWeather(HBGrassBlade blade)
                 float empty = HB_SHELTER_HEIGHT_BIAS + min(HB_SHELTER_HEIGHT_SCALE, 0.0) + HB_SHELTER_EMPTY_MARGIN;
 
                 open = roof > empty ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 1.0;
-                uncovered = SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).r;
+
+                float2 state = SAMPLE_TEXTURE2D_LOD(_HB_ShelterCover, sampler_LinearClamp, uv, 0).rg;
+                float under = saturate((state.y - blade.root.y - HB_SHELTER_LIQUID_BIAS) / HB_SHELTER_LIQUID_SOFT);
+
+                uncovered = state.x * (1.0 - under);
             }
         }
 

@@ -12,6 +12,13 @@ namespace HiddenBull.UrpStyle
         HBStyleQualityProfile m_Quality;
 
         [SerializeField]
+        [Min(0f)]
+        [Tooltip("Objects drawn by an overlay camera closer than this to the camera (metres) take the sun shadow of " +
+                 "the point the camera stands on, so a hand that reaches into a wall is not shadowed by that wall. " +
+                 "0 turns it off.")]
+        float m_OverlayShadowNear = 2f;
+
+        [SerializeField]
         [HideInInspector]
         ComputeShader m_ShelterCompute;
 
@@ -149,7 +156,7 @@ namespace HiddenBull.UrpStyle
             var quality = activeQuality;
             var shadows = quality.shadows;
 
-            m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass);
+            m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass, m_OverlayShadowNear);
             StyleTerrains.quality = quality.terrain;
             StyleTerrains.grassQuality = quality.grass;
             StyleTerrains.shelter = m_ShelterPass;

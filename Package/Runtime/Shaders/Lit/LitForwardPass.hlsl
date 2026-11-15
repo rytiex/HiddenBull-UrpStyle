@@ -5,6 +5,10 @@
     #define HB_WEATHER
 #endif
 
+#ifndef HB_TRANSPARENT
+    #define HB_OVERLAY_SHADOW
+#endif
+
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSurface.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSubsurface.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleLighting.hlsl"

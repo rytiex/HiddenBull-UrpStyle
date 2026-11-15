@@ -13,6 +13,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CloudAtlasId = Shader.PropertyToID("_HB_CloudAtlas");
         static readonly int s_SkyLutId = Shader.PropertyToID("_HB_SkyLut");
         static readonly int s_BodiesId = Shader.PropertyToID("_HB_WeatherBodies");
+        static readonly int s_OverlayShadowId = Shader.PropertyToID("_HB_OverlayShadow");
 
         readonly ConstantBuffer<StyleFrameGlobals> m_Buffer = new ConstantBuffer<StyleFrameGlobals>();
         readonly StyleEnvironmentMixer m_Mixer = new StyleEnvironmentMixer();
@@ -23,6 +24,7 @@ namespace HiddenBull.UrpStyle
         StyleCameraStates m_Cameras;
         StyleShelterPass m_Shelter;
         GraphicsBuffer m_Bodies;
+        float m_OverlayShadowNear;
 
         class PassData
         {
@@ -40,6 +42,7 @@ namespace HiddenBull.UrpStyle
             public GraphicsBuffer bodies;
             public Vector4[] bodyStates;
             public int bodyCount;
+            public float overlayShadow;
         }
 
         internal StyleGlobalsPass()
@@ -48,8 +51,10 @@ namespace HiddenBull.UrpStyle
             profilingSampler = new ProfilingSampler("HB Style Globals");
         }
 
-        internal void Setup(HBStyleQualityProfile quality, StyleCameraStates cameras, StyleShelterPass shelter)
+        internal void Setup(HBStyleQualityProfile quality, StyleCameraStates cameras, StyleShelterPass shelter,
+                            float overlayShadowNear)
         {
+            m_OverlayShadowNear = overlayShadowNear;
             m_Quality = quality;
             m_Cameras = cameras;
             m_Shelter = shelter;
@@ -81,6 +86,9 @@ namespace HiddenBull.UrpStyle
             passData.cloudAtlas = resolved.cloudAtlas != null ? resolved.cloudAtlas : Texture2D.blackTexture;
             passData.skyLut = resolved.skyLut;
             passData.bindShelter = false;
+            passData.overlayShadow = kind == StyleCameraKind.Overlay
+                ? m_OverlayShadowNear * m_OverlayShadowNear
+                : 0f;
 
             var states = StyleWeatherBodies.states;
 
@@ -123,6 +131,7 @@ namespace HiddenBull.UrpStyle
                 context.cmd.SetGlobalTexture(s_BrushAtlasId, data.brushAtlas);
                 context.cmd.SetGlobalTexture(s_CloudAtlasId, data.cloudAtlas);
                 context.cmd.SetGlobalTexture(s_SkyLutId, data.skyLut);
+                context.cmd.SetGlobalFloat(s_OverlayShadowId, data.overlayShadow);
 
                 if (data.bodyCount > 0)
                     context.cmd.SetBufferData(data.bodies, data.bodyStates, 0, 0, data.bodyCount);

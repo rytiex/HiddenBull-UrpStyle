@@ -269,7 +269,7 @@ half4 HB_ParticleFragment(Varyings input) : SV_Target
     float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
 
     UNITY_BRANCH
-    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye))
+    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye, true))
     {
         discard;
         return half4(0.0h, 0.0h, 0.0h, 0.0h);

@@ -27,6 +27,7 @@ namespace HiddenBull.UrpStyle
         const double FreshSeconds = 0.5;
         const float PlantPass = 2f;
         const float RoofReach = 0.75f;
+        const float FarRoofLift = 0.1f;
         const float NoLiquid = -1e6f;
         const string RoofPass = "LiquidRoof";
         const string RoofIdsPass = "LiquidRoofIds";
@@ -232,6 +233,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_CutIdsId = Shader.PropertyToID("_HB_LiquidCutIds");
         static readonly int s_CutMaskId = Shader.PropertyToID("_HB_LiquidCutMask");
         static readonly int s_CutStateId = Shader.PropertyToID("_HB_LiquidCutState");
+        static readonly int s_RoofLiftId = Shader.PropertyToID("_HB_LiquidRoofLift");
         static readonly int s_CutWriteId = Shader.PropertyToID("_HB_CutWrite");
         static readonly int s_CutTargetId = Shader.PropertyToID("_HB_CutTarget");
         static readonly Vector4 s_CutOn = new Vector4(1f, 0f, 0f, 0f);
@@ -861,10 +863,13 @@ namespace HiddenBull.UrpStyle
                                                               !resourceData.isActiveTargetBackBuffer);
         }
 
-        static void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach, bool cut)
+        static void DrawRoof(RasterCommandBuffer cmd, Camera camera, string pass, float reach, bool cut,
+                             float lift = 0f)
         {
+            cmd.SetGlobalFloat(s_RoofLiftId, lift);
             cmd.SetGlobalVector(s_CutStateId, cut ? s_CutOn : Vector4.zero);
             HBStyleLiquid.DrawRoof(cmd, camera, pass, reach);
+            cmd.SetGlobalFloat(s_RoofLiftId, 0f);
             cmd.SetGlobalVector(s_CutStateId, Vector4.zero);
         }
 
@@ -1048,7 +1053,7 @@ namespace HiddenBull.UrpStyle
                     StylePlantSystem.DrawFarShelter(context.cmd, d.mask);
 
                 if (d.roof)
-                    DrawRoof(context.cmd, d.camera, RoofPass, d.reach, d.cut);
+                    DrawRoof(context.cmd, d.camera, RoofPass, d.reach, d.cut, d.near ? 0f : FarRoofLift);
 
                 context.cmd.SetGlobalFloat(s_PassId, 0f);
                 RenderingUtils.SetViewAndProjectionMatrices(context.cmd, d.cameraView, d.cameraProjection, true);

@@ -51,15 +51,17 @@ half4 HB_TransparentTintFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRO
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
     float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
+    bool facing = IS_FRONT_VFACE(frontFace, true, false);
 
     UNITY_BRANCH
-    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye) || (HB_TRANSPARENT_FRONT && _BlendMode > 3.5))
+    if (HB_TransparentOutsideStage(uint2(input.positionCS.xy), eye, facing)
+        || (HB_TRANSPARENT_FRONT && _BlendMode > 3.5))
     {
         discard;
         return half4(1.0h, 1.0h, 1.0h, 1.0h);
     }
 
-    HBSurfaceInput surface = HB_LitSurfaceInput(input, IS_FRONT_VFACE(frontFace, true, false));
+    HBSurfaceInput surface = HB_LitSurfaceInput(input, facing);
     half4 base = HB_SampleSurfaceBase(surface);
 
 #ifdef _HB_BRUSH
@@ -105,15 +107,16 @@ half4 HB_TransparentFragment(Varyings input, FRONT_FACE_TYPE frontFace : FRONT_F
 
     uint2 pixel = uint2(input.positionCS.xy);
     float eye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
+    bool facing = IS_FRONT_VFACE(frontFace, true, false);
 
     UNITY_BRANCH
-    if (HB_TransparentOutsideStage(pixel, eye))
+    if (HB_TransparentOutsideStage(pixel, eye, facing))
     {
         discard;
         return half4(0.0h, 0.0h, 0.0h, 0.0h);
     }
 
-    half4 colour = HB_LitColour(input, IS_FRONT_VFACE(frontFace, true, false));
+    half4 colour = HB_LitColour(input, facing);
     HBTransparentFog fog = HB_TransparentFog(input.positionWS);
 
 #ifdef _HB_TINTED

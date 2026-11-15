@@ -277,7 +277,8 @@ namespace HiddenBull.UrpStyle
             globals._HB_CloudParams = new Vector4(StyleKeyLight.Coverage(profile), clouds.scale * 0.03f,
                                                   clouds.softness * 0.5f, clouds.steps);
             globals._HB_CloudMotion = new Vector4(wind.x, wind.y, 0f, 0f);
-            globals._HB_CloudLook = new Vector4(clouds.silverLining, clouds.sunThrough, clouds.powder, 0f);
+            globals._HB_CloudLook = new Vector4(clouds.silverLining, clouds.sunThrough, clouds.powder,
+                                                StyleKeyLight.Overcast(profile));
             globals._HB_CloudLight = new Vector4(light.r, light.g, light.b, 0f);
             globals._HB_CloudAwayLight = new Vector4(away.r, away.g, away.b, 0f);
             globals._HB_CloudDirection = new Vector4(direction.x, direction.y, direction.z, 0f);

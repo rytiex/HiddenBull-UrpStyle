@@ -573,9 +573,10 @@ namespace HiddenBull.UrpStyle
 
             if (reach != m_RoofReach)
             {
-                m_Tree.Select(m_Local.x, m_Local.y, m_Local.z, null, reach, m_Nodes);
+                m_Tree.Select(m_Local.x, m_Local.y, m_Local.z, null, reach, m_Nodes, true);
                 Fill(m_Origin, m_RoofFull, m_RoofQuarters);
-                Sea(m_Origin, m_Local, null, reach, data.seaLevel, out _);
+                Sea(m_Origin, new Vector3(m_Local.x, data.seaLevel, m_Local.z), null, reach, data.seaLevel,
+                    out _);
                 m_RoofReach = reach;
             }
 
