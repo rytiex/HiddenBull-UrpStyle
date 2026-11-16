@@ -20,6 +20,25 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Pattern = new GUIContent("Pattern");
             internal static readonly GUIContent Shape = new GUIContent("Shape");
             internal static readonly GUIContent Surface = new GUIContent("Surface");
+            internal static readonly GUIContent Details = new GUIContent("Details");
+            internal static readonly GUIContent HairCracks = new GUIContent("Hair Cracks",
+                "Thin branching cracks across the pieces. 0 leaves the pieces whole.");
+            internal static readonly GUIContent HairScale = new GUIContent("Crack Scale",
+                "Crack cells per piece. More gives smaller, denser cracks.");
+            internal static readonly GUIContent Chips = new GUIContent("Chips",
+                "Bits broken off the edges and corners of the pieces.");
+            internal static readonly GUIContent ChipSize = new GUIContent("Chip Size",
+                "How far the broken bits reach into the pieces.");
+            internal static readonly GUIContent Scratches = new GUIContent("Scratches",
+                "Fine scratches and scuff marks on the pieces.");
+            internal static readonly GUIContent ScratchScale = new GUIContent("Scratch Scale",
+                "Scratches across the texture. More gives shorter, closer scratches.");
+            internal static readonly GUIContent JointPebbles = new GUIContent("Joint Pebbles",
+                "Small pebbles and grit filling the joints.");
+            internal static readonly GUIContent JointGrass = new GUIContent("Joint Grass",
+                "Grass tufts growing from the joints and spilling over the edges.");
+            internal static readonly GUIContent GrassColour = new GUIContent("Grass Colour",
+                "Colour of the grass tufts.");
             internal static readonly GUIContent Light = new GUIContent("Painted Light");
             internal static readonly GUIContent Output = new GUIContent("Output");
 
@@ -406,6 +425,20 @@ namespace HiddenBull.UrpStyle.Editor
             settings.seed = EditorGUILayout.IntSlider(Styles.Seed, settings.seed, 0, 999);
         }
 
+        static void DrawDetails(StyleMaterialSettings settings)
+        {
+            settings.hairCracks = EditorGUILayout.Slider(Styles.HairCracks, settings.hairCracks, 0f, 1f);
+            settings.hairScale = EditorGUILayout.IntSlider(Styles.HairScale, settings.hairScale, 1, 8);
+            settings.chips = EditorGUILayout.Slider(Styles.Chips, settings.chips, 0f, 1f);
+            settings.chipSize = EditorGUILayout.Slider(Styles.ChipSize, settings.chipSize, 0.02f, 0.3f);
+            settings.scratches = EditorGUILayout.Slider(Styles.Scratches, settings.scratches, 0f, 1f);
+            settings.scratchScale = EditorGUILayout.IntSlider(Styles.ScratchScale, settings.scratchScale, 8, 128);
+            settings.jointPebbles = EditorGUILayout.Slider(Styles.JointPebbles, settings.jointPebbles, 0f, 1f);
+            settings.jointGrass = EditorGUILayout.Slider(Styles.JointGrass, settings.jointGrass, 0f, 1f);
+            settings.grassColour = EditorGUILayout.ColorField(Styles.GrassColour, settings.grassColour, true, false,
+                                                              false);
+        }
+
         static void DrawGround(StyleMaterialSettings settings)
         {
             settings.groundRelief = EditorGUILayout.Slider(Styles.GroundRelief, settings.groundRelief, 0f, 1f);
@@ -474,6 +507,26 @@ namespace HiddenBull.UrpStyle.Editor
                     preview.view = StyleStudioView.Flat;
                 }
             }
+
+            EditorGUILayout.Space();
+            EditorGUI.BeginChangeCheck();
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Styles.Details, EditorStyles.boldLabel);
+
+                if (GUILayout.Button(Styles.ResetLayer, EditorStyles.miniButton, GUILayout.Width(48f)))
+                    settings.ResetDetails();
+            }
+
+            EditorGUIUtility.labelWidth = Mathf.Clamp(EditorGUIUtility.currentViewWidth * 0.1f, 70f, 96f);
+            DrawDetails(settings);
+            EditorGUIUtility.labelWidth = labelWidth;
+
+            if (EditorGUI.EndChangeCheck())
+                m_Dirty = true;
+
+            history.Commit("Change Texture Studio Details");
         }
 
         void DrawLayerRow(StyleMaterialSettings settings, StyleMaterialLayer layer)

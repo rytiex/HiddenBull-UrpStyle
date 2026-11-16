@@ -21,8 +21,8 @@
     "ripples": 0.0,
     "rippleCount": 8,
     "rippleWarp": 0.4000000059604645,
-    "bevel": 0.30000001192092898,
-    "dome": 0.550000011920929,
+    "bevel": 0.125,
+    "dome": 0.25,
     "facets": 0.0,
     "heightVariation": 0.4000000059604645,
     "tilt": 0.30000001192092898,
@@ -107,6 +107,20 @@
     "cavityShade": 0.5,
     "occlusion": 0.5,
     "lightWidth": 2.0,
+    "hairCracks": 0.0,
+    "hairScale": 3,
+    "chips": 0.0,
+    "chipSize": 0.10000000149011612,
+    "scratches": 0.0,
+    "scratchScale": 32,
+    "jointPebbles": 0.0,
+    "jointGrass": 0.0,
+    "grassColour": {
+        "r": 0.30000001192092898,
+        "g": 0.41999998688697817,
+        "b": 0.15000000596046449,
+        "a": 1.0
+    },
     "resolution": 1024,
     "name": "Mossy Soil"
 }

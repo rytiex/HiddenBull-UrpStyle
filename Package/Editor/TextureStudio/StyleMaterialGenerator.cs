@@ -60,6 +60,9 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly int MossColour = Shader.PropertyToID("_MossColour");
             internal static readonly int MossMore = Shader.PropertyToID("_MossMore");
             internal static readonly int Surface = Shader.PropertyToID("_Surface");
+            internal static readonly int Details = Shader.PropertyToID("_Details");
+            internal static readonly int DetailsMore = Shader.PropertyToID("_DetailsMore");
+            internal static readonly int GrassColour = Shader.PropertyToID("_GrassColour");
             internal static readonly int Light = Shader.PropertyToID("_Light");
             internal static readonly int ShowMode = Shader.PropertyToID("_ShowMode");
         }
@@ -134,6 +137,11 @@ namespace HiddenBull.UrpStyle.Editor
             compute.SetVector(Ids.DirtMore, new Vector4(settings.dirtSpread, 0f, 0f, 0f));
             compute.SetVector(Ids.MossColour, Colour(settings.mossColour, settings.mossOn ? settings.moss : 0f));
             compute.SetVector(Ids.MossMore, new Vector4(settings.mossSpread, settings.mossScale, 0f, 0f));
+            compute.SetVector(Ids.Details, new Vector4(settings.hairCracks, settings.hairScale, settings.chips,
+                                                       settings.chipSize));
+            compute.SetVector(Ids.DetailsMore, new Vector4(settings.scratches, settings.scratchScale,
+                                                           settings.jointPebbles, settings.jointGrass));
+            compute.SetVector(Ids.GrassColour, Colour(settings.grassColour, 0f));
             compute.SetVector(Ids.Surface, new Vector4(settings.depth, settings.smoothness, settings.gapSmoothness,
                                                        settings.metallic));
             compute.SetVector(Ids.Light, new Vector4(settings.edgeHighlight, settings.cavityShade,

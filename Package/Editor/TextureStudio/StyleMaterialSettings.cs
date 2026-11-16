@@ -144,6 +144,16 @@ namespace HiddenBull.UrpStyle.Editor
         public float occlusion = 0.5f;
         public float lightWidth = 2f;
 
+        public float hairCracks;
+        public int hairScale = 3;
+        public float chips;
+        public float chipSize = 0.1f;
+        public float scratches;
+        public int scratchScale = 32;
+        public float jointPebbles;
+        public float jointGrass;
+        public Color grassColour = new Color(0.3f, 0.42f, 0.15f, 1f);
+
         public int resolution = 1024;
         public string name = "New Material";
 
@@ -251,34 +261,13 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal void ApplyRecipe(StyleMaterialRecipe picked)
         {
-            var before = family;
+            var keptName = name;
+            var keptResolution = resolution;
 
             recipe = picked;
-            ResetPattern();
-            ResetShape();
-
-            if (family == before && family != StyleMaterialFamily.Ground && family != StyleMaterialFamily.Ice)
-                return;
-
-            var basis = Recipe(picked);
-
-            stoneColour = basis.stoneColour;
-            gapColour = basis.gapColour;
-            variationColour = basis.variationColour;
-            wearColour = basis.wearColour;
-            smoothness = basis.smoothness;
-            gapSmoothness = basis.gapSmoothness;
-            grain = basis.grain;
-            specksOn = basis.specksOn;
-            specksColour = basis.specksColour;
-            specksShine = basis.specksShine;
-            specks = basis.specks;
-            heightTint = basis.heightTint;
-            variation = basis.variation;
-            mossOn = basis.mossOn;
-            dirtOn = basis.dirtOn;
-            wearOn = basis.wearOn;
-            edgeHighlight = basis.edgeHighlight;
+            ApplyBasis();
+            name = keptName;
+            resolution = keptResolution;
         }
 
         public void ApplyBasis()
@@ -333,6 +322,21 @@ namespace HiddenBull.UrpStyle.Editor
             smoothness = basis.smoothness;
             gapSmoothness = basis.gapSmoothness;
             metallic = basis.metallic;
+        }
+
+        internal void ResetDetails()
+        {
+            var basis = Recipe(recipe);
+
+            hairCracks = basis.hairCracks;
+            hairScale = basis.hairScale;
+            chips = basis.chips;
+            chipSize = basis.chipSize;
+            scratches = basis.scratches;
+            scratchScale = basis.scratchScale;
+            jointPebbles = basis.jointPebbles;
+            jointGrass = basis.jointGrass;
+            grassColour = basis.grassColour;
         }
 
         internal void ResetLight()

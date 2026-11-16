@@ -63,6 +63,9 @@ float4 _Ground;
 float4 _GroundMore;
 float4 _Specks;
 float4 _SpecksMore;
+float4 _Details;
+float4 _DetailsMore;
+float4 _GrassColour;
 float4 _Surface;
 float4 _Light;
 int _ShowMode;
@@ -105,6 +108,14 @@ int _ShowMode;
 #define HB_ELONGATION   _Scatter.z
 #define HB_FINE_CRACKS  _Scatter.w
 #define HB_ORGANIC      (_Pattern.w > 0.5)
+#define HB_HAIR         _Details.x
+#define HB_HAIR_SCALE   ((int)_Details.y)
+#define HB_CHIPS        _Details.z
+#define HB_CHIP_SIZE    _Details.w
+#define HB_SCRATCHES    _DetailsMore.x
+#define HB_SCRATCH_SCALE ((int)_DetailsMore.y)
+#define HB_JOINT_PEBBLES _DetailsMore.z
+#define HB_JOINT_GRASS  _DetailsMore.w
 
 struct HB_Piece
 {
@@ -650,27 +661,219 @@ float HB_Specks(float2 uv, uint seed)
     return specks;
 }
 
-[numthreads(8, 8, 1)]
-void Shape(uint3 id : SV_DispatchThreadID)
+float HB_CellEdge(float2 p, int count, uint seed)
 {
-    if (any((int2)id.xy >= HB_SIZE))
-        return;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float best = 1e9;
+    float2 closest = 0.0;
 
-    float2 uv = HB_Uv(id.xy);
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        float2 toward = cell - base + HB_Random2(HB_WrapCell(cell, count), seed) - f;
+        float distance = dot(toward, toward);
+
+        if (distance < best)
+        {
+            best = distance;
+            closest = toward;
+        }
+    }
+
+    float edge = 1e9;
+
+    [unroll]
+    for (int k = 0; k < 9; k++)
+    {
+        int2 cell = base + int2(k % 3 - 1, k / 3 - 1);
+        float2 toward = cell - base + HB_Random2(HB_WrapCell(cell, count), seed) - f;
+        float2 split = toward - closest;
+
+        if (dot(split, split) > 1e-6)
+            edge = min(edge, dot((closest + toward) * 0.5, normalize(split)));
+    }
+
+    return edge;
+}
+
+float HB_HairCracks(float2 uv)
+{
+    if (HB_HAIR <= 0.0)
+        return 0.0;
+
+    int count = max(HB_UNITS * HB_HAIR_SCALE, 1);
+    uint seed = HB_SEED + 700u;
+    float2 jag = float2(HB_PerlinFbm(uv, count * 4, seed + 1u), HB_PerlinFbm(uv, count * 4, seed + 2u)) - 0.5;
+    float edge = HB_CellEdge(uv * count + jag * 0.45, count, seed);
+    float reach = HB_PerlinFbm(uv, max((int)((uint)count / 2u), 1), seed + 3u);
+    float start = lerp(0.72, 0.3, HB_HAIR);
+    float open = smoothstep(start, start + 0.15, reach);
+    float width = max(count * _Size.y, (0.01 + 0.015 * open) * HB_HAIR_SCALE);
+
+    return saturate(open * 2.0) * (1.0 - smoothstep(width * 0.4, width, edge));
+}
+
+float HB_Chip(float2 uv, float4 cell)
+{
+    if (HB_CHIPS <= 0.0 || cell.x <= 0.0)
+        return 0.0;
+
+    int count = max(HB_UNITS * 3, 1);
+    uint seed = HB_SEED + 720u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float pixel = count * _Size.y;
+    float chip = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 near = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(near, count);
+
+        if (HB_Random(wrapped, seed) >= HB_CHIPS)
+            continue;
+
+        float2 spot = HB_Random2(wrapped, seed + 1u);
+        int2 texel = (int2)((float2(wrapped) + spot) / count * HB_SIZE);
+        float4 at = _CellsIn[HB_Wrap(texel)];
+
+        if (abs(at.y - cell.y) > 1e-6 || at.x <= 0.0 || at.x > HB_CHIP_SIZE * 0.7)
+            continue;
+
+        float2 toward = f - (near - base + spot);
+        float wobble = 1.0 + 0.25 * sin(atan2(toward.y, toward.x) * 3.0 + HB_Random(wrapped, seed + 3u) * TAU);
+        float radius = HB_CHIP_SIZE * count * (0.6 + 0.5 * HB_Random(wrapped, seed + 2u)) * wobble;
+
+        chip = max(chip, saturate((radius - length(toward)) / pixel));
+    }
+
+    return chip;
+}
+
+float HB_Scratches(float2 uv)
+{
+    if (HB_SCRATCHES <= 0.0)
+        return 0.0;
+
+    int count = max(HB_SCRATCH_SCALE, 1);
+    uint seed = HB_SEED + 740u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float pixel = count * _Size.y;
+    float mark = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= HB_SCRATCHES)
+            continue;
+
+        float2 centre = cell - base + HB_Random2(wrapped, seed + 1u);
+        float angle = HB_Random(wrapped, seed + 2u) * PI;
+        float reach = 0.25 + 0.6 * HB_Random(wrapped, seed + 3u);
+        float2 direction = float2(cos(angle), sin(angle));
+        float2 toward = f - centre;
+        float along = clamp(dot(toward, direction), -reach, reach);
+        float fade = 1.0 - abs(along) / reach;
+        float width = max(pixel, (0.0015 + 0.0015 * fade) * count);
+        float stroke = 1.0 - smoothstep(width * 0.5, width, length(toward - direction * along));
+
+        mark = max(mark, stroke * saturate(fade * 3.0) * (0.4 + 0.6 * HB_Random(wrapped, seed + 4u)));
+    }
+
+    return mark;
+}
+
+float HB_JointPebbles(float2 uv, float edge)
+{
+    if (HB_JOINT_PEBBLES <= 0.0 || edge > 0.0)
+        return 0.0;
+
+    int count = max(HB_UNITS * 10, 1);
+    uint seed = HB_SEED + 760u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float top = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= HB_JOINT_PEBBLES)
+            continue;
+
+        float2 centre = cell - base + HB_Random2(wrapped, seed + 1u);
+        float radius = 0.25 + 0.3 * HB_Random(wrapped, seed + 2u);
+        float reach = length(f - centre) / radius;
+
+        if (reach < 1.0)
+            top = max(top, sqrt(1.0 - reach * reach) * (0.6 + 0.4 * HB_Random(wrapped, seed + 3u)));
+    }
+
+    return top * 0.18;
+}
+
+float HB_JointGrass(float2 uv)
+{
+    if (HB_JOINT_GRASS <= 0.0)
+        return 0.0;
+
+    int count = max(HB_UNITS * 4, 1);
+    uint seed = HB_SEED + 780u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float grass = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= HB_JOINT_GRASS)
+            continue;
+
+        float2 spot = HB_Random2(wrapped, seed + 1u);
+        int2 root = (int2)((float2(wrapped) + spot) / count * HB_SIZE);
+
+        if (_CellsIn[HB_Wrap(root)].x > 0.0)
+            continue;
+
+        float2 toward = f - (cell - base + spot);
+        float reach = length(toward) / (0.35 + 0.35 * HB_Random(wrapped, seed + 2u));
+
+        if (reach >= 1.0)
+            continue;
+
+        float blades = 7.0 + floor(HB_Random(wrapped, seed + 3u) * 6.0);
+        float twist = HB_Random(wrapped, seed + 4u) * TAU + reach * 1.5;
+        float blade = pow(abs(cos((atan2(toward.y, toward.x) + twist) * blades * 0.5)), 6.0 + reach * 20.0);
+
+        grass = max(grass, saturate(blade * 1.5) * (1.0 - reach) * (0.5 + 0.3 * HB_Random(wrapped, seed + 5u)));
+    }
+
+    return grass;
+}
+
+float HB_StoneHeight(float2 uv, float4 cell, float floorHeight)
+{
     int units = HB_UNITS;
-    float4 cell = _CellsIn[id.xy];
     float edge = cell.x;
     float2 shape = cell.zw;
     uint key = HB_StoneKey(cell.y);
     float pixel = units * _Size.y;
-
-    float floorHeight = HB_Ground(uv);
-
-    if (edge <= 0.0)
-    {
-        _Height[id.xy] = floorHeight;
-        return;
-    }
 
     float rim = sin(saturate(edge / max(HB_BEVEL, pixel)) * PI * 0.5);
     float dome = 1.0 - saturate(dot(shape, shape));
@@ -697,12 +900,39 @@ void Shape(uint3 id : SV_DispatchThreadID)
     if (HB_WOOD)
     {
         float rings, fibres, knot;
+        uint2 texel = (uint2)(uv * HB_SIZE);
 
-        HB_WoodGrain(_FrameIn[id.xy], key, rings, fibres, knot);
+        HB_WoodGrain(_FrameIn[texel], key, rings, fibres, knot);
         grain += HB_WOOD_RELIEF * (knot * 0.05 - (rings * HB_RINGS * 0.6 + fibres * HB_FIBRES * 0.4) * 0.15);
     }
 
-    _Height[id.xy] = max(rim * saturate(rise * top + tilt + grain), floorHeight);
+    float height = max(rim * saturate(rise * top + tilt + grain), floorHeight);
+    float chip = HB_Chip(uv, cell);
+    float broken = lerp(floorHeight, height, 0.3 + 0.25 * HB_PerlinFbm(uv, units * 16, HB_SEED + 722u));
+
+    height = lerp(height, min(broken, height), chip);
+    height -= HB_HairCracks(uv) * 0.3 + HB_Scratches(uv) * 0.06;
+
+    return max(height, floorHeight);
+}
+
+[numthreads(8, 8, 1)]
+void Shape(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    float2 uv = HB_Uv(id.xy);
+    float4 cell = _CellsIn[id.xy];
+    float floorHeight = HB_Ground(uv);
+    float height = floorHeight;
+
+    if (cell.x > 0.0)
+        height = HB_StoneHeight(uv, cell, floorHeight);
+
+    float fill = max(HB_JointPebbles(uv, cell.x), HB_JointGrass(uv));
+
+    _Height[id.xy] = max(height, floorHeight + fill);
 }
 
 float HB_Ring(int2 texel, float radius)
@@ -807,6 +1037,13 @@ void Compose(uint3 id : SV_DispatchThreadID)
 
     rock = lerp(rock, _WearColour.rgb, saturate(detail.x * 3.0) * _WearColour.w);
 
+    float hair = HB_HairCracks(uv);
+    float chip = HB_Chip(uv, cell);
+    float scratch = HB_Scratches(uv);
+
+    rock = lerp(rock, _WearColour.rgb, saturate(chip * 0.6 + scratch * 0.7));
+    rock = lerp(rock, _GapColour.rgb * 0.5, hair * 0.8);
+
     if (_VariationMore.y > 0.0)
     {
         float lift = 1.0 + _VariationMore.z * (height - 0.5);
@@ -824,12 +1061,21 @@ void Compose(uint3 id : SV_DispatchThreadID)
     float moss = smoothstep(0.0, 0.3, low * (0.3 + mossNoise) - (1.0 - _MossColour.w)) * step(1e-3, _MossColour.w);
 
     float3 colour = lerp(ground, rock, stone);
+
+    float pebble = HB_JointPebbles(uv, cell.x);
+    float tuft = HB_JointGrass(uv);
+    float fill = max(pebble, tuft);
+    float filled = step(0.005, fill) * saturate((HB_Ground(uv) + fill - height) * 400.0 + 1.0);
+    float grassy = filled * step(pebble, tuft);
+
+    colour = lerp(colour, lerp(_GapColour.rgb, _StoneColour.rgb, 0.6) * (0.75 + pebble * 2.0), filled - grassy);
     colour = lerp(colour, _DirtColour.rgb, dirt);
     colour = lerp(colour, _MossColour.rgb * (1.0 + grain * 0.5), moss);
 
     float specks = _Specks.w > 0.0 ? HB_Specks(uv, HB_SEED + 91u) : 0.0;
 
     colour = lerp(colour, _Specks.rgb, specks);
+    colour = lerp(colour, _GrassColour.rgb * (0.55 + tuft * 0.9), grassy);
 
     float light = 1.0 + detail.x * HB_EDGE_LIGHT - detail.y * HB_CAVITY_DARK;
     float3 albedo = saturate(colour * light * lerp(1.0, detail.z, HB_AO_BAKE));
@@ -837,9 +1083,10 @@ void Compose(uint3 id : SV_DispatchThreadID)
 
     smoothness = lerp(smoothness, HB_ROUGH_SMOOTH, max(dirt, moss));
     smoothness = lerp(smoothness, _SpecksMore.y, specks * _SpecksMore.z);
+    smoothness = lerp(smoothness, HB_ROUGH_SMOOTH, grassy);
 
     _Albedo[id.xy] = float4(albedo, 1.0);
-    _Mask[id.xy] = float4(HB_METALLIC * stone * (1.0 - moss), detail.z, height, smoothness);
+    _Mask[id.xy] = float4(HB_METALLIC * stone * (1.0 - moss) * (1.0 - filled), detail.z, height, smoothness);
 }
 
 float3 HB_ToDisplay(float3 value)
