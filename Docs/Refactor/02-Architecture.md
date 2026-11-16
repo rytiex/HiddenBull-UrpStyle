@@ -23,7 +23,7 @@ Shadow    : main-light filter (contact hardening ≤ 15 m), empty-shadowmap guar
 Brush     : atlas sampling (≤ 2 triplanar planes, 1–2 octaves), stroke offset, normal shift
 Atmosphere: height fog + horizon/aerial perspective + sun inscatter (analytic, shared by sky and surfaces)
 Weather   : sky exposure (shelter), wetness, snow, drops/ripples (detail ≤ 30 m)
-Cavity    : edge highlight / cavity darkening (reads the cavity buffer)
+Cavity    : full-screen pass only (no shader module); Lit marks itself in the normals alpha
 Surface   : per-shader-family inputs (Lit, Foliage, Terrain, Grass, Liquid, Billboard, Particle, Decal)
 ```
 
@@ -63,8 +63,9 @@ has not rendered for 2 s. Never key or gate anything on `Time.frameCount` in edi
 | Liquid prepass (wave textures, caustics) | BeforeRenderingOpaques | a liquid is visible |
 | Terrain/Grass culling (compute) | BeforeRenderingOpaques | terrain visible |
 | Plant culling (compute, outside the pass list) | `beginCameraRendering` | GPU plants exist |
-| Cavity (screen-space, from depth-normals) | AfterRenderingPrePasses | cavity quality > Off |
+| DBuffer decals (URP Decal feature, technique DBuffer) | URP, after the depth-normals prepass | decals visible |
 | Opaques (URP) — no atmosphere in the surface shaders | — | — |
+| Cavity (full screen, `StyleCavityPass`, from depth + normals; Lit only via the normals alpha) | AfterRenderingOpaques | Cavity reach > 0 and Ridge or Valley > 0 (or its debug view) |
 | Depth pyramid (Hi-Z, `StyleDepthPyramidPass`, read the next frame) | AfterRenderingSkybox | GPU plants or grass |
 | Atmosphere (full screen: fog, horizon, fog paint, silhouette, from depth) | AfterRenderingSkybox, before precipitation | atmosphere quality > Off |
 | Transparency (sorted forward; nearest glass, behind / front split and blurred background only when needed; draws precipitation, split under / over glass) | BeforeRenderingTransparents | always; renderer list probes pick the stages |
@@ -91,7 +92,7 @@ a level enum (Off / Low / Medium / High / Ultra) plus per-level parameters.
 | Precipitation | particle share, far layer, max triangles |
 | Liquid | wave texture size, caustics, foam detail, near displacement on/off |
 | Atmosphere | horizon layers on/off, sun inscatter on/off |
-| Cavity | off / half res / full res |
+| Cavity | Off / Low / Medium / High / Ultra: Reach 0, 0.25, 0.5, 0.75, 1 (scales the fade distance) |
 | Billboards | distance multiplier |
 | Weather | shelter resolution, detail distance |
 
@@ -155,7 +156,8 @@ HBStyleTerrain (component)
 3. Shelter pass updates near/far sky-depth maps for the base camera (dilated by the roof margin) and the cover map
    that fades weather in where a roof was removed.
 4. Plant, terrain and grass computes cull into indirect args, using last frame's depth pyramid.
-5. Opaque shaders: Surface → Lighting (+Shadow, Brush, Weather, Cavity) → Atmosphere.
+5. Opaque shaders: Surface → Weather → DBuffer decal on top (wet-darkened) → Lighting (+Shadow, Brush) → cavity
+   and atmosphere as full-screen passes after opaques.
 6. Precipitation and sorted transparents (one pass, rain split around the nearest glass); underwater.
 
 ## 7. Assemblies

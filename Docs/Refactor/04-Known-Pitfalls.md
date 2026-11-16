@@ -59,6 +59,15 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
   Read the level size with `GetDimensions(level, ...)`.
 - `[branch]` on a compile-time constant condition warns X3554. Hide the attribute behind a macro that is empty when
   the condition is constant (`HB_UNLESS_SIMPLE_LIGHTING`).
+- A DBuffer decal's Metallic and Smoothness change nothing on a surface with no specular path (Lit without Specular,
+  terrain, grass). Receivers need a sheen branch that reads the decal's MAOS share (`HB_DECAL_SHEEN`).
+- `Check-All` builds every Full-keyword variant with `_DBUFFER_MRT3`, also for families whose shader never compiles it
+  (Billboard, Particle). Gate shared decal code with a define set only by the receiving passes (`HB_DECAL_SURFACE`),
+  or the budget table measures dead code.
+- Two surfaces that sit together must share one formula: grass blades with their own wet reflection (blade normal,
+  open sky, fixed weights) looked far glossier than the ground under them. Share the function, not tuned constants.
+- Grass placement is cached per cell. Anything that changes where grass grows (paint, Grass Clear) invalidates the
+  cells it touches through a ring of changed areas; never test it per blade per frame.
 
 ## 3. C# / Unity API traps (Unity 6000.4)
 
@@ -128,3 +137,5 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
   terrain and wet every low place).
 - `Check-All.ps1` prints with `Write-Host`; filter it with `6>&1 2>&1 | Out-String -Stream | Select-String`. A full
   run takes about 160 s (161 variants, one after another).
+- When a design option hides the feature in a common case (decal "part of the surface" vanished under thick snow),
+  say so in the option's description; the user chose it and reversed it after the test.

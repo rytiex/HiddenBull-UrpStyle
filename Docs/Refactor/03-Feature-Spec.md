@@ -121,7 +121,25 @@ if (Physics.Raycast(ray, out var hit) && hit.collider.TryGetComponent<HBStylePla
   footprint is its straight-down silhouette.
 
 ### Particle — Keep: Alpha / Premultiply / Additive, flipbook blending, lit option, OIT.
-### Decal — Keep: URP DBuffer projector in style.
+### Decal — Done (Phase 9, user 2026-11-16)
+
+- `HB URP Style/Decal`, placed with a URP Decal Projector; the renderer needs URP's Decal feature with Technique
+  **DBuffer** and Surface Data **Albedo Normal MAOS** (the screen-space technique is not ported). One pass,
+  `DBufferProjector`, `_DBUFFER_MRT1/2/3`, `_DECAL_LAYERS`, instancing.
+- Material: Base Map + colour (always painted; Affect Color and Surface Opacity were removed by the user),
+  Affect Normal (Normal Map, Normal Strength, Normal Opacity), Affect Surface (Metallic, Smoothness, written at full
+  strength under the decal's alpha), Brush section (Edge Wear eats the border along the surface's brush strokes,
+  Brush Size, Stroke Alpha), Draw Order, instancing.
+- Receivers: Lit, Foliage, Foliage Body, Terrain and grass blades. Billboards, particles and transparents do not.
+- **Weather:** the decal sits on top of snow (user, 2026-11-16, reversing "part of the surface"): every receiver
+  applies it after `HB_ApplyWeather` through `HB_ApplyDecalOverWeather`, which still darkens the decal's colour by the
+  surface's wetness (ground or object darkening, no pow). Grass blades darken it by their own wet darkening.
+- **Affect Surface on matte surfaces:** materials without Specular and the terrain had no specular light, so a decal's
+  Smoothness and Metallic changed nothing. `HB_DECAL_SURFACE` (defined by Lit, Foliage and Terrain forward passes)
+  turns on `HB_DECAL_SHEEN` in `StyleLighting`: where the decal's MAOS share beats the wetness, the wet film branch
+  runs with the decal's smoothness and metallic (diffuse darkened by metallic) instead of the water film. Without
+  weather the sheen reads probes and sky only (no SSR) to keep the simplest Lit small.
+- **Grass blades** take the decal colour after snow, and the decal's surface through the same film as the ground.
 
 ## 5. Atmosphere (fog + horizon) — Change
 
@@ -793,6 +811,15 @@ shader and the sky:
     a bender is near and freed 90 s after the last one. Texels that wrap with the camera are cleared. Stamps are binned
     on the CPU into 32 x 32 tiles of 2 m, so one trail texel loops only over the benders that touch its tile. Pressed
     grass darkens 30 %, loses up to half its height, and pressed snow darkens 35 % on grass and terrain.
+  - **Grass Clear (Phase 9, user 2026-11-16):** `HBStyleGrassClear` removes grass and flowers under built pieces.
+    Shape Box (Size, follows position, yaw and lossy scale) or Sphere (Radius); Edge (default 0.4 m) is the band
+    outside the shape where grass comes back shorter and sparser (0 = sharp). A box clears roots inside it and roots
+    below it close enough for the tuft to reach it. `StyleGrassClears` keeps the registry and a ring of 256 changed
+    areas; a cell is placed again only when a clear that touches it is added, moved, changed or removed. The Place
+    kernel loops only over the clears gathered on the CPU for its cell (at most 64 per cell).
+  - **Wet film (2026-11-16):** blades reflect with the ground's formula, not their own: up normal, `HB_EnvironmentSky`
+    (moved to `StyleEnvironmentSky.hlsl`), sky visibility, smoothness 0.85, URP fresnel and surface reduction. Only
+    reflection probes are left out, so inside a probe the ground can still differ slightly.
   - **Debug:** Grass/Density, Grass/Cells, Grass/Gust (pressed in red). Weather/Shelter, Wetness, Snow and all Terrain
     views hide grass so the ground reads clearly (`StyleDebug.hidesGrass`).
   - **Open, not decided:** ThinStart 150 instead of 200 (see 08, Phase 5 close); Hi-Z occlusion is the main optimisation
@@ -1011,6 +1038,14 @@ Blender-viewport-style cavity: thin light lines on convex edges, darkening in co
 - Screen-space pass from depth + normals (shared with SSAO's DepthNormals), half or full resolution by
   quality; ridge and valley strength, width in pixels, brush break-up; per-material opt-out.
 - Done: reads well on low-poly props and buildings; ≤ 0.4 ms at full res 1080p.
+- **Final state (Phase 9, cavity confirmed by the user on 2026-11-15; this block is binding):**
+  - Full-screen `StyleCavityPass` after opaques (requests Depth + Normal): 4-tap view-space normal divergence, depth gap
+    reject 0.03, ridge gain 2, overall gain 2; lines grow up to 4x closer than 8 m; distance fade over the last quarter
+    of Distance. Pass 0 composites (`Blend DstColor SrcAlpha`), pass 1 is the `Cavity/Edges` debug view.
+  - Lit only: the Lit `_Cavity` toggle (Advanced section, default on) writes the normals alpha in DepthNormals; every
+    other family writes 0, so terrain, grass, plants and liquids never get cavity.
+  - Environment profile section Cavity: Ridge 1, Valley 0.3, Width 0.5 px, Distance 30 m. Quality profile: Off / Low /
+    Medium / High / Ultra with Reach 0.25 / 0.5 / 0.75 / 1 (scales Distance). Brush break-up was dropped by the user.
 
 ## 13. Texture Studio — Change
 

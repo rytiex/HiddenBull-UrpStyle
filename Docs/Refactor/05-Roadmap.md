@@ -55,6 +55,13 @@ agree. The phase also brought shore wetness, movement trails, the cutter Roof op
 Weather Mask. The liquid optimisation step was not run: it needs a measuring tool, and the cost measurement stays
 in Phase 12. Next by the table: Phase 9 Cavity + Decal.
 
+**Phase 9 closed (user, 2026-11-16).** Final state in `03` §12 (cavity), the Decal block of `03` §4 and the Grass
+Clear / wet film blocks of `03` §9; costs in `08`. On the way the user reversed the decal weather choice (decals sit on
+top of snow), matte surfaces got a decal sheen, grass reflects with the ground's formula, and `HBStyleGrassClear`
+was added for buildings on grass. After the phase the user decided the order of what is left: **10 Texture Studio, 11
+Shader Graph, 12 Finish**, because the package is not complete before 10 and 11. No Sandbox build: the user will put
+the package into their own game and measure there.
+
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start
 instead of a retrofit; the terrain-specific weather parts land with Terrain. The first Foliage + Billboards build was

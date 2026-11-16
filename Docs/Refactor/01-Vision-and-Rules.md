@@ -100,10 +100,10 @@ budgeted variant. Shaders with no URP counterpart (Sky) are budgeted absolutely.
 
 | Shader / pass | Budget (instruction slots) | Texture reads |
 |---|---|---|
-| Lit forward (all features on) | ≤ 2730 (2500 at the start; raised for the overhang check, reflections, the overlay shadow point and shore wetness, last on 2026-11-15) | ≤ 60 |
-| Lit forward (albedo only) | ≤ 500 | ≤ 9 (raised from 8 on 2026-10-24 for the Fog + Horizon split) |
-| Foliage forward | ≤ 2500 | ≤ 60 |
-| Terrain forward | ≤ 4500 (APV variant ≤ 4750) | ≤ 175 (APV ≤ 200) |
+| Lit forward (all features on) | ≤ 2735 (2500 at the start; raised for the overhang check, reflections, the overlay shadow point, shore wetness and decals over weather, last on 2026-11-16) | ≤ 60 |
+| Lit forward (albedo only) | ≤ 700 (500 until 2026-11-16; raised for the decal sheen on matte materials) | ≤ 15 (8, then 9 for the Fog + Horizon split, 15 for the decal sheen) |
+| Foliage forward | ≤ 2500 (GPU variants ≤ 2525 since 2026-11-16, decals over weather) | ≤ 60 |
+| Terrain forward | ≤ 4500 (APV variant ≤ 4815: 4750 until 2026-11-16, raised for decals) | ≤ 175 (APV ≤ 200) |
 | Grass | ≤ 2000 | ≤ 30 |
 | Liquid surface | ≤ 3705 (raised from 3500 for the old look port, reflections and trails) | ≤ 145 |
 | Sky | ≤ 1500 | ≤ 20 |

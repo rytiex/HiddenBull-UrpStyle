@@ -671,3 +671,41 @@ RGBA16F textures (1.6 MB) per camera, only while trails exist.
 
 Not measured, left for Phase 12: the ms cost of the liquid surface, reflections, underwater, the shelter redraw
 frames and the trail solver.
+
+**Editor timing from the user (2026-11-15, after Phase 6, RTX 3060 12 GB, busy sandbox scene with precipitation, in
+the editor, not a build):** lowest quality 3.40–4.20 ms, Ultra 5.70–7.60 ms, up to 9 ms where reflections are heavy.
+
+## Phase 9 — Cavity + Decal
+
+### Phase 9 closed (2026-11-16): final offline costs (compiled offline; the user confirmed the look in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Cavity fullscreen / debug | 109 / 107 | 11 / 11 | – | – |
+| Decal DBuffer fragment / vertex | 602 / 9 | 7 / 0 | – | – |
+| Lit forward (all, triplanar, moving) | 3781 | 148 | 2733 / 47 | 2735 / 60 — OK, 2 slots left |
+| Lit forward (all, triplanar) | 3748 | 147 | 2700 / 46 | 2735 / 60 — OK |
+| Lit forward (all, UV) | 3669 | 139 | 2621 / 38 | 2735 / 60 — OK |
+| Lit forward (albedo only) | 1747 | 116 | 699 / 15 | 700 / 15 — OK |
+| Foliage forward (all) / Body (all) | 3518 / 3513 | 134 / 136 | 2470 / 33, 2465 / 35 | 2500 / 60 — OK |
+| Foliage forward (all, GPU) / Body (all, GPU) | 3569 / 3558 | 140 / 141 | 2521 / 39, 2510 / 40 | 2525 / 60 — OK |
+| Billboard forward | 2346 | 137 | 1298 / 36 | 1500 / 36 — OK, unchanged |
+| Terrain forward | 4383 | 166 | 3335 / 65 | 4500 / 175 — OK |
+| Terrain forward (APV) | 4811 | 191 | – | 4815 / 200 — OK |
+| Grass forward | 435 | 9 | – | 2000 / 30 — OK |
+| Grass Place (with Grass Clear) | 2363 | 32 | – | – |
+| Liquid Surface | 3704 | 144 | – | 3705 / 145 — OK, unchanged |
+
+Where the slots went: the cavity costs no surface slots (one full-screen pass; Lit only writes a flag into the normals
+alpha). Decals cost Terrain APV +15 to receive at all, then +52 with the matte sheen and wet darkening on top of snow;
+Lit's heaviest variant +7 (decal over weather); the simplest Lit +304 / +6 reads, because a matte material now carries
+the probe reflection branch for Affect Surface; Foliage GPU +55; grass +78 (decal colour and surface, then the
+ground's reflection formula). Budgets moved by the measured amount: Lit 2730 → 2735, Lit albedo only 500 → 700 and
+9 → 15 reads, Foliage GPU 2500 → 2525, Terrain APV 4750 → 4815. All sheen and decal code runs only where a decal
+covers the pixel; elsewhere it is one DBuffer load and a branch.
+
+Grass Clear costs nothing per frame: clears are tested only while a cell is placed, against the clears gathered on the
+CPU for that cell.
+
+Not measured, left for the user's game and Phase 12: the cavity pass in ms (target ≤ 0.4 ms at 1080p) and the DBuffer
+decal pass.
