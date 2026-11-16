@@ -51,8 +51,23 @@ namespace HiddenBull.UrpStyle.Editor
         WoodGrain,
         EdgeWear,
         Dirt,
+        Streaks,
         Moss,
-        Specks
+        Lichen,
+        Specks,
+        Puddles
+    }
+
+    enum StyleMaterialDetail
+    {
+        HairCracks,
+        Chips,
+        Scratches,
+        Pores,
+        Nails,
+        JointPebbles,
+        JointGrass,
+        Leaves
     }
 
     [Serializable]
@@ -134,6 +149,23 @@ namespace HiddenBull.UrpStyle.Editor
         public int specksScale = 96;
         public float specksShine;
 
+        public bool streaksOn;
+        public Color streaksColour = new Color(0.2f, 0.17f, 0.13f, 1f);
+        public float streaks = 0.4f;
+        public int streakScale = 24;
+        public int streakLength = 6;
+
+        public bool lichenOn;
+        public Color lichenColour = new Color(0.75f, 0.72f, 0.5f, 1f);
+        public float lichen = 0.3f;
+        public int lichenScale = 12;
+        public float lichenSize = 0.4f;
+
+        public bool puddlesOn;
+        public Color waterColour = new Color(0.16f, 0.18f, 0.17f, 1f);
+        public float puddles = 0.4f;
+        public float puddleSpread = 0.5f;
+
         public float depth = 0.02f;
         public float smoothness = 0.35f;
         public float gapSmoothness = 0.1f;
@@ -153,6 +185,14 @@ namespace HiddenBull.UrpStyle.Editor
         public float jointPebbles;
         public float jointGrass;
         public Color grassColour = new Color(0.3f, 0.42f, 0.15f, 1f);
+        public float pores;
+        public int poreScale = 96;
+        public float nails;
+        public float nailSize = 0.04f;
+        public float leaves;
+        public Color leafColour = new Color(0.55f, 0.32f, 0.12f, 1f);
+        public int leafScale = 12;
+        public float twigs = 0.2f;
 
         public int resolution = 1024;
         public string name = "New Material";
@@ -217,7 +257,57 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal bool Shows(StyleMaterialLayer layer)
         {
-            return layer != StyleMaterialLayer.WoodGrain || family == StyleMaterialFamily.Wood;
+            var built = family == StyleMaterialFamily.Stone || family == StyleMaterialFamily.Brick ||
+                        family == StyleMaterialFamily.Wood;
+
+            return layer switch
+            {
+                StyleMaterialLayer.WoodGrain => family == StyleMaterialFamily.Wood,
+                StyleMaterialLayer.Streaks => built,
+                StyleMaterialLayer.Lichen => built,
+                StyleMaterialLayer.Puddles => family != StyleMaterialFamily.Ice,
+                _ => true
+            };
+        }
+
+        internal bool Shows(StyleMaterialDetail detail)
+        {
+            var masonry = family == StyleMaterialFamily.Stone || family == StyleMaterialFamily.Brick;
+
+            return detail switch
+            {
+                StyleMaterialDetail.HairCracks => family != StyleMaterialFamily.Ground,
+                StyleMaterialDetail.Chips => family != StyleMaterialFamily.Ground,
+                StyleMaterialDetail.Scratches => family != StyleMaterialFamily.Ground,
+                StyleMaterialDetail.Pores => masonry,
+                StyleMaterialDetail.Nails => family == StyleMaterialFamily.Wood,
+                StyleMaterialDetail.JointPebbles => masonry,
+                StyleMaterialDetail.JointGrass => masonry || family == StyleMaterialFamily.Ground,
+                _ => family != StyleMaterialFamily.Ice
+            };
+        }
+
+        internal float Amount(StyleMaterialDetail detail)
+        {
+            if (!Shows(detail))
+                return 0f;
+
+            return detail switch
+            {
+                StyleMaterialDetail.HairCracks => hairCracks,
+                StyleMaterialDetail.Chips => chips,
+                StyleMaterialDetail.Scratches => scratches,
+                StyleMaterialDetail.Pores => pores,
+                StyleMaterialDetail.Nails => nails,
+                StyleMaterialDetail.JointPebbles => jointPebbles,
+                StyleMaterialDetail.JointGrass => jointGrass,
+                _ => leaves
+            };
+        }
+
+        internal bool Active(StyleMaterialLayer layer)
+        {
+            return Shows(layer) && IsOn(layer);
         }
 
         internal bool IsOn(StyleMaterialLayer layer)
@@ -230,6 +320,9 @@ namespace HiddenBull.UrpStyle.Editor
                 StyleMaterialLayer.Dirt => dirtOn,
                 StyleMaterialLayer.Moss => mossOn,
                 StyleMaterialLayer.Specks => specksOn,
+                StyleMaterialLayer.Streaks => streaksOn,
+                StyleMaterialLayer.Lichen => lichenOn,
+                StyleMaterialLayer.Puddles => puddlesOn,
                 _ => true
             };
         }
@@ -255,6 +348,15 @@ namespace HiddenBull.UrpStyle.Editor
                     break;
                 case StyleMaterialLayer.Specks:
                     specksOn = on;
+                    break;
+                case StyleMaterialLayer.Streaks:
+                    streaksOn = on;
+                    break;
+                case StyleMaterialLayer.Lichen:
+                    lichenOn = on;
+                    break;
+                case StyleMaterialLayer.Puddles:
+                    puddlesOn = on;
                     break;
             }
         }
@@ -337,6 +439,14 @@ namespace HiddenBull.UrpStyle.Editor
             jointPebbles = basis.jointPebbles;
             jointGrass = basis.jointGrass;
             grassColour = basis.grassColour;
+            pores = basis.pores;
+            poreScale = basis.poreScale;
+            nails = basis.nails;
+            nailSize = basis.nailSize;
+            leaves = basis.leaves;
+            leafColour = basis.leafColour;
+            leafScale = basis.leafScale;
+            twigs = basis.twigs;
         }
 
         internal void ResetLight()
@@ -394,6 +504,23 @@ namespace HiddenBull.UrpStyle.Editor
                     specks = basis.specks;
                     specksScale = basis.specksScale;
                     specksShine = basis.specksShine;
+                    break;
+                case StyleMaterialLayer.Streaks:
+                    streaksColour = basis.streaksColour;
+                    streaks = basis.streaks;
+                    streakScale = basis.streakScale;
+                    streakLength = basis.streakLength;
+                    break;
+                case StyleMaterialLayer.Lichen:
+                    lichenColour = basis.lichenColour;
+                    lichen = basis.lichen;
+                    lichenScale = basis.lichenScale;
+                    lichenSize = basis.lichenSize;
+                    break;
+                case StyleMaterialLayer.Puddles:
+                    waterColour = basis.waterColour;
+                    puddles = basis.puddles;
+                    puddleSpread = basis.puddleSpread;
                     break;
             }
         }

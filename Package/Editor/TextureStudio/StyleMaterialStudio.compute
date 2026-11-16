@@ -66,6 +66,15 @@ float4 _SpecksMore;
 float4 _Details;
 float4 _DetailsMore;
 float4 _GrassColour;
+float4 _DetailsExtra;
+float4 _Leaves;
+float4 _LeavesMore;
+float4 _Streaks;
+float4 _StreaksMore;
+float4 _Lichen;
+float4 _LichenMore;
+float4 _Puddles;
+float4 _PuddlesMore;
 float4 _Surface;
 float4 _Light;
 int _ShowMode;
@@ -116,6 +125,10 @@ int _ShowMode;
 #define HB_SCRATCH_SCALE ((int)_DetailsMore.y)
 #define HB_JOINT_PEBBLES _DetailsMore.z
 #define HB_JOINT_GRASS  _DetailsMore.w
+#define HB_PORES        _DetailsExtra.x
+#define HB_PORE_SCALE   ((int)_DetailsExtra.y)
+#define HB_NAILS        _DetailsExtra.z
+#define HB_NAIL_SIZE    _DetailsExtra.w
 
 struct HB_Piece
 {
@@ -867,6 +880,209 @@ float HB_JointGrass(float2 uv)
     return grass;
 }
 
+float HB_Pores(float2 uv)
+{
+    if (HB_PORES <= 0.0)
+        return 0.0;
+
+    int count = max(HB_PORE_SCALE, 1);
+    uint seed = HB_SEED + 800u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float pixel = count * _Size.y;
+    float pit = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= HB_PORES)
+            continue;
+
+        float size = HB_Random(wrapped, seed + 2u);
+        float radius = 0.12 + 0.25 * size * size;
+
+        pit = max(pit, saturate((radius - length(f - (cell - base + HB_Random2(wrapped, seed + 1u)))) / pixel));
+    }
+
+    return pit;
+}
+
+float HB_Nails(float4 frame, uint key)
+{
+    if (HB_NAILS <= 0.0 || !HB_WOOD)
+        return 0.0;
+
+    float pixel = max(HB_UNITS * _Size.y, 1e-4);
+    float head = 0.0;
+
+    [unroll]
+    for (int k = 0; k < 4; k++)
+    {
+        uint end = (uint)k / 2u;
+
+        if (HB_StoneRandom(key, 60u + end) >= HB_NAILS)
+            continue;
+
+        float along = end == 0u ? 0.12 : frame.w - 0.12;
+        float across = (k & 1) == 0 ? 0.28 : 0.72;
+        float2 shift = (float2(HB_StoneRandom(key, 62u + k), HB_StoneRandom(key, 66u + k)) - 0.5) * 0.04;
+
+        head = max(head, saturate((HB_NAIL_SIZE - length(frame.xy - float2(along, across) - shift)) / pixel));
+    }
+
+    return head;
+}
+
+float4 HB_Leaves(float2 uv)
+{
+    if (_Leaves.w <= 0.0)
+        return 0.0;
+
+    int count = max((int)_LeavesMore.x, 1);
+    uint seed = HB_SEED + 820u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float pixel = count * _Size.y;
+    float order = -1.0;
+    float4 leaf = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= _Leaves.w)
+            continue;
+
+        float angle = HB_Random(wrapped, seed + 2u) * TAU;
+        float2 direction = float2(cos(angle), sin(angle));
+        float2 toward = f - (cell - base + HB_Random2(wrapped, seed + 1u));
+        float2 local = float2(dot(toward, direction), dot(toward, float2(-direction.y, direction.x)));
+        bool twig = HB_Random(wrapped, seed + 3u) < _LeavesMore.y;
+        float size = 0.22 + 0.2 * HB_Random(wrapped, seed + 4u);
+        float cover;
+        float rib;
+
+        if (twig)
+        {
+            float reach = size * 2.0;
+            float along = clamp(local.x, -reach, reach);
+            float width = pixel * 1.2 + 0.012;
+
+            cover = 1.0 - smoothstep(width * 0.6, width, length(float2(local.x - along, local.y)));
+            rib = 0.0;
+        }
+        else
+        {
+            float x = local.x / size;
+            float curl = local.y + x * x * size * (HB_Random(wrapped, seed + 5u) - 0.5) * 0.3;
+            float girth = size * 0.45 * (1.0 - x * x);
+
+            cover = abs(x) < 1.0 ? saturate((girth - abs(curl)) / pixel) : 0.0;
+            rib = 1.0 - saturate(abs(curl) / (pixel * 0.8));
+        }
+
+        float layer = HB_Random(wrapped, seed + 6u);
+
+        if (cover > 0.0 && layer > order)
+        {
+            order = layer;
+            leaf = float4(cover, HB_Random(wrapped, seed + 7u), rib, twig ? 1.0 : 0.0);
+        }
+    }
+
+    return leaf;
+}
+
+float HB_StreakNoise(float2 uv, int2 period, uint seed)
+{
+    float sum = 0.0;
+    float amplitude = 0.5;
+    float total = 0.0;
+
+    [unroll]
+    for (int octave = 0; octave < 3; octave++)
+    {
+        float2 p = uv * period;
+        float2 lattice = floor(p);
+        float2 t = p - lattice;
+        int2 c = (int2)lattice;
+        float2 w = t * t * (3.0 - 2.0 * t);
+        uint s = seed + (uint)octave * 101u;
+
+        float a = HB_Random((uint2)(c + period * WRAP) % (uint2)period, s);
+        float b = HB_Random((uint2)(c + int2(1, 0) + period * WRAP) % (uint2)period, s);
+        float d = HB_Random((uint2)(c + int2(0, 1) + period * WRAP) % (uint2)period, s);
+        float e = HB_Random((uint2)(c + int2(1, 1) + period * WRAP) % (uint2)period, s);
+
+        sum += lerp(lerp(a, b, w.x), lerp(d, e, w.x), w.y) * amplitude;
+        total += amplitude;
+        amplitude *= 0.5;
+        period *= 2;
+    }
+
+    return sum / total;
+}
+
+float HB_Streaks(float2 uv)
+{
+    if (_Streaks.w <= 0.0)
+        return 0.0;
+
+    int scale = max((int)_StreaksMore.x, 1);
+    int2 period = int2(scale, max((int)((uint)scale / (uint)max((int)_StreaksMore.y, 1)), 1));
+    float start = lerp(0.68, 0.35, _Streaks.w);
+
+    return smoothstep(start, start + 0.2, HB_StreakNoise(uv, period, HB_SEED + 830u));
+}
+
+float2 HB_Lichen(float2 uv)
+{
+    if (_Lichen.w <= 0.0)
+        return 0.0;
+
+    int count = max((int)_LichenMore.x, 1);
+    uint seed = HB_SEED + 840u;
+    float2 p = uv * count;
+    int2 base = (int2)floor(p);
+    float2 f = p - base;
+    float pixel = count * _Size.y;
+    float rough = (HB_PerlinFbm(uv, count * 6, seed + 1u) - 0.5) * 0.6;
+    float2 lichen = 0.0;
+
+    [unroll]
+    for (int j = 0; j < 9; j++)
+    {
+        int2 cell = base + int2(j % 3 - 1, j / 3 - 1);
+        uint2 wrapped = HB_WrapCell(cell, count);
+
+        if (HB_Random(wrapped, seed) >= _Lichen.w)
+            continue;
+
+        float radius = _LichenMore.y * (0.4 + 0.6 * HB_Random(wrapped, seed + 2u)) * 0.7;
+        float reach = length(f - (cell - base + HB_Random2(wrapped, seed + 3u))) / radius + rough;
+
+        if (reach < 1.0)
+            lichen = max(lichen, float2(saturate((1.0 - reach) * radius / pixel), smoothstep(0.6, 0.95, reach)));
+    }
+
+    return lichen;
+}
+
+float HB_WaterLevel(float2 uv)
+{
+    if (_Puddles.w <= 0.0)
+        return -1.0;
+
+    return _Puddles.w * 0.55 + (HB_Organic(uv, 2, HB_SEED + 860u) - 0.5) * 1.2 * _PuddlesMore.x;
+}
+
 float HB_StoneHeight(float2 uv, float4 cell, float floorHeight)
 {
     int units = HB_UNITS;
@@ -897,12 +1113,13 @@ float HB_StoneHeight(float2 uv, float4 cell, float floorHeight)
     float tilt = HB_TILT * 0.35 * dot(shape, float2(cos(lean), sin(lean)));
     float grain = (HB_Fbm(uv, units * 8, HB_SEED + 51u) - 0.5) * HB_ROUGHNESS * 0.3;
 
+    float4 frame = _FrameIn[(uint2)(uv * HB_SIZE)];
+
     if (HB_WOOD)
     {
         float rings, fibres, knot;
-        uint2 texel = (uint2)(uv * HB_SIZE);
 
-        HB_WoodGrain(_FrameIn[texel], key, rings, fibres, knot);
+        HB_WoodGrain(frame, key, rings, fibres, knot);
         grain += HB_WOOD_RELIEF * (knot * 0.05 - (rings * HB_RINGS * 0.6 + fibres * HB_FIBRES * 0.4) * 0.15);
     }
 
@@ -912,6 +1129,8 @@ float HB_StoneHeight(float2 uv, float4 cell, float floorHeight)
 
     height = lerp(height, min(broken, height), chip);
     height -= HB_HairCracks(uv) * 0.3 + HB_Scratches(uv) * 0.06;
+    height -= HB_Pores(uv) * 0.12;
+    height += HB_Nails(frame, key) * 0.01;
 
     return max(height, floorHeight);
 }
@@ -932,7 +1151,11 @@ void Shape(uint3 id : SV_DispatchThreadID)
 
     float fill = max(HB_JointPebbles(uv, cell.x), HB_JointGrass(uv));
 
-    _Height[id.xy] = max(height, floorHeight + fill);
+    height = max(max(height, floorHeight + fill), HB_WaterLevel(uv));
+
+    float4 leaf = HB_Leaves(uv);
+
+    _Height[id.xy] = height + leaf.x * (leaf.w > 0.5 ? 0.06 : 0.04);
 }
 
 float HB_Ring(int2 texel, float radius)
@@ -1044,6 +1267,11 @@ void Compose(uint3 id : SV_DispatchThreadID)
     rock = lerp(rock, _WearColour.rgb, saturate(chip * 0.6 + scratch * 0.7));
     rock = lerp(rock, _GapColour.rgb * 0.5, hair * 0.8);
 
+    float pore = HB_Pores(uv);
+    float nail = HB_Nails(_FrameIn[id.xy], key) * stone;
+
+    rock *= 1.0 - pore * 0.45;
+
     if (_VariationMore.y > 0.0)
     {
         float lift = 1.0 + _VariationMore.z * (height - 0.5);
@@ -1069,13 +1297,35 @@ void Compose(uint3 id : SV_DispatchThreadID)
     float grassy = filled * step(pebble, tuft);
 
     colour = lerp(colour, lerp(_GapColour.rgb, _StoneColour.rgb, 0.6) * (0.75 + pebble * 2.0), filled - grassy);
+
+    float streak = HB_Streaks(uv);
+
+    colour = lerp(colour, _Streaks.rgb, streak * 0.75 * (0.5 + 0.5 * stone));
+    colour = lerp(colour, float3(0.22, 0.22, 0.24), nail);
     colour = lerp(colour, _DirtColour.rgb, dirt);
     colour = lerp(colour, _MossColour.rgb * (1.0 + grain * 0.5), moss);
+
+    float2 lichen = HB_Lichen(uv);
+    float lichenCover = lichen.x * stone;
+
+    colour = lerp(colour, _Lichen.rgb * (0.9 + lichen.y * 0.3), lichenCover);
 
     float specks = _Specks.w > 0.0 ? HB_Specks(uv, HB_SEED + 91u) : 0.0;
 
     colour = lerp(colour, _Specks.rgb, specks);
     colour = lerp(colour, _GrassColour.rgb * (0.55 + tuft * 0.9), grassy);
+
+    float water = HB_WaterLevel(uv);
+    float wet = _Puddles.w > 0.0 ? step(height, water + 1e-4) : 0.0;
+    float damp = _Puddles.w > 0.0 ? saturate(1.0 - (height - water) / 0.06) * (1.0 - wet) : 0.0;
+
+    colour *= 1.0 - damp * 0.35;
+    colour = lerp(colour, lerp(colour * 0.45, _Puddles.rgb, 0.6), wet);
+
+    float4 leaf = HB_Leaves(uv);
+    float3 fallen = lerp(_Leaves.rgb * 0.55, _Leaves.rgb * float3(1.25, 1.1, 0.75), leaf.y) * (1.0 - leaf.z * 0.2);
+
+    colour = lerp(colour, leaf.w > 0.5 ? _Leaves.rgb * 0.45 : fallen, leaf.x);
 
     float light = 1.0 + detail.x * HB_EDGE_LIGHT - detail.y * HB_CAVITY_DARK;
     float3 albedo = saturate(colour * light * lerp(1.0, detail.z, HB_AO_BAKE));
@@ -1084,9 +1334,16 @@ void Compose(uint3 id : SV_DispatchThreadID)
     smoothness = lerp(smoothness, HB_ROUGH_SMOOTH, max(dirt, moss));
     smoothness = lerp(smoothness, _SpecksMore.y, specks * _SpecksMore.z);
     smoothness = lerp(smoothness, HB_ROUGH_SMOOTH, grassy);
+    smoothness = lerp(smoothness, 0.45, nail);
+    smoothness = lerp(smoothness, HB_ROUGH_SMOOTH, max(lichenCover, streak * 0.5));
+    smoothness = lerp(smoothness, 0.8, damp * 0.6);
+    smoothness = lerp(smoothness, 0.95, wet);
+    smoothness = lerp(smoothness, 0.25, leaf.x);
+
+    float metal = max(HB_METALLIC * stone * (1.0 - moss) * (1.0 - filled) * (1.0 - wet), nail);
 
     _Albedo[id.xy] = float4(albedo, 1.0);
-    _Mask[id.xy] = float4(HB_METALLIC * stone * (1.0 - moss) * (1.0 - filled), detail.z, height, smoothness);
+    _Mask[id.xy] = float4(metal * (1.0 - leaf.x), detail.z, height, smoothness);
 }
 
 float3 HB_ToDisplay(float3 value)

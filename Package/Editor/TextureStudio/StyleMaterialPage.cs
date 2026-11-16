@@ -21,6 +21,39 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Shape = new GUIContent("Shape");
             internal static readonly GUIContent Surface = new GUIContent("Surface");
             internal static readonly GUIContent Details = new GUIContent("Details");
+            internal static readonly GUIContent NoDetails = new GUIContent("No details for this recipe.");
+            internal static readonly GUIContent Pores = new GUIContent("Pores",
+                "Small pits in the surface of the stones, as in travertine.");
+            internal static readonly GUIContent PoreScale = new GUIContent("Pore Scale",
+                "Pores across the texture. More gives smaller, closer pores.");
+            internal static readonly GUIContent Nails = new GUIContent("Nails",
+                "Nail heads near the ends of the boards. The amount is the share of board ends that get them.");
+            internal static readonly GUIContent NailSize = new GUIContent("Nail Size",
+                "Size of the nail heads compared with the board width.");
+            internal static readonly GUIContent Leaves = new GUIContent("Leaves",
+                "Fallen leaves and twigs lying on top of everything.");
+            internal static readonly GUIContent LeafColour = new GUIContent("Leaf Colour",
+                "Base colour of the leaves. Each leaf is a little lighter or darker.");
+            internal static readonly GUIContent LeafScale = new GUIContent("Leaf Scale",
+                "Leaves across the texture. More gives smaller leaves.");
+            internal static readonly GUIContent Twigs = new GUIContent("Twigs", "Share of twigs among the leaves.");
+            internal static readonly GUIContent StreaksColour = new GUIContent("Colour", "Colour of the stains.");
+            internal static readonly GUIContent Streaks = new GUIContent("Amount",
+                "How much of the surface is stained.");
+            internal static readonly GUIContent StreakScale = new GUIContent("Scale",
+                "Streaks across the texture. More gives thinner, closer streaks.");
+            internal static readonly GUIContent StreakLength = new GUIContent("Length",
+                "How long the streaks run compared with their width.");
+            internal static readonly GUIContent LichenColour = new GUIContent("Colour", "Colour of the lichen.");
+            internal static readonly GUIContent Lichen = new GUIContent("Amount", "How many lichen patches there are.");
+            internal static readonly GUIContent LichenScale = new GUIContent("Scale",
+                "Patch places across the texture. More gives smaller, closer patches.");
+            internal static readonly GUIContent LichenSize = new GUIContent("Size", "Size of the patches.");
+            internal static readonly GUIContent WaterColour = new GUIContent("Colour", "Colour of the water.");
+            internal static readonly GUIContent Puddles = new GUIContent("Level",
+                "Height the water rises to. Higher fills more of the low parts.");
+            internal static readonly GUIContent PuddleSpread = new GUIContent("Spread",
+                "How much the water level changes across the texture, leaving some places dry.");
             internal static readonly GUIContent HairCracks = new GUIContent("Hair Cracks",
                 "Thin branching cracks across the pieces. 0 leaves the pieces whole.");
             internal static readonly GUIContent HairScale = new GUIContent("Crack Scale",
@@ -158,8 +191,11 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("Wood Grain", "Fibres, growth rings and knots of the wood."),
                 new GUIContent("Edge Wear", "Lighter, worn colour on the raised edges."),
                 new GUIContent("Dirt", "Dirt creeping from the joints and creases onto the pieces."),
+                new GUIContent("Streaks", "Stains running down the surface, as on old walls."),
                 new GUIContent("Moss", "Moss growing in the joints and up the low parts of the pieces."),
-                new GUIContent("Specks", "Small dots all over: glitter on snow, bubbles in ice, grains in sand.")
+                new GUIContent("Lichen", "Round pale patches of lichen on the pieces."),
+                new GUIContent("Specks", "Small dots all over: glitter on snow, bubbles in ice, grains in sand."),
+                new GUIContent("Puddles", "Water lying in the low parts, with damp edges around it.")
             };
 
             internal static readonly GUIContent[] MainColour =
@@ -427,16 +463,93 @@ namespace HiddenBull.UrpStyle.Editor
 
         static void DrawDetails(StyleMaterialSettings settings)
         {
-            settings.hairCracks = EditorGUILayout.Slider(Styles.HairCracks, settings.hairCracks, 0f, 1f);
-            settings.hairScale = EditorGUILayout.IntSlider(Styles.HairScale, settings.hairScale, 1, 8);
-            settings.chips = EditorGUILayout.Slider(Styles.Chips, settings.chips, 0f, 1f);
-            settings.chipSize = EditorGUILayout.Slider(Styles.ChipSize, settings.chipSize, 0.02f, 0.3f);
-            settings.scratches = EditorGUILayout.Slider(Styles.Scratches, settings.scratches, 0f, 1f);
-            settings.scratchScale = EditorGUILayout.IntSlider(Styles.ScratchScale, settings.scratchScale, 8, 128);
-            settings.jointPebbles = EditorGUILayout.Slider(Styles.JointPebbles, settings.jointPebbles, 0f, 1f);
-            settings.jointGrass = EditorGUILayout.Slider(Styles.JointGrass, settings.jointGrass, 0f, 1f);
-            settings.grassColour = EditorGUILayout.ColorField(Styles.GrassColour, settings.grassColour, true, false,
-                                                              false);
+            var shown = false;
+
+            if (settings.Shows(StyleMaterialDetail.HairCracks))
+            {
+                shown = true;
+                settings.hairCracks = EditorGUILayout.Slider(Styles.HairCracks, settings.hairCracks, 0f, 1f);
+
+                if (settings.hairCracks > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.hairScale = EditorGUILayout.IntSlider(Styles.HairScale, settings.hairScale, 1, 8);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.Chips))
+            {
+                shown = true;
+                settings.chips = EditorGUILayout.Slider(Styles.Chips, settings.chips, 0f, 1f);
+
+                if (settings.chips > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.chipSize = EditorGUILayout.Slider(Styles.ChipSize, settings.chipSize, 0.02f, 0.3f);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.Scratches))
+            {
+                shown = true;
+                settings.scratches = EditorGUILayout.Slider(Styles.Scratches, settings.scratches, 0f, 1f);
+
+                if (settings.scratches > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.scratchScale = EditorGUILayout.IntSlider(Styles.ScratchScale, settings.scratchScale,
+                                                                          8, 128);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.Pores))
+            {
+                shown = true;
+                settings.pores = EditorGUILayout.Slider(Styles.Pores, settings.pores, 0f, 1f);
+
+                if (settings.pores > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.poreScale = EditorGUILayout.IntSlider(Styles.PoreScale, settings.poreScale, 16, 256);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.Nails))
+            {
+                shown = true;
+                settings.nails = EditorGUILayout.Slider(Styles.Nails, settings.nails, 0f, 1f);
+
+                if (settings.nails > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.nailSize = EditorGUILayout.Slider(Styles.NailSize, settings.nailSize, 0.02f, 0.1f);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.JointPebbles))
+            {
+                shown = true;
+                settings.jointPebbles = EditorGUILayout.Slider(Styles.JointPebbles, settings.jointPebbles, 0f, 1f);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.JointGrass))
+            {
+                shown = true;
+                settings.jointGrass = EditorGUILayout.Slider(Styles.JointGrass, settings.jointGrass, 0f, 1f);
+
+                if (settings.jointGrass > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                        settings.grassColour = EditorGUILayout.ColorField(Styles.GrassColour, settings.grassColour,
+                                                                          true, false, false);
+            }
+
+            if (settings.Shows(StyleMaterialDetail.Leaves))
+            {
+                shown = true;
+                settings.leaves = EditorGUILayout.Slider(Styles.Leaves, settings.leaves, 0f, 1f);
+
+                if (settings.leaves > 0f)
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        settings.leafColour = EditorGUILayout.ColorField(Styles.LeafColour, settings.leafColour, true,
+                                                                         false, false);
+                        settings.leafScale = EditorGUILayout.IntSlider(Styles.LeafScale, settings.leafScale, 4, 48);
+                        settings.twigs = EditorGUILayout.Slider(Styles.Twigs, settings.twigs, 0f, 1f);
+                    }
+            }
+
+            if (!shown)
+                EditorGUILayout.LabelField(Styles.NoDetails, EditorStyles.miniLabel);
         }
 
         static void DrawGround(StyleMaterialSettings settings)
@@ -597,6 +710,28 @@ namespace HiddenBull.UrpStyle.Editor
                     settings.specks = EditorGUILayout.Slider(Styles.Specks, settings.specks, 0f, 1f);
                     settings.specksScale = EditorGUILayout.IntSlider(Styles.SpecksScale, settings.specksScale, 16, 256);
                     settings.specksShine = EditorGUILayout.Slider(Styles.SpecksShine, settings.specksShine, 0f, 1f);
+                    break;
+                case StyleMaterialLayer.Streaks:
+                    settings.streaksColour = EditorGUILayout.ColorField(Styles.StreaksColour, settings.streaksColour,
+                                                                        true, false, false);
+                    settings.streaks = EditorGUILayout.Slider(Styles.Streaks, settings.streaks, 0f, 1f);
+                    settings.streakScale = EditorGUILayout.IntSlider(Styles.StreakScale, settings.streakScale, 4, 64);
+                    settings.streakLength = EditorGUILayout.IntSlider(Styles.StreakLength, settings.streakLength, 1,
+                                                                      16);
+                    break;
+                case StyleMaterialLayer.Lichen:
+                    settings.lichenColour = EditorGUILayout.ColorField(Styles.LichenColour, settings.lichenColour,
+                                                                       true, false, false);
+                    settings.lichen = EditorGUILayout.Slider(Styles.Lichen, settings.lichen, 0f, 1f);
+                    settings.lichenScale = EditorGUILayout.IntSlider(Styles.LichenScale, settings.lichenScale, 2, 48);
+                    settings.lichenSize = EditorGUILayout.Slider(Styles.LichenSize, settings.lichenSize, 0.1f, 1f);
+                    break;
+                case StyleMaterialLayer.Puddles:
+                    settings.waterColour = EditorGUILayout.ColorField(Styles.WaterColour, settings.waterColour, true,
+                                                                      false, false);
+                    settings.puddles = EditorGUILayout.Slider(Styles.Puddles, settings.puddles, 0f, 1f);
+                    settings.puddleSpread = EditorGUILayout.Slider(Styles.PuddleSpread, settings.puddleSpread, 0f,
+                                                                   1f);
                     break;
             }
         }

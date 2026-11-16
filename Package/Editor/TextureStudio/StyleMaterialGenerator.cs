@@ -63,6 +63,15 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly int Details = Shader.PropertyToID("_Details");
             internal static readonly int DetailsMore = Shader.PropertyToID("_DetailsMore");
             internal static readonly int GrassColour = Shader.PropertyToID("_GrassColour");
+            internal static readonly int DetailsExtra = Shader.PropertyToID("_DetailsExtra");
+            internal static readonly int Leaves = Shader.PropertyToID("_Leaves");
+            internal static readonly int LeavesMore = Shader.PropertyToID("_LeavesMore");
+            internal static readonly int Streaks = Shader.PropertyToID("_Streaks");
+            internal static readonly int StreaksMore = Shader.PropertyToID("_StreaksMore");
+            internal static readonly int Lichen = Shader.PropertyToID("_Lichen");
+            internal static readonly int LichenMore = Shader.PropertyToID("_LichenMore");
+            internal static readonly int Puddles = Shader.PropertyToID("_Puddles");
+            internal static readonly int PuddlesMore = Shader.PropertyToID("_PuddlesMore");
             internal static readonly int Light = Shader.PropertyToID("_Light");
             internal static readonly int ShowMode = Shader.PropertyToID("_ShowMode");
         }
@@ -137,11 +146,29 @@ namespace HiddenBull.UrpStyle.Editor
             compute.SetVector(Ids.DirtMore, new Vector4(settings.dirtSpread, 0f, 0f, 0f));
             compute.SetVector(Ids.MossColour, Colour(settings.mossColour, settings.mossOn ? settings.moss : 0f));
             compute.SetVector(Ids.MossMore, new Vector4(settings.mossSpread, settings.mossScale, 0f, 0f));
-            compute.SetVector(Ids.Details, new Vector4(settings.hairCracks, settings.hairScale, settings.chips,
-                                                       settings.chipSize));
-            compute.SetVector(Ids.DetailsMore, new Vector4(settings.scratches, settings.scratchScale,
-                                                           settings.jointPebbles, settings.jointGrass));
+            compute.SetVector(Ids.Details, new Vector4(settings.Amount(StyleMaterialDetail.HairCracks),
+                                                       settings.hairScale,
+                                                       settings.Amount(StyleMaterialDetail.Chips), settings.chipSize));
+            compute.SetVector(Ids.DetailsMore, new Vector4(settings.Amount(StyleMaterialDetail.Scratches),
+                                                           settings.scratchScale,
+                                                           settings.Amount(StyleMaterialDetail.JointPebbles),
+                                                           settings.Amount(StyleMaterialDetail.JointGrass)));
             compute.SetVector(Ids.GrassColour, Colour(settings.grassColour, 0f));
+            compute.SetVector(Ids.DetailsExtra, new Vector4(settings.Amount(StyleMaterialDetail.Pores),
+                                                            settings.poreScale,
+                                                            settings.Amount(StyleMaterialDetail.Nails),
+                                                            settings.nailSize));
+            compute.SetVector(Ids.Leaves, Colour(settings.leafColour, settings.Amount(StyleMaterialDetail.Leaves)));
+            compute.SetVector(Ids.LeavesMore, new Vector4(settings.leafScale, settings.twigs, 0f, 0f));
+            compute.SetVector(Ids.Streaks, Colour(settings.streaksColour,
+                settings.Active(StyleMaterialLayer.Streaks) ? settings.streaks : 0f));
+            compute.SetVector(Ids.StreaksMore, new Vector4(settings.streakScale, settings.streakLength, 0f, 0f));
+            compute.SetVector(Ids.Lichen, Colour(settings.lichenColour,
+                settings.Active(StyleMaterialLayer.Lichen) ? settings.lichen : 0f));
+            compute.SetVector(Ids.LichenMore, new Vector4(settings.lichenScale, settings.lichenSize, 0f, 0f));
+            compute.SetVector(Ids.Puddles, Colour(settings.waterColour,
+                settings.Active(StyleMaterialLayer.Puddles) ? settings.puddles : 0f));
+            compute.SetVector(Ids.PuddlesMore, new Vector4(settings.puddleSpread, 0f, 0f, 0f));
             compute.SetVector(Ids.Surface, new Vector4(settings.depth, settings.smoothness, settings.gapSmoothness,
                                                        settings.metallic));
             compute.SetVector(Ids.Light, new Vector4(settings.edgeHighlight, settings.cavityShade,

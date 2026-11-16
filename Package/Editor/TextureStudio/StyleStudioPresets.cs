@@ -29,11 +29,29 @@ namespace HiddenBull.UrpStyle.Editor
 
             internal static readonly GUIContent SaveAs = new GUIContent("Save As…",
                 "Writes the current settings to a new preset file.");
+
+            internal static readonly GUIContent Saved = new GUIContent("Saved",
+                "The settings match the picked preset's file.");
+
+            internal static readonly GUIContent Unsaved = new GUIContent("● Unsaved",
+                "The settings differ from the picked preset's file. Save to keep them, Revert to drop them.");
+
+            internal static readonly GUIContent NoPreset = new GUIContent("● Not saved",
+                "No preset is picked. Use Save As to keep these settings.");
+
+            static GUIStyle s_Warning;
+
+            internal static GUIStyle warning => s_Warning ??= new GUIStyle(EditorStyles.miniBoldLabel)
+            {
+                normal = { textColor = new Color(1f, 0.62f, 0.2f) }
+            };
         }
 
         readonly string m_Folder;
         string[] m_Names;
         GUIContent[] m_Contents;
+        string m_SnapshotName;
+        string m_Snapshot;
 
         internal StyleStudioPresets(string page)
         {
@@ -115,7 +133,21 @@ namespace HiddenBull.UrpStyle.Editor
 
             AssetDatabase.ImportAsset($"{m_Folder}/{name}{Extension}");
             m_Names = null;
+            m_SnapshotName = null;
             return true;
+        }
+
+        string Snapshot(string name, object settings)
+        {
+            if (m_SnapshotName != name)
+            {
+                var copy = Activator.CreateInstance(settings.GetType());
+
+                m_Snapshot = Load(name, copy) ? JsonUtility.ToJson(copy) : null;
+                m_SnapshotName = name;
+            }
+
+            return m_Snapshot;
         }
 
         string AskName()
@@ -152,11 +184,15 @@ namespace HiddenBull.UrpStyle.Editor
                 load(selected);
             }
 
+            var changed = index < 0 || JsonUtility.ToJson(settings) != Snapshot(list[index], settings);
+            var state = index < 0 ? Styles.NoPreset : changed ? Styles.Unsaved : Styles.Saved;
+
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.Space(EditorGUIUtility.labelWidth + 2f);
+                GUILayout.Label(state, changed ? Styles.warning : EditorStyles.miniLabel,
+                                GUILayout.Width(EditorGUIUtility.labelWidth - 2f));
 
-                using (new EditorGUI.DisabledScope(index < 0))
+                using (new EditorGUI.DisabledScope(index < 0 || !changed))
                 {
                     if (GUILayout.Button(Styles.Revert, EditorStyles.miniButtonLeft))
                         load(selected);
