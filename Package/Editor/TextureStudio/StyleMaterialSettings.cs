@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 namespace HiddenBull.UrpStyle.Editor
@@ -56,6 +58,11 @@ namespace HiddenBull.UrpStyle.Editor
     [Serializable]
     sealed class StyleMaterialSettings : IStyleStudioBasis
     {
+        const string Defaults = "Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/Defaults/Material";
+
+        static readonly Dictionary<StyleMaterialRecipe, string> s_Defaults =
+            new Dictionary<StyleMaterialRecipe, string>();
+
         public StyleMaterialRecipe recipe = StyleMaterialRecipe.Cobblestone;
         public int seed = 1;
 
@@ -389,200 +396,21 @@ namespace HiddenBull.UrpStyle.Editor
 
         static StyleMaterialSettings Recipe(StyleMaterialRecipe recipe)
         {
+            if (!s_Defaults.TryGetValue(recipe, out var json))
+            {
+                var path = Path.GetFullPath($"{Defaults}/{recipe}.json");
+
+                json = File.Exists(path) ? File.ReadAllText(path) : null;
+                s_Defaults[recipe] = json;
+            }
+
             var basis = new StyleMaterialSettings();
 
-            switch (FamilyOf(recipe))
-            {
-                case StyleMaterialFamily.Brick:
-                    basis.stoneColour = new Color(0.55f, 0.27f, 0.18f, 1f);
-                    basis.gapColour = new Color(0.62f, 0.6f, 0.55f, 1f);
-                    basis.variationColour = new Color(0.42f, 0.2f, 0.14f, 1f);
-                    basis.wearColour = new Color(0.68f, 0.45f, 0.34f, 1f);
-                    basis.smoothness = 0.2f;
-                    basis.grain = 0.2f;
-                    break;
-                case StyleMaterialFamily.Wood:
-                    basis.stoneColour = new Color(0.55f, 0.38f, 0.22f, 1f);
-                    basis.gapColour = new Color(0.12f, 0.08f, 0.05f, 1f);
-                    basis.variationColour = new Color(0.45f, 0.3f, 0.18f, 1f);
-                    basis.wearColour = new Color(0.68f, 0.52f, 0.35f, 1f);
-                    basis.smoothness = 0.3f;
-                    basis.grain = 0.05f;
-                    break;
-                case StyleMaterialFamily.Ground:
-                    basis.edgeHighlight = 0.25f;
-                    break;
-            }
+            if (json != null)
+                JsonUtility.FromJsonOverwrite(json, basis);
 
-            switch (recipe)
-            {
-                case StyleMaterialRecipe.Flagstone:
-                    Set(basis, 0.04f, 0.1f, 0.5f, 0.08f, 0.15f, 0.15f, 0.15f, 0.4f);
-                    basis.stones = 4;
-                    basis.jitter = 1f;
-                    break;
-                case StyleMaterialRecipe.Pavers:
-                    Set(basis, 0.08f, 0.15f, 0.15f, 0.15f, 0.25f, 0.2f, 0.2f, 0.25f);
-                    basis.rows = 8;
-                    basis.perRow = 4;
-                    break;
-                case StyleMaterialRecipe.Bricks:
-                    Set(basis, 0.12f, 0.1f, 0.15f, 0.12f, 0.15f, 0.15f, 0.1f, 0.35f);
-                    basis.rows = 16;
-                    basis.perRow = 8;
-                    break;
-                case StyleMaterialRecipe.HerringboneBricks:
-                    Set(basis, 0.12f, 0.1f, 0.15f, 0.12f, 0.15f, 0.15f, 0.1f, 0.35f);
-                    basis.repeats = 3;
-                    basis.brickLength = 2;
-                    break;
-                case StyleMaterialRecipe.BasketWeave:
-                    Set(basis, 0.12f, 0.1f, 0.15f, 0.12f, 0.15f, 0.15f, 0.1f, 0.35f);
-                    basis.repeats = 6;
-                    basis.brickLength = 2;
-                    break;
-                case StyleMaterialRecipe.Ashlar:
-                    Set(basis, 0.05f, 0.1f, 0.3f, 0.12f, 0.25f, 0.2f, 0.15f, 0.4f);
-                    basis.rows = 5;
-                    basis.perRow = 3;
-                    basis.lengthVariation = 0.6f;
-                    basis.stoneColour = new Color(0.62f, 0.57f, 0.48f, 1f);
-                    basis.gapColour = new Color(0.45f, 0.42f, 0.38f, 1f);
-                    break;
-                case StyleMaterialRecipe.Planks:
-                    Set(basis, 0.04f, 0.05f, 0.05f, 0.06f, 0.1f, 0.1f, 0.05f, 0.15f);
-                    basis.rows = 6;
-                    basis.perRow = 2;
-                    basis.lengthVariation = 0.9f;
-                    break;
-                case StyleMaterialRecipe.RoughPlanks:
-                    Set(basis, 0.08f, 0.1f, 0.45f, 0.1f, 0.2f, 0.3f, 0.25f, 0.3f);
-                    basis.rows = 4;
-                    basis.perRow = 1;
-                    basis.lengthVariation = 1f;
-                    basis.knots = 0.6f;
-                    basis.stoneColour = new Color(0.48f, 0.37f, 0.27f, 1f);
-                    break;
-                case StyleMaterialRecipe.Parquet:
-                    Set(basis, 0.03f, 0.05f, 0.03f, 0.05f, 0.05f, 0.05f, 0.03f, 0.1f);
-                    basis.repeats = 2;
-                    basis.brickLength = 4;
-                    basis.stoneColour = new Color(0.6f, 0.42f, 0.25f, 1f);
-                    basis.smoothness = 0.5f;
-                    break;
-                case StyleMaterialRecipe.Soil:
-                    Set(basis, 0f, 0f, 0f, 0.3f, 0.55f, 0.4f, 0.3f, 0.2f);
-                    Scatter(basis, 16, 0.25f, 0.35f, 0.4f);
-                    Ground(basis, 0.35f, 6, 0f);
-                    Paint(basis, Rgb(0.5f, 0.48f, 0.45f), Rgb(0.33f, 0.24f, 0.16f), 0.25f, 0.1f);
-                    break;
-                case StyleMaterialRecipe.DryMud:
-                    Set(basis, 0.05f, 0.2f, 0.4f, 0.06f, -0.4f, 0.1f, 0.15f, 0.5f);
-                    basis.stones = 7;
-                    basis.jitter = 1f;
-                    Ground(basis, 0.1f, 8, 0f);
-                    basis.fineCracks = 0.6f;
-                    Paint(basis, Rgb(0.55f, 0.45f, 0.33f), Rgb(0.22f, 0.17f, 0.12f), 0.15f, 0.1f);
-                    basis.wearOn = false;
-                    break;
-                case StyleMaterialRecipe.Gravel:
-                    Set(basis, 0f, 0f, 0f, 0.4f, 0.6f, 0.5f, 0.4f, 0.15f);
-                    basis.facets = 0.15f;
-                    Scatter(basis, 20, 1f, 0.85f, 0.4f);
-                    Ground(basis, 0.15f, 8, 0f);
-                    Paint(basis, Rgb(0.55f, 0.53f, 0.5f), Rgb(0.3f, 0.27f, 0.24f), 0.3f, 0.1f);
-                    basis.variation = 0.25f;
-                    break;
-                case StyleMaterialRecipe.Sand:
-                    Set(basis, 0f, 0f, 0f, 0.3f, 0.8f, 0.3f, 0.3f, 0.1f);
-                    Scatter(basis, 12, 0.08f, 0.25f, 0.4f);
-                    Ground(basis, 0.6f, 3, 1f);
-                    Paint(basis, Rgb(0.5f, 0.45f, 0.4f), Rgb(0.76f, 0.66f, 0.48f), 0.25f, 0.15f);
-                    basis.dirtOn = false;
-                    basis.specksOn = true;
-                    basis.specksColour = Rgb(0.45f, 0.38f, 0.3f);
-                    break;
-                case StyleMaterialRecipe.Snow:
-                    Set(basis, 0f, 0f, 0f, 0.3f, 0.8f, 0.3f, 0.3f, 0.1f);
-                    Scatter(basis, 8, 0f, 0.3f, 0.3f);
-                    Ground(basis, 0.5f, 3, 0.3f);
-                    Paint(basis, Rgb(0.9f, 0.93f, 0.97f), Rgb(0.9f, 0.93f, 0.97f), 0.4f, 0.4f);
-                    basis.dirtOn = false;
-                    basis.wearOn = false;
-                    basis.grain = 0.03f;
-                    basis.specksOn = true;
-                    basis.specksShine = 0.95f;
-                    break;
-                case StyleMaterialRecipe.LakeIce:
-                    Set(basis, 0.015f, 0f, 0.3f, 0.01f, 0f, 0.05f, 0.02f, 0.05f);
-                    basis.stones = 5;
-                    basis.jitter = 1f;
-                    Ground(basis, 0.02f, 8, 0f);
-                    basis.fineCracks = 0.7f;
-                    Paint(basis, Rgb(0.45f, 0.62f, 0.75f), Rgb(0.85f, 0.92f, 0.97f), 0.9f, 0.5f);
-                    basis.dirtOn = false;
-                    basis.wearOn = false;
-                    basis.grain = 0.08f;
-                    basis.specksOn = true;
-                    basis.specks = 0.08f;
-                    break;
-                case StyleMaterialRecipe.Crystals:
-                    Set(basis, 0.04f, 0f, 0.1f, 0.04f, 1f, 0.6f, 0.4f, 0.05f);
-                    basis.stones = 6;
-                    basis.jitter = 1f;
-                    basis.facets = 1f;
-                    Ground(basis, 0.05f, 8, 0f);
-                    Paint(basis, Rgb(0.45f, 0.6f, 0.85f), Rgb(0.1f, 0.12f, 0.2f), 0.85f, 0.2f);
-                    basis.dirtOn = false;
-                    basis.wearOn = false;
-                    basis.grain = 0.02f;
-                    basis.heightTint = 0.8f;
-                    basis.variationColour = Rgb(0.6f, 0.45f, 0.85f);
-                    break;
-            }
-
+            basis.recipe = recipe;
             return basis;
-        }
-
-        static Color Rgb(float r, float g, float b) => new Color(r, g, b, 1f);
-
-        static void Scatter(StyleMaterialSettings basis, int stones, float density, float size, float elongation)
-        {
-            basis.stones = stones;
-            basis.density = density;
-            basis.pebbleSize = size;
-            basis.elongation = elongation;
-            basis.jitter = 1f;
-        }
-
-        static void Ground(StyleMaterialSettings basis, float relief, int lumps, float ripples)
-        {
-            basis.groundRelief = relief;
-            basis.lumps = lumps;
-            basis.ripples = ripples;
-        }
-
-        static void Paint(StyleMaterialSettings basis, Color main, Color joint, float smoothness, float jointSmooth)
-        {
-            basis.stoneColour = main;
-            basis.gapColour = joint;
-            basis.variationColour = main * 0.85f;
-            basis.wearColour = Color.Lerp(main, Color.white, 0.3f);
-            basis.smoothness = smoothness;
-            basis.gapSmoothness = jointSmooth;
-        }
-
-        static void Set(StyleMaterialSettings basis, float gap, float roundness, float chipping, float bevel,
-                        float dome, float heightVariation, float tilt, float roughness)
-        {
-            basis.gap = gap;
-            basis.roundness = roundness;
-            basis.chipping = chipping;
-            basis.bevel = bevel;
-            basis.dome = dome;
-            basis.heightVariation = heightVariation;
-            basis.tilt = tilt;
-            basis.roughness = roughness;
         }
     }
 }

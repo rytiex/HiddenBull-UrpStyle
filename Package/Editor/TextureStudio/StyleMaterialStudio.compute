@@ -538,9 +538,10 @@ void Cells(uint3 id : SV_DispatchThreadID)
             HB_Piece fine = HB_Voronoi(p * 2.0 + (jag - 0.5) * 0.5, units * 2, seed + 500u, 0.002);
             float reach = HB_PerlinFbm(uv, units * 3, seed + 503u);
             float start = lerp(0.72, 0.3, HB_FINE_CRACKS);
-            float width = HB_GAP * 0.3 * smoothstep(start, start + 0.12, reach);
+            float open = smoothstep(start, start + 0.12, reach);
+            float fade = (1.0 - open) * (HB_BEVEL + 0.02) * 2.0;
 
-            piece.edge = min(piece.edge, fine.edge * 0.5 + HB_GAP * 0.5 - width);
+            piece.edge = min(piece.edge, fine.edge * 0.5 + HB_GAP * 0.5 - HB_GAP * 0.3 * open + fade);
         }
     }
 
