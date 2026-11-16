@@ -130,6 +130,10 @@ namespace HiddenBull.UrpStyle
         HBStyleTerrainData m_BuiltData;
         int m_BuiltVersion = -1;
 
+#if UNITY_EDITOR
+        internal Camera onlyCamera { get; set; }
+#endif
+
         internal static IReadOnlyList<HBStyleTerrain> active => s_Active;
 
         internal bool LiquidTouches(Bounds volume)
@@ -198,9 +202,9 @@ namespace HiddenBull.UrpStyle
 
         internal Texture grassMap => m_Data.grass != null ? m_Data.grass : UnpaintedGrass();
 
-        static Vector4 GrassFar()
+        Vector4 GrassFar()
         {
-            var grass = StyleTerrains.grassQuality;
+            var grass = StyleTerrains.GrassQualityOf(this);
 
             if (grass == null || !grass.enabled)
                 return Vector4.zero;
@@ -354,7 +358,10 @@ namespace HiddenBull.UrpStyle
 
         void OnEnable()
         {
-            s_Active.Add(this);
+#if UNITY_EDITOR
+            if (onlyCamera == null)
+#endif
+                s_Active.Add(this);
             RenderPipelineManager.beginCameraRendering += Draw;
             Bind();
         }
@@ -466,9 +473,19 @@ namespace HiddenBull.UrpStyle
             return m_Material != null && m_Material.enableInstancing;
         }
 
+        bool Watches(Camera camera)
+        {
+#if UNITY_EDITOR
+            if (onlyCamera != null)
+                return camera == onlyCamera;
+#endif
+
+            return camera.cameraType == CameraType.Game || camera.cameraType == CameraType.SceneView;
+        }
+
         void Draw(ScriptableRenderContext context, Camera camera)
         {
-            if (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
+            if (!Watches(camera))
                 return;
 
 #if UNITY_EDITOR
@@ -492,7 +509,7 @@ namespace HiddenBull.UrpStyle
             var local = viewer.transform.position - origin;
             var size = m_Data.size;
 
-            m_Tree.SetRanges(StyleTerrains.quality.current.detailRange);
+            m_Tree.SetRanges(StyleTerrains.QualityOf(this).current.detailRange);
 
             for (var level = 0; level < StyleTerrainTree.MaxLevels; level++)
             {
@@ -525,7 +542,7 @@ namespace HiddenBull.UrpStyle
 
             Render(camera, block, bounds, ShadowCastingMode.Off, m_Full, m_Quarters);
             m_Liquid.Draw(this, context, camera, m_Data, m_LiquidShader, m_WaveCompute, block, origin, local,
-                          m_LocalPlanes, reach, StyleTerrains.quality.current.detailRange,
+                          m_LocalPlanes, reach, StyleTerrains.QualityOf(this).current.detailRange,
                           gameObject.layer);
             m_Grass.Draw(context, camera, this, m_Trail.Map(camera));
 
@@ -804,10 +821,26 @@ namespace HiddenBull.UrpStyle
                 lightProbeUsage = LightProbeUsage.Off,
                 reflectionProbeUsage = ReflectionProbeUsage.BlendProbes
             };
+#if UNITY_EDITOR
+            if (onlyCamera != null)
+            {
+                SubmitEach(parameters, Patch(false), full);
+                SubmitEach(parameters, Patch(true), quarters);
+                return;
+            }
+#endif
 
             Submit(parameters, Patch(false), full);
             Submit(parameters, Patch(true), quarters);
         }
+
+#if UNITY_EDITOR
+        static void SubmitEach(RenderParams parameters, Mesh mesh, List<Matrix4x4> instances)
+        {
+            foreach (var matrix in instances)
+                Graphics.RenderMesh(parameters, mesh, 0, matrix);
+        }
+#endif
 
         static void Submit(RenderParams parameters, Mesh mesh, List<Matrix4x4> instances)
         {

@@ -193,7 +193,9 @@ namespace HiddenBull.UrpStyle
 
         internal void Draw(ScriptableRenderContext context, Camera camera, HBStyleTerrain terrain, Texture trail)
         {
-            if (!StyleTerrains.grassQuality.enabled)
+            var quality = StyleTerrains.GrassQualityOf(terrain);
+
+            if (!quality.enabled)
             {
                 Release();
                 return;
@@ -209,7 +211,7 @@ namespace HiddenBull.UrpStyle
             if (!Grows(terrain) || !Ready(terrain.grassShader, terrain.grassCompute))
                 return;
 
-            var level = StyleTerrains.grassQuality.current;
+            var level = quality.current;
             var side = Mathf.Clamp(Mathf.RoundToInt(CellTarget / level.spacing), LeastSide, MostSide);
             var cell = side * level.spacing;
             var firstRing = level.spacing * ThinStart * 2f;

@@ -213,11 +213,13 @@ namespace HiddenBull.UrpStyle
                 renderer.EnqueuePass(m_AntiAliasingPass);
             }
 
+#if UNITY_EDITOR
             if (kind == StyleCameraKind.Isolated && StylePreviewEnvironment.Find(cameraData.camera) != null)
             {
                 m_SkyMapPass.Setup(m_SkyMapShader, quality.reflections.skyMapSize);
                 renderer.EnqueuePass(m_SkyMapPass);
             }
+#endif
 
             if (kind != StyleCameraKind.Base)
                 return;

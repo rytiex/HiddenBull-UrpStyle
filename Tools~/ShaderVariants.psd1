@@ -1803,5 +1803,45 @@
             Slots = 0
             Reads = 0
         }
+        @{
+            Name = 'Texture Studio Plant Clear'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleGrassStudio.compute'
+            Entry = 'Clear'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Plant Blades'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleGrassStudio.compute'
+            Entry = 'Blades'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Plant Petals'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleGrassStudio.compute'
+            Entry = 'Petals'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Plant Encode'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleGrassStudio.compute'
+            Entry = 'Encode'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
     )
 }

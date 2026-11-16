@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,13 +11,17 @@ namespace HiddenBull.UrpStyle.Editor
     {
         Colour,
         Normal,
-        Data
+        Data,
+        Cutout
     }
 
     static class StyleStudioExport
     {
         const string FolderKey = "HiddenBull.UrpStyle.TextureStudio.Folder";
         const string DefaultFolder = "Assets/Textures";
+        const string Prefix = "TEX";
+
+        static readonly char[] s_Breaks = Path.GetInvalidFileNameChars().Concat(new[] { ' ', '_', '-', '.' }).ToArray();
 
         static class Styles
         {
@@ -71,12 +77,27 @@ namespace HiddenBull.UrpStyle.Editor
             return relative == "." ? "Assets" : "Assets/" + relative.Replace('\\', '/');
         }
 
+        internal static string FileName(string name)
+        {
+            var words = new List<string> { Prefix };
+
+            foreach (var word in name.Split(s_Breaks, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (words.Count == 1 && string.Equals(word, Prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                words.Add(char.ToUpperInvariant(word[0]) + word.Substring(1));
+            }
+
+            return string.Join("_", words);
+        }
+
         internal static string Save(RenderTexture source, string name, StyleExportKind kind)
         {
             var target = folder;
             Directory.CreateDirectory(Path.GetFullPath(target));
 
-            var path = $"{target}/{name}.png";
+            var path = $"{target}/{FileName(name)}.png";
             var width = source.width;
             var height = source.height;
             var plain = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32,
@@ -106,8 +127,9 @@ namespace HiddenBull.UrpStyle.Editor
                 importer.textureType = kind == StyleExportKind.Normal
                     ? TextureImporterType.NormalMap
                     : TextureImporterType.Default;
-                importer.sRGBTexture = kind == StyleExportKind.Colour;
-                importer.wrapMode = TextureWrapMode.Repeat;
+                importer.sRGBTexture = kind == StyleExportKind.Colour || kind == StyleExportKind.Cutout;
+                importer.alphaIsTransparency = kind == StyleExportKind.Cutout;
+                importer.wrapMode = kind == StyleExportKind.Cutout ? TextureWrapMode.Clamp : TextureWrapMode.Repeat;
                 importer.SaveAndReimport();
             }
 

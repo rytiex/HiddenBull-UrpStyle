@@ -52,6 +52,26 @@ namespace HiddenBull.UrpStyle
             set => s_Quality = value;
         }
 
+        internal static HBStyleTerrainQuality QualityOf(HBStyleTerrain terrain)
+        {
+#if UNITY_EDITOR
+            if (terrain.onlyCamera != null)
+                return s_Default;
+#endif
+
+            return quality;
+        }
+
+        internal static HBStyleGrassQuality GrassQualityOf(HBStyleTerrain terrain)
+        {
+#if UNITY_EDITOR
+            if (terrain.onlyCamera != null)
+                return s_DefaultGrass;
+#endif
+
+            return grassQuality;
+        }
+
         internal static bool TryGetGround(Vector3 position, out HBStyleTerrainData data, out Vector3 origin)
         {
             foreach (var terrain in HBStyleTerrain.active)

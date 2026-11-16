@@ -64,10 +64,15 @@ namespace HiddenBull.UrpStyle
             var sky = profile.sky;
             var elevation = StyleKeyLight.SunElevation(timeOfDay);
             var controller = StyleEnvironment.controller;
-            var preview = StyleEnvironment.preview;
-            var sunDirection = preview != null ? preview.sunDirection
-                : controller != null ? controller.sunDirection
+            var sunDirection = controller != null
+                ? controller.sunDirection
                 : -(Quaternion.Euler(HBStyleEnvironmentController.SunAngle(timeOfDay), 0f, 0f) * Vector3.forward);
+#if UNITY_EDITOR
+            var preview = StyleEnvironment.preview;
+
+            if (preview != null)
+                sunDirection = preview.sunDirection;
+#endif
 
             var blend = StyleKeyLight.DayBlend(sky, elevation);
             var spread = sky.sunsetFocus * 4f * blend * (1f - blend);
@@ -197,12 +202,14 @@ namespace HiddenBull.UrpStyle
 
             globals._HB_Weather = new Vector4(falling.x, falling.y, falling.z, heading);
 
+#if UNITY_EDITOR
             if (StyleEnvironment.preview != null)
             {
                 globals._HB_WeatherSurface = Vector4.zero;
                 globals._HB_WeatherClocks = new Vector4(0f, 0f, 0f, weather.shoreDarkening);
             }
             else
+#endif
             {
                 StyleWeatherState.Advance();
 

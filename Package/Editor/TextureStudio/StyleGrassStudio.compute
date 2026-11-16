@@ -1,0 +1,163 @@
+#pragma kernel Clear
+#pragma kernel Blades
+#pragma kernel Petals
+#pragma kernel Encode
+
+#define HB_PLANT_PI 3.14159265
+#define HB_PLANT_EDGE_BAND 0.35
+#define HB_PLANT_EDGE_SHADE 0.82
+#define HB_PLANT_CENTRE_RIM 0.7
+#define HB_PLANT_CENTRE_DOTS 9.0
+
+RWTexture2D<float4> _Plant;
+StructuredBuffer<float4> _Petals;
+Texture2D<float4> _Source;
+RWTexture2D<float4> _Encoded;
+
+float4 _Area;
+float4 _Fill;
+float4 _Place;
+float4 _BladeShape;
+float4 _BladeSpread;
+float4 _Petal;
+float4 _PetalColour;
+float4 _CentreColour;
+
+float HB_PlantHash(uint n)
+{
+    n = (n << 13u) ^ n;
+    n = n * (n * n * 15731u + 789221u) + 1376312589u;
+    return float(n & 0x7fffffffu) / 2147483647.0;
+}
+
+float4 HB_PlantOver(float4 below, float3 colour, float cover)
+{
+    float alpha = cover + below.a * (1.0 - cover);
+    float weight = cover / max(alpha, 1e-5);
+
+    return float4(lerp(below.rgb, colour, weight), alpha);
+}
+
+float HB_PetalOutline(uint shape, float t)
+{
+    if (shape == 2u)
+        return pow(max(sin(HB_PLANT_PI * pow(max(t, 1e-6), 0.75)), 1e-6), 0.8) * lerp(1.15, 0.55, t);
+
+    if (shape == 3u)
+        return pow(max(sin(HB_PLANT_PI * pow(max(t, 1e-6), 1.5)), 1e-6), 0.6) * (1.0 - 0.35 * pow(max(t, 1e-6), 6.0));
+
+    float bulge = 2.0 * pow(max(t, 1e-6), 1.3) - 1.0;
+
+    return sqrt(saturate(1.0 - bulge * bulge));
+}
+
+[numthreads(8, 8, 1)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Area.x))
+        return;
+
+    _Plant[uint2(id.x + (uint)_Area.y, id.y)] = float4(_Fill.rgb, 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void Blades(uint3 id : SV_DispatchThreadID)
+{
+    float size = _Area.x;
+
+    if (any(float2(id.xy) >= size))
+        return;
+
+    uint2 pixel = uint2(id.x + (uint)_Area.y, id.y);
+    float scale = max(_Place.z, 1e-3);
+    float2 p = ((float2(id.xy) + 0.5) / size - float2(0.5 + _Place.x, _Place.y)) / scale + float2(0.5, 0.0);
+    float pixels = size * scale;
+    uint blades = (uint)_BladeShape.x;
+    uint seed = (uint)_BladeSpread.z * 7919u;
+    float4 result = _Plant[pixel];
+
+    [loop]
+    for (uint i = 0u; i < blades; i++)
+    {
+        uint key = seed + i * 4u;
+        float spread = (float(i) + HB_PlantHash(key)) / float(blades) * 2.0 - 1.0;
+        float root = 0.5 + spread * _BladeSpread.y * 0.5;
+        float lean = spread * _BladeSpread.x + (HB_PlantHash(key + 1u) - 0.5) * _BladeSpread.x * 0.5;
+        float height = _BladeShape.y * (1.0 - _BladeShape.z * HB_PlantHash(key + 2u));
+        float width = _BladeShape.w * (0.7 + 0.6 * HB_PlantHash(key + 3u));
+        float along = saturate(p.y / max(height, 1e-4));
+        float centre = root + lean * along * along;
+        float reach = width * exp2(0.7 * log2(max(1.0 - along, 1e-6)));
+        float inside = saturate((reach - abs(p.x - centre)) * pixels + 0.5);
+        float cover = p.y >= 0.0 && p.y <= height ? inside : 0.0;
+
+        result = HB_PlantOver(result, float3(1.0, 1.0, 1.0), cover);
+    }
+
+    _Plant[pixel] = result;
+}
+
+[numthreads(8, 8, 1)]
+void Petals(uint3 id : SV_DispatchThreadID)
+{
+    float size = _Area.x;
+
+    if (any(float2(id.xy) >= size))
+        return;
+
+    uint2 pixel = uint2(id.x + (uint)_Area.y, id.y);
+    float scale = max(_Place.z, 1e-3);
+    float2 p = ((float2(id.xy) + 0.5) / size - float2(0.5 + _Place.x, 0.5 + _Place.y)) / scale;
+    float pixels = size * scale;
+    uint shape = (uint)_Petal.x;
+    uint count = (uint)_Petal.y;
+    float shading = _Petal.w;
+    float4 result = _Plant[pixel];
+
+    [loop]
+    for (uint i = 0u; i < count; i++)
+    {
+        float4 petal = _Petals[i];
+        float s;
+        float c;
+
+        sincos(petal.x, s, c);
+
+        float along = p.x * c + p.y * s;
+        float across = -p.x * s + p.y * c;
+        float t = along / max(petal.y, 1e-4);
+
+        if (t <= 0.0 || t >= 1.0)
+            continue;
+
+        float reach = petal.y * petal.z * 0.5 * HB_PetalOutline(shape, t);
+        float cover = saturate((reach - abs(across)) * pixels + 0.5);
+        float edge = saturate((reach - abs(across)) / max(reach * HB_PLANT_EDGE_BAND, 1e-4));
+        float shade = petal.w * lerp(1.0 - shading, 1.0, t)
+                    * lerp(lerp(1.0, HB_PLANT_EDGE_SHADE, shading), 1.0, edge);
+
+        result = HB_PlantOver(result, saturate(_PetalColour.rgb * shade), cover);
+    }
+
+    float radius = length(p);
+    float core = saturate((_Petal.z - radius) * pixels + 0.5);
+    float dots = 0.5 + 0.5 * cos(atan2(p.y, p.x) * HB_PLANT_CENTRE_DOTS);
+    float rim = saturate(radius / max(_Petal.z, 1e-4));
+    float tone = lerp(1.0, lerp(1.0, HB_PLANT_CENTRE_RIM, dots), saturate(rim * shading * 2.0));
+
+    result = HB_PlantOver(result, _CentreColour.rgb * tone, core);
+    _Plant[pixel] = result;
+}
+
+[numthreads(8, 8, 1)]
+void Encode(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Area.xy))
+        return;
+
+    float4 colour = _Source[id.xy];
+    float3 low = colour.rgb * 12.92;
+    float3 high = 1.055 * pow(max(colour.rgb, 1e-6), 1.0 / 2.4) - 0.055;
+
+    _Encoded[id.xy] = float4(saturate(colour.rgb <= 0.0031308 ? low : high), colour.a);
+}

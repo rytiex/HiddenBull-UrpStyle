@@ -27,12 +27,10 @@ namespace HiddenBull.UrpStyle
         internal static event Action<HBStyleEnvironmentProfile> profileChanged;
         internal static event Action weatherChanged;
 
+#if UNITY_EDITOR
         static StylePreviewEnvironment s_Preview;
 
         internal static StylePreviewEnvironment preview => s_Preview;
-
-        internal static HBStyleEnvironmentController controller =>
-            s_Preview == null && s_Controllers.Count > 0 ? s_Controllers[s_Controllers.Count - 1] : null;
 
         internal static void BeginPreview(StylePreviewEnvironment environment)
         {
@@ -42,6 +40,20 @@ namespace HiddenBull.UrpStyle
         internal static void EndPreview()
         {
             s_Preview = null;
+        }
+#endif
+
+        internal static HBStyleEnvironmentController controller
+        {
+            get
+            {
+#if UNITY_EDITOR
+                if (s_Preview != null)
+                    return null;
+#endif
+
+                return s_Controllers.Count > 0 ? s_Controllers[s_Controllers.Count - 1] : null;
+            }
         }
 
         internal static double clock => Application.isPlaying ? Time.timeAsDouble : Time.realtimeSinceStartupAsDouble;
@@ -71,20 +83,43 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static HBStyleEnvironmentProfile targetProfile =>
-            s_Preview != null ? s_Preview.shownProfile : s_Override != null ? s_Override : authoredProfile;
+        internal static HBStyleEnvironmentProfile targetProfile
+        {
+            get
+            {
+#if UNITY_EDITOR
+                if (s_Preview != null)
+                    return s_Preview.shownProfile;
+#endif
+
+                return s_Override != null ? s_Override : authoredProfile;
+            }
+        }
 
         internal static HBStyleEnvironmentProfile sourceProfile =>
             s_BlendFrom != null && profileBlend < 1f ? s_BlendFrom : targetProfile;
 
-        internal static float profileBlend => s_Preview != null ? 1f : Progress(s_BlendStart, s_BlendSeconds);
+        internal static float profileBlend
+        {
+            get
+            {
+#if UNITY_EDITOR
+                if (s_Preview != null)
+                    return 1f;
+#endif
+
+                return Progress(s_BlendStart, s_BlendSeconds);
+            }
+        }
 
         internal static Vector3 weather
         {
             get
             {
+#if UNITY_EDITOR
                 if (s_Preview != null)
                     return Vector3.zero;
+#endif
 
                 if (s_WeatherMoving)
                     return Vector3.Lerp(s_WeatherFrom, s_WeatherTo, Progress(s_WeatherStart, s_WeatherSeconds));
@@ -109,8 +144,10 @@ namespace HiddenBull.UrpStyle
         {
             get
             {
+#if UNITY_EDITOR
                 if (s_Preview != null)
                     return s_Preview.timeOfDay;
+#endif
 
                 var active = controller;
 

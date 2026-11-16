@@ -103,8 +103,8 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Resolution = new GUIContent("Resolution",
                 "Size of the saved textures.");
             internal static readonly GUIContent Name = new GUIContent("Name",
-                "File name start. Saving writes Name_Albedo, Name_Normal, Name_Mask and, when something glows, " +
-                "Name_Emission.");
+                "File name start, saved as TEX_Words_Like_This. Saving writes TEX_Name_Albedo, TEX_Name_Normal, " +
+                "TEX_Name_Mask and, when something glows, TEX_Name_Emission.");
             internal static readonly GUIContent Save = new GUIContent("Save Textures",
                 "Writes the albedo, normal, mask and emission PNGs into the folder. Files with the same names are " +
                 "replaced.");

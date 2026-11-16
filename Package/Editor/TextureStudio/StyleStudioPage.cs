@@ -13,6 +13,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal abstract void DrawSettings();
 
+        internal virtual bool hasLayers => true;
+
         internal abstract void DrawLayers();
 
         internal abstract void DrawPreview(Rect rect);

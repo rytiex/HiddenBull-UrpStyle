@@ -35,8 +35,14 @@ namespace HiddenBull.UrpStyle.Editor
 
         void OnEnable()
         {
-            if (m_Pages == null || m_Pages.Length == 0)
-                m_Pages = new StyleStudioPage[] { new StyleMaterialPage() };
+            var material = m_Pages != null && m_Pages.Length > 0 && m_Pages[0] is StyleMaterialPage kept
+                ? kept
+                : new StyleMaterialPage();
+            var grass = m_Pages != null && m_Pages.Length > 1 && m_Pages[1] is StyleGrassPage keptGrass
+                ? keptGrass
+                : new StyleGrassPage();
+
+            m_Pages = new StyleStudioPage[] { material, grass };
 
             foreach (var page in m_Pages)
                 page.host = this;
@@ -69,19 +75,24 @@ namespace HiddenBull.UrpStyle.Editor
             page.DrawToolbar(new Rect(tabs.xMax + 8f, 0f, Mathf.Max(width - tabs.xMax - 12f, 0f), top));
 
             var height = position.height - top;
-            var most = width - LeastPreview - Splitter * 2f;
+            var side = page.hasLayers;
+            var most = width - LeastPreview - Splitter * (side ? 2f : 1f);
+            var layersWidth = side ? m_LayersWidth : 0f;
 
-            m_SettingsWidth = Mathf.Clamp(m_SettingsWidth, LeastSide, Mathf.Max(LeastSide, most - m_LayersWidth));
-            m_LayersWidth = Mathf.Clamp(m_LayersWidth, LeastSide, Mathf.Max(LeastSide, most - m_SettingsWidth));
+            m_SettingsWidth = Mathf.Clamp(m_SettingsWidth, LeastSide, Mathf.Max(LeastSide, most - layersWidth));
+            if (side)
+                m_LayersWidth = Mathf.Clamp(m_LayersWidth, LeastSide, Mathf.Max(LeastSide, most - m_SettingsWidth));
 
             var settings = new Rect(0f, top, m_SettingsWidth, height);
             var leftSplit = new Rect(settings.xMax, top, Splitter, height);
-            var layers = new Rect(width - m_LayersWidth, top, m_LayersWidth, height);
-            var rightSplit = new Rect(layers.xMin - Splitter, top, Splitter, height);
+            var layers = new Rect(width - layersWidth, top, layersWidth, height);
+            var rightSplit = new Rect(layers.xMin - (side ? Splitter : 0f), top, side ? Splitter : 0f, height);
             var preview = Rect.MinMaxRect(leftSplit.xMax, top + 4f, rightSplit.xMin, position.height - 4f);
 
             DrawSplitter(leftSplit, 1);
-            DrawSplitter(rightSplit, 2);
+
+            if (side)
+                DrawSplitter(rightSplit, 2);
 
             GUILayout.BeginArea(settings);
             m_SettingsScroll = EditorGUILayout.BeginScrollView(m_SettingsScroll);
@@ -91,11 +102,14 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.EndScrollView();
             GUILayout.EndArea();
 
-            GUILayout.BeginArea(layers, EditorStyles.helpBox);
-            m_LayersScroll = EditorGUILayout.BeginScrollView(m_LayersScroll);
-            page.DrawLayers();
-            EditorGUILayout.EndScrollView();
-            GUILayout.EndArea();
+            if (side)
+            {
+                GUILayout.BeginArea(layers, EditorStyles.helpBox);
+                m_LayersScroll = EditorGUILayout.BeginScrollView(m_LayersScroll);
+                page.DrawLayers();
+                EditorGUILayout.EndScrollView();
+                GUILayout.EndArea();
+            }
 
             if (preview.width > 1f && preview.height > 1f)
                 page.DrawPreview(preview);

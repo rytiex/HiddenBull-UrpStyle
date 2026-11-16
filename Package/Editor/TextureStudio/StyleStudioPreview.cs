@@ -11,6 +11,12 @@ namespace HiddenBull.UrpStyle.Editor
         Flat
     }
 
+    enum StyleFieldView
+    {
+        Field,
+        Single
+    }
+
     sealed class StyleStudioPreview
     {
         const string LitShader = "HB URP Style/Lit";
@@ -20,9 +26,12 @@ namespace HiddenBull.UrpStyle.Editor
         const float PanelHeight = 100f;
         const float SunSize = 74f;
         const float PanelMargin = 8f;
+        const float FlowerStem = 0.07f;
+        const float FlowerTurn = 0.55f;
 
         static readonly int s_BaseMap = Shader.PropertyToID("_BaseMap");
         static readonly int s_BumpMap = Shader.PropertyToID("_BumpMap");
+        static readonly int s_BaseColor = Shader.PropertyToID("_BaseColor");
         static readonly int s_MaskMap = Shader.PropertyToID("_MaskMap");
         static readonly int s_EmissionMap = Shader.PropertyToID("_EmissionMap");
         static readonly int s_EmissionColor = Shader.PropertyToID("_EmissionColor");
@@ -37,7 +46,14 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("Flat", "The picked map repeated 2 x 2, to check that the edges join.")
             };
 
-            internal static readonly GUIContent Environment = new GUIContent("Environment",
+            internal static readonly GUIContent[] FieldViews =
+            {
+                new GUIContent("Field", "The grass on a small HB terrain. Drag to turn, scroll to zoom."),
+                new GUIContent("Single", "One grass plant on its own, coloured like the ground under it, or one " +
+                                         "flower while the Flower tab is open. Drag to turn, scroll to zoom.")
+            };
+
+            internal static readonly GUIContent Environment =new GUIContent("Environment",
                 "Environment profile the preview is lit with. Only the preview changes, not the scene.");
 
             internal static readonly GUIContent Time = new GUIContent("Time",
@@ -63,6 +79,15 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal StyleStudioView view = StyleStudioView.Sphere;
         float m_Distance = 4.2f;
+        internal StyleFieldView fieldView = StyleFieldView.Field;
+        internal bool singleFlower;
+        float m_FieldDistance = 18f;
+        float m_SingleDistance = 2.5f;
+        Vector2 m_Orbit = new Vector2(35f, 24f);
+        Material m_Card;
+        Material m_Stem;
+        Mesh m_Cross;
+        Mesh m_Quad;
 
         internal StyleStudioPreview()
         {
@@ -111,6 +136,193 @@ namespace HiddenBull.UrpStyle.Editor
             DrawPanel(panel);
         }
 
+        internal Rect DrawFieldBar(Rect rect)
+        {
+            var width = Mathf.Min(rect.width, BarWidth * 2f / 3f);
+            var bar = new Rect(rect.center.x - width * 0.5f, rect.y, width, BarHeight);
+
+            fieldView = (StyleFieldView)GUI.Toolbar(bar, (int)fieldView, Styles.FieldViews, EditorStyles.miniButton);
+            return Rect.MinMaxRect(rect.xMin, rect.yMin + BarHeight + 4f, rect.xMax, rect.yMax);
+        }
+
+        internal void DrawField(Rect rect, StyleStudioField field, Texture card, Texture flower, int variants)
+        {
+            if (!Prepare())
+            {
+                EditorGUI.HelpBox(rect, $"The shader '{LitShader}' was not found.", MessageType.Warning);
+                return;
+            }
+
+            field.Build(m_Utility);
+
+            var width = Mathf.Min(PanelWidth, rect.width - PanelMargin * 2f);
+            var panel = new Rect(rect.xMax - width - PanelMargin, rect.yMax - PanelHeight - PanelMargin, width,
+                                 PanelHeight);
+
+            HandleFieldCamera(rect, panel);
+
+            if (Event.current.type == EventType.Repaint)
+                RenderField(rect, field, card, flower, variants);
+
+            DrawPanel(panel);
+        }
+
+        void RenderField(Rect rect, StyleStudioField field, Texture card, Texture flower, int variants)
+        {
+            var turn = Quaternion.Euler(0f, m_Orbit.x, 0f);
+            var look = turn * Quaternion.Euler(m_Orbit.y, 0f, 0f);
+            var camera = m_Utility.camera;
+            var rise = Mathf.Sqrt(Mathf.Max(1f - m_Sun.sqrMagnitude, 0f));
+            var single = fieldView == StyleFieldView.Single && field.layer != null;
+            var bloom = single && singleFlower && flower != null;
+            var height = single ? field.layer.grassHeight : 0f;
+            var size = bloom ? field.layer.flowerSize : 0f;
+            var target = single ? new Vector3(0f, bloom ? height : height * 0.5f, 0f) : field.centre;
+            var reach = bloom ? Mathf.Max(height * 0.5f, size) : Mathf.Max(height, field.layer?.grassCardWidth ?? 0f);
+            var distance = single ? m_SingleDistance * reach : m_FieldDistance;
+
+            camera.farClipPlane = single ? 50f : 200f;
+            camera.transform.SetPositionAndRotation(target - look * Vector3.forward * distance, look);
+            m_Environment.sunDirection = (turn * new Vector3(m_Sun.x, Mathf.Max(rise, 0.05f), m_Sun.y)).normalized;
+            m_Environment.KeyLight(out var colour, out var intensity);
+
+            var light = m_Utility.lights[0];
+            light.transform.rotation = Quaternion.LookRotation(-m_Environment.sunDirection);
+            light.color = colour;
+            light.intensity = intensity;
+
+            m_Utility.BeginPreview(rect, GUIStyle.none);
+
+            if (single)
+            {
+                var layer = field.layer;
+                var tint = field.groundColour * layer.tint.linear;
+                var ground = new Color(tint.r, tint.g, tint.b, 1f).gamma;
+
+                if (bloom)
+                {
+                    var stem = size * FlowerStem;
+                    var head = new Vector3(0f, height, 0f);
+                    var toCamera = (camera.transform.position - head).normalized;
+                    var face = (Vector3.up + toCamera * FlowerTurn).normalized;
+                    var flat = new Vector3(toCamera.x, 0f, toCamera.z);
+                    var facing = Quaternion.LookRotation(-face, flat.sqrMagnitude > 1e-6f ? flat : Vector3.forward);
+
+                    m_Stem.SetColor(s_BaseColor, ground);
+                    m_Utility.DrawMesh(Cross(), Matrix4x4.Scale(new Vector3(stem, height, stem)), m_Stem, 0);
+                    m_Card.SetTexture(s_BaseMap, flower);
+                    m_Card.SetTextureScale(s_BaseMap, new Vector2(1f / Mathf.Max(variants, 1), 1f));
+                    m_Card.SetColor(s_BaseColor, Color.white);
+                    m_Utility.DrawMesh(Quad(), Matrix4x4.TRS(head, facing, Vector3.one * size), m_Card, 0);
+                }
+                else
+                {
+                    m_Card.SetTexture(s_BaseMap, card);
+                    m_Card.SetTextureScale(s_BaseMap, Vector2.one);
+                    m_Card.SetColor(s_BaseColor, ground);
+                    m_Utility.DrawMesh(Cross(), Matrix4x4.Scale(new Vector3(layer.grassCardWidth, height,
+                                                                            layer.grassCardWidth)), m_Card, 0);
+                }
+            }
+
+            camera.Render();
+            GUI.DrawTexture(rect, m_Utility.EndPreview(), ScaleMode.StretchToFill, false);
+        }
+
+        Mesh Cross()
+        {
+            if (m_Cross != null)
+                return m_Cross;
+
+            var vertices = new[]
+            {
+                new Vector3(-0.5f, 0f, 0f), new Vector3(0.5f, 0f, 0f), new Vector3(-0.5f, 1f, 0f),
+                new Vector3(0.5f, 1f, 0f), new Vector3(0f, 0f, -0.5f), new Vector3(0f, 0f, 0.5f),
+                new Vector3(0f, 1f, -0.5f), new Vector3(0f, 1f, 0.5f)
+            };
+
+            var uvs = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f),
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f)
+            };
+
+            var normals = new Vector3[vertices.Length];
+
+            for (var i = 0; i < normals.Length; i++)
+                normals[i] = Vector3.up;
+
+            m_Cross = new Mesh
+            {
+                name = "HB Studio Grass Cross",
+                hideFlags = HideFlags.HideAndDontSave,
+                vertices = vertices,
+                uv = uvs,
+                normals = normals,
+                triangles = new[] { 0, 2, 1, 1, 2, 3, 4, 6, 5, 5, 6, 7, 0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6 }
+            };
+
+            return m_Cross;
+        }
+
+        Mesh Quad()
+        {
+            if (m_Quad != null)
+                return m_Quad;
+
+            m_Quad = new Mesh
+            {
+                name = "HB Studio Flower Head",
+                hideFlags = HideFlags.HideAndDontSave,
+                vertices = new[]
+                {
+                    new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f),
+                    new Vector3(0.5f, 0.5f, 0f)
+                },
+                uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) },
+                normals = new[] { Vector3.back, Vector3.back, Vector3.back, Vector3.back },
+                triangles = new[] { 0, 2, 1, 1, 2, 3, 0, 1, 2, 1, 3, 2 }
+            };
+
+            return m_Quad;
+        }
+
+        void HandleFieldCamera(Rect rect, Rect panel)
+        {
+            var current = Event.current;
+            var control = GUIUtility.GetControlID(FocusType.Passive, rect);
+            var over = rect.Contains(current.mousePosition) && !panel.Contains(current.mousePosition);
+
+            switch (current.GetTypeForControl(control))
+            {
+                case EventType.ScrollWheel when over:
+                    var zoom = 1f + current.delta.y * 0.03f;
+
+                    if (fieldView == StyleFieldView.Single)
+                        m_SingleDistance = Mathf.Clamp(m_SingleDistance * zoom, 1f, 8f);
+                    else
+                        m_FieldDistance = Mathf.Clamp(m_FieldDistance * zoom, 3f, 40f);
+
+                    current.Use();
+                    GUI.changed = true;
+                    break;
+                case EventType.MouseDown when current.button == 0 && over:
+                    GUIUtility.hotControl = control;
+                    current.Use();
+                    break;
+                case EventType.MouseDrag when GUIUtility.hotControl == control:
+                    m_Orbit.x += current.delta.x * 0.4f;
+                    m_Orbit.y = Mathf.Clamp(m_Orbit.y + current.delta.y * 0.3f, 5f, 85f);
+                    current.Use();
+                    GUI.changed = true;
+                    break;
+                case EventType.MouseUp when GUIUtility.hotControl == control:
+                    GUIUtility.hotControl = 0;
+                    current.Use();
+                    break;
+            }
+        }
+
         void Render(Rect rect, Texture albedo, Texture normal, Texture mask, Texture emission)
         {
             var sphere = view == StyleStudioView.Sphere;
@@ -129,6 +341,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_Material.SetTextureScale(s_BaseMap, sphere ? new Vector2(2f, 1f) : new Vector2(2f, 2f));
 
             var camera = m_Utility.camera;
+            camera.farClipPlane = 50f;
             camera.transform.SetPositionAndRotation(new Vector3(0f, 0f, -m_Distance), Quaternion.identity);
 
             m_Environment.KeyLight(out var colour, out var intensity);
@@ -290,7 +503,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         bool Prepare()
         {
-            if (m_Utility != null && m_Material != null)
+            if (m_Utility != null && m_Material != null && m_Card != null && m_Stem != null)
                 return true;
 
             var shader = Shader.Find(LitShader);
@@ -313,6 +526,20 @@ namespace HiddenBull.UrpStyle.Editor
             m_Material.EnableKeyword("_HB_MASK_MAP");
             m_Material.EnableKeyword("_HB_SPECULAR");
             m_Material.DisableKeyword("_HB_BRUSH");
+
+            m_Card = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            m_Card.SetFloat("_BaseMapEnabled", 1f);
+            m_Card.SetFloat("_AlphaClipEnabled", 1f);
+            m_Card.SetFloat("_Cutoff", 0.5f);
+            m_Card.SetFloat("_Cull", 2f);
+            m_Card.SetFloat("_Smoothness", 0.2f);
+            m_Card.SetFloat("_BrushEnabled", 0f);
+            m_Card.SetFloat("_ReceiveWeather", 0f);
+            m_Card.EnableKeyword("_HB_BASE_MAP");
+            m_Card.EnableKeyword("_ALPHATEST_ON");
+            m_Card.DisableKeyword("_HB_BRUSH");
+            m_Stem = new Material(m_Card) { hideFlags = HideFlags.HideAndDontSave };
+            m_Stem.SetTexture(s_BaseMap, Texture2D.whiteTexture);
 
             m_Sphere = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
             m_Plane = Resources.GetBuiltinResource<Mesh>("New-Plane.fbx");
@@ -348,6 +575,23 @@ namespace HiddenBull.UrpStyle.Editor
                 Object.DestroyImmediate(m_Material);
 
             m_Material = null;
+
+            if (m_Card != null)
+                Object.DestroyImmediate(m_Card);
+
+            if (m_Stem != null)
+                Object.DestroyImmediate(m_Stem);
+
+            if (m_Cross != null)
+                Object.DestroyImmediate(m_Cross);
+
+            if (m_Quad != null)
+                Object.DestroyImmediate(m_Quad);
+
+            m_Card = null;
+            m_Stem = null;
+            m_Quad = null;
+            m_Cross = null;
         }
     }
 }
