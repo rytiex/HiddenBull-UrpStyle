@@ -1,0 +1,225 @@
+#pragma kernel Tiles
+#pragma kernel Derive
+#pragma kernel Compose
+#pragma kernel Show
+#pragma kernel Encode
+
+#define PI          3.14159265
+#define AO_RINGS    4
+#define AO_TAPS     8
+#define CURVE_GAIN  0.5
+#define AO_GAIN     2.0
+
+RWTexture2D<float> _Height;
+RWTexture2D<float4> _Colour;
+RWTexture2D<float4> _Detail;
+RWTexture2D<float4> _NormalPreview;
+RWTexture2D<float4> _NormalExport;
+RWTexture2D<float4> _Albedo;
+RWTexture2D<float4> _Mask;
+RWTexture2D<float4> _Display;
+RWTexture2D<float4> _Encoded;
+
+Texture2D<float> _HeightIn;
+Texture2D<float4> _ColourIn;
+Texture2D<float4> _DetailIn;
+Texture2D<float4> _NormalIn;
+Texture2D<float4> _AlbedoIn;
+Texture2D<float4> _MaskIn;
+
+float4 _Size;
+float4 _Pattern;
+float4 _PatternMore;
+float4 _Tint;
+float4 _GapTint;
+float4 _Surface;
+float4 _Light;
+int _ShowMode;
+
+#define HB_SIZE        ((int)_Size.x)
+#define HB_DEPTH       _Surface.x
+#define HB_SMOOTHNESS  _Surface.y
+#define HB_GAP_SMOOTH  _Surface.z
+#define HB_METALLIC    _Surface.w
+#define HB_EDGE_LIGHT  _Light.x
+#define HB_CAVITY_DARK _Light.y
+#define HB_AO_BAKE     _Light.z
+#define HB_LIGHT_WIDTH _Light.w
+
+uint HB_Hash(uint2 cell, uint seed)
+{
+    uint value = cell.x * 73856093u ^ cell.y * 19349663u ^ seed * 83492791u;
+
+    value ^= value >> 13;
+    value *= 0x5bd1e995u;
+    value ^= value >> 15;
+
+    return value;
+}
+
+float HB_Random(uint2 cell, uint seed)
+{
+    return (HB_Hash(cell, seed) & 0xFFFFu) / 65535.0;
+}
+
+int2 HB_Wrap(int2 texel)
+{
+    int size = HB_SIZE;
+
+    return (int2)((uint2)(texel + size * 4) % (uint)size);
+}
+
+float HB_HeightAt(int2 texel)
+{
+    return _HeightIn[HB_Wrap(texel)];
+}
+
+[numthreads(8, 8, 1)]
+void Tiles(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    float count = _Pattern.x;
+    float gap = _Pattern.y * 0.5;
+    float bevel = max(_Pattern.z, 1e-3);
+    float variation = _Pattern.w;
+    uint seed = (uint)_PatternMore.x;
+
+    float2 spot = (id.xy + 0.5) * _Size.y * count;
+    uint2 cell = (uint2)floor(spot) % (uint)count;
+    float2 inside = 0.5 - abs(frac(spot) - 0.5);
+    float edge = min(inside.x, inside.y) - gap;
+
+    float rise = 1.0 - variation * HB_Random(cell, seed);
+    float shape = saturate(edge / bevel);
+    float height = edge > 0.0 ? sin(shape * PI * 0.5) * rise : 0.0;
+
+    float tone = 1.0 + _PatternMore.y * (HB_Random(cell, seed + 1u) - 0.5) * 2.0;
+    float3 tile = saturate(_Tint.rgb * tone);
+
+    _Height[id.xy] = height;
+    _Colour[id.xy] = edge > 0.0 ? float4(tile, 1.0) : float4(_GapTint.rgb, 0.0);
+}
+
+float HB_Ring(int2 texel, float radius)
+{
+    float sum = 0.0;
+
+    [unroll]
+    for (int tap = 0; tap < AO_TAPS; tap++)
+    {
+        float angle = tap * (2.0 * PI / AO_TAPS);
+        int2 offset = (int2)round(float2(cos(angle), sin(angle)) * radius);
+
+        sum += HB_HeightAt(texel + offset);
+    }
+
+    return sum / AO_TAPS;
+}
+
+[numthreads(8, 8, 1)]
+void Derive(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    int2 texel = (int2)id.xy;
+    float size = _Size.x;
+    float scale = size / 256.0;
+    float height = HB_HeightAt(texel);
+
+    float left = HB_HeightAt(texel + int2(-1, 0));
+    float right = HB_HeightAt(texel + int2(1, 0));
+    float down = HB_HeightAt(texel + int2(0, -1));
+    float up = HB_HeightAt(texel + int2(0, 1));
+
+    float slope = HB_DEPTH * size * 0.5;
+    float3 normal = normalize(float3((left - right) * slope, (down - up) * slope, 1.0));
+
+    float reach = max(HB_LIGHT_WIDTH * scale, 1.0);
+    float around = HB_Ring(texel, reach);
+    float curve = (around - height) * HB_DEPTH * size / reach * CURVE_GAIN;
+    float edge = saturate(-curve);
+    float cavity = saturate(curve);
+
+    float occlusion = 0.0;
+    float radius = 2.0 * scale;
+
+    [unroll]
+    for (int ring = 0; ring < AO_RINGS; ring++)
+    {
+        occlusion += saturate((HB_Ring(texel, radius) - height) * HB_DEPTH * size / radius);
+        radius *= 2.0;
+    }
+
+    float ao = saturate(1.0 - occlusion / AO_RINGS * AO_GAIN);
+
+    _Detail[id.xy] = float4(edge, cavity, ao, 0.0);
+    _NormalPreview[id.xy] = float4(1.0, normal.y * 0.5 + 0.5, normal.z * 0.5 + 0.5, normal.x * 0.5 + 0.5);
+    _NormalExport[id.xy] = float4(normal * 0.5 + 0.5, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Compose(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    float4 colour = _ColourIn[id.xy];
+    float4 detail = _DetailIn[id.xy];
+    float height = _HeightIn[id.xy];
+
+    float light = 1.0 + detail.x * HB_EDGE_LIGHT - detail.y * HB_CAVITY_DARK;
+    float3 albedo = saturate(colour.rgb * light * lerp(1.0, detail.z, HB_AO_BAKE));
+    float smoothness = lerp(HB_GAP_SMOOTH, HB_SMOOTHNESS, colour.a);
+
+    _Albedo[id.xy] = float4(albedo, 1.0);
+    _Mask[id.xy] = float4(HB_METALLIC * colour.a, detail.z, height, smoothness);
+}
+
+float3 HB_ToDisplay(float3 value)
+{
+    return pow(saturate(value), 2.2);
+}
+
+[numthreads(8, 8, 1)]
+void Show(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    float4 detail = _DetailIn[id.xy];
+    float3 colour;
+
+    if (_ShowMode == 0)
+        colour = _AlbedoIn[id.xy].rgb;
+    else if (_ShowMode == 1)
+        colour = HB_ToDisplay(_NormalIn[id.xy].rgb);
+    else if (_ShowMode == 2)
+        colour = HB_ToDisplay(_MaskIn[id.xy].rgb);
+    else if (_ShowMode == 3)
+        colour = HB_ToDisplay(_HeightIn[id.xy].xxx);
+    else if (_ShowMode == 4)
+        colour = HB_ToDisplay(detail.zzz);
+    else
+        colour = HB_ToDisplay(0.5 + (detail.x - detail.y) * 0.5).xxx;
+
+    _Display[id.xy] = float4(colour, 1.0);
+}
+
+float3 HB_LinearToSrgb(float3 value)
+{
+    value = saturate(value);
+
+    return value <= 0.0031308 ? value * 12.92 : 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+}
+
+[numthreads(8, 8, 1)]
+void Encode(uint3 id : SV_DispatchThreadID)
+{
+    if (any((int2)id.xy >= HB_SIZE))
+        return;
+
+    _Encoded[id.xy] = float4(HB_LinearToSrgb(_AlbedoIn[id.xy].rgb), 1.0);
+}

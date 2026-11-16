@@ -18,6 +18,7 @@ namespace HiddenBull.UrpStyle
         readonly ConstantBuffer<StyleFrameGlobals> m_Buffer = new ConstantBuffer<StyleFrameGlobals>();
         readonly StyleEnvironmentMixer m_Mixer = new StyleEnvironmentMixer();
         readonly StyleProfileMix m_SharedMix = new StyleProfileMix();
+        readonly StyleProfileMix m_PreviewMix = new StyleProfileMix();
         readonly StyleSkyLut m_SharedMixLut = new StyleSkyLut();
 
         HBStyleQualityProfile m_Quality;
@@ -66,13 +67,25 @@ namespace HiddenBull.UrpStyle
 
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
             var state = CameraState(cameraData);
-            var mix = state != null ? state.mix : m_SharedMix;
+            var preview = kind == StyleCameraKind.Isolated ? StylePreviewEnvironment.Find(cameraData.camera) : null;
+            var mix = state != null ? state.mix : preview != null ? m_PreviewMix : m_SharedMix;
             var mixLut = state != null ? state.mixLut : m_SharedMixLut;
+            StyleMixResult resolved;
 
-            mix.Evaluate(state != null ? state.camera.transform.position : (Vector3?)null);
-            m_Mixer.Prune();
+            if (preview != null)
+                StyleEnvironment.BeginPreview(preview);
 
-            var resolved = m_Mixer.Resolve(mix, mixLut, m_Quality, cascades);
+            try
+            {
+                mix.Evaluate(state != null ? state.camera.transform.position : (Vector3?)null);
+                m_Mixer.Prune();
+
+                resolved = m_Mixer.Resolve(mix, mixLut, m_Quality, cascades);
+            }
+            finally
+            {
+                StyleEnvironment.EndPreview();
+            }
 
             using var builder = renderGraph.AddUnsafePass<PassData>(passName, out var passData, profilingSampler);
 

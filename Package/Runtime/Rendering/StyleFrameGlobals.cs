@@ -64,8 +64,9 @@ namespace HiddenBull.UrpStyle
             var sky = profile.sky;
             var elevation = StyleKeyLight.SunElevation(timeOfDay);
             var controller = StyleEnvironment.controller;
-            var sunDirection = controller != null
-                ? controller.sunDirection
+            var preview = StyleEnvironment.preview;
+            var sunDirection = preview != null ? preview.sunDirection
+                : controller != null ? controller.sunDirection
                 : -(Quaternion.Euler(HBStyleEnvironmentController.SunAngle(timeOfDay), 0f, 0f) * Vector3.forward);
 
             var blend = StyleKeyLight.DayBlend(sky, elevation);
@@ -190,18 +191,28 @@ namespace HiddenBull.UrpStyle
         static void PackWeather(HBStyleWeatherSettings weather, HBStyleWeatherQuality quality,
                                 ref StyleFrameGlobals globals)
         {
-            StyleWeatherState.Advance();
-
             var falling = StyleEnvironment.weather;
             var heading = StyleEnvironment.windHeading * Mathf.Deg2Rad;
             var rainColor = StyleKeyLight.Linear(weather.rainColor);
 
             globals._HB_Weather = new Vector4(falling.x, falling.y, falling.z, heading);
-            globals._HB_WeatherSurface = new Vector4(StyleWeatherState.wetness, StyleWeatherState.snow,
-                                                     StyleWeatherState.rain, (float)StyleWeatherState.fallClock);
-            globals._HB_WeatherClocks = new Vector4((float)StyleWeatherState.rainClock,
-                                                   (float)StyleWeatherState.snowClock, 0f,
-                                                   weather.shoreDarkening);
+
+            if (StyleEnvironment.preview != null)
+            {
+                globals._HB_WeatherSurface = Vector4.zero;
+                globals._HB_WeatherClocks = new Vector4(0f, 0f, 0f, weather.shoreDarkening);
+            }
+            else
+            {
+                StyleWeatherState.Advance();
+
+                globals._HB_WeatherSurface = new Vector4(StyleWeatherState.wetness, StyleWeatherState.snow,
+                                                         StyleWeatherState.rain, (float)StyleWeatherState.fallClock);
+                globals._HB_WeatherClocks = new Vector4((float)StyleWeatherState.rainClock,
+                                                       (float)StyleWeatherState.snowClock, 0f,
+                                                       weather.shoreDarkening);
+            }
+
             globals._HB_WeatherLook = new Vector4(rainColor.r, rainColor.g, rainColor.b,
                                                   quality.current.detailDistance);
             globals._HB_Precipitation = new Vector4(weather.rainOpacity, weather.rainWidth, weather.snowSize,

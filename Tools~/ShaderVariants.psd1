@@ -1693,5 +1693,55 @@
             Slots = 0
             Reads = 0
         }
+        @{
+            Name = 'Texture Studio Material Tiles'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Tiles'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Derive'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Derive'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Compose'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Compose'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Show'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Encode'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Encode'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
     )
 }

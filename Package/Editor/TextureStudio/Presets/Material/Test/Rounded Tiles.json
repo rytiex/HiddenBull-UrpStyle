@@ -1,0 +1,31 @@
+{
+    "recipe": 0,
+    "tiles": 4,
+    "gap": 0.04,
+    "bevel": 0.12,
+    "heightVariation": 0.3,
+    "seed": 1,
+    "colour": {
+        "r": 0.62,
+        "g": 0.58,
+        "b": 0.52,
+        "a": 1.0
+    },
+    "gapColour": {
+        "r": 0.22,
+        "g": 0.2,
+        "b": 0.18,
+        "a": 1.0
+    },
+    "variation": 0.15,
+    "depth": 0.02,
+    "smoothness": 0.35,
+    "gapSmoothness": 0.1,
+    "metallic": 0.0,
+    "edgeHighlight": 0.5,
+    "cavityShade": 0.5,
+    "occlusion": 0.5,
+    "lightWidth": 2.0,
+    "resolution": 1024,
+    "name": "Rounded Tiles"
+}
