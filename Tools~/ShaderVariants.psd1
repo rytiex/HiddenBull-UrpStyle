@@ -42,8 +42,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 500
-            Reads = 9
+            Slots = 700
+            Reads = 15
         }
         @{
             Name = 'Lit Forward (brush)'
@@ -64,7 +64,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2730
+            Slots = 2735
             Reads = 60
         }
         @{
@@ -77,7 +77,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2730
+            Slots = 2735
             Reads = 60
         }
         @{
@@ -89,7 +89,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2730
+            Slots = 2735
             Reads = 60
         }
         @{
@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2730
+            Slots = 2735
             Reads = 60
         }
         @{
@@ -500,6 +500,26 @@
             Reads = 0
         }
         @{
+            Name = 'Decal DBuffer'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Decal/DecalPass.hlsl'
+            Entry = 'HB_DecalFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_DBUFFER_MRT3', '_DECAL_LAYERS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Decal vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Decal/DecalPass.hlsl'
+            Entry = 'HB_DecalVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('_DBUFFER_MRT3')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Cavity fullscreen (debug)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Cavity/CavityPass.hlsl'
             Entry = 'HB_CavityDebugFragment'
@@ -709,7 +729,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2500
+            Slots = 2525
             Reads = 60
         }
         @{
@@ -760,7 +780,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2500
+            Slots = 2525
             Reads = 60
         }
         @{
@@ -1162,7 +1182,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4750
+            Slots = 4815
             Reads = 200
         }
         @{

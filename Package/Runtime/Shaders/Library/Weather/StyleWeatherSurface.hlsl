@@ -6,6 +6,10 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherNoise.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleTones.hlsl"
 
+#if defined(_DBUFFER_MRT1) || defined(_DBUFFER_MRT2) || defined(_DBUFFER_MRT3)
+    #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
+#endif
+
 #define HB_WEATHER_CONTRAST     2.0h
 #define HB_BODY_TRACKED         0x80000000u
 #define HB_BODY_SLOT            0x7FFFFFFFu
@@ -571,6 +575,15 @@ half3 HB_RainRipples(float3 positionWS, half3 normalWS, HBWeather weather)
     return any(bend != 0.0h) ? SafeNormalize(normalWS + bend) : normalWS;
 }
 
+half3 HB_WetAlbedo(half3 albedo, HBWeather weather, bool ground)
+{
+    if (ground)
+        return albedo * (1.0h - HB_GROUND_WET_DARKEN * weather.wet - HB_GROUND_SHORE_DARKEN * weather.shore);
+
+    return PositivePow(max(albedo, 0.0h), 1.0h + weather.wet)
+         * (1.0h - HB_WET_DARKEN * weather.wet) * (1.0h - HB_FLOW_DARKEN * weather.flow);
+}
+
 void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS, bool ground, half shine)
 {
     UNITY_BRANCH
@@ -582,11 +595,7 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         half flat = saturate(normalWS.y);
         half gloss = max(surfaceData.smoothness, lerp(HB_WET_WALL_SMOOTHNESS, HB_WET_FLAT_SMOOTHNESS, flat));
 
-        if (ground)
-            surfaceData.albedo *= 1.0h - HB_GROUND_WET_DARKEN * wet - HB_GROUND_SHORE_DARKEN * weather.shore;
-        else
-            surfaceData.albedo = PositivePow(max(surfaceData.albedo, 0.0h), 1.0h + wet)
-                               * (1.0h - HB_WET_DARKEN * wet) * (1.0h - HB_FLOW_DARKEN * flow);
+        surfaceData.albedo = HB_WetAlbedo(surfaceData.albedo, weather, ground);
         shine *= weather.gloss;
         surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet * shine);
         surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow * shine);
@@ -597,6 +606,22 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         surfaceData.emission *= 1.0h - snow;
     }
 }
+
+#if defined(_DBUFFER)
+void HB_ApplyDecalOverWeather(float4 positionCS, HBWeather weather, bool ground, inout SurfaceData surfaceData,
+                              inout InputData inputData)
+{
+    half3 albedo = surfaceData.albedo;
+
+    ApplyDecalToSurfaceData(positionCS, surfaceData, inputData);
+
+    half4 decal = half4(LOAD_TEXTURE2D_X(_DBufferTexture0, uint2(positionCS.xy)));
+    half darken = ground ? 1.0h - HB_GROUND_WET_DARKEN * weather.wet - HB_GROUND_SHORE_DARKEN * weather.shore
+                         : (1.0h - HB_WET_DARKEN * weather.wet) * (1.0h - HB_FLOW_DARKEN * weather.flow);
+
+    surfaceData.albedo = albedo * decal.a + decal.rgb * darken;
+}
+#endif
 
 void HB_SoftenBrushUnderSnow(half snow, inout HBStyleData style)
 {

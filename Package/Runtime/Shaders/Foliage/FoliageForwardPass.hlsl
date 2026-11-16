@@ -2,6 +2,7 @@
 #define HB_FOLIAGE_FORWARD_PASS_INCLUDED
 
 #define HB_WEATHER
+#define HB_DECAL_SURFACE
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageInput.hlsl"
@@ -217,10 +218,6 @@ half4 HB_PlantColour(Varyings input, bool frontFace)
     HB_InitializeInputData(input, normalWS, GetWorldSpaceNormalizeViewDir(input.positionWS),
                            surfaceData.normalTS, inputData);
 
-#if defined(_DBUFFER)
-    ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
-#endif
-
     HB_InitializeBakedGI(input, lightmapShift, inputData);
 
 #ifdef HB_PLANT_BODY
@@ -235,6 +232,11 @@ half4 HB_PlantColour(Varyings input, bool frontFace)
                                                  half(_SnowCover), false, 1.0h);
 
     HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
+
+#if defined(_DBUFFER)
+    HB_ApplyDecalOverWeather(input.positionCS, weather, false, surfaceData, inputData);
+#endif
+
     inputData.normalWS = HB_RainRipples(restWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 

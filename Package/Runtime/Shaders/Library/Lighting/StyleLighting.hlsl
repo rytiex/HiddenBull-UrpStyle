@@ -7,10 +7,10 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Brush/StyleBrush.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Shadow/StyleShadow.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Sky/StyleSky.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleEnvironmentSky.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleScreenReflection.hlsl"
 
 #define HB_SELF_SHADOW_FADE     0.05h
-#define HB_REFLECTION_HORIZON   0.04h
 #define HB_SPECULAR_SHEEN       0.15h
 #define HB_SPECULAR_CORE        0.5h
 #define HB_SPECULAR_SHEEN_LEVEL 0.3h
@@ -18,8 +18,18 @@
 #define HB_SPECULAR_BRUSH       1.0h
 #define HB_WET_FILM_SMOOTHNESS  0.85h
 
-TEXTURE2D(_HB_SkyMap);
-float4 _HB_SkyMapSet;
+#if defined(HB_DECAL_SURFACE) && defined(_DBUFFER) && defined(_DBUFFER_MRT3)
+#define HB_DECAL_SHEEN
+
+half3 HB_DecalSurface(float2 screenUV)
+{
+    half4 maos = half4(LOAD_TEXTURE2D_X(_DBufferTexture2, uint2(screenUV * _ScreenSize.xy)));
+    half share = 1.0h - maos.w;
+    half inverse = rcp(max(share, half(HB_EPSILON)));
+
+    return half3(maos.x * inverse, maos.z * inverse, share);
+}
+#endif
 
 half3 HB_LightResponse(Light light, half3 normalWS, half3 surfaceNormalWS, HBStyleData style, half terminatorOffset)
 {
@@ -142,31 +152,6 @@ half3 HB_ProbeReflection(half3 reflectVector, float3 positionWS, half mip, float
     return irradiance;
 }
 
-half3 HB_SkyMapSample(half3 direction, half perceptualRoughness)
-{
-    float2 uv = PackNormalOctQuadEncode(normalize(float3(direction.xzy))) * 0.5 + 0.5;
-
-    return SAMPLE_TEXTURE2D_LOD(_HB_SkyMap, sampler_LinearClamp, uv,
-                                PerceptualRoughnessToMipmapLevel(perceptualRoughness)).rgb;
-}
-
-half3 HB_EnvironmentSky(half3 reflectVector, half3 normalWS, half perceptualRoughness)
-{
-    half roughness = perceptualRoughness * perceptualRoughness;
-    half3 skyDirection = normalize(lerp(reflectVector, normalWS, roughness));
-
-    half horizon = smoothstep(-HB_REFLECTION_HORIZON, HB_REFLECTION_HORIZON, skyDirection.y);
-    half3 sky;
-
-    UNITY_BRANCH
-    if (_HB_SkyMapSet.x > 0.5)
-        sky = HB_SkyMapSample(skyDirection, perceptualRoughness);
-    else
-        sky = HB_SkySample(skyDirection, max(skyDirection.y, 0.0h));
-
-    return lerp(HB_GradientAmbient(skyDirection), sky, horizon);
-}
-
 half3 HB_EnvironmentReflection(half3 reflectVector, half3 normalWS, float3 positionWS, half perceptualRoughness,
                                float2 screenUV, half skyVisibility)
 {
@@ -225,7 +210,7 @@ half3 HB_LightContribution(Light light, half3 toneNormal, half3 surfaceNormal, H
 #if defined(_HB_SPECULAR)
     colour += radiance * HB_DirectSpecular(brdfData, inputData.normalWS, light.direction, inputData.viewDirectionWS,
                                            style.diffuseSoftness, terminatorOffset) * gloss;
-#elif defined(HB_WEATHER)
+#elif defined(HB_WEATHER) || defined(HB_DECAL_SHEEN)
     UNITY_BRANCH
     if (wet > 0.0h)
     {
@@ -336,28 +321,45 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     half3 diffuse = brdfData.diffuse;
 #else
     BRDFData brdfData = (BRDFData)0;
+    SurfaceData film = surfaceData;
+    film.albedo = half3(0.0h, 0.0h, 0.0h);
+    film.metallic = 0.0h;
+    film.smoothness = HB_WET_FILM_SMOOTHNESS;
+    film.alpha = 1.0h;
+
+    #ifdef HB_DECAL_SHEEN
+    half3 decal = HB_DecalSurface(inputData.normalizedScreenSpaceUV);
+
+    UNITY_BRANCH
+    if (decal.z > wet)
+    {
+        film.albedo = surfaceData.albedo;
+        film.metallic = decal.x;
+        film.smoothness = decal.y;
+        surfaceData.albedo *= lerp(1.0h, OneMinusReflectivityMetallic(decal.x), decal.z);
+        wet = decal.z;
+    }
+    #endif
+
     half3 colour = ambient * surfaceData.albedo;
     half3 diffuse = surfaceData.albedo;
 
-    #ifdef HB_WEATHER
+    #if defined(HB_WEATHER) || defined(HB_DECAL_SHEEN)
     UNITY_BRANCH
     if (wet > 0.0h)
     {
-        SurfaceData film = surfaceData;
-        film.albedo = half3(0.0h, 0.0h, 0.0h);
-        film.metallic = 0.0h;
-        film.smoothness = HB_WET_FILM_SMOOTHNESS;
-        film.alpha = 1.0h;
-
         InitializeBRDFData(film, brdfData);
 
         half3 reflectVector = reflect(-inputData.viewDirectionWS, inputData.normalWS);
         half3 environment = HB_EnvironmentReflection(reflectVector, inputData.normalWS, inputData.positionWS,
                                                      brdfData.perceptualRoughness,
                                                      inputData.normalizedScreenSpaceUV, lightReach);
+        #ifdef HB_WEATHER
         half4 screen = HB_ScreenReflect(inputData.positionWS, reflectVector, brdfData.perceptualRoughness);
 
-        environment = lerp(environment, screen.rgb, screen.a) * occlusion;
+        environment = lerp(environment, screen.rgb, screen.a);
+        #endif
+        environment *= occlusion;
         half gloss = 1.0h - brdfData.perceptualRoughness;
         half fresnelTerm = Pow4(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS))) * (gloss * gloss);
 

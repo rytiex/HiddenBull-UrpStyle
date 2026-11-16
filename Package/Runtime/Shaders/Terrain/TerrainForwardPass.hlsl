@@ -2,6 +2,7 @@
 #define HB_TERRAIN_FORWARD_PASS_INCLUDED
 
 #define HB_WEATHER
+#define HB_DECAL_SURFACE
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"
@@ -231,6 +232,13 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
                                                  true, groundHeight);
 
     HB_ApplyWeather(weather, surfaceData, normalWS, true, wetGloss);
+
+#if defined(_DBUFFER)
+    InputData decalInput = (InputData)0;
+    decalInput.normalWS = normalWS;
+    HB_ApplyDecalOverWeather(input.positionCS, weather, true, surfaceData, decalInput);
+    normalWS = decalInput.normalWS;
+#endif
 
     UNITY_BRANCH
     if (weather.snow > 0.0h)

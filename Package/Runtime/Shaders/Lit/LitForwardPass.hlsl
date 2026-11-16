@@ -7,6 +7,7 @@
 
 #ifndef HB_TRANSPARENT
     #define HB_OVERLAY_SHADOW
+    #define HB_DECAL_SURFACE
 #endif
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitSurface.hlsl"
@@ -221,7 +222,7 @@ half4 HB_LitColour(Varyings input, bool frontFace)
     inputData.normalWS = NormalizeNormalPerPixel(mappedNormalWS);
 #endif
 
-#if defined(_DBUFFER)
+#if defined(_DBUFFER) && !defined(HB_WEATHER)
     ApplyDecalToSurfaceData(input.positionCS, surfaceData, inputData);
 #endif
 
@@ -236,6 +237,11 @@ half4 HB_LitColour(Varyings input, bool frontFace)
                                           brush.coverage, surface.anchorOS, HB_LitWeatherMaterial());
 
     HB_ApplyWeather(weather, surfaceData, inputData.normalWS, false, 1.0h);
+
+    #if defined(_DBUFFER)
+    HB_ApplyDecalOverWeather(input.positionCS, weather, false, surfaceData, inputData);
+    #endif
+
     inputData.normalWS = HB_RainRipples(inputData.positionWS, inputData.normalWS, weather);
     HB_SoftenBrushUnderSnow(weather.snow, style);
 

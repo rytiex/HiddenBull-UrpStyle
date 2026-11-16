@@ -8,6 +8,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleAmbient.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Sky/StyleSky.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleEnvironmentSky.hlsl"
 #endif
 
 StructuredBuffer<uint3> _HB_GrassBlades;
@@ -51,10 +52,7 @@ float _HB_ShelterPass;
 #define HB_GRASS_TOP_LIGHT    1.25h
 #define HB_GRASS_ROOT_BLEND   0.4h
 #define HB_GRASS_CALM_RINGS   8.0
-#define HB_GRASS_FILM_SPEC    0.04h
-#define HB_GRASS_FILM_GRAZE   0.89h
-#define HB_GRASS_FILM_GLOSS   0.7225h
-#define HB_GRASS_FILM_HORIZON 0.04h
+#define HB_GRASS_FILM_SMOOTHNESS 0.85h
 #define HB_GRASS_IDLE         0.02
 #define HB_GRASS_LEAN_QUICK   0.06
 #define HB_GRASS_SWEEP        0.5h
@@ -472,10 +470,17 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
 #endif
 
     half snow = half(input.weather.y);
+    half wetDarken = 1.0h - HB_GRASS_WET_DARKEN * half(input.weather.x);
 
-    albedo *= 1.0h - HB_GRASS_WET_DARKEN * half(input.weather.x);
+    albedo *= wetDarken;
     albedo = lerp(albedo, HB_GRASS_SNOW_COLOUR * (1.0h - half(input.gust.x) * HB_SNOW_PRESS_DARK),
                   saturate(snow * (HB_GRASS_SNOW_ROOT - HB_GRASS_SNOW_TIP * height)));
+
+#if defined(_DBUFFER)
+    half4 decal = half4(LOAD_TEXTURE2D_X(_DBufferTexture0, uint2(input.positionCS.xy)));
+
+    albedo = albedo * decal.a + decal.rgb * wetDarken;
+#endif
 
     half3 normalWS = half3(normalize(input.normalWS));
 
@@ -497,19 +502,40 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
 #endif
     half3 ambient = HB_ResolveAmbient(normalWS, baked, 0.0h, 0.0h, 0.0h, reach);
     half3 colour = albedo * (direct + ambient);
-    half wet = half(input.weather.x);
+    half sheen = half(input.weather.x) * half(_HB_LayerWetGloss[input.data.x]);
+    half smoothness = HB_GRASS_FILM_SMOOTHNESS;
+    half metallic = 0.0h;
+
+#if defined(_DBUFFER) && defined(_DBUFFER_MRT3)
+    half4 maos = half4(LOAD_TEXTURE2D_X(_DBufferTexture2, uint2(input.positionCS.xy)));
+    half share = 1.0h - maos.w;
+    half inverse = rcp(max(share, half(HB_EPSILON)));
 
     UNITY_BRANCH
-    if (wet > 0.0h)
+    if (share > sheen)
     {
-        half3 viewDirectionWS = half3(GetWorldSpaceNormalizeViewDir(input.positionWS));
-        half3 mirror = reflect(-viewDirectionWS, normalWS);
-        half fresnel = Pow4(1.0h - saturate(dot(normalWS, viewDirectionWS))) * HB_GRASS_FILM_GLOSS;
-        half horizon = smoothstep(-HB_GRASS_FILM_HORIZON, HB_GRASS_FILM_HORIZON, mirror.y);
-        half3 sky = lerp(HB_GradientAmbient(mirror), HB_SkySample(mirror, max(mirror.y, 0.0h)), horizon);
+        metallic = maos.x * inverse;
+        smoothness = maos.z * inverse;
+        colour *= lerp(1.0h, OneMinusReflectivityMetallic(metallic), share);
+        sheen = share;
+    }
+#endif
 
-        colour += sky * lerp(HB_GRASS_FILM_SPEC, HB_GRASS_FILM_GRAZE, fresnel) * wet
-                * half(_HB_LayerWetGloss[input.data.x]);
+    UNITY_BRANCH
+    if (sheen > 0.0h)
+    {
+        half3 groundUp = half3(0.0h, 1.0h, 0.0h);
+        half3 viewDirectionWS = half3(GetWorldSpaceNormalizeViewDir(input.positionWS));
+        half3 mirror = reflect(-viewDirectionWS, groundUp);
+        half perceptualRoughness = 1.0h - smoothness;
+        half roughness = max(perceptualRoughness * perceptualRoughness, half(HALF_MIN_SQRT));
+        half3 specular = lerp(half3(kDielectricSpec.rgb), albedo, metallic);
+        half grazing = saturate(smoothness + 1.0h - OneMinusReflectivityMetallic(metallic));
+        half fresnel = Pow4(1.0h - saturate(viewDirectionWS.y)) * (smoothness * smoothness);
+        half3 sky = HB_EnvironmentSky(mirror, groundUp, perceptualRoughness) * reach;
+
+        colour += sky * lerp(specular, half3(grazing, grazing, grazing), fresnel)
+                * (rcp(roughness * roughness + 1.0h) * sheen);
     }
 
 #if defined(HB_STYLE_DEBUG)
