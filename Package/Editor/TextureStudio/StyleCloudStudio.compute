@@ -1,0 +1,404 @@
+#pragma kernel Density
+#pragma kernel Gather
+#pragma kernel Shape
+#pragma kernel BlurX
+#pragma kernel BlurY
+#pragma kernel Pack
+#pragma kernel Paint
+#pragma kernel Show
+
+#define HB_CLOUD_PARTIALS 256
+
+RWTexture2D<float> _Density;
+RWTexture2D<float> _Blurred;
+RWTexture2D<float> _Height;
+RWTexture2D<float4> _Packed;
+RWTexture2D<float4> _Atlas;
+RWTexture2D<float4> _Display;
+Texture2D<float4> _Brush;
+Texture2D<float> _BlurSource;
+Texture2D<float4> _PackedIn;
+Texture2D<float4> _AtlasIn;
+RWStructuredBuffer<float4> _Partials;
+RWStructuredBuffer<float4> _Stats;
+
+float4 _Size;
+float4 _Shape;
+float4 _Erode;
+float4 _Warp;
+float4 _Relief;
+float4 _Show;
+int _Seed;
+int _Slot;
+
+groupshared float3 s_Reduce[HB_CLOUD_PARTIALS];
+
+float HB_CloudHash(int x, int y, int seed)
+{
+    int h = x * 374761393 + y * 668265263 + seed * 1274126177;
+
+    h = (h ^ (h >> 13)) * 1274126177;
+    h ^= h >> 16;
+    return float(h & 0x7fffffff) / 2147483647.0;
+}
+
+int HB_CloudWrap(int value, int size)
+{
+    return value - size * (int)floor(value / (float)size);
+}
+
+float HB_CloudFade(float t)
+{
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float HB_CloudValue(float x, float y, int periodX, int periodY, int seed)
+{
+    int xi = (int)floor(x);
+    int yi = (int)floor(y);
+    float u = HB_CloudFade(x - xi);
+    float v = HB_CloudFade(y - yi);
+    int x0 = HB_CloudWrap(xi, periodX);
+    int x1 = HB_CloudWrap(xi + 1, periodX);
+    int y0 = HB_CloudWrap(yi, periodY);
+    int y1 = HB_CloudWrap(yi + 1, periodY);
+    float bottom = lerp(HB_CloudHash(x0, y0, seed), HB_CloudHash(x1, y0, seed), u);
+    float top = lerp(HB_CloudHash(x0, y1, seed), HB_CloudHash(x1, y1, seed), u);
+
+    return lerp(bottom, top, v);
+}
+
+float HB_CloudFbm(float u, float v, int frequency, int stretch, int octaves, int seed)
+{
+    float sum = 0.0;
+    float amplitude = 1.0;
+    float total = 0.0;
+    int across = frequency;
+
+    [loop]
+    for (int i = 0; i < octaves; i++)
+    {
+        int along = across * stretch;
+
+        sum += HB_CloudValue(u * across, v * along, across, along, seed + i * 131) * amplitude;
+        total += amplitude;
+        amplitude *= 0.5;
+        across *= 2;
+    }
+
+    return sum / total;
+}
+
+float HB_CloudWorley(float u, float v, int cells, int seed)
+{
+    float x = u * cells;
+    float y = v * cells;
+    int xi = (int)floor(x);
+    int yi = (int)floor(y);
+    float nearest = 8.0;
+
+    [unroll]
+    for (int oy = -1; oy <= 1; oy++)
+    {
+        [unroll]
+        for (int ox = -1; ox <= 1; ox++)
+        {
+            int cx = xi + ox;
+            int cy = yi + oy;
+            int wx = HB_CloudWrap(cx, cells);
+            int wy = HB_CloudWrap(cy, cells);
+            float dx = cx + HB_CloudHash(wx, wy, seed) - x;
+            float dy = cy + HB_CloudHash(wx, wy, seed + 7919) - y;
+
+            nearest = min(nearest, dx * dx + dy * dy);
+        }
+    }
+
+    return saturate(sqrt(nearest));
+}
+
+float4 HB_CloudBrush(float u, float v)
+{
+    int size = (int)_Size.z;
+    float scale = _Warp.w;
+    int x = HB_CloudWrap((int)floor(u * scale * size), size);
+    int y = HB_CloudWrap((int)floor(v * scale * size), size);
+
+    return _Brush.Load(int3(x, y, 0));
+}
+
+float4 HB_CloudBilinear(float u, float v)
+{
+    int resolution = (int)_Size.x;
+    float x = u * resolution - 0.5;
+    float y = v * resolution - 0.5;
+    int x0 = (int)floor(x);
+    int y0 = (int)floor(y);
+    float fx = x - x0;
+    float fy = y - y0;
+    int left = HB_CloudWrap(x0, resolution);
+    int right = HB_CloudWrap(x0 + 1, resolution);
+    int bottom = HB_CloudWrap(y0, resolution);
+    int top = HB_CloudWrap(y0 + 1, resolution);
+    float4 low = lerp(_PackedIn[int2(left, bottom)], _PackedIn[int2(right, bottom)], fx);
+    float4 high = lerp(_PackedIn[int2(left, top)], _PackedIn[int2(right, top)], fx);
+
+    return lerp(low, high, fy);
+}
+
+float HB_CloudSmooth01(float t)
+{
+    t = saturate(t);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float HB_CloudWrappedDiffuse(float lit, float wrap, float softness)
+{
+    float w = saturate(wrap);
+    float inverse = 1.0 / (1.0 + w);
+    float d = saturate((lit + w) * inverse);
+    float terminator = w * inverse;
+    float halfBand = 0.5 * max(softness, 1e-4);
+    float e0 = max(terminator - halfBand, 0.0);
+    float e1 = max(min(terminator + halfBand, 1.0), e0 + 1e-4);
+
+    return HB_CloudSmooth01((d - e0) / (e1 - e0));
+}
+
+void HB_CloudReduce(uint index, float3 value, uint2 group)
+{
+    s_Reduce[index] = value;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_CLOUD_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+        _Partials[group.y * (uint)_Size.w + group.x] = float4(s_Reduce[0], 0.0);
+}
+
+[numthreads(16, 16, 1)]
+void Density(uint3 id : SV_DispatchThreadID, uint3 group : SV_GroupID, uint index : SV_GroupIndex)
+{
+    int resolution = (int)_Size.x;
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    if (all((int2)id.xy < resolution))
+    {
+        float u = (id.x + 0.5) * _Size.y;
+        float v = (id.y + 0.5) * _Size.y;
+        int puffScale = max((int)_Shape.x, 2);
+        int shapeScale = max((int)_Shape.z, 1);
+        int octaves = clamp((int)_Shape.w, 1, 6);
+        int erosionScale = max((int)_Erode.y, 2);
+        int stretch = max((int)_Erode.z, 1);
+        int warpScale = max((int)_Warp.y, 1);
+
+        if (_Warp.x > 0.0)
+        {
+            float bend = _Warp.x * 0.5;
+            float du = HB_CloudFbm(u, v, warpScale, 1, 2, _Seed + 7717) - 0.5;
+            float dv = HB_CloudFbm(u, v, warpScale, 1, 2, _Seed + 3313) - 0.5;
+
+            u += du * bend;
+            v += dv * bend;
+        }
+
+        float billow = 1.0 - HB_CloudWorley(u, v, puffScale, _Seed);
+        float drift = HB_CloudFbm(u, v, shapeScale, stretch, octaves, _Seed + 5501);
+        float value = lerp(drift, billow * drift * 2.0, _Shape.y);
+
+        if (_Erode.x > 0.0)
+            value -= HB_CloudFbm(u, v, erosionScale, stretch, 3, _Seed + 9173) * _Erode.x;
+
+        if (_Relief.w > 0.5 && _Warp.z > 0.0)
+            value += (HB_CloudBrush(u, v).b - 0.5) * _Warp.z;
+
+        _Density[id.xy] = value;
+        reduce = float3(0.0, value, value);
+    }
+
+    HB_CloudReduce(index, reduce, group.xy);
+}
+
+[numthreads(HB_CLOUD_PARTIALS, 1, 1)]
+void Gather(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
+{
+    uint partials = (uint)(_Size.w * _Size.w);
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    for (uint i = index; i < partials; i += HB_CLOUD_PARTIALS)
+    {
+        float3 other = _Partials[i].xyz;
+
+        reduce = float3(reduce.x + other.x, min(reduce.y, other.y), max(reduce.z, other.z));
+    }
+
+    s_Reduce[index] = reduce;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_CLOUD_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+        _Stats[_Slot] = float4(s_Reduce[0], 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void Shape(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    float4 range = _Stats[0];
+    float span = max(range.z - range.y, 1e-4);
+    float normalised = saturate((_Density[id.xy] - range.y) / span);
+    float power = max(0.25, _Erode.w);
+
+    _Density[id.xy] = normalised < 0.5
+        ? 0.5 * pow(2.0 * normalised, power)
+        : 1.0 - 0.5 * pow(max(2.0 * (1.0 - normalised), 0.0), power);
+}
+
+[numthreads(8, 8, 1)]
+void BlurX(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)_Size.x;
+
+    if (any((int2)id.xy >= resolution))
+        return;
+
+    int radius = (int)_Relief.y;
+    float sum = 0.0;
+
+    [loop]
+    for (int offset = -radius; offset <= radius; offset++)
+        sum += _BlurSource[int2(HB_CloudWrap((int)id.x + offset, resolution), id.y)];
+
+    _Blurred[id.xy] = sum / (radius * 2 + 1);
+}
+
+[numthreads(8, 8, 1)]
+void BlurY(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)_Size.x;
+
+    if (any((int2)id.xy >= resolution))
+        return;
+
+    int radius = (int)_Relief.y;
+    float sum = 0.0;
+
+    [loop]
+    for (int offset = -radius; offset <= radius; offset++)
+        sum += _BlurSource[int2(id.x, HB_CloudWrap((int)id.y + offset, resolution))];
+
+    _Height[id.xy] = sum / (radius * 2 + 1);
+}
+
+[numthreads(8, 8, 1)]
+void Pack(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)_Size.x;
+
+    if (any((int2)id.xy >= resolution))
+        return;
+
+    int x = (int)id.x;
+    int y = (int)id.y;
+    float left = _Height[int2(HB_CloudWrap(x - 1, resolution), y)];
+    float right = _Height[int2(HB_CloudWrap(x + 1, resolution), y)];
+    float down = _Height[int2(x, HB_CloudWrap(y - 1, resolution))];
+    float up = _Height[int2(x, HB_CloudWrap(y + 1, resolution))];
+    float gain = _Relief.x;
+    float nx = clamp((left - right) * gain, -1.0, 1.0);
+    float ny = clamp((down - up) * gain, -1.0, 1.0);
+
+    _Packed[id.xy] = float4(nx * 0.5 + 0.5, ny * 0.5 + 0.5, _Height[id.xy], _Density[id.xy]);
+}
+
+[numthreads(8, 8, 1)]
+void Paint(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    if (_Relief.w < 0.5 || _Relief.z <= 0.0)
+    {
+        _Atlas[id.xy] = _PackedIn[id.xy];
+        return;
+    }
+
+    float u = (id.x + 0.5) * _Size.y;
+    float v = (id.y + 0.5) * _Size.y;
+    float4 stroke = HB_CloudBrush(u, v);
+    float reach = _Relief.z;
+
+    _Atlas[id.xy] = HB_CloudBilinear(u + (stroke.r * 2.0 - 1.0) * reach, v + (stroke.g * 2.0 - 1.0) * reach);
+}
+
+[numthreads(16, 16, 1)]
+void Show(uint3 id : SV_DispatchThreadID, uint3 group : SV_GroupID, uint index : SV_GroupIndex)
+{
+    float3 reduce = float3(0.0, 0.0, 0.0);
+
+    if (all(float2(id.xy) < _Size.x))
+    {
+        float4 atlas = _AtlasIn[id.xy];
+        float coverage = _Show.y;
+        float soft = max(_Show.z * 0.5, 1e-4);
+        float threshold = (1.0 - coverage) - coverage * soft;
+        float alpha = HB_CloudSmooth01((atlas.a - (threshold - soft)) / (2.0 * soft));
+        int mode = (int)_Show.x;
+        float3 colour;
+
+        if (mode == 1)
+        {
+            colour = float3(atlas.rg, 0.5);
+        }
+        else if (mode == 2)
+        {
+            colour = atlas.bbb;
+        }
+        else if (mode == 3)
+        {
+            colour = atlas.aaa;
+        }
+        else
+        {
+            float3 sun = normalize(float3(0.62, 0.5, -0.6));
+            float3 relief = normalize(float3(atlas.r * 2.0 - 1.0, 0.6, atlas.g * 2.0 - 1.0));
+            float lit = HB_CloudWrappedDiffuse(dot(relief, sun), 0.5, 0.6);
+            float3 shade = lerp(float3(0.46, 0.44, 0.56), float3(1.0, 0.93, 0.84), lit);
+
+            colour = lerp(float3(0.36, 0.58, 0.7), shade, alpha);
+        }
+
+        _Display[id.xy] = float4(colour, 1.0);
+        reduce = float3(alpha, 0.0, 0.0);
+    }
+
+    HB_CloudReduce(index, reduce, group.xy);
+}

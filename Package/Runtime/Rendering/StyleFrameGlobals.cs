@@ -288,7 +288,12 @@ namespace HiddenBull.UrpStyle
         {
             var clouds = profile.clouds;
 
-            if (clouds.atlas == null)
+            var hasAtlas = clouds.atlas != null;
+#if UNITY_EDITOR
+            hasAtlas |= StyleEnvironment.preview != null && StyleEnvironment.preview.cloudAtlas != null;
+#endif
+
+            if (!hasAtlas)
                 return;
 
             var sky = profile.sky;

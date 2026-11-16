@@ -1843,5 +1843,145 @@
             Slots = 0
             Reads = 0
         }
+        @{
+            Name = 'Texture Studio Brush Clear'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Clear'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Brush Strokes'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Strokes'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Brush Grain'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Grain'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Brush Finish'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Finish'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Brush Encode'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Encode'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Brush Show'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleBrushStudio.compute'
+            Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Density'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Density'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Gather'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Gather'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Shape'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Shape'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud BlurX'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'BlurX'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud BlurY'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'BlurY'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Pack'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Pack'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Paint'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Paint'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Cloud Show'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
     )
 }

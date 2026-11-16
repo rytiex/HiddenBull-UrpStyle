@@ -1,0 +1,353 @@
+#pragma kernel Clear
+#pragma kernel Strokes
+#pragma kernel Grain
+#pragma kernel Finish
+#pragma kernel Encode
+#pragma kernel Show
+
+#define HB_BRUSH_GROUND 0.5
+#define HB_BRUSH_PARTIALS 256
+
+struct HBBrushStroke
+{
+    float2 start;
+    float2 control;
+    float2 end;
+    float width;
+    float alpha;
+    float tone;
+    int seed;
+    float4 box;
+};
+
+RWTexture2D<float4> _Field;
+RWTexture2D<float4> _Atlas;
+RWTexture2D<float4> _Display;
+Texture2D<float4> _Packed;
+StructuredBuffer<HBBrushStroke> _Strokes;
+RWStructuredBuffer<float4> _Partials;
+RWStructuredBuffer<float4> _Stats;
+
+float4 _Size;
+float4 _Edge;
+float4 _Bristle;
+float4 _Pigment;
+float4 _Finish;
+float4 _Show;
+float4 _Range;
+
+groupshared float3 s_Reduce[HB_BRUSH_PARTIALS];
+
+float HB_BrushHash(int x, int y, int seed)
+{
+    int h = x * 374761393 + y * 668265263 + seed * 1274126177;
+
+    h = (h ^ (h >> 13)) * 1274126177;
+    h ^= h >> 16;
+    return float(h & 0x7fffffff) / 2147483647.0;
+}
+
+int HB_BrushWrap(int value, int size)
+{
+    return value - size * (int)floor(value / (float)size);
+}
+
+float HB_BrushLattice(float x, float y, int period, int seed)
+{
+    int xi = (int)floor(x);
+    int yi = (int)floor(y);
+    float xf = x - xi;
+    float yf = y - yi;
+    float u = xf * xf * (3.0 - 2.0 * xf);
+    float v = yf * yf * (3.0 - 2.0 * yf);
+    int x0 = HB_BrushWrap(xi, period);
+    int x1 = HB_BrushWrap(xi + 1, period);
+    int y0 = HB_BrushWrap(yi, period);
+    int y1 = HB_BrushWrap(yi + 1, period);
+    float bottom = lerp(HB_BrushHash(x0, y0, seed), HB_BrushHash(x1, y0, seed), u);
+    float top = lerp(HB_BrushHash(x0, y1, seed), HB_BrushHash(x1, y1, seed), u);
+
+    return lerp(bottom, top, v);
+}
+
+float HB_BrushTileable(int x, int y, int resolution, int cells, int seed)
+{
+    cells = clamp(cells, 1, resolution);
+
+    float amplitude = 1.0;
+    float total = 0.0;
+    float normalisation = 0.0;
+
+    [unroll]
+    for (int octave = 0; octave < 3; octave++)
+    {
+        int octaveCells = min(cells << octave, resolution);
+        float scale = octaveCells / (float)resolution;
+
+        total += HB_BrushLattice(x * scale, y * scale, octaveCells, seed + octave * 7919) * amplitude;
+        normalisation += amplitude;
+        amplitude *= 0.5;
+    }
+
+    return total / normalisation;
+}
+
+float HB_BrushNoise1D(float x, int seed)
+{
+    int xi = (int)floor(x);
+    float xf = x - xi;
+    float u = xf * xf * (3.0 - 2.0 * xf);
+
+    return lerp(HB_BrushHash(xi, 0, seed), HB_BrushHash(xi + 1, 0, seed), u);
+}
+
+float HB_BrushSmooth(float edge0, float edge1, float x)
+{
+    float t = saturate((x - edge0) / max(edge1 - edge0, 1e-5));
+
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float2 HB_BrushQuadratic(float2 a, float2 control, float2 b, float t)
+{
+    float inverse = 1.0 - t;
+
+    return inverse * inverse * a + 2.0 * inverse * t * control + t * t * b;
+}
+
+[numthreads(8, 8, 1)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    _Field[id.xy] = float4(HB_BRUSH_GROUND, 0.0, 0.0, 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void Strokes(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)_Size.x;
+
+    if (any((int2)id.xy >= resolution))
+        return;
+
+    float2 pixel = float2(id.xy) + 0.5;
+    float4 field = _Field[id.xy];
+    int segments = max((int)_Bristle.w, 1);
+    float taper = _Edge.x;
+    float softness = _Edge.y;
+    float breakup = _Edge.z;
+    float breakupScale = _Edge.w;
+    float bristleAmount = _Bristle.x;
+    float bristleBreakup = _Bristle.y;
+    float bristleDensity = _Bristle.z;
+    float pigment = _Pigment.x > 0.0
+        ? lerp(1.0, HB_BrushTileable(id.x, id.y, resolution, (int)_Pigment.y, (int)_Pigment.z), _Pigment.x)
+        : 1.0;
+
+    [loop]
+    for (uint s = (uint)_Range.x; s < (uint)_Range.y; s++)
+    {
+        HBBrushStroke stroke = _Strokes[s];
+
+        if (any(pixel < stroke.box.xy) || any(pixel > stroke.box.zw))
+            continue;
+
+        float gap = 1e20;
+        float along = 0.0;
+        float across = 0.0;
+        float2 nearest = pixel;
+        float2 previous = stroke.start;
+
+        [loop]
+        for (int i = 0; i < segments; i++)
+        {
+            float2 next = HB_BrushQuadratic(stroke.start, stroke.control, stroke.end, (i + 1) / (float)segments);
+            float2 segment = next - previous;
+            float span = sqrt(dot(segment, segment));
+
+            if (span >= 1e-4)
+            {
+                float2 tangent = segment / span;
+                float2 offset = pixel - previous;
+                float local = clamp(dot(offset, tangent), 0.0, span);
+                float2 onSpine = previous + tangent * local;
+                float candidate = length(pixel - onSpine);
+
+                if (candidate < gap)
+                {
+                    gap = candidate;
+                    nearest = onSpine;
+                    along = (i + local / span) / segments;
+                    across = offset.x * -tangent.y + offset.y * tangent.x;
+                }
+            }
+
+            previous = next;
+        }
+
+        if (gap >= 1e19)
+            continue;
+
+        float width = stroke.width;
+        float localWidth = width;
+
+        if (taper > 0.0)
+        {
+            float fromEnd = min(along, 1.0 - along) * 2.0;
+            float shape = HB_BrushSmooth(0.0, max(taper, 1e-3), fromEnd);
+
+            localWidth *= lerp(1.0 - taper, 1.0, shape);
+        }
+
+        if (breakup > 0.0)
+        {
+            float wander = HB_BrushNoise1D(along * breakupScale, stroke.seed) * 2.0 - 1.0;
+
+            localWidth *= 1.0 + wander * breakup * 0.5;
+        }
+
+        if (localWidth <= 0.25 || gap >= localWidth)
+            continue;
+
+        float inner = min(localWidth * (1.0 - softness), localWidth - 1.0);
+        float alpha = 1.0 - HB_BrushSmooth(inner, localWidth, gap);
+
+        if (alpha <= 0.0)
+            continue;
+
+        float body = alpha;
+
+        if (bristleAmount > 0.0)
+        {
+            float bristle = HB_BrushNoise1D(across * bristleDensity / (2.0 * width), stroke.seed ^ 0x5bf03635);
+
+            if (bristleBreakup > 0.0)
+            {
+                float lift = HB_BrushNoise1D(along * bristleDensity * 0.75, stroke.seed ^ 0x1b873593);
+
+                bristle = lerp(bristle, bristle * lift, bristleBreakup);
+            }
+
+            alpha *= lerp(1.0, bristle, bristleAmount);
+        }
+
+        alpha *= pigment;
+
+        float strength = _Pigment.w;
+
+        field.r = lerp(field.r, stroke.tone, saturate(alpha * stroke.alpha * strength));
+        field.gb = lerp(field.gb, nearest - pixel, saturate(body * strength));
+    }
+
+    _Field[id.xy] = field;
+}
+
+[numthreads(16, 16, 1)]
+void Grain(uint3 id : SV_DispatchThreadID, uint3 group : SV_GroupID, uint index : SV_GroupIndex)
+{
+    int resolution = (int)_Size.x;
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    if (all((int2)id.xy < resolution))
+    {
+        float4 field = _Field[id.xy];
+        float coverage = field.r;
+
+        if (_Finish.y > 0.0)
+            coverage *= lerp(1.0, HB_BrushTileable(id.x, id.y, resolution, (int)_Finish.z, (int)_Finish.w),
+                             _Finish.y);
+
+        float value = pow(saturate(coverage), max(0.25, _Finish.x));
+
+        field.r = value;
+        _Field[id.xy] = field;
+        reduce = float3(value, value, value);
+    }
+
+    s_Reduce[index] = reduce;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_BRUSH_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+        _Partials[group.y * (uint)_Size.w + group.x] = float4(s_Reduce[0], 0.0);
+}
+
+[numthreads(HB_BRUSH_PARTIALS, 1, 1)]
+void Finish(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
+{
+    uint partials = (uint)(_Size.w * _Size.w);
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    for (uint i = index; i < partials; i += HB_BRUSH_PARTIALS)
+    {
+        float3 other = _Partials[i].xyz;
+
+        reduce = float3(reduce.x + other.x, min(reduce.y, other.y), max(reduce.z, other.z));
+    }
+
+    s_Reduce[index] = reduce;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_BRUSH_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+    {
+        float3 total = s_Reduce[0];
+        float mean = total.x / (_Size.x * _Size.x);
+        float deviation = max(total.z - mean, mean - total.y);
+
+        _Stats[0] = float4(mean, deviation > 1e-5 ? 0.5 / deviation : 0.0, 0.0, 0.0);
+    }
+}
+
+[numthreads(8, 8, 1)]
+void Encode(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    float4 field = _Field[id.xy];
+    float4 stats = _Stats[0];
+    float spine = _Size.y;
+
+    _Atlas[id.xy] = float4(saturate(0.5 + field.g * spine), saturate(0.5 + field.b * spine),
+                           saturate((field.r - stats.x) * stats.y + 0.5), 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Show(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    float4 packed = _Packed[id.xy];
+
+    _Display[id.xy] = _Show.x > 0.5 ? float4(packed.rg, 0.5, 1.0) : float4(packed.bbb, 1.0);
+}

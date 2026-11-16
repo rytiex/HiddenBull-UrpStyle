@@ -20,6 +20,7 @@ namespace HiddenBull.UrpStyle.Editor
     sealed class StyleStudioPreview
     {
         const string LitShader = "HB URP Style/Lit";
+        const string SkyShader = "HB URP Style/Sky";
         const float BarHeight = 20f;
         const float BarWidth = 240f;
         const float PanelWidth = 330f;
@@ -63,6 +64,12 @@ namespace HiddenBull.UrpStyle.Editor
                 "Drag the dot to move the light. In the middle it shines from the camera, at the rim it grazes " +
                 "the surface from that side.");
 
+            internal static readonly GUIContent SkyTime = new GUIContent("Time",
+                "Hour of the day, 0 to 12. Raises the sun like the Environment Controller: 6 is sunrise, 12 is noon.");
+
+            internal static readonly GUIContent Heading = new GUIContent("Angle",
+                "Compass direction the sun comes from, in degrees, like the Environment Controller's heading.");
+
             internal static readonly GUIContent Default = new GUIContent("Default");
         }
 
@@ -86,6 +93,12 @@ namespace HiddenBull.UrpStyle.Editor
         Vector2 m_Orbit = new Vector2(35f, 24f);
         Material m_Card;
         Material m_Stem;
+        Material m_Brush;
+        Material m_Sky;
+        Skybox m_Skybox;
+        Vector2 m_SkyLook = new Vector2(0f, 25f);
+        float m_SkyField = 60f;
+        float m_Heading;
         Mesh m_Cross;
         Mesh m_Quad;
 
@@ -134,6 +147,145 @@ namespace HiddenBull.UrpStyle.Editor
                 Render(rect, albedo, normal, mask, emission);
 
             DrawPanel(panel);
+        }
+
+        internal void DrawBrush(Rect rect, Texture atlas, Color colour)
+        {
+            if (!Prepare())
+            {
+                EditorGUI.HelpBox(rect, $"The shader '{LitShader}' was not found.", MessageType.Warning);
+                return;
+            }
+
+            var width = Mathf.Min(PanelWidth, rect.width - PanelMargin * 2f);
+            var panel = new Rect(rect.xMax - width - PanelMargin, rect.yMax - PanelHeight - PanelMargin, width,
+                                 PanelHeight);
+
+            HandleZoom(rect, panel);
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                m_Brush.SetColor(s_BaseColor, colour);
+                m_Environment.brushAtlas = atlas;
+
+                try
+                {
+                    Draw(rect, m_Brush);
+                }
+                finally
+                {
+                    m_Environment.brushAtlas = null;
+                }
+            }
+
+            DrawPanel(panel);
+        }
+
+        internal void DrawSky(Rect rect, Texture atlas, float coverage, float softness)
+        {
+            if (!Prepare() || !PrepareSky())
+            {
+                EditorGUI.HelpBox(rect, $"The shader '{SkyShader}' was not found.", MessageType.Warning);
+                return;
+            }
+
+            var width = Mathf.Min(PanelWidth, rect.width - PanelMargin * 2f);
+            var panel = new Rect(rect.xMax - width - PanelMargin, rect.yMax - PanelHeight - PanelMargin, width,
+                                 PanelHeight);
+
+            HandleSkyCamera(rect, panel);
+
+            if (Event.current.type == EventType.Repaint)
+                RenderSky(rect, atlas, coverage, softness);
+
+            DrawPanel(panel, true);
+        }
+
+        bool PrepareSky()
+        {
+            if (m_Sky == null)
+            {
+                var shader = Shader.Find(SkyShader);
+
+                if (shader == null)
+                    return false;
+
+                m_Sky = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            }
+
+            if (m_Skybox == null)
+            {
+                var holder = m_Utility.camera.gameObject;
+
+                m_Skybox = holder.TryGetComponent<Skybox>(out var found) ? found : holder.AddComponent<Skybox>();
+                m_Skybox.enabled = false;
+            }
+
+            m_Skybox.material = m_Sky;
+            return true;
+        }
+
+        void RenderSky(Rect rect, Texture atlas, float coverage, float softness)
+        {
+            var turn = Quaternion.Euler(0f, m_SkyLook.x, 0f);
+            var look = turn * Quaternion.Euler(-m_SkyLook.y, 0f, 0f);
+            var camera = m_Utility.camera;
+            var sunAngle = HBStyleEnvironmentController.SunAngle(m_Environment.timeOfDay);
+
+            camera.fieldOfView = m_SkyField;
+            camera.farClipPlane = 50f;
+            camera.transform.SetPositionAndRotation(Vector3.zero, look);
+            m_Environment.sunDirection = -(Quaternion.Euler(sunAngle, m_Heading, 0f) * Vector3.forward);
+            m_Environment.cloudAtlas = atlas;
+            m_Environment.cloudCoverage = coverage;
+            m_Environment.cloudSoftness = softness;
+
+            m_Skybox.enabled = true;
+            camera.clearFlags = CameraClearFlags.Skybox;
+
+            try
+            {
+                m_Utility.BeginPreview(rect, GUIStyle.none);
+                camera.Render();
+                GUI.DrawTexture(rect, m_Utility.EndPreview(), ScaleMode.StretchToFill, false);
+            }
+            finally
+            {
+                m_Environment.cloudAtlas = null;
+                m_Skybox.enabled = false;
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.fieldOfView = 30f;
+            }
+        }
+
+        void HandleSkyCamera(Rect rect, Rect panel)
+        {
+            var current = Event.current;
+            var control = GUIUtility.GetControlID(FocusType.Passive, rect);
+            var over = rect.Contains(current.mousePosition) && !panel.Contains(current.mousePosition);
+
+            switch (current.GetTypeForControl(control))
+            {
+                case EventType.ScrollWheel when over:
+                    m_SkyField = Mathf.Clamp(m_SkyField * (1f + current.delta.y * 0.03f), 25f, 100f);
+                    current.Use();
+                    GUI.changed = true;
+                    break;
+                case EventType.MouseDown when current.button == 0 && over:
+                    GUIUtility.hotControl = control;
+                    current.Use();
+                    break;
+                case EventType.MouseDrag when GUIUtility.hotControl == control:
+                    m_SkyLook.x -= current.delta.x * 0.3f;
+                    m_SkyLook.y = Mathf.Clamp(m_SkyLook.y + current.delta.y * 0.3f, 0f, 89f);
+                    current.Use();
+                    GUI.changed = true;
+                    break;
+                case EventType.MouseUp when GUIUtility.hotControl == control:
+                    GUIUtility.hotControl = 0;
+                    current.Use();
+                    break;
+            }
         }
 
         internal Rect DrawFieldBar(Rect rect)
@@ -338,9 +490,17 @@ namespace HiddenBull.UrpStyle.Editor
                 m_Material.EnableKeyword("_HB_EMISSION");
             else
                 m_Material.DisableKeyword("_HB_EMISSION");
-            m_Material.SetTextureScale(s_BaseMap, sphere ? new Vector2(2f, 1f) : new Vector2(2f, 2f));
 
+            m_Material.SetTextureScale(s_BaseMap, sphere ? new Vector2(2f, 1f) : new Vector2(2f, 2f));
+            Draw(rect, m_Material);
+        }
+
+        void Draw(Rect rect, Material material)
+        {
+            var sphere = view == StyleStudioView.Sphere;
             var camera = m_Utility.camera;
+
+
             camera.farClipPlane = 50f;
             camera.transform.SetPositionAndRotation(new Vector3(0f, 0f, -m_Distance), Quaternion.identity);
 
@@ -355,22 +515,28 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (sphere)
             {
-                m_Utility.DrawMesh(m_Sphere, Matrix4x4.identity, m_Material, 0);
+                m_Utility.DrawMesh(m_Sphere, Matrix4x4.identity, material, 0);
             }
             else
             {
                 var turn = Quaternion.Euler(-55f, 0f, 0f);
-                m_Utility.DrawMesh(m_Plane, Matrix4x4.TRS(Vector3.zero, turn, Vector3.one * 0.2f), m_Material, 0);
+                m_Utility.DrawMesh(m_Plane, Matrix4x4.TRS(Vector3.zero, turn, Vector3.one * 0.2f), material, 0);
             }
 
             camera.Render();
             GUI.DrawTexture(rect, m_Utility.EndPreview(), ScaleMode.StretchToFill, false);
         }
 
-        void DrawPanel(Rect rect)
+        void DrawPanel(Rect rect, bool sky = false)
         {
             if (Event.current.type == EventType.Repaint)
                 EditorGUI.DrawRect(rect, new Color(0.12f, 0.12f, 0.12f, 0.85f));
+
+            if (sky)
+            {
+                DrawSkyPanel(rect);
+                return;
+            }
 
             var sun = new Rect(rect.xMax - SunSize - 8f, rect.y + 18f, SunSize, SunSize);
             var label = new Rect(sun.x - 8f, rect.y + 2f, SunSize + 16f, 16f);
@@ -390,6 +556,24 @@ namespace HiddenBull.UrpStyle.Editor
             GUILayout.FlexibleSpace();
             DrawProfile();
             m_Environment.timeOfDay = EditorGUILayout.Slider(Styles.Time, m_Environment.timeOfDay, 0f, 12f);
+            GUILayout.FlexibleSpace();
+
+            EditorGUIUtility.labelWidth = labelWidth;
+            GUILayout.EndArea();
+        }
+
+        void DrawSkyPanel(Rect rect)
+        {
+            var labelWidth = EditorGUIUtility.labelWidth;
+            var fields = Rect.MinMaxRect(rect.x + 6f, rect.y + 6f, rect.xMax - 8f, rect.yMax - 6f);
+
+            GUILayout.BeginArea(fields);
+            EditorGUIUtility.labelWidth = 76f;
+
+            GUILayout.FlexibleSpace();
+            DrawProfile();
+            m_Environment.timeOfDay = EditorGUILayout.Slider(Styles.SkyTime, m_Environment.timeOfDay, 0f, 12f);
+            m_Heading = EditorGUILayout.Slider(Styles.Heading, m_Heading, 0f, 360f);
             GUILayout.FlexibleSpace();
 
             EditorGUIUtility.labelWidth = labelWidth;
@@ -503,7 +687,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         bool Prepare()
         {
-            if (m_Utility != null && m_Material != null && m_Card != null && m_Stem != null)
+            if (m_Utility != null && m_Material != null && m_Card != null && m_Stem != null && m_Brush != null)
                 return true;
 
             var shader = Shader.Find(LitShader);
@@ -541,6 +725,12 @@ namespace HiddenBull.UrpStyle.Editor
             m_Stem = new Material(m_Card) { hideFlags = HideFlags.HideAndDontSave };
             m_Stem.SetTexture(s_BaseMap, Texture2D.whiteTexture);
 
+            m_Brush = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            m_Brush.SetFloat("_BrushEnabled", 1f);
+            m_Brush.SetFloat("_ReceiveWeather", 0f);
+            m_Brush.SetFloat("_Smoothness", 0.25f);
+            m_Brush.EnableKeyword("_HB_BRUSH");
+
             m_Sphere = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
             m_Plane = Resources.GetBuiltinResource<Mesh>("New-Plane.fbx");
 
@@ -575,6 +765,17 @@ namespace HiddenBull.UrpStyle.Editor
                 Object.DestroyImmediate(m_Material);
 
             m_Material = null;
+
+            if (m_Brush != null)
+                Object.DestroyImmediate(m_Brush);
+
+            m_Brush = null;
+
+            if (m_Sky != null)
+                Object.DestroyImmediate(m_Sky);
+
+            m_Sky = null;
+            m_Skybox = null;
 
             if (m_Card != null)
                 Object.DestroyImmediate(m_Card);

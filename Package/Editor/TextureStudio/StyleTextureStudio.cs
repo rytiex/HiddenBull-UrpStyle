@@ -41,8 +41,14 @@ namespace HiddenBull.UrpStyle.Editor
             var grass = m_Pages != null && m_Pages.Length > 1 && m_Pages[1] is StyleGrassPage keptGrass
                 ? keptGrass
                 : new StyleGrassPage();
+            var brush = m_Pages != null && m_Pages.Length > 2 && m_Pages[2] is StyleBrushPage keptBrush
+                ? keptBrush
+                : new StyleBrushPage();
+            var cloud = m_Pages != null && m_Pages.Length > 3 && m_Pages[3] is StyleCloudPage keptCloud
+                ? keptCloud
+                : new StyleCloudPage();
 
-            m_Pages = new StyleStudioPage[] { material, grass };
+            m_Pages = new StyleStudioPage[] { material, grass, brush, cloud };
 
             foreach (var page in m_Pages)
                 page.host = this;

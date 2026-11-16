@@ -12,6 +12,10 @@ namespace HiddenBull.UrpStyle
         internal HBStyleEnvironmentProfile profile;
         internal float timeOfDay = 12f;
         internal Vector3 sunDirection = new Vector3(0.5f, 0.45f, -0.74f).normalized;
+        internal Texture brushAtlas;
+        internal Texture cloudAtlas;
+        internal float cloudCoverage = 0.5f;
+        internal float cloudSoftness = 0.25f;
 
         internal HBStyleEnvironmentProfile shownProfile =>
             profile != null ? profile : StyleEnvironment.defaultProfile;

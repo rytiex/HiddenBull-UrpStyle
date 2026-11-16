@@ -96,6 +96,19 @@ namespace HiddenBull.UrpStyle
             {
                 StyleEnvironment.EndPreview();
             }
+
+            if (preview != null && preview.brushAtlas != null)
+            {
+                resolved.brushAtlas = preview.brushAtlas;
+                resolved.globals._HB_Brush.w = 1f;
+            }
+
+            if (preview != null && preview.cloudAtlas != null)
+            {
+                resolved.cloudAtlas = preview.cloudAtlas;
+                resolved.globals._HB_CloudParams.x = preview.cloudCoverage;
+                resolved.globals._HB_CloudParams.z = preview.cloudSoftness * 0.5f;
+            }
 #endif
 
             using var builder = renderGraph.AddUnsafePass<PassData>(passName, out var passData, profilingSampler);
