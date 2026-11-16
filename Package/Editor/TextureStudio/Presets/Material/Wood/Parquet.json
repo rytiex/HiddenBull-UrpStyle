@@ -1,0 +1,21 @@
+{
+    "recipe": 9,
+    "repeats": 2,
+    "brickLength": 4,
+    "gap": 0.03,
+    "roundness": 0.05,
+    "chipping": 0.03,
+    "bevel": 0.05,
+    "dome": 0.05,
+    "heightVariation": 0.05,
+    "tilt": 0.03,
+    "roughness": 0.1,
+    "stoneColour": { "r": 0.6, "g": 0.42, "b": 0.25, "a": 1.0 },
+    "gapColour": { "r": 0.12, "g": 0.08, "b": 0.05, "a": 1.0 },
+    "variationColour": { "r": 0.45, "g": 0.3, "b": 0.18, "a": 1.0 },
+    "wearColour": { "r": 0.68, "g": 0.52, "b": 0.35, "a": 1.0 },
+    "grain": 0.05,
+    "smoothness": 0.5,
+    "dirtOn": false,
+    "name": "Parquet"
+}

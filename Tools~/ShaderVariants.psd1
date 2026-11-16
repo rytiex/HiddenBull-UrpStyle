@@ -1694,9 +1694,19 @@
             Reads = 0
         }
         @{
-            Name = 'Texture Studio Material Tiles'
+            Name = 'Texture Studio Material Cells'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
-            Entry = 'Tiles'
+            Entry = 'Cells'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Shape'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Shape'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()

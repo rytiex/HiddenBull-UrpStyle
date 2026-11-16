@@ -1,0 +1,23 @@
+{
+    "recipe": 8,
+    "rows": 4,
+    "perRow": 1,
+    "lengthVariation": 1.0,
+    "gap": 0.08,
+    "roundness": 0.1,
+    "chipping": 0.45,
+    "bevel": 0.1,
+    "dome": 0.2,
+    "heightVariation": 0.3,
+    "tilt": 0.25,
+    "roughness": 0.3,
+    "stoneColour": { "r": 0.48, "g": 0.37, "b": 0.27, "a": 1.0 },
+    "gapColour": { "r": 0.12, "g": 0.08, "b": 0.05, "a": 1.0 },
+    "variationColour": { "r": 0.45, "g": 0.3, "b": 0.18, "a": 1.0 },
+    "wearColour": { "r": 0.68, "g": 0.52, "b": 0.35, "a": 1.0 },
+    "grain": 0.05,
+    "knots": 0.6,
+    "smoothness": 0.3,
+    "dirtOn": true,
+    "name": "Rough Planks"
+}

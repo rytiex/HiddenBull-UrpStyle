@@ -1,0 +1,16 @@
+{
+    "recipe": 2,
+    "rows": 8,
+    "perRow": 4,
+    "rowOffset": 0.5,
+    "gap": 0.08,
+    "roundness": 0.15,
+    "chipping": 0.15,
+    "bevel": 0.15,
+    "dome": 0.25,
+    "heightVariation": 0.2,
+    "tilt": 0.2,
+    "roughness": 0.25,
+    "stoneColour": { "r": 0.52, "g": 0.5, "b": 0.48, "a": 1.0 },
+    "name": "Pavers"
+}

@@ -1,0 +1,15 @@
+{
+    "recipe": 1,
+    "stones": 4,
+    "jitter": 1.0,
+    "gap": 0.04,
+    "roundness": 0.1,
+    "chipping": 0.5,
+    "bevel": 0.08,
+    "dome": 0.15,
+    "heightVariation": 0.15,
+    "tilt": 0.15,
+    "roughness": 0.4,
+    "stoneColour": { "r": 0.6, "g": 0.56, "b": 0.5, "a": 1.0 },
+    "name": "Flagstone"
+}

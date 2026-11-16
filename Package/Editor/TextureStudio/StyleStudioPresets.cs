@@ -6,6 +6,11 @@ using UnityEngine;
 
 namespace HiddenBull.UrpStyle.Editor
 {
+    interface IStyleStudioBasis
+    {
+        void ApplyBasis();
+    }
+
     sealed class StyleStudioPresets
     {
         const string Root = "Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/Presets";
@@ -79,8 +84,17 @@ namespace HiddenBull.UrpStyle.Editor
             if (path == null || !File.Exists(path))
                 return false;
 
+            var json = File.ReadAllText(path);
+
             JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(Activator.CreateInstance(target.GetType())), target);
-            JsonUtility.FromJsonOverwrite(File.ReadAllText(path), target);
+            JsonUtility.FromJsonOverwrite(json, target);
+
+            if (target is IStyleStudioBasis basis)
+            {
+                basis.ApplyBasis();
+                JsonUtility.FromJsonOverwrite(json, target);
+            }
+
             return true;
         }
 
