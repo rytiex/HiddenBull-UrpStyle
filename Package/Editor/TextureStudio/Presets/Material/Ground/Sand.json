@@ -3,167 +3,118 @@
     "resolution": 1024,
     "layers": [
         {
-            "pattern": 4,
+            "pattern": 5,
             "randomShift": false,
             "naturalGround": true,
-            "seed": 1,
-            "stones": 12,
-            "jitter": 1,
+            "seed": 4,
+            "stones": 8,
+            "jitter": 0.9,
             "rows": 8,
             "perRow": 4,
             "rowOffset": 0.5,
             "lengthVariation": 0,
             "repeats": 3,
             "brickLength": 2,
-            "gap": 0,
-            "roundness": 0,
+            "gap": 0.06,
+            "roundness": 0.2,
             "chipping": 0,
-            "density": 0,
-            "pebbleSize": 0.25,
-            "elongation": 0.4,
+            "density": 0.3,
+            "pebbleSize": 0.4,
+            "elongation": 0.3,
             "fineCracks": 0,
-            "groundRelief": 1,
-            "lumps": 6,
-            "ripples": 0.7,
-            "rippleCount": 8,
-            "rippleWarp": 0.45,
-            "bevel": 0.3,
-            "dome": 0.8,
+            "groundRelief": 0.3,
+            "lumps": 4,
+            "ripples": 0.8,
+            "rippleCount": 10,
+            "rippleWarp": 0.5,
+            "bevel": 0.25,
+            "dome": 0.5,
             "facets": 0,
-            "heightVariation": 0.3,
-            "tilt": 0.3,
-            "roughness": 0.1,
-            "stoneColour": {
-                "r": 0.5,
-                "g": 0.45,
-                "b": 0.4,
-                "a": 1
+            "heightVariation": 0,
+            "tilt": 0,
+            "roughness": 0.3,
+            "colours": {
+                "stops": [
+                    {
+                        "colour": {
+                            "r": 0.6,
+                            "g": 0.5,
+                            "b": 0.36,
+                            "a": 1
+                        },
+                        "at": 0
+                    }
+                ]
             },
             "gapColour": {
-                "r": 0.858491,
-                "g": 0.76344,
-                "b": 0.595274,
-                "a": 1
-            },
-            "grain": 0.15,
-            "variationOn": true,
-            "variation": 0.5,
-            "variationColour": {
-                "r": 0.425,
-                "g": 0.3825,
-                "b": 0.34,
-                "a": 0.85
-            },
-            "variationShare": 0.3,
-            "heightTint": 0,
-            "grainColour": {
                 "r": 0.3,
-                "g": 0.18,
-                "b": 0.1,
+                "g": 0.3,
+                "b": 0.3,
                 "a": 1
             },
-            "rings": 0.6,
-            "ringDensity": 8,
-            "fibres": 0.5,
-            "knots": 0.3,
-            "woodRelief": 0.5,
-            "wearColour": {
-                "r": 0.65,
-                "g": 0.615,
-                "b": 0.58,
-                "a": 1
-            },
-            "wear": 0.5,
-            "dirtColour": {
-                "r": 0.3,
-                "g": 0.25,
-                "b": 0.19,
-                "a": 1
-            },
-            "dirt": 0.4,
-            "dirtSpread": 0.2,
-            "mossColour": {
-                "r": 0.830189,
-                "g": 0.712799,
-                "b": 0.528658,
-                "a": 1
-            },
-            "moss": 1,
-            "mossSpread": 0.385,
-            "mossScale": 16,
-            "specksColour": {
-                "r": 0.556604,
-                "g": 0.537574,
-                "b": 0.469963,
-                "a": 1
-            },
-            "specks": 0.025,
-            "specksScale": 185,
-            "specksShine": 0,
-            "streaksColour": {
-                "r": 0.2,
-                "g": 0.17,
-                "b": 0.13,
-                "a": 1
-            },
-            "streaks": 0.4,
-            "streakScale": 24,
-            "streakLength": 6,
-            "lichenColour": {
-                "r": 0.75,
-                "g": 0.72,
-                "b": 0.5,
-                "a": 1
-            },
-            "lichen": 0.3,
-            "lichenScale": 12,
-            "lichenSize": 0.4,
-            "waterColour": {
-                "r": 0.16,
-                "g": 0.18,
-                "b": 0.17,
-                "a": 1
-            },
-            "puddles": 0.4,
-            "puddleSpread": 0.5,
+            "grain": 0.25,
+            "variation": 0.4,
+            "heightTint": 0.5,
             "depth": 0.02,
-            "smoothness": 0.25,
-            "gapSmoothness": 0.15,
+            "smoothness": 0.2,
+            "gapSmoothness": 0.1,
             "metallic": 0,
-            "edgeHighlight": 2,
-            "cavityShade": 0.65,
-            "occlusion": 1,
-            "lightWidth": 8,
-            "hairCracks": 0,
-            "hairScale": 3,
-            "chips": 0,
-            "chipSize": 0.1,
-            "scratches": 0,
-            "scratchScale": 32,
-            "jointPebbles": 0,
-            "jointGrass": 0,
-            "grassColour": {
-                "r": 0.3,
-                "g": 0.42,
-                "b": 0.15,
-                "a": 1
-            },
-            "pores": 0,
-            "poreScale": 96,
-            "nails": 0,
-            "nailSize": 0.04,
-            "leaves": 0,
-            "leafColour": {
-                "r": 0.55,
-                "g": 0.32,
-                "b": 0.12,
-                "a": 1
-            },
-            "leafScale": 12,
-            "twigs": 0.2,
+            "edgeHighlight": 0.5,
+            "cavityShade": 0.5,
+            "occlusion": 0.5,
+            "lightWidth": 2,
             "label": "Sand",
             "visible": true,
-            "coverage": 1
+            "coverage": 1,
+            "blend": 0,
+            "contrast": 0.5,
+            "offset": 0,
+            "modules": [
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.25,
+                                    "g": 0.22,
+                                    "b": 0.2,
+                                    "a": 1
+                                },
+                                "at": 0
+                            }
+                        ]
+                    },
+                    "variation": 0.6,
+                    "seed": 1,
+                    "height": 2,
+                    "depth": 0.02,
+                    "smoothness": 0.3,
+                    "metallic": 0,
+                    "emission": {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                        "a": 1
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 5,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.5,
+                            "softness": 0.2,
+                            "warp": 0,
+                            "amount": 0.12,
+                            "scale": 96,
+                            "size": 0.12,
+                            "extra": 0,
+                            "seed": 1
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

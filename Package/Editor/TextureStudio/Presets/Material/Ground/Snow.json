@@ -3,167 +3,118 @@
     "resolution": 1024,
     "layers": [
         {
-            "pattern": 4,
+            "pattern": 5,
             "randomShift": false,
             "naturalGround": true,
-            "seed": 1,
+            "seed": 6,
             "stones": 8,
-            "jitter": 1,
+            "jitter": 0.9,
             "rows": 8,
             "perRow": 4,
             "rowOffset": 0.5,
             "lengthVariation": 0,
             "repeats": 3,
             "brickLength": 2,
-            "gap": 0,
-            "roundness": 0,
+            "gap": 0.06,
+            "roundness": 0.2,
             "chipping": 0,
-            "density": 0,
-            "pebbleSize": 0.3,
+            "density": 0.3,
+            "pebbleSize": 0.4,
             "elongation": 0.3,
             "fineCracks": 0,
-            "groundRelief": 0.5,
-            "lumps": 3,
-            "ripples": 0.3,
-            "rippleCount": 8,
-            "rippleWarp": 0.4,
-            "bevel": 0.3,
-            "dome": 0.8,
+            "groundRelief": 0.25,
+            "lumps": 5,
+            "ripples": 0.2,
+            "rippleCount": 6,
+            "rippleWarp": 0.6,
+            "bevel": 0.25,
+            "dome": 0.5,
             "facets": 0,
-            "heightVariation": 0.3,
-            "tilt": 0.3,
-            "roughness": 0.1,
-            "stoneColour": {
-                "r": 0.9,
-                "g": 0.93,
-                "b": 0.97,
-                "a": 1
+            "heightVariation": 0,
+            "tilt": 0,
+            "roughness": 0.15,
+            "colours": {
+                "stops": [
+                    {
+                        "colour": {
+                            "r": 0.72,
+                            "g": 0.78,
+                            "b": 0.86,
+                            "a": 1
+                        },
+                        "at": 0
+                    }
+                ]
             },
             "gapColour": {
-                "r": 0.9,
-                "g": 0.93,
-                "b": 0.97,
-                "a": 1
-            },
-            "grain": 0.03,
-            "variationOn": true,
-            "variation": 0.15,
-            "variationColour": {
-                "r": 0.765,
-                "g": 0.7905,
-                "b": 0.8245,
-                "a": 0.85
-            },
-            "variationShare": 0.3,
-            "heightTint": 0,
-            "grainColour": {
                 "r": 0.3,
-                "g": 0.18,
-                "b": 0.1,
+                "g": 0.3,
+                "b": 0.3,
                 "a": 1
             },
-            "rings": 0.6,
-            "ringDensity": 8,
-            "fibres": 0.5,
-            "knots": 0.3,
-            "woodRelief": 0.5,
-            "wearColour": {
-                "r": 0.93,
-                "g": 0.951,
-                "b": 0.979,
-                "a": 1
-            },
-            "wear": 0.5,
-            "dirtColour": {
-                "r": 0.3,
-                "g": 0.25,
-                "b": 0.19,
-                "a": 1
-            },
-            "dirt": 0.4,
-            "dirtSpread": 0.2,
-            "mossColour": {
-                "r": 0.27,
-                "g": 0.36,
-                "b": 0.14,
-                "a": 1
-            },
-            "moss": 0.4,
-            "mossSpread": 0.4,
-            "mossScale": 4,
-            "specksColour": {
-                "r": 0.95,
-                "g": 0.97,
-                "b": 1,
-                "a": 1
-            },
-            "specks": 0.15,
-            "specksScale": 96,
-            "specksShine": 0.95,
-            "streaksColour": {
-                "r": 0.2,
-                "g": 0.17,
-                "b": 0.13,
-                "a": 1
-            },
-            "streaks": 0.4,
-            "streakScale": 24,
-            "streakLength": 6,
-            "lichenColour": {
-                "r": 0.75,
-                "g": 0.72,
-                "b": 0.5,
-                "a": 1
-            },
-            "lichen": 0.3,
-            "lichenScale": 12,
-            "lichenSize": 0.4,
-            "waterColour": {
-                "r": 0.16,
-                "g": 0.18,
-                "b": 0.17,
-                "a": 1
-            },
-            "puddles": 0.4,
-            "puddleSpread": 0.5,
-            "depth": 0.065,
-            "smoothness": 0.4,
-            "gapSmoothness": 0.4,
+            "grain": 0.05,
+            "variation": 0.3,
+            "heightTint": 0.6,
+            "depth": 0.02,
+            "smoothness": 0.45,
+            "gapSmoothness": 0.1,
             "metallic": 0,
-            "edgeHighlight": 2,
+            "edgeHighlight": 0.5,
             "cavityShade": 0.5,
-            "occlusion": 0,
-            "lightWidth": 1,
-            "hairCracks": 0,
-            "hairScale": 3,
-            "chips": 0,
-            "chipSize": 0.1,
-            "scratches": 0,
-            "scratchScale": 32,
-            "jointPebbles": 0,
-            "jointGrass": 0,
-            "grassColour": {
-                "r": 0.3,
-                "g": 0.42,
-                "b": 0.15,
-                "a": 1
-            },
-            "pores": 0,
-            "poreScale": 96,
-            "nails": 0,
-            "nailSize": 0.04,
-            "leaves": 0,
-            "leafColour": {
-                "r": 0.55,
-                "g": 0.32,
-                "b": 0.12,
-                "a": 1
-            },
-            "leafScale": 12,
-            "twigs": 0.2,
+            "occlusion": 0.5,
+            "lightWidth": 2,
             "label": "Snow",
             "visible": true,
-            "coverage": 1
+            "coverage": 1,
+            "blend": 0,
+            "contrast": 0.5,
+            "offset": 0,
+            "modules": [
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 1,
+                                    "g": 1,
+                                    "b": 1,
+                                    "a": 1
+                                },
+                                "at": 0
+                            }
+                        ]
+                    },
+                    "variation": 0,
+                    "seed": 1,
+                    "height": 0,
+                    "depth": 0.1,
+                    "smoothness": 1,
+                    "metallic": 0,
+                    "emission": {
+                        "r": 0,
+                        "g": 0,
+                        "b": 0,
+                        "a": 1
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 5,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.5,
+                            "softness": 0.2,
+                            "warp": 0,
+                            "amount": 0.08,
+                            "scale": 128,
+                            "size": 0.06,
+                            "extra": 0,
+                            "seed": 1
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

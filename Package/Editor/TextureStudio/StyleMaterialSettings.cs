@@ -57,14 +57,10 @@ namespace HiddenBull.UrpStyle.Editor
         public float tilt;
         public float roughness = 0.2f;
 
-        public Color stoneColour = new Color(0.6f, 0.6f, 0.6f, 1f);
+        public StyleColourRamp colours = StyleColourRamp.Of(new Color(0.6f, 0.6f, 0.6f, 1f));
         public Color gapColour = new Color(0.3f, 0.3f, 0.3f, 1f);
         public float grain = 0.1f;
-
-        public bool variationOn;
         public float variation = 0.15f;
-        public Color variationColour = new Color(0.62f, 0.55f, 0.46f, 1f);
-        public float variationShare = 0.3f;
         public float heightTint;
 
         public float depth = 0.02f;
@@ -153,11 +149,6 @@ namespace HiddenBull.UrpStyle.Editor
             tilt = basis.tilt;
             gapColour = basis.gapColour;
             gapSmoothness = basis.gapSmoothness;
-            variationOn = basis.variationOn;
-            variation = basis.variation;
-            variationColour = basis.variationColour;
-            variationShare = basis.variationShare;
-            heightTint = basis.heightTint;
         }
 
         internal void ResetSurface()
@@ -195,8 +186,10 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var basis = new StyleMaterialSettings();
 
-            stoneColour = basis.stoneColour;
+            colours = basis.colours;
             grain = basis.grain;
+            variation = basis.variation;
+            heightTint = basis.heightTint;
             roughness = basis.roughness;
             seed = basis.seed;
         }

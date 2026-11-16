@@ -14,7 +14,7 @@ namespace HiddenBull.UrpStyle.Editor
         internal StyleMaterialSettings Layer(int index)
         {
             if (layers.Count == 0)
-                layers.Add(StyleMaterialSettings.Create(StyleMaterialPattern.Cells));
+                layers.Add(StyleMaterialSettings.Create(StyleMaterialPattern.None));
 
             return layers[Math.Clamp(index, 0, layers.Count - 1)];
         }

@@ -1764,6 +1764,26 @@
             Reads = 0
         }
         @{
+            Name = 'Texture Studio Material MaskStart'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'MaskStart'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Mask'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Mask'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Texture Studio Material Module'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
             Entry = 'Module'

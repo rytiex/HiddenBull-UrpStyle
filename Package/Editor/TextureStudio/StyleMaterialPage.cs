@@ -28,10 +28,13 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Surface = new GUIContent("Surface");
             internal static readonly GUIContent Colour = new GUIContent("Colour");
             internal static readonly GUIContent Modules = new GUIContent("Modules",
-                "Shapes painted onto the picked layer, top first. The bottom one is applied first, so the top " +
-                "one covers the others.");
+                "Materials painted onto the picked layer, top first. The bottom one is applied first, so the top " +
+                "one covers the others. Click one to edit it on the left.");
+            internal static readonly GUIContent Path = new GUIContent(" › ");
+
             internal static readonly GUIContent NoModules = new GUIContent("No modules. Add one with +.");
-            internal static readonly GUIContent AddModule = new GUIContent("+", "Adds a module on top.");
+            internal static readonly GUIContent AddModule = new GUIContent("+",
+                "Adds a white Fill module on top; give it shapes and masks to place it.");
             internal static readonly GUIContent DuplicateModule = new GUIContent("Duplicate",
                 "Copies the picked module above itself.");
             internal static readonly GUIContent RemoveModule = new GUIContent("−", "Removes the picked module.");
@@ -63,7 +66,7 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Chipping = new GUIContent("Chipping",
                 "Makes the outlines wobbly and chipped instead of straight.");
             internal static readonly GUIContent Seed = new GUIContent("Seed",
-                "Picks another random layout for the pattern and the modules.");
+                "Picks another random layout for the pattern and its colour variation.");
 
             internal static readonly GUIContent Bevel = new GUIContent("Bevel",
                 "How far in from the edge each stone keeps rounding down into the joint.");
@@ -82,7 +85,7 @@ namespace HiddenBull.UrpStyle.Editor
                 "Height of the relief as a share of the texture's width. Drives the normal map strength, the " +
                 "edges and the occlusion.");
             internal static readonly GUIContent Smoothness = new GUIContent("Smoothness",
-                "Smoothness of the stones, saved in the mask's alpha. Dirt and moss are always rough.");
+                "Smoothness of the pieces, saved in the mask's alpha. Modules set their own.");
             internal static readonly GUIContent GapSmoothness = new GUIContent("Gap Smoothness",
                 "Smoothness of the joints.");
             internal static readonly GUIContent Metallic = new GUIContent("Metallic",
@@ -100,9 +103,11 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Resolution = new GUIContent("Resolution",
                 "Size of the saved textures.");
             internal static readonly GUIContent Name = new GUIContent("Name",
-                "File name start. Saving writes Name_Albedo, Name_Normal and Name_Mask.");
+                "File name start. Saving writes Name_Albedo, Name_Normal, Name_Mask and, when something glows, " +
+                "Name_Emission.");
             internal static readonly GUIContent Save = new GUIContent("Save Textures",
-                "Writes the albedo, normal and mask PNGs into the folder. Files with the same names are replaced.");
+                "Writes the albedo, normal, mask and emission PNGs into the folder. Files with the same names are " +
+                "replaced.");
 
             internal static readonly GUIContent Layers = new GUIContent("Layers",
                 "The stack of materials, top first. Each layer covers the ones below it by its Coverage. " +
@@ -128,19 +133,14 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Hidden = EditorGUIUtility.TrIconContent("animationvisibilitytoggleoff",
                 "Hidden. Click to show the layer.");
             internal static readonly Color selection = new Color(0.24f, 0.48f, 0.9f, 0.35f);
-            internal static readonly GUIContent Maps = new GUIContent("Maps");
+            internal static readonly Color badge = new Color(0f, 0f, 0f, 0.55f);
+
 
             internal static readonly GUIContent Grain = new GUIContent("Grain",
                 "Fine light and dark speckles over the stones and the joints.");
 
-            internal static readonly GUIContent VariationOn = new GUIContent("Variation",
-                "Each piece a little different in brightness and colour.");
-            internal static readonly GUIContent Variation = new GUIContent("Brightness",
-                "How much lighter or darker each stone is than the others.");
-            internal static readonly GUIContent VariationColour = new GUIContent("Second Colour",
-                "Some stones lean toward this colour.");
-            internal static readonly GUIContent VariationShare = new GUIContent("Share",
-                "Share of the stones that lean toward the second colour.");
+            internal static readonly GUIContent Variation = new GUIContent("Variation",
+                "How far each piece, or each blotch when there is no pattern, moves along the colours.");
 
             internal static readonly GUIContent[] PatternNames =
             {
@@ -152,24 +152,30 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("None", "No pattern: one flat surface for the modules to work on.")
             };
 
-            internal static readonly GUIContent[] ShapeNames =
+            internal static readonly GUIContent FillName = new GUIContent("Fill",
+                "Covers the whole area the Where settings pick. Add masks for edge wear, dirt in the creases, " +
+                "noise patches of moss or damp, or water with Flatten.");
+
+            internal static readonly GUIContent[] KindNames =
             {
-                new GUIContent("Fill", "Covers the whole area the Where settings pick. With masks it makes edge " +
-                                       "wear, dirt in the creases, noise patches of moss or damp, or water " +
-                                       "with Flatten."),
-                new GUIContent("Cracks", "Thin branching cracks."),
-                new GUIContent("Scratches", "Fine straight scratches and scuff marks."),
-                new GUIContent("Streaks", "Stains running down the surface, as on old walls."),
-                new GUIContent("Wood Grain", "Growth rings, fibres and knots following the boards."),
-                new GUIContent("Chips", "Bits broken off the edges and corners of the pieces."),
-                new GUIContent("Clumps", "Pebbles or grass tufts scattered whole where the Where settings allow. " +
-                                         "Blades turns round pebbles into tufts."),
-                new GUIContent("Leaves", "Fallen leaves and twigs lying on top of everything.")
+                new GUIContent("Shapes/Cracks", "Thin branching cracks."),
+                new GUIContent("Shapes/Scratches", "Fine straight scratches and scuff marks."),
+                new GUIContent("Shapes/Streaks", "Stains running down the surface, as on old walls."),
+                new GUIContent("Shapes/Wood Grain", "Growth rings, fibres and knots following the boards."),
+                new GUIContent("Shapes/Chips", "Bits broken off the edges and corners of the pieces."),
+                new GUIContent("Shapes/Clumps", "Pebbles or grass tufts. Masks after it keep or drop each clump " +
+                                                "whole. Blades turns round pebbles into tufts."),
+                new GUIContent("Shapes/Leaves", "Fallen leaves and twigs. Masks after it keep or drop each leaf " +
+                                                "whole."),
+                new GUIContent("Masks/Edges", "Raised edges of the relief."),
+                new GUIContent("Masks/Cavities", "Creases and low corners of the relief."),
+                new GUIContent("Masks/Height", "High parts of the relief."),
+                new GUIContent("Masks/Noise", "Soft noise blotches."),
+                new GUIContent("Masks/Random Pieces", "Some of the pattern's pieces, picked at random.")
             };
 
             internal static readonly GUIContent[] AmountNames =
             {
-                new GUIContent("Strength", "How strongly the fill shows."),
                 new GUIContent("Amount", "How much of the surface is cracked."),
                 new GUIContent("Density", "How many scratches there are."),
                 new GUIContent("Coverage", "How much of the surface is stained."),
@@ -181,7 +187,6 @@ namespace HiddenBull.UrpStyle.Editor
 
             internal static readonly GUIContent[] ScaleNames =
             {
-                GUIContent.none,
                 new GUIContent("Scale", "Cracks across the texture. More gives smaller, closer cracks."),
                 new GUIContent("Scale", "Places across the texture where a scratch can start."),
                 new GUIContent("Scale", "Streaks across the texture. More gives thinner, closer streaks."),
@@ -194,7 +199,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             internal static readonly GUIContent[] ExtraNames =
             {
-                GUIContent.none, GUIContent.none, GUIContent.none, GUIContent.none,
+                GUIContent.none, GUIContent.none, GUIContent.none,
                 new GUIContent("Knots", "Chance of a knot on each board; high values give some boards two."),
                 GUIContent.none,
                 new GUIContent("Blades", "0 gives round pebbles, 1 gives grass tufts, between gives spiky clumps."),
@@ -203,7 +208,6 @@ namespace HiddenBull.UrpStyle.Editor
 
             internal static readonly GUIContent[] SizeNames =
             {
-                GUIContent.none,
                 new GUIContent("Width", "Width of the cracks."),
                 new GUIContent("Length", "Length of the scratches."),
                 new GUIContent("Length", "How long the streaks run."),
@@ -212,12 +216,17 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("Size", "Size of the clumps. At 1 they touch and cover the ground."),
                 new GUIContent("Size", "Size of the leaves.")
             };
-
-            internal static readonly GUIContent ModuleColour = new GUIContent("Colour",
-                "Colour of the module. Alpha is how strongly the colour covers what is below.");
+            internal static readonly GUIContent ModuleColour = new GUIContent("Colours",
+                "Colours of the module, up to 4 stops. Variation spreads the module across them. " +
+                "Alpha is how strongly the colour covers what is below.");
             internal static readonly GUIContent ModuleVariation = new GUIContent("Variation",
-                "Light and dark change across the module's colour.");
+                "How far the module spreads across its colours.");
             internal static readonly GUIContent ModuleSeed = new GUIContent("Seed", "Picks another random layout.");
+            internal static readonly GUIContent ToneSeed = new GUIContent("Seed",
+                "Picks another layout for the colour blotches where no shape sets them.");
+            internal static readonly GUIContent MasksLabel = new GUIContent("Shape and Masks",
+                "Shapes and masks run from top to bottom. The first sets where the module goes; each one after " +
+                "it multiplies, adds to or takes from the result.");
             internal static readonly GUIContent HeightLabel = new GUIContent("Height");
             internal static readonly GUIContent HeightMode = new GUIContent("Mode",
                 "Cut digs the shape into the surface, Raise lifts it, Flatten fills its low parts up to a level, " +
@@ -231,13 +240,15 @@ namespace HiddenBull.UrpStyle.Editor
                 "Smoothness where the module covers.");
             internal static readonly GUIContent ModuleMetallic = new GUIContent("Metallic",
                 "Metallic where the module covers.");
+            internal static readonly GUIContent ModuleEmission = new GUIContent("Emission",
+                "Glow where the module covers, saved as the Emission map. Black is off; the material's Emission " +
+                "Color sets how bright it shines.");
             internal static readonly GUIContent WhereLabel = new GUIContent("Where");
             internal static readonly GUIContent Area = new GUIContent("Area",
                 "Pieces keeps the module on the pattern's pieces, Joints between them, Everywhere on both.");
-            internal static readonly GUIContent AddMask = new GUIContent("Add Mask",
-                "Limits the module further. Up to three masks; each one after the first multiplies, adds to or " +
-                "takes from the ones above it.");
-            internal static readonly GUIContent RemoveMask = new GUIContent("−", "Removes this mask.");
+            internal static readonly GUIContent AddMask = new GUIContent("Add Shape or Mask",
+                "Up to four; each one after the first multiplies, adds to or takes from the ones above it.");
+            internal static readonly GUIContent RemoveMask = new GUIContent("−", "Removes this shape or mask.");
             internal static readonly GUIContent Warp = new GUIContent("Warp",
                 "Bends the mask's edge with noise so straight, even edges turn ragged and natural.");
             internal static readonly GUIContent Threshold = new GUIContent("Threshold",
@@ -248,8 +259,8 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent MaskScale = new GUIContent("Noise Scale",
                 "Noise blotches across the texture. More gives smaller blotches.");
 
-            internal static readonly GUIContent PieceColour = new GUIContent("Colour",
-                "Colour of the pieces, or of the whole surface when there is no pattern.");
+            internal static readonly GUIContent PieceColour = new GUIContent("Colours",
+                "Colours of the pieces, or of the whole surface when there is no pattern, up to 4 stops.");
             internal static readonly GUIContent JointColour = new GUIContent("Joint Colour",
                 "Colour of the ground in the joints and around the pieces.");
             internal static readonly GUIContent RandomShift = new GUIContent("Random Joints",
@@ -280,7 +291,7 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent RippleWarp = new GUIContent("Ripple Warp",
                 "How much the ripples bend and wander instead of running straight.");
             internal static readonly GUIContent HeightTint = new GUIContent("Height Tint",
-                "Lightens the high parts and darkens the low parts.");
+                "High parts move toward the right end of the colours, low parts toward the left.");
 
             internal static readonly GUIContent Repeats = new GUIContent("Repeats",
                 "How many times the pattern repeats across the texture.");
@@ -296,6 +307,17 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("512"), new GUIContent("1024"), new GUIContent("2048")
             };
 
+            internal static readonly GUIContent[] MapKeys =
+            {
+                new GUIContent("A", "Albedo: colour with the painted light."),
+                new GUIContent("N", "Normal map as saved."),
+                new GUIContent("M", "Mask: metallic, occlusion and height as red, green and blue."),
+                new GUIContent("H", "Height: relief, white is high."),
+                new GUIContent("O", "Occlusion: soft shadow of the relief."),
+                new GUIContent("E", "Edges: raised edges light, creases dark."),
+                new GUIContent("Em", "Emission: glow of the modules that have an Emission colour.")
+            };
+
             internal static readonly GUIContent[] MapNames =
             {
                 new GUIContent("Albedo", "Colour with the painted light."),
@@ -303,7 +325,8 @@ namespace HiddenBull.UrpStyle.Editor
                 new GUIContent("Mask", "Metallic, occlusion and height as red, green and blue."),
                 new GUIContent("Height", "Relief, white is high."),
                 new GUIContent("Occlusion", "Soft shadow of the relief."),
-                new GUIContent("Edges", "Raised edges light, creases dark.")
+                new GUIContent("Edges", "Raised edges light, creases dark."),
+                new GUIContent("Emission", "Glow of the modules that have an Emission colour.")
             };
         }
 
@@ -318,6 +341,18 @@ namespace HiddenBull.UrpStyle.Editor
 
         [SerializeField]
         StyleMaterialMap m_Map;
+
+        [SerializeField]
+        bool m_EditModule;
+
+        [SerializeField]
+        string m_Preset;
+
+        [SerializeField]
+        string m_Category;
+
+        [NonSerialized]
+        StyleMaterialShelf m_Shelf;
 
         [NonSerialized]
         int m_Renaming = -1;
@@ -341,6 +376,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         StyleMaterialGenerator generator => m_Generator ??= new StyleMaterialGenerator();
         StyleStudioPreview preview => m_Preview ??= new StyleStudioPreview();
+        StyleMaterialShelf shelf => m_Shelf ??= new StyleMaterialShelf();
 
         StyleStudioUndoState undo =>
             m_Undo != null ? m_Undo : m_Undo = StyleStudioUndoState.Create(m_Stack, Restored);
@@ -355,6 +391,23 @@ namespace HiddenBull.UrpStyle.Editor
 
             EditorGUI.BeginChangeCheck();
 
+            var module = PickedModule(settings);
+            var editModule = m_EditModule && module >= 0;
+
+            DrawPath(settings, editModule ? settings.modules[module] : null);
+
+            if (editModule)
+            {
+                DrawModuleCard(settings, module);
+                CoreEditorUtils.DrawSplitter();
+
+                if (EditorGUI.EndChangeCheck())
+                    m_Dirty = true;
+
+                history.Commit("Change Texture Studio");
+                return;
+            }
+
             DrawPatternField(settings);
             EditorGUILayout.Space();
 
@@ -367,8 +420,9 @@ namespace HiddenBull.UrpStyle.Editor
                                                () => Reset(settings.ResetBase));
             if (open)
             {
-                settings.stoneColour = EditorGUILayout.ColorField(Styles.PieceColour,
-                                                                  settings.stoneColour, true, false, false);
+                DrawRamp(Styles.PieceColour, settings.colours);
+                settings.variation = EditorGUILayout.Slider(Styles.Variation, settings.variation, 0f, 1f);
+                settings.heightTint = EditorGUILayout.Slider(Styles.HeightTint, settings.heightTint, 0f, 1f);
                 settings.grain = EditorGUILayout.Slider(Styles.Grain, settings.grain, 0f, 0.5f);
                 settings.roughness = EditorGUILayout.Slider(Styles.Roughness, settings.roughness, 0f, 1f);
                 settings.seed = EditorGUILayout.IntSlider(Styles.Seed, settings.seed, 0, 999);
@@ -398,18 +452,38 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             StyleSectionHeader.End(open);
-
-            var module = PickedModule(settings);
-
-            if (module >= 0)
-                DrawModuleCard(settings, module);
-
             CoreEditorUtils.DrawSplitter();
 
             if (EditorGUI.EndChangeCheck())
                 m_Dirty = true;
 
             history.Commit("Change Texture Studio");
+        }
+
+        void DrawPath(StyleMaterialSettings settings, StyleMaterialModule module)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var layer = new GUIContent(settings.label, "Shows the layer's settings.");
+
+                if (module == null)
+                {
+                    GUILayout.Label(layer, EditorStyles.boldLabel);
+                }
+                else
+                {
+                    if (GUILayout.Button(layer, EditorStyles.linkLabel, GUILayout.ExpandWidth(false)))
+                    {
+                        m_EditModule = false;
+                        GUI.FocusControl(null);
+                    }
+
+                    GUILayout.Label(Styles.Path, EditorStyles.boldLabel, GUILayout.ExpandWidth(false));
+                    GUILayout.Label(ModuleTitle(module), EditorStyles.boldLabel);
+                }
+            }
+
+            EditorGUILayout.Space(2f);
         }
 
         void DrawPatternCard(StyleMaterialSettings settings)
@@ -444,19 +518,6 @@ namespace HiddenBull.UrpStyle.Editor
                                                                 settings.gapColour, true, false, false);
                 settings.gapSmoothness = EditorGUILayout.Slider(Styles.GapSmoothness, settings.gapSmoothness, 0f,
                                                                 1f);
-                settings.variationOn = EditorGUILayout.Toggle(Styles.VariationOn, settings.variationOn);
-
-                using (new EditorGUI.DisabledScope(!settings.variationOn))
-                using (new EditorGUI.IndentLevelScope())
-                {
-                    settings.variation = EditorGUILayout.Slider(Styles.Variation, settings.variation, 0f, 0.5f);
-                    settings.variationColour = EditorGUILayout.ColorField(Styles.VariationColour,
-                                                                          settings.variationColour, true, false,
-                                                                          false);
-                    settings.variationShare = EditorGUILayout.Slider(Styles.VariationShare, settings.variationShare,
-                                                                     0f, 1f);
-                    settings.heightTint = EditorGUILayout.Slider(Styles.HeightTint, settings.heightTint, 0f, 1f);
-                }
             }
 
             StyleSectionHeader.End(open);
@@ -497,7 +558,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var module = settings.modules[index];
             var toggle = new StyleHeaderToggle { visible = true, on = module.on };
-            var open = StyleSectionHeader.DrawWithMenu(Styles.ShapeNames[(int)module.shape],
+            var open = StyleSectionHeader.DrawWithMenu(new GUIContent(ModuleName(module)),
                                                        "TextureStudio.Material.Module",
                                                        menu => FillModuleMenu(menu, settings, index), toggle,
                                                        out var toggled);
@@ -550,29 +611,25 @@ namespace HiddenBull.UrpStyle.Editor
         {
             modules.RemoveAt(index);
             m_Module = Mathf.Min(index, modules.Count - 1);
+            m_EditModule &= modules.Count > 0;
         }
 
-        static void DrawModule(StyleMaterialModule module)
+        static void DrawRamp(GUIContent label, StyleColourRamp ramp)
         {
-            var shape = (int)module.shape;
+            EditorGUI.BeginChangeCheck();
+            var gradient = EditorGUILayout.GradientField(label, ramp.ToGradient());
 
-            module.colour = EditorGUILayout.ColorField(Styles.ModuleColour, module.colour, true, true, false);
+            if (EditorGUI.EndChangeCheck())
+                ramp.Set(gradient);
+        }
+
+        void DrawModule(StyleMaterialModule module)
+        {
+            DrawRamp(Styles.ModuleColour, module.colours);
             module.variation = EditorGUILayout.Slider(Styles.ModuleVariation, module.variation, 0f, 1f);
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField(Styles.Shape, EditorStyles.miniBoldLabel);
-            module.amount = EditorGUILayout.Slider(Styles.AmountNames[shape], module.amount, 0f, 1f);
-
-            if (module.shape != StyleMaterialShape.Fill)
-            {
-                module.scale = EditorGUILayout.IntSlider(Styles.ScaleNames[shape], module.scale, 1, 128);
-                module.size = EditorGUILayout.Slider(Styles.SizeNames[shape], module.size, 0f, 1f);
-
-                if (Styles.ExtraNames[shape] != GUIContent.none)
-                    module.extra = EditorGUILayout.Slider(Styles.ExtraNames[shape], module.extra, 0f, 1f);
-
-                module.seed = EditorGUILayout.IntSlider(Styles.ModuleSeed, module.seed, 0, 999);
-            }
+            if (!module.shape.HasValue)
+                module.seed = EditorGUILayout.IntSlider(Styles.ToneSeed, module.seed, 0, 999);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField(Styles.HeightLabel, EditorStyles.miniBoldLabel);
@@ -587,10 +644,14 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.LabelField(Styles.Surface, EditorStyles.miniBoldLabel);
             module.smoothness = EditorGUILayout.Slider(Styles.ModuleSmoothness, module.smoothness, 0f, 1f);
             module.metallic = EditorGUILayout.Slider(Styles.ModuleMetallic, module.metallic, 0f, 1f);
+            module.emission = EditorGUILayout.ColorField(Styles.ModuleEmission, module.emission, true, false, false);
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField(Styles.WhereLabel, EditorStyles.miniBoldLabel);
             module.area = (StyleModuleArea)EditorGUILayout.EnumPopup(Styles.Area, module.area);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(Styles.MasksLabel, EditorStyles.miniBoldLabel);
 
             var masks = module.masks;
             var removed = -1;
@@ -610,11 +671,11 @@ namespace HiddenBull.UrpStyle.Editor
             using (new EditorGUI.DisabledScope(masks.Count >= StyleMaterialModule.MaxMasks))
             {
                 if (GUILayout.Button(Styles.AddMask, EditorStyles.miniButton))
-                    masks.Add(new StyleModuleMask());
+                    masks.Add(StyleModuleMask.Create(StyleMaskKind.Noise, masks.Count + 1));
             }
         }
 
-        static bool DrawMask(StyleModuleMask mask, int index)
+        bool DrawMask(StyleModuleMask mask, int index)
         {
             var remove = false;
 
@@ -625,23 +686,75 @@ namespace HiddenBull.UrpStyle.Editor
                     if (index > 0)
                         mask.blend = (StyleMaskBlend)EditorGUILayout.EnumPopup(mask.blend, GUILayout.Width(72f));
 
-                    mask.kind = (StyleMaskKind)EditorGUILayout.EnumPopup(mask.kind);
+                    var name = new GUIContent(KindName(mask.kind), Styles.KindNames[(int)mask.kind].tooltip);
+                    var button = GUILayoutUtility.GetRect(name, EditorStyles.popup);
+
+                    if (GUI.Button(button, name, EditorStyles.popup))
+                        ShowKindMenu(mask, button);
+
                     remove = GUILayout.Button(Styles.RemoveMask, EditorStyles.miniButton, GUILayout.Width(22f));
                 }
 
-                mask.threshold = EditorGUILayout.Slider(Styles.Threshold, mask.threshold, 0f, 1f);
-                mask.softness = EditorGUILayout.Slider(Styles.Softness, mask.softness, 0f, 1f);
+                if (mask.isShape)
+                {
+                    var kind = (int)mask.kind;
+
+                    mask.amount = EditorGUILayout.Slider(Styles.AmountNames[kind], mask.amount, 0f, 1f);
+                    mask.scale = EditorGUILayout.IntSlider(Styles.ScaleNames[kind], mask.scale, 1, 128);
+                    mask.size = EditorGUILayout.Slider(Styles.SizeNames[kind], mask.size, 0f, 1f);
+
+                    if (Styles.ExtraNames[kind] != GUIContent.none)
+                        mask.extra = EditorGUILayout.Slider(Styles.ExtraNames[kind], mask.extra, 0f, 1f);
+                }
+                else
+                {
+                    mask.threshold = EditorGUILayout.Slider(Styles.Threshold, mask.threshold, 0f, 1f);
+                    mask.softness = EditorGUILayout.Slider(Styles.Softness, mask.softness, 0f, 1f);
+
+                    if (mask.kind == StyleMaskKind.Noise)
+                        mask.scale = EditorGUILayout.IntSlider(Styles.MaskScale, mask.scale, 1, 32);
+                }
+
                 mask.invert = EditorGUILayout.Toggle(Styles.Invert, mask.invert);
-
-                if (mask.kind == StyleMaskKind.Noise)
-                    mask.scale = EditorGUILayout.IntSlider(Styles.MaskScale, mask.scale, 1, 32);
-
                 mask.warp = EditorGUILayout.Slider(Styles.Warp, mask.warp, 0f, 1f);
+
+                if (mask.isShape || mask.kind == StyleMaskKind.Noise || mask.kind == StyleMaskKind.RandomPieces)
+                    mask.seed = EditorGUILayout.IntSlider(Styles.ModuleSeed, mask.seed, 0, 999);
             }
 
             return remove;
         }
 
+        void ShowKindMenu(StyleModuleMask mask, Rect button)
+        {
+            var menu = new GenericMenu();
+
+            for (var i = 0; i < Styles.KindNames.Length; i++)
+            {
+                var kind = (StyleMaskKind)i;
+
+                if (kind == StyleMaskKind.Edges)
+                    menu.AddSeparator(string.Empty);
+
+                menu.AddItem(Styles.KindNames[i], mask.kind == kind, () => Reset(() => mask.SetKind(kind)));
+            }
+
+            menu.DropDown(button);
+        }
+
+        static string KindName(StyleMaskKind kind)
+        {
+            var text = Styles.KindNames[(int)kind].text;
+
+            return text.Substring(text.IndexOf('/') + 1);
+        }
+
+        static string ModuleName(StyleMaterialModule module)
+        {
+            var shape = module.shape;
+
+            return shape.HasValue ? KindName(shape.Value) : Styles.FillName.text;
+        }
         void DrawModules(StyleMaterialSettings layer)
         {
             var modules = layer.modules;
@@ -663,7 +776,7 @@ namespace HiddenBull.UrpStyle.Editor
                 var add = GUILayoutUtility.GetRect(Styles.AddModule, EditorStyles.miniButtonLeft);
 
                 if (GUI.Button(add, Styles.AddModule, EditorStyles.miniButtonLeft))
-                    ShowShapeMenu(modules, add);
+                    AddModule(modules);
 
                 using (new EditorGUI.DisabledScope(picked < 0))
                 {
@@ -697,7 +810,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (Event.current.type == EventType.Repaint)
             {
-                if (index == m_Module)
+                if (m_EditModule && index == m_Module)
                     EditorGUI.DrawRect(row, Styles.selection);
 
                 var faded = GUI.color;
@@ -705,7 +818,7 @@ namespace HiddenBull.UrpStyle.Editor
                 if (!module.on)
                     GUI.color = new Color(1f, 1f, 1f, 0.45f);
 
-                var colour = module.colour;
+                var colour = module.colours.Evaluate(0.5f);
                 colour.a = 1f;
                 EditorGUI.DrawRect(swatch, colour);
                 EditorStyles.label.Draw(text, ModuleTitle(module), false, false, false, false);
@@ -720,47 +833,39 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
 
             m_Module = index;
+            m_EditModule = true;
             GUI.FocusControl(null);
             Event.current.Use();
         }
 
         static string ModuleTitle(StyleMaterialModule module)
         {
-            var title = Styles.ShapeNames[(int)module.shape].text;
-
-            if (module.area != StyleModuleArea.Everywhere)
-                title += " · " + module.area;
+            var title = module.masks.Count > 0 && module.masks[0].isShape ? string.Empty : Styles.FillName.text;
 
             for (var i = 0; i < module.masks.Count; i++)
             {
                 var mask = module.masks[i];
-                var join = i == 0 ? " · " : mask.blend == StyleMaskBlend.Add ? " + " :
+                var join = title.Length == 0 ? string.Empty : i == 0 ? " · " :
+                    mask.blend == StyleMaskBlend.Add ? " + " :
                     mask.blend == StyleMaskBlend.Subtract ? " − " : " × ";
 
-                var name = ObjectNames.NicifyVariableName(mask.kind.ToString());
-
-                title += join + (mask.invert ? "Not " : string.Empty) + name;
+                title += join + (mask.invert ? "Not " : string.Empty) + KindName(mask.kind);
             }
+
+            if (module.area != StyleModuleArea.Everywhere)
+                title += " · " + module.area;
 
             return title;
         }
 
-        void ShowShapeMenu(List<StyleMaterialModule> modules, Rect button)
+        void AddModule(List<StyleMaterialModule> modules)
         {
-            var menu = new GenericMenu();
-
-            foreach (var shape in StyleMaterialModule.Shapes)
+            Reset(() =>
             {
-                var picked = shape;
-
-                menu.AddItem(Styles.ShapeNames[(int)shape], false, () => Reset(() =>
-                {
-                    modules.Add(StyleMaterialModule.Create(picked));
-                    m_Module = modules.Count - 1;
-                }));
-            }
-
-            menu.DropDown(button);
+                modules.Add(new StyleMaterialModule());
+                m_Module = modules.Count - 1;
+                m_EditModule = true;
+            });
         }
         void ShowPatternMenu(StyleMaterialSettings settings, Rect button)
         {
@@ -949,6 +1054,7 @@ namespace HiddenBull.UrpStyle.Editor
                     stack.layers.Insert(m_Selected + 1, layer.Clone());
                     m_Selected++;
                     m_Module = -1;
+                    m_EditModule = false;
                 }
 
                 using (new EditorGUI.DisabledScope(stack.layers.Count <= 1))
@@ -958,6 +1064,7 @@ namespace HiddenBull.UrpStyle.Editor
                         stack.layers.RemoveAt(m_Selected);
                         m_Selected = Mathf.Clamp(m_Selected - 1, 0, stack.layers.Count - 1);
                         m_Module = -1;
+                        m_EditModule = false;
                     }
                 }
 
@@ -981,20 +1088,42 @@ namespace HiddenBull.UrpStyle.Editor
                 m_Dirty = true;
 
             history.Commit("Change Texture Studio Layers");
+        }
 
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField(Styles.Maps, EditorStyles.boldLabel);
+        void DrawMapPicker(Rect bar)
+        {
+            const float side = 20f;
+            var count = Styles.MapKeys.Length;
+            var x = bar.xMax;
 
-            for (var i = 0; i < Styles.MapNames.Length; i++)
+            for (var i = 0; i < count; i++)
+                x -= Mathf.Max(side, EditorStyles.miniButtonMid.CalcSize(Styles.MapKeys[i]).x);
+
+            for (var i = 0; i < count; i++)
             {
+                var width = Mathf.Max(side, EditorStyles.miniButtonMid.CalcSize(Styles.MapKeys[i]).x);
+                var button = new Rect(x, bar.y, width, side);
+                x += width;
                 var picked = m_Map == (StyleMaterialMap)i && preview.view == StyleStudioView.Flat;
+                var style = i == 0 ? EditorStyles.miniButtonLeft :
+                    i == count - 1 ? EditorStyles.miniButtonRight : EditorStyles.miniButtonMid;
 
-                if (GUILayout.Toggle(picked, Styles.MapNames[i], EditorStyles.miniButton) && !picked)
+                if (GUI.Toggle(button, picked, Styles.MapKeys[i], style) && !picked)
                 {
                     m_Map = (StyleMaterialMap)i;
                     preview.view = StyleStudioView.Flat;
                 }
             }
+        }
+
+        void DrawMapName(Rect rect)
+        {
+            var name = Styles.MapNames[(int)m_Map];
+            var size = EditorStyles.boldLabel.CalcSize(name);
+            var label = new Rect(rect.x + 6f, rect.y + 6f, size.x + 10f, size.y + 4f);
+
+            EditorGUI.DrawRect(label, Styles.badge);
+            GUI.Label(new Rect(label.x + 5f, label.y + 2f, size.x, size.y), name, EditorStyles.boldLabel);
         }
 
         void DrawStackRow(StyleMaterialStack stack, int index)
@@ -1008,7 +1137,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (Event.current.type == EventType.Repaint)
             {
-                if (index == m_Selected)
+                if (!m_EditModule && index == m_Selected)
                     EditorGUI.DrawRect(row, Styles.selection);
 
                 var thumbnail = generator.Thumbnail(index);
@@ -1044,6 +1173,7 @@ namespace HiddenBull.UrpStyle.Editor
                 m_Module = -1;
 
             m_Selected = index;
+            m_EditModule = false;
             m_Renaming = Event.current.clickCount == 2 ? index : -1;
             m_Focus = m_Renaming == index;
             GUI.FocusControl(null);
@@ -1090,6 +1220,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             m_Selected = Mathf.Clamp(m_Selected + 1, 0, m_Stack.layers.Count);
             m_Module = -1;
+            m_EditModule = false;
             m_Stack.layers.Insert(m_Selected, StyleMaterialSettings.Create(pattern));
             m_Dirty = true;
             undo.Commit("Add Texture Studio Layer");
@@ -1115,6 +1246,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             var changed = GUI.changed;
             GUI.changed = false;
+            rect = shelf.Draw(rect, m_Stack, ref m_Preset, ref m_Category, LoadPreset);
+            DrawMapPicker(rect);
             rect = preview.DrawBar(rect);
 
             if (!generator.ready)
@@ -1129,22 +1262,41 @@ namespace HiddenBull.UrpStyle.Editor
                     generator.Show(m_Map);
 
                 preview.DrawFlat(rect, generator.display);
+                DrawMapName(rect);
             }
             else
             {
-                preview.DrawModel(rect, generator.albedo, generator.normal, generator.mask);
+                preview.DrawModel(rect, generator.albedo, generator.normal, generator.mask,
+                                  generator.glows ? generator.emission : null);
             }
 
-            if (GUI.changed)
+            if (GUI.changed || shelf.busy)
                 host?.Repaint();
 
             GUI.changed |= changed;
+        }
+
+        void LoadPreset(string name)
+        {
+            if (!shelf.Load(name, m_Stack))
+                return;
+
+            m_Preset = name;
+            m_Selected = 0;
+            m_Module = -1;
+            m_EditModule = false;
+            m_Dirty = true;
+            GUI.FocusControl(null);
+            undo.Commit("Load Texture Studio Preset");
+            host?.Repaint();
         }
 
         internal override void Release()
         {
             m_Generator?.Release();
             m_Preview?.Release();
+            m_Shelf?.Release();
+            m_Shelf = null;
 
             if (m_Undo != null)
                 m_Undo.Release();
@@ -1171,6 +1323,10 @@ namespace HiddenBull.UrpStyle.Editor
             StyleStudioExport.Save(generator.Export(StyleMaterialMap.Normal), name + "_Normal",
                                    StyleExportKind.Normal);
             StyleStudioExport.Save(generator.Export(StyleMaterialMap.Mask), name + "_Mask", StyleExportKind.Data);
+
+            if (generator.glows)
+                StyleStudioExport.Save(generator.Export(StyleMaterialMap.Emission), name + "_Emission",
+                                       StyleExportKind.Colour);
 
             EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<Texture2D>(albedo));
             GUIUtility.ExitGUI();

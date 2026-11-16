@@ -24,6 +24,9 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly int s_BaseMap = Shader.PropertyToID("_BaseMap");
         static readonly int s_BumpMap = Shader.PropertyToID("_BumpMap");
         static readonly int s_MaskMap = Shader.PropertyToID("_MaskMap");
+        static readonly int s_EmissionMap = Shader.PropertyToID("_EmissionMap");
+        static readonly int s_EmissionColor = Shader.PropertyToID("_EmissionColor");
+        static readonly int s_EmissionEnabled = Shader.PropertyToID("_EmissionEnabled");
 
         static class Styles
         {
@@ -88,7 +91,7 @@ namespace HiddenBull.UrpStyle.Editor
             GUI.DrawTextureWithTexCoords(square, texture, new Rect(0f, 0f, 2f, 2f), false);
         }
 
-        internal void DrawModel(Rect rect, Texture albedo, Texture normal, Texture mask)
+        internal void DrawModel(Rect rect, Texture albedo, Texture normal, Texture mask, Texture emission = null)
         {
             if (!Prepare())
             {
@@ -103,18 +106,26 @@ namespace HiddenBull.UrpStyle.Editor
             HandleZoom(rect, panel);
 
             if (Event.current.type == EventType.Repaint)
-                Render(rect, albedo, normal, mask);
+                Render(rect, albedo, normal, mask, emission);
 
             DrawPanel(panel);
         }
 
-        void Render(Rect rect, Texture albedo, Texture normal, Texture mask)
+        void Render(Rect rect, Texture albedo, Texture normal, Texture mask, Texture emission)
         {
             var sphere = view == StyleStudioView.Sphere;
 
             m_Material.SetTexture(s_BaseMap, albedo);
             m_Material.SetTexture(s_BumpMap, normal);
             m_Material.SetTexture(s_MaskMap, mask);
+            m_Material.SetTexture(s_EmissionMap, emission);
+            m_Material.SetColor(s_EmissionColor, Color.white);
+            m_Material.SetFloat(s_EmissionEnabled, emission != null ? 1f : 0f);
+
+            if (emission != null)
+                m_Material.EnableKeyword("_HB_EMISSION");
+            else
+                m_Material.DisableKeyword("_HB_EMISSION");
             m_Material.SetTextureScale(s_BaseMap, sphere ? new Vector2(2f, 1f) : new Vector2(2f, 2f));
 
             var camera = m_Utility.camera;
