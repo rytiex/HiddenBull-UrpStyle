@@ -49,7 +49,6 @@
     },
     "variationShare": 0.3,
     "heightTint": 0,
-    "woodOn": true,
     "grainColour": {
         "r": 0.3,
         "g": 0.18,
@@ -61,7 +60,6 @@
     "fibres": 0.5,
     "knots": 0.3,
     "woodRelief": 0.5,
-    "wearOn": true,
     "wearColour": {
         "r": 0.68,
         "g": 0.52,
@@ -69,7 +67,6 @@
         "a": 1
     },
     "wear": 0.5,
-    "dirtOn": true,
     "dirtColour": {
         "r": 0.3,
         "g": 0.25,
@@ -78,7 +75,6 @@
     },
     "dirt": 0.4,
     "dirtSpread": 0.2,
-    "mossOn": false,
     "mossColour": {
         "r": 0.27,
         "g": 0.36,
@@ -88,7 +84,6 @@
     "moss": 0.4,
     "mossSpread": 0.4,
     "mossScale": 4,
-    "specksOn": false,
     "specksColour": {
         "r": 0.95,
         "g": 0.97,
@@ -105,5 +100,20 @@
     "edgeHighlight": 0.5,
     "cavityShade": 0.5,
     "occlusion": 0.5,
-    "lightWidth": 2
+    "lightWidth": 2,
+    "modular": true,
+    "modules": [
+        {
+            "module": 0,
+            "on": true
+        },
+        {
+            "module": 1,
+            "on": true
+        },
+        {
+            "module": 2,
+            "on": true
+        }
+    ]
 }

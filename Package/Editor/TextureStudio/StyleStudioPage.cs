@@ -17,6 +17,10 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal abstract void DrawPreview(Rect rect);
 
+        internal virtual void DrawToolbar(Rect rect)
+        {
+        }
+
         internal abstract void Release();
     }
 }

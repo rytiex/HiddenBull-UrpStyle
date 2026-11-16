@@ -1753,5 +1753,35 @@
             Slots = 0
             Reads = 0
         }
+        @{
+            Name = 'Texture Studio Material Composite'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Composite'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Module'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Module'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Material Light'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaterialStudio.compute'
+            Entry = 'Light'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
     )
 }

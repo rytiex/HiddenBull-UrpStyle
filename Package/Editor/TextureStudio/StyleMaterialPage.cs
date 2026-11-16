@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.Rendering;
 using UnityEngine;
 
 namespace HiddenBull.UrpStyle.Editor
@@ -8,72 +10,42 @@ namespace HiddenBull.UrpStyle.Editor
     sealed class StyleMaterialPage : StyleStudioPage
     {
         static readonly int[] s_Resolutions = { 512, 1024, 2048 };
+        const string RenameControl = "TextureStudio.Material.Rename";
 
         static class Styles
         {
             internal static readonly GUIContent Title = new GUIContent("Material",
                 "Stone, brick, plank and ground textures for terrain layers and Lit materials.");
 
-            internal static readonly GUIContent Recipe = new GUIContent("Recipe",
-                "The kind of surface to generate. Picking a recipe loads its pattern and shape defaults.");
+            internal static readonly GUIContent Base = new GUIContent("Base",
+                "Colour and fine relief of the whole layer, under the pattern and the modules.");
+            internal static readonly GUIContent Layout = new GUIContent("Layout");
+            internal static readonly GUIContent PatternGroup = new GUIContent("Pattern");
+            internal static readonly GUIContent NoPattern = new GUIContent("None",
+                "No pattern: one flat surface for the modules to work on.");
 
-            internal static readonly GUIContent Pattern = new GUIContent("Pattern");
             internal static readonly GUIContent Shape = new GUIContent("Shape");
             internal static readonly GUIContent Surface = new GUIContent("Surface");
-            internal static readonly GUIContent Details = new GUIContent("Details");
-            internal static readonly GUIContent NoDetails = new GUIContent("No details for this recipe.");
-            internal static readonly GUIContent Pores = new GUIContent("Pores",
-                "Small pits in the surface of the stones, as in travertine.");
-            internal static readonly GUIContent PoreScale = new GUIContent("Pore Scale",
-                "Pores across the texture. More gives smaller, closer pores.");
-            internal static readonly GUIContent Nails = new GUIContent("Nails",
-                "Nail heads near the ends of the boards. The amount is the share of board ends that get them.");
-            internal static readonly GUIContent NailSize = new GUIContent("Nail Size",
-                "Size of the nail heads compared with the board width.");
-            internal static readonly GUIContent Leaves = new GUIContent("Leaves",
-                "Fallen leaves and twigs lying on top of everything.");
-            internal static readonly GUIContent LeafColour = new GUIContent("Leaf Colour",
-                "Base colour of the leaves. Each leaf is a little lighter or darker.");
-            internal static readonly GUIContent LeafScale = new GUIContent("Leaf Scale",
-                "Leaves across the texture. More gives smaller leaves.");
-            internal static readonly GUIContent Twigs = new GUIContent("Twigs", "Share of twigs among the leaves.");
-            internal static readonly GUIContent StreaksColour = new GUIContent("Colour", "Colour of the stains.");
-            internal static readonly GUIContent Streaks = new GUIContent("Amount",
-                "How much of the surface is stained.");
-            internal static readonly GUIContent StreakScale = new GUIContent("Scale",
-                "Streaks across the texture. More gives thinner, closer streaks.");
-            internal static readonly GUIContent StreakLength = new GUIContent("Length",
-                "How long the streaks run compared with their width.");
-            internal static readonly GUIContent LichenColour = new GUIContent("Colour", "Colour of the lichen.");
-            internal static readonly GUIContent Lichen = new GUIContent("Amount", "How many lichen patches there are.");
-            internal static readonly GUIContent LichenScale = new GUIContent("Scale",
-                "Patch places across the texture. More gives smaller, closer patches.");
-            internal static readonly GUIContent LichenSize = new GUIContent("Size", "Size of the patches.");
-            internal static readonly GUIContent WaterColour = new GUIContent("Colour", "Colour of the water.");
-            internal static readonly GUIContent Puddles = new GUIContent("Level",
-                "Height the water rises to. Higher fills more of the low parts.");
-            internal static readonly GUIContent PuddleSpread = new GUIContent("Spread",
-                "How much the water level changes across the texture, leaving some places dry.");
-            internal static readonly GUIContent HairCracks = new GUIContent("Hair Cracks",
-                "Thin branching cracks across the pieces. 0 leaves the pieces whole.");
-            internal static readonly GUIContent HairScale = new GUIContent("Crack Scale",
-                "Crack cells per piece. More gives smaller, denser cracks.");
-            internal static readonly GUIContent Chips = new GUIContent("Chips",
-                "Bits broken off the edges and corners of the pieces.");
-            internal static readonly GUIContent ChipSize = new GUIContent("Chip Size",
-                "How far the broken bits reach into the pieces.");
-            internal static readonly GUIContent Scratches = new GUIContent("Scratches",
-                "Fine scratches and scuff marks on the pieces.");
-            internal static readonly GUIContent ScratchScale = new GUIContent("Scratch Scale",
-                "Scratches across the texture. More gives shorter, closer scratches.");
-            internal static readonly GUIContent JointPebbles = new GUIContent("Joint Pebbles",
-                "Small pebbles and grit filling the joints.");
-            internal static readonly GUIContent JointGrass = new GUIContent("Joint Grass",
-                "Grass tufts growing from the joints and spilling over the edges.");
-            internal static readonly GUIContent GrassColour = new GUIContent("Grass Colour",
-                "Colour of the grass tufts.");
+            internal static readonly GUIContent Colour = new GUIContent("Colour");
+            internal static readonly GUIContent Modules = new GUIContent("Modules",
+                "Shapes painted onto the picked layer, top first. The bottom one is applied first, so the top " +
+                "one covers the others.");
+            internal static readonly GUIContent NoModules = new GUIContent("No modules. Add one with +.");
+            internal static readonly GUIContent AddModule = new GUIContent("+", "Adds a module on top.");
+            internal static readonly GUIContent DuplicateModule = new GUIContent("Duplicate",
+                "Copies the picked module above itself.");
+            internal static readonly GUIContent RemoveModule = new GUIContent("−", "Removes the picked module.");
+            internal static readonly GUIContent RaiseModule = new GUIContent("▲", "Moves the picked module up.");
+            internal static readonly GUIContent LowerModule = new GUIContent("▼", "Moves the picked module down.");
+            internal static readonly GUIContent ModuleOn = EditorGUIUtility.TrIconContent("animationvisibilitytoggleon",
+                "On. Click to turn the module off.");
+            internal static readonly GUIContent ModuleOff = EditorGUIUtility.TrIconContent(
+                "animationvisibilitytoggleoff", "Off. Click to turn the module on.");
+
             internal static readonly GUIContent Light = new GUIContent("Painted Light");
             internal static readonly GUIContent Output = new GUIContent("Output");
+            internal static readonly GUIContent Export = new GUIContent("Export",
+                "Name, size and folder of the saved textures, and the Save button.");
 
             internal static readonly GUIContent Stones = new GUIContent("Stones",
                 "Stones across the texture. Fewer stones are bigger.");
@@ -90,7 +62,8 @@ namespace HiddenBull.UrpStyle.Editor
                 "Rounds off the corners of the stones' outline.");
             internal static readonly GUIContent Chipping = new GUIContent("Chipping",
                 "Makes the outlines wobbly and chipped instead of straight.");
-            internal static readonly GUIContent Seed = new GUIContent("Seed", "Picks another random layout.");
+            internal static readonly GUIContent Seed = new GUIContent("Seed",
+                "Picks another random layout for the pattern and the modules.");
 
             internal static readonly GUIContent Bevel = new GUIContent("Bevel",
                 "How far in from the edge each stone keeps rounding down into the joint.");
@@ -131,14 +104,37 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent Save = new GUIContent("Save Textures",
                 "Writes the albedo, normal and mask PNGs into the folder. Files with the same names are replaced.");
 
-            internal static readonly GUIContent Layers = new GUIContent("Layers");
+            internal static readonly GUIContent Layers = new GUIContent("Layers",
+                "The stack of materials, top first. Each layer covers the ones below it by its Coverage. " +
+                "Double-click a layer to rename it.");
+            internal static readonly GUIContent Blend = new GUIContent("Blend",
+                "Normal lays the layer over the ones below by its Coverage. Height shows it only where its surface " +
+                "is higher than the stack below, so sand fills between stones and stones poke out of sand.");
+            internal static readonly GUIContent Contrast = new GUIContent("Contrast",
+                "How sharp the edge between this layer and the ones below is. 0 blends softly, 1 cuts cleanly.");
+            internal static readonly GUIContent Offset = new GUIContent("Offset",
+                "Moves this layer's surface up or down before comparing, so more or less of it shows.");
+            internal static readonly GUIContent Coverage = new GUIContent("Coverage",
+                "How much the picked layer covers the layers below it. The bottom layer always covers fully.");
+            internal static readonly GUIContent AddLayer = new GUIContent("+",
+                "Adds an empty layer above the picked one.");
+            internal static readonly GUIContent DuplicateLayer = new GUIContent("Duplicate",
+                "Copies the picked layer above itself.");
+            internal static readonly GUIContent RemoveLayer = new GUIContent("−", "Removes the picked layer.");
+            internal static readonly GUIContent RaiseLayer = new GUIContent("▲", "Moves the picked layer up.");
+            internal static readonly GUIContent LowerLayer = new GUIContent("▼", "Moves the picked layer down.");
+            internal static readonly GUIContent Visible = EditorGUIUtility.TrIconContent("animationvisibilitytoggleon",
+                "Shown. Click to hide the layer.");
+            internal static readonly GUIContent Hidden = EditorGUIUtility.TrIconContent("animationvisibilitytoggleoff",
+                "Hidden. Click to show the layer.");
+            internal static readonly Color selection = new Color(0.24f, 0.48f, 0.9f, 0.35f);
             internal static readonly GUIContent Maps = new GUIContent("Maps");
-            internal static readonly GUIContent ResetLayer = new GUIContent("Reset",
-                "Puts the picked layer's settings back to their defaults.");
 
             internal static readonly GUIContent Grain = new GUIContent("Grain",
                 "Fine light and dark speckles over the stones and the joints.");
 
+            internal static readonly GUIContent VariationOn = new GUIContent("Variation",
+                "Each piece a little different in brightness and colour.");
             internal static readonly GUIContent Variation = new GUIContent("Brightness",
                 "How much lighter or darker each stone is than the others.");
             internal static readonly GUIContent VariationColour = new GUIContent("Second Colour",
@@ -146,81 +142,127 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent VariationShare = new GUIContent("Share",
                 "Share of the stones that lean toward the second colour.");
 
-            internal static readonly GUIContent WearColour = new GUIContent("Colour",
-                "Colour of the worn, raised edges.");
-            internal static readonly GUIContent Wear = new GUIContent("Amount", "How strongly the edges are worn.");
-
-            internal static readonly GUIContent DirtColour = new GUIContent("Colour", "Colour of the dirt.");
-            internal static readonly GUIContent Dirt = new GUIContent("Amount",
-                "How much dirt creeps from the joints and creases onto the stones.");
-            internal static readonly GUIContent DirtSpread = new GUIContent("Spread",
-                "How far from the joints the dirt reaches, as a share of a stone's size.");
-
-            internal static readonly GUIContent MossColour = new GUIContent("Colour", "Colour of the moss.");
-            internal static readonly GUIContent Moss = new GUIContent("Amount", "How much moss grows.");
-            internal static readonly GUIContent MossSpread = new GUIContent("Climb",
-                "How high up the stones the moss climbs out of the joints.");
-            internal static readonly GUIContent MossScale = new GUIContent("Patch Size",
-                "Number of moss patches across the texture. More gives smaller patches.");
-
-            internal static readonly GUIContent[] RecipeNames =
+            internal static readonly GUIContent[] PatternNames =
             {
-                new GUIContent("Stone/Cobblestone", "Round stones of mixed sizes with earth in the joints."),
-                new GUIContent("Stone/Flagstone", "Large flat slabs with chipped outlines and narrow joints."),
-                new GUIContent("Stone/Pavers", "Cut rectangular stones in shifted rows."),
-                new GUIContent("Brick/Bricks", "Brick wall in rows shifted by half a brick."),
-                new GUIContent("Brick/Herringbone", "Bricks in a zigzag of lying and standing pairs."),
-                new GUIContent("Brick/Basket Weave", "Squares of bricks, turning lying and standing in turn."),
-                new GUIContent("Stone/Ashlar Wall", "Big cut blocks of mixed lengths in rows."),
-                new GUIContent("Wood/Planks", "Floor or wall boards with joints at random places."),
-                new GUIContent("Wood/Rough Planks", "Wide, crooked, weathered boards with open gaps."),
-                new GUIContent("Wood/Parquet", "Short boards in a herringbone floor."),
-                new GUIContent("Ground/Soil", "Lumpy earth with a few small stones."),
-                new GUIContent("Ground/Dry Mud", "Dried mud broken into curled plates by cracks."),
-                new GUIContent("Ground/Gravel", "Packed round pebbles lying over each other."),
-                new GUIContent("Ground/Sand", "Wind ripples in sand with a few pebbles."),
-                new GUIContent("Ground/Snow", "Soft bumpy snow with glittering crumbs and wind marks."),
-                new GUIContent("Ice/Lake Ice", "Flat smooth ice with white cracks and bubbles."),
-                new GUIContent("Ice/Crystals", "Clusters of sharp, chiselled crystals.")
+                new GUIContent("Cells", "Irregular pieces, as in cobblestones, flagstones, dried mud or ice."),
+                new GUIContent("Rows", "Pieces in rows, as in bricks, pavers, cut blocks or boards."),
+                new GUIContent("Herringbone", "Pairs of pieces in a zigzag, as in herringbone bricks or parquet."),
+                new GUIContent("Basket", "Squares of pieces, turning lying and standing in turn."),
+                new GUIContent("Scatter", "Loose pebbles lying on the ground, as in soil, gravel, sand or snow."),
+                new GUIContent("None", "No pattern: one flat surface for the modules to work on.")
             };
 
-            internal static readonly GUIContent[] LayerNames =
+            internal static readonly GUIContent[] ShapeNames =
             {
-                new GUIContent("Base", "Main and joint colours. Always on."),
-                new GUIContent("Variation", "Each piece a little different in brightness and colour."),
-                new GUIContent("Wood Grain", "Fibres, growth rings and knots of the wood."),
-                new GUIContent("Edge Wear", "Lighter, worn colour on the raised edges."),
-                new GUIContent("Dirt", "Dirt creeping from the joints and creases onto the pieces."),
+                new GUIContent("Fill", "Covers the whole area the Where settings pick. With masks it makes edge " +
+                                       "wear, dirt in the creases, noise patches of moss or damp, or water " +
+                                       "with Flatten."),
+                new GUIContent("Cracks", "Thin branching cracks."),
+                new GUIContent("Scratches", "Fine straight scratches and scuff marks."),
                 new GUIContent("Streaks", "Stains running down the surface, as on old walls."),
-                new GUIContent("Moss", "Moss growing in the joints and up the low parts of the pieces."),
-                new GUIContent("Lichen", "Round pale patches of lichen on the pieces."),
-                new GUIContent("Specks", "Small dots all over: glitter on snow, bubbles in ice, grains in sand."),
-                new GUIContent("Puddles", "Water lying in the low parts, with damp edges around it.")
+                new GUIContent("Wood Grain", "Growth rings, fibres and knots following the boards."),
+                new GUIContent("Chips", "Bits broken off the edges and corners of the pieces."),
+                new GUIContent("Clumps", "Pebbles or grass tufts scattered whole where the Where settings allow. " +
+                                         "Blades turns round pebbles into tufts."),
+                new GUIContent("Leaves", "Fallen leaves and twigs lying on top of everything.")
             };
 
-            internal static readonly GUIContent[] MainColour =
+            internal static readonly GUIContent[] AmountNames =
             {
-                new GUIContent("Stone Colour", "Colour of the stones."),
-                new GUIContent("Brick Colour", "Colour of the bricks."),
-                new GUIContent("Wood Colour", "Colour of the wood."),
-                new GUIContent("Pebble Colour", "Colour of the stones, pebbles or plates."),
-                new GUIContent("Ice Colour", "Colour of the ice or the crystals.")
+                new GUIContent("Strength", "How strongly the fill shows."),
+                new GUIContent("Amount", "How much of the surface is cracked."),
+                new GUIContent("Density", "How many scratches there are."),
+                new GUIContent("Coverage", "How much of the surface is stained."),
+                new GUIContent("Rings", "Strength of the growth ring lines."),
+                new GUIContent("Amount", "Share of the places near edges that get a chip."),
+                new GUIContent("Density", "Share of the places that get a clump. With Size 1 it covers everything."),
+                new GUIContent("Amount", "How much of the surface the leaves cover.")
             };
 
-            internal static readonly GUIContent[] JointColour =
+            internal static readonly GUIContent[] ScaleNames =
             {
-                new GUIContent("Gap Colour", "Colour of the ground in the joints."),
-                new GUIContent("Mortar Colour", "Colour of the mortar between the bricks."),
-                new GUIContent("Gap Colour", "Colour seen through the gaps between the boards."),
-                new GUIContent("Ground Colour", "Colour of the soil, sand or snow around the pieces."),
-                new GUIContent("Crack Colour", "Colour in the cracks and at the foot of the crystals.")
+                GUIContent.none,
+                new GUIContent("Scale", "Cracks across the texture. More gives smaller, closer cracks."),
+                new GUIContent("Scale", "Places across the texture where a scratch can start."),
+                new GUIContent("Scale", "Streaks across the texture. More gives thinner, closer streaks."),
+                new GUIContent("Ring Density", "Growth ring lines across the width of a board."),
+                new GUIContent("Scale", "Places across the texture where a chip can be. More gives more, smaller " +
+                                        "chances."),
+                new GUIContent("Scale", "Places across the texture where a clump can be. More gives smaller clumps."),
+                new GUIContent("Scale", "Leaves across the texture. More gives smaller leaves.")
             };
+
+            internal static readonly GUIContent[] ExtraNames =
+            {
+                GUIContent.none, GUIContent.none, GUIContent.none, GUIContent.none,
+                new GUIContent("Knots", "Chance of a knot on each board; high values give some boards two."),
+                GUIContent.none,
+                new GUIContent("Blades", "0 gives round pebbles, 1 gives grass tufts, between gives spiky clumps."),
+                new GUIContent("Twigs", "Share of twigs among the leaves.")
+            };
+
+            internal static readonly GUIContent[] SizeNames =
+            {
+                GUIContent.none,
+                new GUIContent("Width", "Width of the cracks."),
+                new GUIContent("Length", "Length of the scratches."),
+                new GUIContent("Length", "How long the streaks run."),
+                new GUIContent("Fibres", "Strength of the fine fibre streaks."),
+                new GUIContent("Size", "Size of the chips compared with the pattern's pieces."),
+                new GUIContent("Size", "Size of the clumps. At 1 they touch and cover the ground."),
+                new GUIContent("Size", "Size of the leaves.")
+            };
+
+            internal static readonly GUIContent ModuleColour = new GUIContent("Colour",
+                "Colour of the module. Alpha is how strongly the colour covers what is below.");
+            internal static readonly GUIContent ModuleVariation = new GUIContent("Variation",
+                "Light and dark change across the module's colour.");
+            internal static readonly GUIContent ModuleSeed = new GUIContent("Seed", "Picks another random layout.");
+            internal static readonly GUIContent HeightLabel = new GUIContent("Height");
+            internal static readonly GUIContent HeightMode = new GUIContent("Mode",
+                "Cut digs the shape into the surface, Raise lifts it, Flatten fills its low parts up to a level, " +
+                "None changes only colour and surface.");
+            internal static readonly GUIContent ModuleDepth = new GUIContent("Depth",
+                "How deep the shape is cut or how high it is raised.");
+            internal static readonly GUIContent ModuleLevel = new GUIContent("Level",
+                "Height the covered low parts are filled up to; only the filled parts take the module's colour. " +
+                "Pieces' tops are near 1, joints near 0 and an empty layer's surface near 0.5.");
+            internal static readonly GUIContent ModuleSmoothness = new GUIContent("Smoothness",
+                "Smoothness where the module covers.");
+            internal static readonly GUIContent ModuleMetallic = new GUIContent("Metallic",
+                "Metallic where the module covers.");
+            internal static readonly GUIContent WhereLabel = new GUIContent("Where");
+            internal static readonly GUIContent Area = new GUIContent("Area",
+                "Pieces keeps the module on the pattern's pieces, Joints between them, Everywhere on both.");
+            internal static readonly GUIContent AddMask = new GUIContent("Add Mask",
+                "Limits the module further. Up to three masks; each one after the first multiplies, adds to or " +
+                "takes from the ones above it.");
+            internal static readonly GUIContent RemoveMask = new GUIContent("−", "Removes this mask.");
+            internal static readonly GUIContent Warp = new GUIContent("Warp",
+                "Bends the mask's edge with noise so straight, even edges turn ragged and natural.");
+            internal static readonly GUIContent Threshold = new GUIContent("Threshold",
+                "Where the mask starts. Higher keeps only the strongest edges, creases, the highest parts or fewer " +
+                "random pieces.");
+            internal static readonly GUIContent Softness = new GUIContent("Softness", "How soft the mask's edge is.");
+            internal static readonly GUIContent Invert = new GUIContent("Invert", "Swaps the masked and open parts.");
+            internal static readonly GUIContent MaskScale = new GUIContent("Noise Scale",
+                "Noise blotches across the texture. More gives smaller blotches.");
+
+            internal static readonly GUIContent PieceColour = new GUIContent("Colour",
+                "Colour of the pieces, or of the whole surface when there is no pattern.");
+            internal static readonly GUIContent JointColour = new GUIContent("Joint Colour",
+                "Colour of the ground in the joints and around the pieces.");
+            internal static readonly GUIContent RandomShift = new GUIContent("Random Joints",
+                "Puts the joints of each row at random places instead of a fixed offset.");
+            internal static readonly GUIContent NaturalGround = new GUIContent("Natural",
+                "Softer, flowing ground shapes and fine noise, as in mud, sand or ice.");
 
             internal static readonly GUIContent Ground = new GUIContent("Ground");
             internal static readonly GUIContent Pebbles = new GUIContent("Pebbles",
                 "Places across the texture where a pebble can lie. More gives smaller pebbles.");
             internal static readonly GUIContent Density = new GUIContent("Density",
-                "Share of the places that get a pebble. 0 leaves bare ground.");
+                "How much of the ground the pebbles cover. 0 leaves bare ground, 1 fills every gap with " +
+                "smaller pebbles.");
             internal static readonly GUIContent PebbleSize = new GUIContent("Size",
                 "Size of the pebbles. Above about 0.5 they touch and lie over each other.");
             internal static readonly GUIContent FineCracks = new GUIContent("Fine Cracks",
@@ -239,12 +281,6 @@ namespace HiddenBull.UrpStyle.Editor
                 "How much the ripples bend and wander instead of running straight.");
             internal static readonly GUIContent HeightTint = new GUIContent("Height Tint",
                 "Lightens the high parts and darkens the low parts.");
-            internal static readonly GUIContent SpecksColour = new GUIContent("Colour", "Colour of the specks.");
-            internal static readonly GUIContent Specks = new GUIContent("Amount", "How many specks there are.");
-            internal static readonly GUIContent SpecksScale = new GUIContent("Grid",
-                "Specks across the texture. More gives smaller, closer specks.");
-            internal static readonly GUIContent SpecksShine = new GUIContent("Shine",
-                "Smoothness of the specks, so they glint in the light. 0 leaves the surface as it is.");
 
             internal static readonly GUIContent Repeats = new GUIContent("Repeats",
                 "How many times the pattern repeats across the texture.");
@@ -254,18 +290,6 @@ namespace HiddenBull.UrpStyle.Editor
                 "Length of a piece as a multiple of its width.");
             internal static readonly GUIContent LengthVariation = new GUIContent("Length Variation",
                 "How much the lengths of the pieces in a row differ.");
-
-            internal static readonly GUIContent GrainColour = new GUIContent("Colour",
-                "Colour of the dark lines of the grain and of the knots.");
-            internal static readonly GUIContent Rings = new GUIContent("Rings", "Strength of the growth ring lines.");
-            internal static readonly GUIContent RingDensity = new GUIContent("Ring Density",
-                "Growth ring lines across the width of a board.");
-            internal static readonly GUIContent Fibres = new GUIContent("Fibres",
-                "Strength of the fine fibre streaks.");
-            internal static readonly GUIContent Knots = new GUIContent("Knots",
-                "Chance of a knot on each board; high values give some boards two.");
-            internal static readonly GUIContent WoodRelief = new GUIContent("Relief",
-                "How deep the grain is cut into the height and normal maps.");
 
             internal static readonly GUIContent[] Resolutions =
             {
@@ -284,19 +308,22 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         [SerializeField]
-        StyleMaterialSettings m_Settings = new StyleMaterialSettings();
+        StyleMaterialStack m_Stack = new StyleMaterialStack();
 
         [SerializeField]
-        string m_Preset;
+        int m_Selected;
+
+        [SerializeField]
+        int m_Module = -1;
 
         [SerializeField]
         StyleMaterialMap m_Map;
 
-        [SerializeField]
-        StyleMaterialLayer m_Layer;
+        [NonSerialized]
+        int m_Renaming = -1;
 
         [NonSerialized]
-        StyleStudioPresets m_Presets;
+        bool m_Focus;
 
         [NonSerialized]
         StyleMaterialGenerator m_Generator;
@@ -312,57 +339,39 @@ namespace HiddenBull.UrpStyle.Editor
 
         internal override GUIContent title => Styles.Title;
 
-        StyleStudioPresets presets => m_Presets ??= new StyleStudioPresets("Material");
         StyleMaterialGenerator generator => m_Generator ??= new StyleMaterialGenerator();
         StyleStudioPreview preview => m_Preview ??= new StyleStudioPreview();
 
         StyleStudioUndoState undo =>
-            m_Undo != null ? m_Undo : m_Undo = StyleStudioUndoState.Create(m_Settings, Restored);
+            m_Undo != null ? m_Undo : m_Undo = StyleStudioUndoState.Create(m_Stack, Restored);
+
+        StyleMaterialSettings current => m_Stack.Layer(m_Selected);
 
         internal override void DrawSettings()
         {
             var history = undo;
 
-            presets.Draw(ref m_Preset, m_Settings, Load);
-            EditorGUILayout.Space();
-
-            var settings = m_Settings;
+            var settings = current;
 
             EditorGUI.BeginChangeCheck();
 
-            var recipe = (StyleMaterialRecipe)EditorGUILayout.Popup(Styles.Recipe, (int)settings.recipe,
-                                                                     Styles.RecipeNames);
-            if (recipe != settings.recipe)
-                settings.ApplyRecipe(recipe);
+            DrawPatternField(settings);
+            EditorGUILayout.Space();
 
-            var open = StyleSectionHeader.Draw(Styles.Pattern, "TextureStudio.Material.Pattern",
-                                               () => Reset(settings.ResetPattern));
-            if (open)
-                DrawPattern(settings);
+            if (settings.hasPattern)
+                DrawPatternCard(settings);
+            else
+                DrawGroundCard(settings);
 
-            StyleSectionHeader.End(open);
-
-            if (settings.family == StyleMaterialFamily.Ground)
-            {
-                open = StyleSectionHeader.Draw(Styles.Ground, "TextureStudio.Material.Ground",
-                                               () => Reset(settings.ResetPattern));
-                if (open)
-                    DrawGround(settings);
-
-                StyleSectionHeader.End(open);
-            }
-
-            open = StyleSectionHeader.Draw(Styles.Shape, "TextureStudio.Material.Shape",
-                                           () => Reset(settings.ResetShape));
+            var open = StyleSectionHeader.Draw(Styles.Base, "TextureStudio.Material.Base",
+                                               () => Reset(settings.ResetBase));
             if (open)
             {
-                settings.bevel = EditorGUILayout.Slider(Styles.Bevel, settings.bevel, 0.01f, 0.6f);
-                settings.dome = EditorGUILayout.Slider(Styles.Dome, settings.dome, -1f, 1f);
-                settings.facets = EditorGUILayout.Slider(Styles.Facets, settings.facets, 0f, 1f);
-                settings.heightVariation = EditorGUILayout.Slider(Styles.HeightVariation, settings.heightVariation,
-                                                                  0f, 1f);
-                settings.tilt = EditorGUILayout.Slider(Styles.Tilt, settings.tilt, 0f, 1f);
+                settings.stoneColour = EditorGUILayout.ColorField(Styles.PieceColour,
+                                                                  settings.stoneColour, true, false, false);
+                settings.grain = EditorGUILayout.Slider(Styles.Grain, settings.grain, 0f, 0.5f);
                 settings.roughness = EditorGUILayout.Slider(Styles.Roughness, settings.roughness, 0f, 1f);
+                settings.seed = EditorGUILayout.IntSlider(Styles.Seed, settings.seed, 0, 999);
             }
 
             StyleSectionHeader.End(open);
@@ -373,8 +382,6 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 settings.depth = EditorGUILayout.Slider(Styles.Depth, settings.depth, 0.001f, 0.1f);
                 settings.smoothness = EditorGUILayout.Slider(Styles.Smoothness, settings.smoothness, 0f, 1f);
-                settings.gapSmoothness = EditorGUILayout.Slider(Styles.GapSmoothness, settings.gapSmoothness, 0f,
-                                                                1f);
                 settings.metallic = EditorGUILayout.Slider(Styles.Metallic, settings.metallic, 0f, 1f);
             }
 
@@ -392,40 +399,465 @@ namespace HiddenBull.UrpStyle.Editor
 
             StyleSectionHeader.End(open);
 
-            open = StyleSectionHeader.Draw(Styles.Output, "TextureStudio.Material.Output", null);
-            if (open)
-            {
-                var index = Mathf.Max(Array.IndexOf(s_Resolutions, settings.resolution), 0);
-                index = EditorGUILayout.Popup(Styles.Resolution, index, Styles.Resolutions);
-                settings.resolution = s_Resolutions[index];
-            }
+            var module = PickedModule(settings);
+
+            if (module >= 0)
+                DrawModuleCard(settings, module);
+
+            CoreEditorUtils.DrawSplitter();
 
             if (EditorGUI.EndChangeCheck())
                 m_Dirty = true;
 
+            history.Commit("Change Texture Studio");
+        }
+
+        void DrawPatternCard(StyleMaterialSettings settings)
+        {
+            var pattern = settings.pattern;
+            var title = new GUIContent(StyleMaterialSettings.LabelOf(pattern),
+                                       Styles.PatternNames[(int)pattern].tooltip);
+            var open = StyleSectionHeader.Draw(title, "TextureStudio.Material.Pattern",
+                                               () => Reset(() => settings.SetPattern(pattern)));
+
             if (open)
             {
-                settings.name = EditorGUILayout.TextField(Styles.Name, settings.name);
-                StyleStudioExport.DrawFolder();
+                EditorGUILayout.LabelField(Styles.Layout, EditorStyles.miniBoldLabel);
+                DrawPattern(settings);
 
-                using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(settings.name)))
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField(Styles.Shape, EditorStyles.miniBoldLabel);
+                settings.bevel = EditorGUILayout.Slider(Styles.Bevel, settings.bevel, 0.01f, 0.6f);
+                settings.dome = EditorGUILayout.Slider(Styles.Dome, settings.dome, -1f, 1f);
+                settings.facets = EditorGUILayout.Slider(Styles.Facets, settings.facets, 0f, 1f);
+                settings.heightVariation = EditorGUILayout.Slider(Styles.HeightVariation, settings.heightVariation,
+                                                                  0f, 1f);
+                settings.tilt = EditorGUILayout.Slider(Styles.Tilt, settings.tilt, 0f, 1f);
+
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField(Styles.Ground, EditorStyles.miniBoldLabel);
+                DrawGround(settings);
+
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField(Styles.Colour, EditorStyles.miniBoldLabel);
+                settings.gapColour = EditorGUILayout.ColorField(Styles.JointColour,
+                                                                settings.gapColour, true, false, false);
+                settings.gapSmoothness = EditorGUILayout.Slider(Styles.GapSmoothness, settings.gapSmoothness, 0f,
+                                                                1f);
+                settings.variationOn = EditorGUILayout.Toggle(Styles.VariationOn, settings.variationOn);
+
+                using (new EditorGUI.DisabledScope(!settings.variationOn))
+                using (new EditorGUI.IndentLevelScope())
                 {
-                    if (GUILayout.Button(Styles.Save))
-                        SaveTextures();
+                    settings.variation = EditorGUILayout.Slider(Styles.Variation, settings.variation, 0f, 0.5f);
+                    settings.variationColour = EditorGUILayout.ColorField(Styles.VariationColour,
+                                                                          settings.variationColour, true, false,
+                                                                          false);
+                    settings.variationShare = EditorGUILayout.Slider(Styles.VariationShare, settings.variationShare,
+                                                                     0f, 1f);
+                    settings.heightTint = EditorGUILayout.Slider(Styles.HeightTint, settings.heightTint, 0f, 1f);
                 }
             }
 
             StyleSectionHeader.End(open);
-            history.Commit("Change Texture Studio");
+        }
+
+        void DrawGroundCard(StyleMaterialSettings settings)
+        {
+            var open = StyleSectionHeader.Draw(Styles.Ground, "TextureStudio.Material.Ground",
+                                               () => Reset(settings.ResetGround));
+
+            if (open)
+                DrawGround(settings);
+
+            StyleSectionHeader.End(open);
+        }
+
+        int PickedModule(StyleMaterialSettings settings)
+        {
+            var count = settings.modules.Count;
+
+            if (m_Module < 0 || m_Module >= count)
+                m_Module = count - 1;
+
+            return m_Module;
+        }
+
+        void DrawPatternField(StyleMaterialSettings settings)
+        {
+            var picked = Styles.PatternNames[(int)settings.pattern];
+            var field = EditorGUILayout.GetControlRect();
+            var button = EditorGUI.PrefixLabel(field, Styles.PatternGroup);
+
+            if (GUI.Button(button, picked, EditorStyles.popup))
+                ShowPatternMenu(settings, button);
+        }
+
+        void DrawModuleCard(StyleMaterialSettings settings, int index)
+        {
+            var module = settings.modules[index];
+            var toggle = new StyleHeaderToggle { visible = true, on = module.on };
+            var open = StyleSectionHeader.DrawWithMenu(Styles.ShapeNames[(int)module.shape],
+                                                       "TextureStudio.Material.Module",
+                                                       menu => FillModuleMenu(menu, settings, index), toggle,
+                                                       out var toggled);
+
+            if (toggled.HasValue)
+                module.on = toggled.Value;
+
+            if (open)
+                DrawModule(module);
+
+            StyleSectionHeader.End(open);
+        }
+
+        void FillModuleMenu(GenericMenu menu, StyleMaterialSettings settings, int index)
+        {
+            var modules = settings.modules;
+            var module = modules[index];
+
+            menu.AddItem(new GUIContent("Reset"), false, () => Reset(module.Reset));
+            menu.AddItem(new GUIContent("Duplicate"), false, () => Reset(() => DuplicateModule(modules, index)));
+            menu.AddSeparator(string.Empty);
+
+            if (index < modules.Count - 1)
+                menu.AddItem(new GUIContent("Move Up"), false, () => Reset(() => MoveModule(modules, index, 1)));
+            else
+                menu.AddDisabledItem(new GUIContent("Move Up"));
+
+            if (index > 0)
+                menu.AddItem(new GUIContent("Move Down"), false, () => Reset(() => MoveModule(modules, index, -1)));
+            else
+                menu.AddDisabledItem(new GUIContent("Move Down"));
+
+            menu.AddSeparator(string.Empty);
+            menu.AddItem(new GUIContent("Remove"), false, () => Reset(() => RemoveModule(modules, index)));
+        }
+
+        void DuplicateModule(List<StyleMaterialModule> modules, int index)
+        {
+            modules.Insert(index + 1, modules[index].Clone());
+            m_Module = index + 1;
+        }
+
+        void MoveModule(List<StyleMaterialModule> modules, int index, int step)
+        {
+            (modules[index], modules[index + step]) = (modules[index + step], modules[index]);
+            m_Module = index + step;
+        }
+
+        void RemoveModule(List<StyleMaterialModule> modules, int index)
+        {
+            modules.RemoveAt(index);
+            m_Module = Mathf.Min(index, modules.Count - 1);
+        }
+
+        static void DrawModule(StyleMaterialModule module)
+        {
+            var shape = (int)module.shape;
+
+            module.colour = EditorGUILayout.ColorField(Styles.ModuleColour, module.colour, true, true, false);
+            module.variation = EditorGUILayout.Slider(Styles.ModuleVariation, module.variation, 0f, 1f);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(Styles.Shape, EditorStyles.miniBoldLabel);
+            module.amount = EditorGUILayout.Slider(Styles.AmountNames[shape], module.amount, 0f, 1f);
+
+            if (module.shape != StyleMaterialShape.Fill)
+            {
+                module.scale = EditorGUILayout.IntSlider(Styles.ScaleNames[shape], module.scale, 1, 128);
+                module.size = EditorGUILayout.Slider(Styles.SizeNames[shape], module.size, 0f, 1f);
+
+                if (Styles.ExtraNames[shape] != GUIContent.none)
+                    module.extra = EditorGUILayout.Slider(Styles.ExtraNames[shape], module.extra, 0f, 1f);
+
+                module.seed = EditorGUILayout.IntSlider(Styles.ModuleSeed, module.seed, 0, 999);
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(Styles.HeightLabel, EditorStyles.miniBoldLabel);
+            module.height = (StyleModuleHeight)EditorGUILayout.EnumPopup(Styles.HeightMode, module.height);
+
+            if (module.height == StyleModuleHeight.Flatten)
+                module.depth = EditorGUILayout.Slider(Styles.ModuleLevel, module.depth, 0f, 1.2f);
+            else if (module.height != StyleModuleHeight.None)
+                module.depth = EditorGUILayout.Slider(Styles.ModuleDepth, module.depth, 0f, 0.5f);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(Styles.Surface, EditorStyles.miniBoldLabel);
+            module.smoothness = EditorGUILayout.Slider(Styles.ModuleSmoothness, module.smoothness, 0f, 1f);
+            module.metallic = EditorGUILayout.Slider(Styles.ModuleMetallic, module.metallic, 0f, 1f);
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(Styles.WhereLabel, EditorStyles.miniBoldLabel);
+            module.area = (StyleModuleArea)EditorGUILayout.EnumPopup(Styles.Area, module.area);
+
+            var masks = module.masks;
+            var removed = -1;
+
+            for (var i = 0; i < masks.Count; i++)
+            {
+                if (DrawMask(masks[i], i))
+                    removed = i;
+            }
+
+            if (removed >= 0)
+            {
+                masks.RemoveAt(removed);
+                GUI.changed = true;
+            }
+
+            using (new EditorGUI.DisabledScope(masks.Count >= StyleMaterialModule.MaxMasks))
+            {
+                if (GUILayout.Button(Styles.AddMask, EditorStyles.miniButton))
+                    masks.Add(new StyleModuleMask());
+            }
+        }
+
+        static bool DrawMask(StyleModuleMask mask, int index)
+        {
+            var remove = false;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (index > 0)
+                        mask.blend = (StyleMaskBlend)EditorGUILayout.EnumPopup(mask.blend, GUILayout.Width(72f));
+
+                    mask.kind = (StyleMaskKind)EditorGUILayout.EnumPopup(mask.kind);
+                    remove = GUILayout.Button(Styles.RemoveMask, EditorStyles.miniButton, GUILayout.Width(22f));
+                }
+
+                mask.threshold = EditorGUILayout.Slider(Styles.Threshold, mask.threshold, 0f, 1f);
+                mask.softness = EditorGUILayout.Slider(Styles.Softness, mask.softness, 0f, 1f);
+                mask.invert = EditorGUILayout.Toggle(Styles.Invert, mask.invert);
+
+                if (mask.kind == StyleMaskKind.Noise)
+                    mask.scale = EditorGUILayout.IntSlider(Styles.MaskScale, mask.scale, 1, 32);
+
+                mask.warp = EditorGUILayout.Slider(Styles.Warp, mask.warp, 0f, 1f);
+            }
+
+            return remove;
+        }
+
+        void DrawModules(StyleMaterialSettings layer)
+        {
+            var modules = layer.modules;
+            var picked = PickedModule(layer);
+
+            EditorGUILayout.LabelField(Styles.Modules, EditorStyles.boldLabel);
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                if (modules.Count == 0)
+                    EditorGUILayout.LabelField(Styles.NoModules, EditorStyles.centeredGreyMiniLabel);
+
+                for (var i = modules.Count - 1; i >= 0; i--)
+                    DrawModuleRow(modules[i], i);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var add = GUILayoutUtility.GetRect(Styles.AddModule, EditorStyles.miniButtonLeft);
+
+                if (GUI.Button(add, Styles.AddModule, EditorStyles.miniButtonLeft))
+                    ShowShapeMenu(modules, add);
+
+                using (new EditorGUI.DisabledScope(picked < 0))
+                {
+                    if (GUILayout.Button(Styles.DuplicateModule, EditorStyles.miniButtonMid))
+                        DuplicateModule(modules, picked);
+
+                    if (GUILayout.Button(Styles.RemoveModule, EditorStyles.miniButtonMid))
+                        RemoveModule(modules, picked);
+                }
+
+                using (new EditorGUI.DisabledScope(picked < 0 || picked >= modules.Count - 1))
+                {
+                    if (GUILayout.Button(Styles.RaiseModule, EditorStyles.miniButtonMid))
+                        MoveModule(modules, picked, 1);
+                }
+
+                using (new EditorGUI.DisabledScope(picked <= 0))
+                {
+                    if (GUILayout.Button(Styles.LowerModule, EditorStyles.miniButtonRight))
+                        MoveModule(modules, picked, -1);
+                }
+            }
+        }
+
+        void DrawModuleRow(StyleMaterialModule module, int index)
+        {
+            var row = GUILayoutUtility.GetRect(0f, 22f, GUILayout.ExpandWidth(true));
+            var eye = new Rect(row.x + 4f, row.y + 3f, 16f, 16f);
+            var swatch = new Rect(eye.xMax + 6f, row.y + 4f, 14f, 14f);
+            var text = new Rect(swatch.xMax + 6f, row.y + 3f, row.xMax - swatch.xMax - 10f, 16f);
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                if (index == m_Module)
+                    EditorGUI.DrawRect(row, Styles.selection);
+
+                var faded = GUI.color;
+
+                if (!module.on)
+                    GUI.color = new Color(1f, 1f, 1f, 0.45f);
+
+                var colour = module.colour;
+                colour.a = 1f;
+                EditorGUI.DrawRect(swatch, colour);
+                EditorStyles.label.Draw(text, ModuleTitle(module), false, false, false, false);
+                GUI.color = faded;
+            }
+
+            module.on = GUI.Toggle(eye, module.on, module.on ? Styles.ModuleOn : Styles.ModuleOff, GUIStyle.none);
+
+            var mouse = Event.current.mousePosition;
+
+            if (Event.current.type != EventType.MouseDown || !row.Contains(mouse) || eye.Contains(mouse))
+                return;
+
+            m_Module = index;
+            GUI.FocusControl(null);
+            Event.current.Use();
+        }
+
+        static string ModuleTitle(StyleMaterialModule module)
+        {
+            var title = Styles.ShapeNames[(int)module.shape].text;
+
+            if (module.area != StyleModuleArea.Everywhere)
+                title += " · " + module.area;
+
+            for (var i = 0; i < module.masks.Count; i++)
+            {
+                var mask = module.masks[i];
+                var join = i == 0 ? " · " : mask.blend == StyleMaskBlend.Add ? " + " :
+                    mask.blend == StyleMaskBlend.Subtract ? " − " : " × ";
+
+                var name = ObjectNames.NicifyVariableName(mask.kind.ToString());
+
+                title += join + (mask.invert ? "Not " : string.Empty) + name;
+            }
+
+            return title;
+        }
+
+        void ShowShapeMenu(List<StyleMaterialModule> modules, Rect button)
+        {
+            var menu = new GenericMenu();
+
+            foreach (var shape in StyleMaterialModule.Shapes)
+            {
+                var picked = shape;
+
+                menu.AddItem(Styles.ShapeNames[(int)shape], false, () => Reset(() =>
+                {
+                    modules.Add(StyleMaterialModule.Create(picked));
+                    m_Module = modules.Count - 1;
+                }));
+            }
+
+            menu.DropDown(button);
+        }
+        void ShowPatternMenu(StyleMaterialSettings settings, Rect button)
+        {
+            var menu = new GenericMenu();
+
+            menu.AddItem(Styles.NoPattern, !settings.hasPattern,
+                         () => Reset(() => settings.SetPattern(StyleMaterialPattern.None)));
+            menu.AddSeparator(string.Empty);
+
+            for (var i = 0; i < Styles.PatternNames.Length; i++)
+            {
+                var pattern = (StyleMaterialPattern)i;
+
+                if (pattern == StyleMaterialPattern.None)
+                    continue;
+
+                menu.AddItem(Styles.PatternNames[i], settings.pattern == pattern,
+                             () => Reset(() => settings.SetPattern(pattern)));
+            }
+
+            menu.DropDown(button);
+        }
+
+        internal override void DrawToolbar(Rect rect)
+        {
+            GUILayout.BeginArea(rect);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+
+                var button = GUILayoutUtility.GetRect(Styles.Export, EditorStyles.toolbarDropDown,
+                                                      GUILayout.Width(72f));
+
+                if (GUI.Button(button, Styles.Export, EditorStyles.toolbarDropDown))
+                    PopupWindow.Show(button, new ExportPopup(this));
+            }
+
+            GUILayout.EndArea();
+        }
+
+        void DrawOutput()
+        {
+            EditorGUI.BeginChangeCheck();
+
+            var index = Mathf.Max(Array.IndexOf(s_Resolutions, m_Stack.resolution), 0);
+            index = EditorGUILayout.Popup(Styles.Resolution, index, Styles.Resolutions);
+            m_Stack.resolution = s_Resolutions[index];
+
+            if (EditorGUI.EndChangeCheck())
+                m_Dirty = true;
+
+            m_Stack.name = EditorGUILayout.TextField(Styles.Name, m_Stack.name);
+            StyleStudioExport.DrawFolder();
+            undo.Commit("Change Texture Studio Output");
+            host?.Repaint();
+        }
+
+        sealed class ExportPopup : PopupWindowContent
+        {
+            readonly StyleMaterialPage m_Page;
+
+            internal ExportPopup(StyleMaterialPage page)
+            {
+                m_Page = page;
+            }
+
+            public override Vector2 GetWindowSize()
+            {
+                return new Vector2(320f, 112f);
+            }
+
+            public override void OnGUI(Rect rect)
+            {
+                EditorGUIUtility.labelWidth = 80f;
+                EditorGUILayout.LabelField(Styles.Output, EditorStyles.boldLabel);
+                m_Page.DrawOutput();
+
+                using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(m_Page.m_Stack.name)))
+                {
+                    if (GUILayout.Button(Styles.Save))
+                    {
+                        editorWindow.Close();
+                        m_Page.SaveTextures();
+                    }
+                }
+            }
         }
 
         static void DrawPattern(StyleMaterialSettings settings)
         {
             switch (settings.pattern)
             {
-                case StyleMaterialPattern.Courses:
+                case StyleMaterialPattern.Rows:
                     settings.rows = EditorGUILayout.IntSlider(Styles.Rows, settings.rows, 2, 32) / 2 * 2;
                     settings.perRow = EditorGUILayout.IntSlider(Styles.PerRow, settings.perRow, 1, 16);
+                    settings.randomShift = EditorGUILayout.Toggle(Styles.RandomShift, settings.randomShift);
 
                     if (!settings.randomShift)
                         settings.rowOffset = EditorGUILayout.Slider(Styles.RowOffset, settings.rowOffset, 0f, 1f);
@@ -458,102 +890,11 @@ namespace HiddenBull.UrpStyle.Editor
             settings.gap = EditorGUILayout.Slider(Styles.Gap, settings.gap, 0f, 0.3f);
             settings.roundness = EditorGUILayout.Slider(Styles.Roundness, settings.roundness, 0f, 1f);
             settings.chipping = EditorGUILayout.Slider(Styles.Chipping, settings.chipping, 0f, 1f);
-            settings.seed = EditorGUILayout.IntSlider(Styles.Seed, settings.seed, 0, 999);
-        }
-
-        static void DrawDetails(StyleMaterialSettings settings)
-        {
-            var shown = false;
-
-            if (settings.Shows(StyleMaterialDetail.HairCracks))
-            {
-                shown = true;
-                settings.hairCracks = EditorGUILayout.Slider(Styles.HairCracks, settings.hairCracks, 0f, 1f);
-
-                if (settings.hairCracks > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.hairScale = EditorGUILayout.IntSlider(Styles.HairScale, settings.hairScale, 1, 8);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.Chips))
-            {
-                shown = true;
-                settings.chips = EditorGUILayout.Slider(Styles.Chips, settings.chips, 0f, 1f);
-
-                if (settings.chips > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.chipSize = EditorGUILayout.Slider(Styles.ChipSize, settings.chipSize, 0.02f, 0.3f);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.Scratches))
-            {
-                shown = true;
-                settings.scratches = EditorGUILayout.Slider(Styles.Scratches, settings.scratches, 0f, 1f);
-
-                if (settings.scratches > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.scratchScale = EditorGUILayout.IntSlider(Styles.ScratchScale, settings.scratchScale,
-                                                                          8, 128);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.Pores))
-            {
-                shown = true;
-                settings.pores = EditorGUILayout.Slider(Styles.Pores, settings.pores, 0f, 1f);
-
-                if (settings.pores > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.poreScale = EditorGUILayout.IntSlider(Styles.PoreScale, settings.poreScale, 16, 256);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.Nails))
-            {
-                shown = true;
-                settings.nails = EditorGUILayout.Slider(Styles.Nails, settings.nails, 0f, 1f);
-
-                if (settings.nails > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.nailSize = EditorGUILayout.Slider(Styles.NailSize, settings.nailSize, 0.02f, 0.1f);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.JointPebbles))
-            {
-                shown = true;
-                settings.jointPebbles = EditorGUILayout.Slider(Styles.JointPebbles, settings.jointPebbles, 0f, 1f);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.JointGrass))
-            {
-                shown = true;
-                settings.jointGrass = EditorGUILayout.Slider(Styles.JointGrass, settings.jointGrass, 0f, 1f);
-
-                if (settings.jointGrass > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                        settings.grassColour = EditorGUILayout.ColorField(Styles.GrassColour, settings.grassColour,
-                                                                          true, false, false);
-            }
-
-            if (settings.Shows(StyleMaterialDetail.Leaves))
-            {
-                shown = true;
-                settings.leaves = EditorGUILayout.Slider(Styles.Leaves, settings.leaves, 0f, 1f);
-
-                if (settings.leaves > 0f)
-                    using (new EditorGUI.IndentLevelScope())
-                    {
-                        settings.leafColour = EditorGUILayout.ColorField(Styles.LeafColour, settings.leafColour, true,
-                                                                         false, false);
-                        settings.leafScale = EditorGUILayout.IntSlider(Styles.LeafScale, settings.leafScale, 4, 48);
-                        settings.twigs = EditorGUILayout.Slider(Styles.Twigs, settings.twigs, 0f, 1f);
-                    }
-            }
-
-            if (!shown)
-                EditorGUILayout.LabelField(Styles.NoDetails, EditorStyles.miniLabel);
         }
 
         static void DrawGround(StyleMaterialSettings settings)
         {
+            settings.naturalGround = EditorGUILayout.Toggle(Styles.NaturalGround, settings.naturalGround);
             settings.groundRelief = EditorGUILayout.Slider(Styles.GroundRelief, settings.groundRelief, 0f, 1f);
             settings.lumps = EditorGUILayout.IntSlider(Styles.Lumps, settings.lumps, 1, 16);
             settings.ripples = EditorGUILayout.Slider(Styles.Ripples, settings.ripples, 0f, 1f);
@@ -563,6 +904,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         void Restored()
         {
+            m_Selected = Mathf.Clamp(m_Selected, 0, m_Stack.layers.Count - 1);
             m_Dirty = true;
             host?.Repaint();
         }
@@ -570,42 +912,75 @@ namespace HiddenBull.UrpStyle.Editor
         internal override void DrawLayers()
         {
             var history = undo;
-            var settings = m_Settings;
+            var stack = m_Stack;
+            var layer = current;
 
             EditorGUILayout.LabelField(Styles.Layers, EditorStyles.boldLabel);
             EditorGUI.BeginChangeCheck();
 
-            if (!settings.Shows(m_Layer))
-                m_Layer = StyleMaterialLayer.Base;
-
-            for (var i = 0; i < Styles.LayerNames.Length; i++)
+            using (new EditorGUI.DisabledScope(m_Selected <= 0))
             {
-                if (settings.Shows((StyleMaterialLayer)i))
-                    DrawLayerRow(settings, (StyleMaterialLayer)i);
+                var labelWidth = EditorGUIUtility.labelWidth;
+                EditorGUIUtility.labelWidth = 64f;
+                layer.coverage = EditorGUILayout.Slider(Styles.Coverage, layer.coverage, 0f, 1f);
+                layer.blend = (StyleMaterialBlend)EditorGUILayout.EnumPopup(Styles.Blend, layer.blend);
+
+                if (layer.blend == StyleMaterialBlend.Height)
+                {
+                    layer.contrast = EditorGUILayout.Slider(Styles.Contrast, layer.contrast, 0f, 1f);
+                    layer.offset = EditorGUILayout.Slider(Styles.Offset, layer.offset, -1f, 1f);
+                }
+                EditorGUIUtility.labelWidth = labelWidth;
             }
 
-            EditorGUILayout.Space();
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                for (var i = stack.layers.Count - 1; i >= 0; i--)
+                    DrawStackRow(stack, i);
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(Styles.LayerNames[(int)m_Layer], EditorStyles.miniBoldLabel);
+                if (GUILayout.Button(Styles.AddLayer, EditorStyles.miniButtonLeft))
+                    AddLayer(StyleMaterialPattern.None);
 
-                if (GUILayout.Button(Styles.ResetLayer, EditorStyles.miniButton, GUILayout.Width(48f)))
-                    settings.ResetLayer(m_Layer);
+                if (GUILayout.Button(Styles.DuplicateLayer, EditorStyles.miniButtonMid))
+                {
+                    stack.layers.Insert(m_Selected + 1, layer.Clone());
+                    m_Selected++;
+                    m_Module = -1;
+                }
+
+                using (new EditorGUI.DisabledScope(stack.layers.Count <= 1))
+                {
+                    if (GUILayout.Button(Styles.RemoveLayer, EditorStyles.miniButtonMid))
+                    {
+                        stack.layers.RemoveAt(m_Selected);
+                        m_Selected = Mathf.Clamp(m_Selected - 1, 0, stack.layers.Count - 1);
+                        m_Module = -1;
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(m_Selected >= stack.layers.Count - 1))
+                {
+                    if (GUILayout.Button(Styles.RaiseLayer, EditorStyles.miniButtonMid))
+                        Swap(m_Selected, m_Selected + 1);
+                }
+
+                using (new EditorGUI.DisabledScope(m_Selected <= 0))
+                {
+                    if (GUILayout.Button(Styles.LowerLayer, EditorStyles.miniButtonRight))
+                        Swap(m_Selected, m_Selected - 1);
+                }
             }
 
-            var labelWidth = EditorGUIUtility.labelWidth;
-            EditorGUIUtility.labelWidth = Mathf.Clamp(EditorGUIUtility.currentViewWidth * 0.1f, 70f, 96f);
-
-            using (new EditorGUI.DisabledScope(!settings.IsOn(m_Layer)))
-                DrawLayer(settings, m_Layer);
-
-            EditorGUIUtility.labelWidth = labelWidth;
+            EditorGUILayout.Space();
+            DrawModules(layer);
 
             if (EditorGUI.EndChangeCheck())
                 m_Dirty = true;
 
-            history.Commit("Change Texture Studio Layer");
+            history.Commit("Change Texture Studio Layers");
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField(Styles.Maps, EditorStyles.boldLabel);
@@ -620,127 +995,121 @@ namespace HiddenBull.UrpStyle.Editor
                     preview.view = StyleStudioView.Flat;
                 }
             }
+        }
 
-            EditorGUILayout.Space();
+        void DrawStackRow(StyleMaterialStack stack, int index)
+        {
+            var layer = stack.layers[index];
+            var row = GUILayoutUtility.GetRect(0f, 40f, GUILayout.ExpandWidth(true));
+            var eye = new Rect(row.x + 4f, row.y + 12f, 16f, 16f);
+            var picture = new Rect(eye.xMax + 6f, row.y + 4f, 32f, 32f);
+            var text = new Rect(picture.xMax + 8f, row.y + 4f, row.xMax - picture.xMax - 12f, 16f);
+            var sub = new Rect(text.x, text.yMax, text.width, 16f);
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                if (index == m_Selected)
+                    EditorGUI.DrawRect(row, Styles.selection);
+
+                var thumbnail = generator.Thumbnail(index);
+
+                GUI.DrawTexture(picture, thumbnail != null ? thumbnail : Texture2D.grayTexture,
+                                ScaleMode.ScaleAndCrop);
+
+                var faded = GUI.color;
+
+                if (!layer.visible)
+                    GUI.color = new Color(1f, 1f, 1f, 0.45f);
+
+                if (m_Renaming != index)
+                    EditorStyles.boldLabel.Draw(text, layer.label, false, false, false, false);
+
+                EditorStyles.miniLabel.Draw(sub, Subtitle(layer, index), false, false, false, false);
+                GUI.color = faded;
+            }
+
+            layer.visible = GUI.Toggle(eye, layer.visible, layer.visible ? Styles.Visible : Styles.Hidden,
+                                       GUIStyle.none);
+
+            if (m_Renaming == index)
+                DrawRename(layer, text);
+
+            var mouse = Event.current.mousePosition;
+
+            if (Event.current.type != EventType.MouseDown || !row.Contains(mouse) || eye.Contains(mouse) ||
+                (m_Renaming == index && text.Contains(mouse)))
+                return;
+
+            if (m_Selected != index)
+                m_Module = -1;
+
+            m_Selected = index;
+            m_Renaming = Event.current.clickCount == 2 ? index : -1;
+            m_Focus = m_Renaming == index;
+            GUI.FocusControl(null);
+            Event.current.Use();
+        }
+
+        void DrawRename(StyleMaterialSettings layer, Rect text)
+        {
+            GUI.SetNextControlName(RenameControl);
             EditorGUI.BeginChangeCheck();
 
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(Styles.Details, EditorStyles.boldLabel);
-
-                if (GUILayout.Button(Styles.ResetLayer, EditorStyles.miniButton, GUILayout.Width(48f)))
-                    settings.ResetDetails();
-            }
-
-            EditorGUIUtility.labelWidth = Mathf.Clamp(EditorGUIUtility.currentViewWidth * 0.1f, 70f, 96f);
-            DrawDetails(settings);
-            EditorGUIUtility.labelWidth = labelWidth;
+            var label = EditorGUI.DelayedTextField(text, layer.label);
 
             if (EditorGUI.EndChangeCheck())
-                m_Dirty = true;
-
-            history.Commit("Change Texture Studio Details");
-        }
-
-        void DrawLayerRow(StyleMaterialSettings settings, StyleMaterialLayer layer)
-        {
-            using (new EditorGUILayout.HorizontalScope())
             {
-                using (new EditorGUI.DisabledScope(layer == StyleMaterialLayer.Base))
-                {
-                    var on = EditorGUILayout.Toggle(settings.IsOn(layer), GUILayout.Width(16f));
-                    settings.SetOn(layer, on);
-                }
-
-                if (GUILayout.Toggle(m_Layer == layer, Styles.LayerNames[(int)layer], EditorStyles.miniButton))
-                    m_Layer = layer;
+                layer.label = label;
+                m_Renaming = -1;
+            }
+            else if (GUI.GetNameOfFocusedControl() == RenameControl)
+            {
+                m_Focus = false;
+            }
+            else if (m_Focus)
+            {
+                EditorGUI.FocusTextInControl(RenameControl);
+            }
+            else if (Event.current.type == EventType.Repaint)
+            {
+                m_Renaming = -1;
             }
         }
 
-        static void DrawLayer(StyleMaterialSettings settings, StyleMaterialLayer layer)
+        static string Subtitle(StyleMaterialSettings layer, int index)
         {
-            switch (layer)
-            {
-                case StyleMaterialLayer.Base:
-                    settings.stoneColour = EditorGUILayout.ColorField(Styles.MainColour[(int)settings.family],
-                                                                      settings.stoneColour, true, false, false);
-                    settings.gapColour = EditorGUILayout.ColorField(Styles.JointColour[(int)settings.family],
-                                                                    settings.gapColour, true, false, false);
-                    settings.grain = EditorGUILayout.Slider(Styles.Grain, settings.grain, 0f, 0.5f);
-                    break;
-                case StyleMaterialLayer.Variation:
-                    settings.variation = EditorGUILayout.Slider(Styles.Variation, settings.variation, 0f, 0.5f);
-                    settings.variationColour = EditorGUILayout.ColorField(Styles.VariationColour,
-                                                                          settings.variationColour, true, false,
-                                                                          false);
-                    settings.variationShare = EditorGUILayout.Slider(Styles.VariationShare, settings.variationShare,
-                                                                     0f, 1f);
-                    settings.heightTint = EditorGUILayout.Slider(Styles.HeightTint, settings.heightTint, 0f, 1f);
-                    break;
-                case StyleMaterialLayer.WoodGrain:
-                    settings.grainColour = EditorGUILayout.ColorField(Styles.GrainColour, settings.grainColour, true,
-                                                                      false, false);
-                    settings.rings = EditorGUILayout.Slider(Styles.Rings, settings.rings, 0f, 1f);
-                    settings.ringDensity = EditorGUILayout.Slider(Styles.RingDensity, settings.ringDensity, 1f, 24f);
-                    settings.fibres = EditorGUILayout.Slider(Styles.Fibres, settings.fibres, 0f, 1f);
-                    settings.knots = EditorGUILayout.Slider(Styles.Knots, settings.knots, 0f, 1f);
-                    settings.woodRelief = EditorGUILayout.Slider(Styles.WoodRelief, settings.woodRelief, 0f, 1f);
-                    break;
-                case StyleMaterialLayer.EdgeWear:
-                    settings.wearColour = EditorGUILayout.ColorField(Styles.WearColour, settings.wearColour, true,
-                                                                     false, false);
-                    settings.wear = EditorGUILayout.Slider(Styles.Wear, settings.wear, 0f, 1f);
-                    break;
-                case StyleMaterialLayer.Dirt:
-                    settings.dirtColour = EditorGUILayout.ColorField(Styles.DirtColour, settings.dirtColour, true,
-                                                                     false, false);
-                    settings.dirt = EditorGUILayout.Slider(Styles.Dirt, settings.dirt, 0f, 1f);
-                    settings.dirtSpread = EditorGUILayout.Slider(Styles.DirtSpread, settings.dirtSpread, 0.01f, 1f);
-                    break;
-                case StyleMaterialLayer.Moss:
-                    settings.mossColour = EditorGUILayout.ColorField(Styles.MossColour, settings.mossColour, true,
-                                                                     false, false);
-                    settings.moss = EditorGUILayout.Slider(Styles.Moss, settings.moss, 0f, 1f);
-                    settings.mossSpread = EditorGUILayout.Slider(Styles.MossSpread, settings.mossSpread, 0.05f, 1f);
-                    settings.mossScale = EditorGUILayout.IntSlider(Styles.MossScale, settings.mossScale, 1, 16);
-                    break;
-                case StyleMaterialLayer.Specks:
-                    settings.specksColour = EditorGUILayout.ColorField(Styles.SpecksColour, settings.specksColour, true,
-                                                                       false, false);
-                    settings.specks = EditorGUILayout.Slider(Styles.Specks, settings.specks, 0f, 1f);
-                    settings.specksScale = EditorGUILayout.IntSlider(Styles.SpecksScale, settings.specksScale, 16, 256);
-                    settings.specksShine = EditorGUILayout.Slider(Styles.SpecksShine, settings.specksShine, 0f, 1f);
-                    break;
-                case StyleMaterialLayer.Streaks:
-                    settings.streaksColour = EditorGUILayout.ColorField(Styles.StreaksColour, settings.streaksColour,
-                                                                        true, false, false);
-                    settings.streaks = EditorGUILayout.Slider(Styles.Streaks, settings.streaks, 0f, 1f);
-                    settings.streakScale = EditorGUILayout.IntSlider(Styles.StreakScale, settings.streakScale, 4, 64);
-                    settings.streakLength = EditorGUILayout.IntSlider(Styles.StreakLength, settings.streakLength, 1,
-                                                                      16);
-                    break;
-                case StyleMaterialLayer.Lichen:
-                    settings.lichenColour = EditorGUILayout.ColorField(Styles.LichenColour, settings.lichenColour,
-                                                                       true, false, false);
-                    settings.lichen = EditorGUILayout.Slider(Styles.Lichen, settings.lichen, 0f, 1f);
-                    settings.lichenScale = EditorGUILayout.IntSlider(Styles.LichenScale, settings.lichenScale, 2, 48);
-                    settings.lichenSize = EditorGUILayout.Slider(Styles.LichenSize, settings.lichenSize, 0.1f, 1f);
-                    break;
-                case StyleMaterialLayer.Puddles:
-                    settings.waterColour = EditorGUILayout.ColorField(Styles.WaterColour, settings.waterColour, true,
-                                                                      false, false);
-                    settings.puddles = EditorGUILayout.Slider(Styles.Puddles, settings.puddles, 0f, 1f);
-                    settings.puddleSpread = EditorGUILayout.Slider(Styles.PuddleSpread, settings.puddleSpread, 0f,
-                                                                   1f);
-                    break;
-            }
+            var kind = StyleMaterialSettings.LabelOf(layer.pattern);
+
+            if (index == 0)
+                return $"{kind} · Base";
+
+            return layer.coverage >= 1f ? kind : $"{kind} · {Mathf.RoundToInt(layer.coverage * 100f)}%";
+        }
+
+        void AddLayer(StyleMaterialPattern pattern)
+        {
+            m_Selected = Mathf.Clamp(m_Selected + 1, 0, m_Stack.layers.Count);
+            m_Module = -1;
+            m_Stack.layers.Insert(m_Selected, StyleMaterialSettings.Create(pattern));
+            m_Dirty = true;
+            undo.Commit("Add Texture Studio Layer");
+            host?.Repaint();
+        }
+
+        void Swap(int a, int b)
+        {
+            var layers = m_Stack.layers;
+
+            (layers[a], layers[b]) = (layers[b], layers[a]);
+            m_Selected = b;
         }
 
         internal override void DrawPreview(Rect rect)
         {
             if (m_Dirty || !generator.ready)
             {
-                generator.Generate(m_Settings);
+                m_Stack.Layer(m_Selected);
+                generator.Generate(m_Stack);
                 m_Dirty = false;
             }
 
@@ -783,15 +1152,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_Undo = null;
         }
 
-        void Load(string name)
-        {
-            if (!presets.Load(name, m_Settings))
-                return;
-
-            m_Dirty = true;
-            undo.Commit("Load Texture Studio Preset");
-        }
-
         void Reset(Action reset)
         {
             reset();
@@ -805,7 +1165,7 @@ namespace HiddenBull.UrpStyle.Editor
             if (!generator.ready)
                 return;
 
-            var name = m_Settings.name.Trim();
+            var name = m_Stack.name.Trim();
             var albedo = StyleStudioExport.Save(generator.Export(StyleMaterialMap.Albedo), name + "_Albedo",
                                                 StyleExportKind.Colour);
             StyleStudioExport.Save(generator.Export(StyleMaterialMap.Normal), name + "_Normal",

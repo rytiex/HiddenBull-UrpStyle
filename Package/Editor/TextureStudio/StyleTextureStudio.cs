@@ -66,6 +66,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             var tabs = new Rect(0f, 0f, Mathf.Min(width, 90f * m_Titles.Length), top);
             m_Page = GUI.Toolbar(tabs, m_Page, m_Titles, EditorStyles.toolbarButton);
+            page.DrawToolbar(new Rect(tabs.xMax + 8f, 0f, Mathf.Max(width - tabs.xMax - 12f, 0f), top));
 
             var height = position.height - top;
             var most = width - LeastPreview - Splitter * 2f;

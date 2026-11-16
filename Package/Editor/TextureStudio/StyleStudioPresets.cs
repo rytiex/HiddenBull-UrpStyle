@@ -41,9 +41,19 @@ namespace HiddenBull.UrpStyle.Editor
 
             static GUIStyle s_Warning;
 
+            static GUIStyle s_Label;
+
             internal static GUIStyle warning => s_Warning ??= new GUIStyle(EditorStyles.miniBoldLabel)
             {
+                alignment = TextAnchor.MiddleLeft,
+                fixedHeight = EditorStyles.toolbar.fixedHeight,
                 normal = { textColor = new Color(1f, 0.62f, 0.2f) }
+            };
+
+            internal static GUIStyle label => s_Label ??= new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                fixedHeight = EditorStyles.toolbar.fixedHeight
             };
         }
 
@@ -176,7 +186,10 @@ namespace HiddenBull.UrpStyle.Editor
             var list = names;
             var index = Array.IndexOf(list, selected);
 
-            var picked = EditorGUILayout.Popup(Styles.Preset, index, m_Contents);
+            GUILayout.Label(Styles.Preset, Styles.label, GUILayout.ExpandWidth(false));
+
+            var picked = EditorGUILayout.Popup(index, m_Contents, EditorStyles.toolbarPopup,
+                                               GUILayout.MinWidth(120f), GUILayout.MaxWidth(220f));
 
             if (picked != index && picked >= 0)
             {
@@ -187,34 +200,30 @@ namespace HiddenBull.UrpStyle.Editor
             var changed = index < 0 || JsonUtility.ToJson(settings) != Snapshot(list[index], settings);
             var state = index < 0 ? Styles.NoPreset : changed ? Styles.Unsaved : Styles.Saved;
 
-            using (new EditorGUILayout.HorizontalScope())
+            GUILayout.Label(state, changed ? Styles.warning : Styles.label, GUILayout.Width(70f));
+
+            using (new EditorGUI.DisabledScope(index < 0 || !changed))
             {
-                GUILayout.Label(state, changed ? Styles.warning : EditorStyles.miniLabel,
-                                GUILayout.Width(EditorGUIUtility.labelWidth - 2f));
+                if (GUILayout.Button(Styles.Revert, EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)))
+                    load(selected);
 
-                using (new EditorGUI.DisabledScope(index < 0 || !changed))
+                if (GUILayout.Button(Styles.Save, EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)) &&
+                    EditorUtility.DisplayDialog("Save Preset", $"Overwrite the preset '{selected}'?", "Save",
+                                                "Cancel"))
                 {
-                    if (GUILayout.Button(Styles.Revert, EditorStyles.miniButtonLeft))
-                        load(selected);
-
-                    if (GUILayout.Button(Styles.Save, EditorStyles.miniButtonMid) &&
-                        EditorUtility.DisplayDialog("Save Preset", $"Overwrite the preset '{selected}'?", "Save",
-                                                    "Cancel"))
-                    {
-                        Write(selected, settings);
-                        GUIUtility.ExitGUI();
-                    }
-                }
-
-                if (GUILayout.Button(Styles.SaveAs, EditorStyles.miniButtonRight))
-                {
-                    var name = AskName();
-
-                    if (name != null && Write(name, settings))
-                        selected = name;
-
+                    Write(selected, settings);
                     GUIUtility.ExitGUI();
                 }
+            }
+
+            if (GUILayout.Button(Styles.SaveAs, EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)))
+            {
+                var name = AskName();
+
+                if (name != null && Write(name, settings))
+                    selected = name;
+
+                GUIUtility.ExitGUI();
             }
         }
     }

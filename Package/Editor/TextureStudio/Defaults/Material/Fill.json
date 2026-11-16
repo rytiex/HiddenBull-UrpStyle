@@ -1,0 +1,40 @@
+{
+    "seed": 1,
+    "stones": 8,
+    "gap": 0,
+    "roundness": 0,
+    "chipping": 0,
+    "bevel": 0.25,
+    "dome": 0,
+    "facets": 0,
+    "heightVariation": 0,
+    "tilt": 0,
+    "roughness": 0.2,
+    "stoneColour": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 0.5,
+        "a": 1
+    },
+    "gapColour": {
+        "r": 0.5,
+        "g": 0.5,
+        "b": 0.5,
+        "a": 1
+    },
+    "grain": 0.1,
+    "variationOn": false,
+    "wear": 0,
+    "dirt": 0,
+    "moss": 0,
+    "depth": 0.02,
+    "smoothness": 0.35,
+    "gapSmoothness": 0.35,
+    "metallic": 0,
+    "edgeHighlight": 0,
+    "cavityShade": 0,
+    "occlusion": 0.5,
+    "lightWidth": 2,
+    "modular": true,
+    "modules": []
+}

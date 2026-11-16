@@ -46,6 +46,20 @@ namespace HiddenBull.UrpStyle.Editor
         internal static bool Draw(GUIContent title, string key, Action reset, StyleHeaderToggle toggle,
                                   out bool? toggled)
         {
+            return Draw(title, key, reset, toggle, out toggled, null);
+        }
+
+        internal static bool Draw(GUIContent title, string key, Action reset, StyleHeaderToggle toggle,
+                                  out bool? toggled, Action remove)
+        {
+            var fill = reset == null ? null : (Action<GenericMenu>)(menu => FillMenu(menu, title, reset, remove));
+
+            return DrawWithMenu(title, key, fill, toggle, out toggled);
+        }
+
+        internal static bool DrawWithMenu(GUIContent title, string key, Action<GenericMenu> fill,
+                                          StyleHeaderToggle toggle, out bool? toggled)
+        {
             toggled = null;
 
             var expanded = IsExpanded(key);
@@ -92,11 +106,11 @@ namespace HiddenBull.UrpStyle.Editor
             using (new EditorGUI.DisabledScope(!enabled))
                 EditorGUI.LabelField(labelRect, title, EditorStyles.boldLabel);
 
-            var menu = reset != null &&
+            var menu = fill != null &&
                        GUI.Button(menuRect, CoreEditorStyles.contextMenuIcon, CoreEditorStyles.contextMenuStyle);
 
             if (menu)
-                ShowMenu(title, reset);
+                ShowMenu(fill);
 
             var current = Event.current;
             var onToggle = toggle.visible && toggleRect.Contains(current.mousePosition);
@@ -109,9 +123,9 @@ namespace HiddenBull.UrpStyle.Editor
                     nextExpanded = !nextExpanded;
                     current.Use();
                 }
-                else if (current.button == 1 && reset != null)
+                else if (current.button == 1 && fill != null)
                 {
-                    ShowMenu(title, reset);
+                    ShowMenu(fill);
                     current.Use();
                 }
             }
@@ -128,11 +142,20 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.Space();
         }
 
-        static void ShowMenu(GUIContent title, Action reset)
+        static void ShowMenu(Action<GenericMenu> fill)
         {
             var menu = new GenericMenu();
-            menu.AddItem(new GUIContent("Reset " + title.text), false, () => reset());
+
+            fill(menu);
             menu.ShowAsContext();
+        }
+
+        static void FillMenu(GenericMenu menu, GUIContent title, Action reset, Action remove)
+        {
+            menu.AddItem(new GUIContent("Reset " + title.text), false, () => reset());
+
+            if (remove != null)
+                menu.AddItem(new GUIContent("Remove " + title.text), false, () => remove());
         }
     }
 
