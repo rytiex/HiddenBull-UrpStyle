@@ -14,6 +14,8 @@ RWStructuredBuffer<uint3> _HB_GrassBladesOut;
 StructuredBuffer<uint3> _HB_GrassBlades;
 StructuredBuffer<int4> _HB_GrassSlots;
 StructuredBuffer<int4> _HB_GrassJobs;
+StructuredBuffer<float4> _HB_GrassClears;
+StructuredBuffer<int2> _HB_GrassClearSpans;
 struct HBGrassBox
 {
     float3 center;
@@ -143,6 +145,41 @@ uint HB_GrassGroundMark(float3 root, float3 normal)
     return mark | (slopeSnow > 0.5h ? 8u : 0u);
 }
 
+float HB_GrassClear(uint job, float3 root, float tuft)
+{
+    int2 span = _HB_GrassClearSpans[job];
+    float keep = 1.0;
+
+    for (int index = 0; index < span.y; index++)
+    {
+        uint at = (uint)(span.x + index) * 3u;
+        float4 place = _HB_GrassClears[at];
+        float4 shape = _HB_GrassClears[at + 1u];
+        float4 extra = _HB_GrassClears[at + 2u];
+        float3 offset = root - place.xyz;
+        float gap;
+
+        if (place.w > 0.0)
+        {
+            gap = length(offset) - place.w;
+        }
+        else
+        {
+            if (offset.y > extra.x || offset.y < -extra.x - tuft)
+                continue;
+
+            float2 local = float2(dot(offset.xz, shape.zw), dot(offset.xz, float2(-shape.w, shape.z)));
+            float2 outside = abs(local) - shape.xy;
+
+            gap = length(max(outside, 0.0)) + min(max(outside.x, outside.y), 0.0);
+        }
+
+        keep = min(keep, extra.y > 0.0 ? saturate(gap / extra.y) : step(0.0, gap));
+    }
+
+    return keep;
+}
+
 [numthreads(64, 1, 1)]
 void Place(uint3 id : SV_DispatchThreadID)
 {
@@ -183,6 +220,9 @@ void Place(uint3 id : SV_DispatchThreadID)
 
         float grown = saturate((grass.density * reach - roll.x) / HB_GRASS_DENSITY_SOFT);
         float tuft = grass.height * grown;
+        float clear = HB_GrassClear(id.y, float3(xz.x, rootHeight, xz.y), tuft);
+
+        tuft *= HB_GrassRandom(grid, 7u + level * 8u).x < clear ? clear : 0.0;
 
         if (grown > 0.0 && tuft > HB_GRASS_LEAST)
         {

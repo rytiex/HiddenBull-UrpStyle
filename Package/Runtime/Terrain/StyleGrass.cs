@@ -36,6 +36,7 @@ namespace HiddenBull.UrpStyle
         const string FlowerKeyword = "_HB_GRASS_FLOWERS";
         const int CardVertices = 12;
         const string CardKeyword = "_HB_GRASS_CARDS";
+        const int ClearsPerJob = 64;
 
         static readonly ushort[] s_NearLeaf = { 0, 1, 2, 2, 1, 3, 2, 3, 4, 4, 3, 5, 4, 5, 6 };
         static readonly ushort[] s_FarLeaf = { 0, 1, 2, 2, 1, 3, 2, 3, 6 };
@@ -94,6 +95,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_TerrainVariationId = Shader.PropertyToID("_HB_TerrainVariation");
         static readonly int s_TerrainBrushId = Shader.PropertyToID("_HB_TerrainBrush");
         static readonly int s_BrushId = Shader.PropertyToID("_HB_Brush");
+        static readonly int s_ClearsId = Shader.PropertyToID("_HB_GrassClears");
+        static readonly int s_ClearSpansId = Shader.PropertyToID("_HB_GrassClearSpans");
         static readonly int s_BrushAtlasId = Shader.PropertyToID("_HB_BrushAtlas");
 
         [StructLayout(LayoutKind.Sequential)]
@@ -134,6 +137,7 @@ namespace HiddenBull.UrpStyle
             internal Vector2Int[] cells;
             internal int[] stamps;
             internal int[] painted;
+            internal int[] cleared;
             internal bool[] placed;
             internal int[] table;
             internal Vector2Int[] order;
@@ -169,6 +173,10 @@ namespace HiddenBull.UrpStyle
         readonly Plane[] m_Planes = new Plane[6];
         readonly Vector4[] m_PlaneData = new Vector4[6];
         readonly int[] m_Jobs = new int[MostJobs * 4];
+        readonly int[] m_ClearSpans = new int[MostJobs * 2];
+        readonly Vector4[] m_ClearData = new Vector4[MostJobs * ClearsPerJob * StyleGrassClears.Stride];
+        GraphicsBuffer m_Clears;
+        GraphicsBuffer m_ClearSpanBuffer;
 
         BoxData[] m_Boxes = new BoxData[0];
         CommandBuffer m_Commands;
@@ -193,6 +201,8 @@ namespace HiddenBull.UrpStyle
 
             if (StyleDebug.hidesGrass)
                 return;
+
+            StyleGrassClears.Refresh();
 
             var data = terrain.data;
 
@@ -261,13 +271,19 @@ namespace HiddenBull.UrpStyle
                     var area = new Vector4(low.x - origin.x, low.y - origin.z, low.x + width - origin.x,
                                            low.y + width - origin.z);
                     var stale = !view.placed[slot] || view.cells[slot] != spot || view.stamps[slot] != stamp ||
-                                data.GrassTouched(view.painted[slot], area);
+                                data.GrassTouched(view.painted[slot], area) ||
+                                StyleGrassClears.Touched(view.cleared[slot],
+                                                         new Vector4(low.x, low.y, low.x + width, low.y + width));
 
                     if (!stale)
+                    {
                         view.painted[slot] = data.grassPaint;
+                        view.cleared[slot] = StyleGrassClears.version;
+                    }
 
                     if (stale && jobs < MostJobs)
                     {
+                        view.cleared[slot] = StyleGrassClears.version;
                         view.painted[slot] = data.grassPaint;
                         view.cells[slot] = spot;
                         view.stamps[slot] = stamp;
@@ -530,6 +546,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerLookId, terrain.layerLook);
             cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_JobsId, view.jobs);
             cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_BladesOutId, view.blades);
+            BindClears(cmd, view, jobs);
             cmd.DispatchCompute(m_Compute, m_PlaceKernel, Groups(view.perSlot), jobs, 1);
         }
 
@@ -548,6 +565,36 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeTextureParam(m_Compute, m_CullKernel, StyleShelterPass.ageId, Texture2D.whiteTexture);
             cmd.SetComputeVectorArrayParam(m_Compute, StyleShelterPass.areaId, StyleShelterPass.noAreas);
             cmd.SetComputeVectorParam(m_Compute, StyleShelterPass.stateId, Vector4.zero);
+        }
+
+        void BindClears(CommandBuffer cmd, View view, int jobs)
+        {
+            var cell = view.side * view.spacing;
+            var gathered = 0;
+
+            for (var job = 0; job < jobs; job++)
+            {
+                var width = cell * (1 << m_Jobs[job * 4 + 3]);
+                var lowX = m_Jobs[job * 4 + 1] * width;
+                var lowZ = m_Jobs[job * 4 + 2] * width;
+                var area = new Vector4(lowX, lowZ, lowX + width, lowZ + width);
+                var count = StyleGrassClears.Gather(area, m_ClearData, gathered, ClearsPerJob);
+
+                m_ClearSpans[job * 2] = gathered;
+                m_ClearSpans[job * 2 + 1] = count;
+                gathered += count;
+            }
+
+            m_Clears ??= new GraphicsBuffer(GraphicsBuffer.Target.Structured, m_ClearData.Length, sizeof(float) * 4);
+            m_ClearSpanBuffer ??= new GraphicsBuffer(GraphicsBuffer.Target.Structured, MostJobs, sizeof(int) * 2);
+
+            cmd.SetBufferData(m_ClearSpanBuffer, m_ClearSpans, 0, 0, jobs * 2);
+
+            if (gathered > 0)
+                cmd.SetBufferData(m_Clears, m_ClearData, 0, 0, gathered * StyleGrassClears.Stride);
+
+            cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_ClearsId, m_Clears);
+            cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_ClearSpansId, m_ClearSpanBuffer);
         }
 
         static Vector4 Air()
@@ -678,6 +725,7 @@ namespace HiddenBull.UrpStyle
                 cells = new Vector2Int[slots],
                 stamps = new int[slots],
                 painted = new int[slots],
+                cleared = new int[slots],
                 placed = new bool[slots],
                 table = new int[slots * 4],
                 order = Order(ring / 2),
@@ -788,6 +836,10 @@ namespace HiddenBull.UrpStyle
                 view.Release();
 
             m_Views.Clear();
+            m_Clears?.Release();
+            m_Clears = null;
+            m_ClearSpanBuffer?.Release();
+            m_ClearSpanBuffer = null;
 
             for (var index = 0; index < m_Indices.Length; index++)
             {
