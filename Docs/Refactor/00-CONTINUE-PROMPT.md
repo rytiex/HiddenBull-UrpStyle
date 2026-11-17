@@ -10,11 +10,14 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-15):** Phases 0–8 are closed; 7 and 8 ran before 6 by my choice. Phase 6 Liquids closed on
-2026-11-15: its final state is the first block of 03 §10, and the shelter system, rewritten in that phase as one
-cascaded map, is the first block of 03 §7. Phase 5 Grass is the first block of 03 §9, Phase 7 Foliage + Billboards is
-03 §4, Phase 8 Transparency is 03 §11. Costs are the last sections of 08. The game has buildings that players build
-and tear down; vehicles use Moving, Static is only for what never moves.
+**Status (2026-11-17):** Phases 0–10 are closed; 7 and 8 ran before 6 by my choice. Phase 10 Texture Studio
+closed on 2026-11-17: its final state is the first block of 03 §13, and the liquid change it brought (Studio-made mask
+maps, runtime plate bake and Shore Crust removed) is the Phase 10 block of 03 §10. Phase 9 Cavity + Decal is 03 §12
+and the Decal block of 03 §4, Phase 6 Liquids the first block of 03 §10 with the shelter block at the top of 03 §7,
+Phase 5 Grass the first block of 03 §9, Phase 7 Foliage + Billboards 03 §4, Phase 8 Transparency 03 §11. Costs are
+the last sections of 08. The game has buildings that players build and tear down; vehicles use Moving, Static is only
+for what never moves. Every texture of the game comes from the Texture Studio; there is no Sandbox build, I measure
+in my own game.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -22,33 +25,27 @@ Read before doing anything (do not ask me what these answer):
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding,
    especially `confirm-before-new-work.md` and `shelter-rewrite-plan.md`.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §12 Cavity, the Decal line of §4, and the first blocks of §7 and §10.
+3. `Docs/Refactor/03-Feature-Spec.md` §14 Shader Graph, §1 Lighting core, §3 Brush and the first blocks
+   of §7 and §12.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**The tree may hold uncommitted work.** When Phase 6 closed, everything since commit `6f77f07` was uncommitted:
-the shelter rewrite, shore wetness, movement trails, the Weather Mask Box shape, the liquid preset defaults and the
-phase-close docs. Git is my job; do not commit, only check `git status` so you know what you are standing on.
-
-**Compiled offline and seen working by me in Unity at the close:** the shelter rewrite, the waterline band, the
-cutter hole and the Roof option, the cut from below the surface, shore wetness with Shore Reach and Shore Darkening,
-movement trails with Ripples, the Weather Mask Box shape, the scene-change reset, the sun highlight under clouds, the
-thin refractive glass fix, the overlay shadow point.
+**The tree may hold uncommitted work.** Phase 10 closed with the liquid redesign, the Liquid preset shelf and the
+phase-close docs uncommitted. Git is my job; do not commit, only check `git status` so you know what you are
+standing on.
 
 **Not run or not confirmed in Unity:** the slow return of snow after a roof is removed since the cover age moved to
 its own texture; `HBStyleLiquid.TryGetDepth`; the overlay camera with glass; whether the outer shelter cascade
-(2560 m) hitches on the frame it is redrawn; colliders, harvest and the billboard leaf light fix from Phase 7.
+(2560 m) hitches on the frame it is redrawn; colliders, harvest and the billboard leaf light fix from Phase 7; liquid
+mask maps following the flow on a Liquid Terrain river.
 
-**Every surface shader sits within a few slots of its budget** (Lit 2726 / 2730, Terrain APV 4744 / 4750, Liquid
-Surface 3704 / 3705, Foliage 2466 / 2500). Anything that adds to one of them must cut something first or come with
-a measured budget raise that I approve.
+**Every surface shader sits within a few slots of its budget** (see the last section of 08). Anything that adds to
+one of them must cut something first or come with a measured budget raise that I approve.
 
-**Next job: Phase 9 Cavity + Decal** (05, 03 §12 and the Decal line of 03 §4). Start with a design talk: name the
-first step in one line and wait for my yes. Two things I may ask for before it, so ask me which comes first:
-
-- A measuring step. No cost in this project has ever been measured in milliseconds; every number in 08 is a static
-  instruction count. The plan keeps the measurement for Phase 12.
-- Making `Tools~/Check-All.ps1` compile variants in parallel. A full run takes about 160 s.
+**Next job: Phase 11 Shader Graph** (05 and 03 §14). The old package had a node library on `main` under
+`Package/ShaderGraph/` (HB Style Lighting, HB Weather Static / Moving, HB Fog sub-graphs, an HB Lit template and
+`Docs/Features/ShaderGraph.md`); v1 has none yet. Start with a design talk: name the first step in one line and wait
+for my yes.
 
 For the Bake Panel in Phase 12: it must check that APV Dilation is on (04 §1.25).
 

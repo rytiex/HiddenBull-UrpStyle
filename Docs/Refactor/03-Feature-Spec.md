@@ -958,6 +958,15 @@ shader and the sky:
 
 Final state at Phase 6 close (2026-11-15). The lines after this block are the original plan.
 
+**Phase 10 change (2026-11-17, binding over the Look line below):** liquids are texture-driven. The runtime plate
+bake, crust, Open Melt, Pattern map, line detection and Shore Crust were removed. A layer's **Mask Map** (made in the
+Texture Studio) is read in the stream-cell loop: R places the colour along the depth gradient (Tone Amount), G draws
+floating rocks (Rock Color, Rock Edge glow ring, Rock Smoothness), B draws lines in Line Color. On a masked layer the
+normal map is read at the same coordinate, so the bumps travel with the rocks; Motion (Flow Speed, Flow Swirl) moves
+the mask, and on Liquid Terrain it follows the water's flow direction. Unmasked layers keep the wind-driven ripple
+taps. Presets moved from the layer into the studio. Pulse only drives bubbles. The liquid is visual only: waves,
+heights, floaters and the simulation never read the mask, and rocks are not physical.
+
 - **Look**: the old package's liquid shading was ported 1:1 onto the v1 skeleton on 2026-11-09 (the leaner rebuild
   had lost the approved look). Two-layer normals plus a swell layer, glints, directional flow in 2 m cells, cellular
   foam, lava crust from a baked plate map, acid bubbles, per-channel absorption along the view path, Snell window
@@ -1048,6 +1057,40 @@ Blender-viewport-style cavity: thin light lines on convex edges, darkening in co
     Medium / High / Ultra with Reach 0.25 / 0.5 / 0.75 / 1 (scales Distance). Brush break-up was dropped by the user.
 
 ## 13. Texture Studio — Change
+
+- **Final state (Phase 10, closed by the user on 2026-11-17; this block is binding, the lines after it are the plan):**
+  - **Window** `Tools/HiddenBull/URP Style/Texture Studio` (`Package/Editor/TextureStudio/`): resizable left settings
+    panel, large preview in the centre, right layer panel on pages that stack layers; toolbar Export popup (name,
+    resolution, folder, Save). Undo through `StyleStudioUndoState` (JSON proxy object). Every export is named
+    `TEX_Words_Like_This` (`StyleStudioExport.FileName`); liquid layers are `LIQ_Name.asset`. Generation is GPU compute
+    on every page. Runtime hooks for studio previews (`StylePreviewEnvironment`, terrain `onlyCamera`, the preview sky
+    map) are `#if UNITY_EDITOR`; a player build compiles the same code as before the phase.
+  - **Preview**: Lit sphere / plane / flat with an Environment profile, Time 0–12 and a light disc; Grass uses a
+    24 × 24 m in-memory HB terrain (`StyleStudioField`, submitted per patch with `Graphics.RenderMesh` because
+    `RenderMeshInstanced` is invisible to `PreviewRenderUtility` cameras); Brush uses the real HB brush shading;
+    Cloud the real HB sky through a Skybox component; Liquid the real liquid shader on a small pool.
+  - **Material page**: Substance-style layer stack (`StyleMaterialStack`): pattern per layer (Cells, Rows,
+    Herringbone, Basket, Scatter, None) with ground, shape, colour ramp (`StyleColourRamp`, up to 4 stops), surface and
+    painted light; per layer a list of modules (Fill, Cracks, Scratches, Streaks, Wood Grain, Chips, Clumps, Leaves)
+    each with up to 4 shape / pixel masks, Height None / Cut / Raise / Flatten and an emission colour; layer blend
+    Normal or Height. Saves albedo, normal, mask and (when something glows) emission PNGs. Preset shelf with
+    thumbnails under the preview (17 hand-built presets). Texture import was dropped: the studio's value is
+    procedural stylised output.
+  - **Grass page**: Card tab (one Blades shape, white alpha) and Flower tab (up to 8 flower variants side by side,
+    petal shapes Round / Pointed / Heart, petal and centre colour). No presets, by the user's choice.
+  - **Brush page** (5 recipes Oil, Gouache, Dry Brush, Hatching, Watercolour; up to 8 stroke layers; Finish) and
+    **Cloud page** (Cumulus, Stratus, Cirrus, Altocumulus; Stretch; Brush Atlas input). No presets on either.
+  - **Liquid page**: builds a whole `HBStyleLiquidLayer`. A fixed **Look** row on top of the layer list opens every
+    layer setting on the left; below it up to 8 layers (Waves, Domes, Flow, Cells, Noise, Plates, Blobs, Swirl,
+    Rocks) with Shape, Detail, **Effects** (Warp, Warp Scale, Blur, Black, White, Gamma) and **Targets**: Tone, Solid,
+    Lines (each Blend Add / Multiply / Subtract / Max, Opacity, Threshold, Feather, Invert) and Height (Strength).
+    The bake writes one mask map (R Tone = depth-gradient position, G Solid = rocks, B Lines, A Height) and the normal
+    map; Save embeds both as sub-assets in `LIQ_Name.asset`. Preview maps C (painted colours), N, H, T, S, L. The
+    preset shelf lists only files under `Presets/Liquid/`; Water, Acid and Lava are written once per machine into
+    `Presets/Liquid/Liquid/` and are ordinary presets after that. A fresh page starts from `Liquid/Water`.
+  - **Mask Map packer: dropped** (user, 2026-11-17): every texture of the game comes from the studio, and the Material
+    page already writes the HB mask layout.
+  - **Not done, by decision**: presets on Grass, Flower, Brush and Cloud; Terrain texture import; the Mask Map page.
 
 Common framework first, then pages.
 - **Shared base**: big resizable/fullscreen window (controls left, large preview centre, layer stack right),

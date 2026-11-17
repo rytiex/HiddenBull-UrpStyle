@@ -62,6 +62,12 @@ was added for buildings on grass. After the phase the user decided the order of 
 Shader Graph, 12 Finish**, because the package is not complete before 10 and 11. No Sandbox build: the user will put
 the package into their own game and measure there.
 
+**Phase 10 closed (user, 2026-11-17).** Final state in the first block of `03` §13; the liquid change it brought is the
+Phase 10 block of `03` §10; costs in `08`. On the way the Terrain page became a Substance-style Material page (layers,
+modules, masks, emission), texture import was dropped, Grass, Flower, Brush and Cloud got no presets, liquids moved to
+Studio-made mask maps (runtime plate bake and Shore Crust removed), and the Mask Map packer was dropped because every
+texture of the game comes from the studio. Next by the table: Phase 11 Shader Graph.
+
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start
 instead of a retrofit; the terrain-specific weather parts land with Terrain. The first Foliage + Billboards build was
