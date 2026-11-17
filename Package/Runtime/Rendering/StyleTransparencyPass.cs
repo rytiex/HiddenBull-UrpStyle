@@ -183,6 +183,7 @@ namespace HiddenBull.UrpStyle
 
             var splitRain = raining && glass;
             var mirrorGlass = glass && m_Reflecting && m_History != null;
+            var afterCopy = raining && m_Reflecting && m_History != null && m_History.copies;
 
             if (!splitRain && !refractive)
             {
@@ -190,7 +191,9 @@ namespace HiddenBull.UrpStyle
                     m_History.glass = RecordNearest(renderGraph, colour, depth, false, renderingData, cameraData,
                                                     lightData);
 
-                if (raining)
+                if (afterCopy)
+                    m_History.DrawAfterCopy(m_Precipitation, StylePrecipitationPass.PlainStage, default);
+                else if (raining)
                     m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.PlainStage, default);
 
                 RecordForward(renderGraph, colour, depth, WholeStage, default, default, resourceData, renderingData,
@@ -222,7 +225,9 @@ namespace HiddenBull.UrpStyle
                               cameraData, lightData);
             }
 
-            if (splitRain)
+            if (splitRain && afterCopy)
+                m_History.DrawAfterCopy(m_Precipitation, StylePrecipitationPass.OverStage, nearest);
+            else if (splitRain)
                 m_Precipitation.Draw(renderGraph, colour, depth, StylePrecipitationPass.OverStage, nearest);
         }
 

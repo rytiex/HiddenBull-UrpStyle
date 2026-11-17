@@ -58,10 +58,12 @@ half4 HB_PrecipitationFiltered(half4 colour, float4 positionCS)
     UNITY_BRANCH
     if (_HB_PrecipitationStage > 0.5)
     {
+        uint2 pixel = uint2(positionCS.xy);
         float eye = LinearEyeDepth(positionCS.z, _ZBufferParams);
         bool over = _HB_PrecipitationStage > 1.5;
+        bool behind = LOAD_TEXTURE2D(_HB_TransparentNearest, pixel).r > 0.0 && !HB_InFrontOfNearest(pixel, eye);
 
-        colour = HB_InFrontOfNearest(uint2(positionCS.xy), eye) == over ? colour : half4(0.0h, 0.0h, 0.0h, 0.0h);
+        colour = behind != over ? colour : half4(0.0h, 0.0h, 0.0h, 0.0h);
     }
 
     return colour;

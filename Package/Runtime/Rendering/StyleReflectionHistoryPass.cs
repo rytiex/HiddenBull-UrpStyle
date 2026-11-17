@@ -83,6 +83,9 @@ namespace HiddenBull.UrpStyle
 
         Vector4 m_Settings;
         Material m_DepthMaterial;
+        StylePrecipitationPass m_Precipitation;
+        int m_PrecipitationStage;
+        TextureHandle m_PrecipitationNearest;
 
         internal StyleReflectionHistoryPass()
         {
@@ -111,6 +114,15 @@ namespace HiddenBull.UrpStyle
         internal static Vector4 Settings(int steps)
         {
             return steps > 0 ? new Vector4(steps, 0f, Reach, 0f) : Vector4.zero;
+        }
+
+        internal bool copies => m_Settings.x > 0f && m_DepthMaterial != null;
+
+        internal void DrawAfterCopy(StylePrecipitationPass precipitation, int stage, TextureHandle nearest)
+        {
+            m_Precipitation = precipitation;
+            m_PrecipitationStage = stage;
+            m_PrecipitationNearest = nearest;
         }
 
         internal bool Valid(Camera camera)
@@ -153,13 +165,28 @@ namespace HiddenBull.UrpStyle
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             var glassNearest = glass;
+            var precipitation = m_Precipitation;
+            var resourceData = frameData.Get<UniversalResourceData>();
 
             glass = default;
+            m_Precipitation = null;
+            RecordCopy(renderGraph, frameData, resourceData, glassNearest);
 
-            if (m_Settings.x <= 0f || m_DepthMaterial == null)
+            if (precipitation != null)
+            {
+                precipitation.Draw(renderGraph, resourceData.activeColorTexture, resourceData.activeDepthTexture,
+                                   m_PrecipitationStage, m_PrecipitationNearest);
+            }
+
+            m_PrecipitationNearest = default;
+        }
+
+        void RecordCopy(RenderGraph renderGraph, ContextContainer frameData, UniversalResourceData resourceData,
+                        TextureHandle glassNearest)
+        {
+            if (!copies)
                 return;
 
-            var resourceData = frameData.Get<UniversalResourceData>();
             var cameraData = frameData.Get<UniversalCameraData>();
             var colour = resourceData.activeColorTexture;
             var depth = resourceData.cameraDepthTexture;
