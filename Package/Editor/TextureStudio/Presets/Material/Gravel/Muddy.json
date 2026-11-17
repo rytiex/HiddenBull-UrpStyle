@@ -1,0 +1,160 @@
+{
+    "name": "Gravel",
+    "resolution": 1024,
+    "layers": [
+        {
+            "pattern": 0,
+            "randomShift": false,
+            "naturalGround": false,
+            "seed": 0,
+            "stones": 24,
+            "jitter": 1.0,
+            "rows": 8,
+            "perRow": 4,
+            "rowOffset": 0.5,
+            "lengthVariation": 0.0,
+            "repeats": 3,
+            "brickLength": 2,
+            "gap": 0.0,
+            "roundness": 0.625,
+            "chipping": 0.32499998807907107,
+            "density": 0.30000001192092898,
+            "pebbleSize": 0.4000000059604645,
+            "elongation": 0.30000001192092898,
+            "fineCracks": 0.0,
+            "groundRelief": 0.0,
+            "lumps": 1,
+            "ripples": 0.0,
+            "rippleCount": 1,
+            "rippleWarp": 0.0,
+            "bevel": 0.32499998807907107,
+            "dome": 0.3499999940395355,
+            "facets": 0.0,
+            "heightVariation": 0.42500001192092898,
+            "tilt": 0.0,
+            "roughness": 0.5249999761581421,
+            "colours": {
+                "stops": [
+                    {
+                        "colour": {
+                            "r": 0.37735849618911745,
+                            "g": 0.35866856575012209,
+                            "b": 0.3399786353111267,
+                            "a": 1.0
+                        },
+                        "at": 0.1441214680671692
+                    },
+                    {
+                        "colour": {
+                            "r": 0.5283018946647644,
+                            "g": 0.49814021587371828,
+                            "b": 0.4610181450843811,
+                            "a": 1.0
+                        },
+                        "at": 0.5941252708435059
+                    },
+                    {
+                        "colour": {
+                            "r": 0.6320754289627075,
+                            "g": 0.5948067903518677,
+                            "b": 0.5575382113456726,
+                            "a": 1.0
+                        },
+                        "at": 1.0
+                    }
+                ]
+            },
+            "gapColour": {
+                "r": 0.4905660152435303,
+                "g": 0.4717235267162323,
+                "b": 0.44660019874572756,
+                "a": 1.0
+            },
+            "grain": 0.22499999403953553,
+            "variation": 0.25999999046325686,
+            "heightTint": 0.2809999883174896,
+            "depth": 0.02669999934732914,
+            "smoothness": 0.30000001192092898,
+            "gapSmoothness": 0.21299999952316285,
+            "metallic": 0.0,
+            "edgeHighlight": 2.0,
+            "cavityShade": 0.6499999761581421,
+            "occlusion": 0.3230000138282776,
+            "lightWidth": 2.0,
+            "label": "Gravel",
+            "visible": true,
+            "coverage": 1.0,
+            "blend": 0,
+            "contrast": 0.5070000290870667,
+            "offset": 0.46399998664855959,
+            "modules": [
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.09433960914611817,
+                                    "g": 0.06252223998308182,
+                                    "b": 0.03070487268269062,
+                                    "a": 1.0
+                                },
+                                "at": 0.0
+                            },
+                            {
+                                "colour": {
+                                    "r": 0.4528301954269409,
+                                    "g": 0.3748664855957031,
+                                    "b": 0.2969028353691101,
+                                    "a": 0.0
+                                },
+                                "at": 1.0
+                            }
+                        ]
+                    },
+                    "variation": 0.10100000351667404,
+                    "seed": 1,
+                    "height": 3,
+                    "depth": 0.42500001192092898,
+                    "smoothness": 1.0,
+                    "metallic": 0.0,
+                    "emission": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 9,
+                            "blend": 0,
+                            "invert": true,
+                            "threshold": 1.0,
+                            "softness": 0.0,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 2
+                        },
+                        {
+                            "kind": 10,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.39500001072883608,
+                            "softness": 0.492000013589859,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

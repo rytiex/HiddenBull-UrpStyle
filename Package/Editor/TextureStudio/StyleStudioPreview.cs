@@ -88,6 +88,7 @@ namespace HiddenBull.UrpStyle.Editor
         float m_Distance = 4.2f;
         internal StyleFieldView fieldView = StyleFieldView.Field;
         internal bool singleFlower;
+        internal int singleVariant;
         float m_FieldDistance = 18f;
         float m_SingleDistance = 2.5f;
         Vector2 m_Orbit = new Vector2(35f, 24f);
@@ -407,6 +408,9 @@ namespace HiddenBull.UrpStyle.Editor
                     m_Utility.DrawMesh(Cross(), Matrix4x4.Scale(new Vector3(stem, height, stem)), m_Stem, 0);
                     m_Card.SetTexture(s_BaseMap, flower);
                     m_Card.SetTextureScale(s_BaseMap, new Vector2(1f / Mathf.Max(variants, 1), 1f));
+                    m_Card.SetTextureOffset(s_BaseMap,
+                                            new Vector2(Mathf.Clamp(singleVariant, 0, Mathf.Max(variants - 1, 0)) /
+                                                        (float)Mathf.Max(variants, 1), 0f));
                     m_Card.SetColor(s_BaseColor, Color.white);
                     m_Utility.DrawMesh(Quad(), Matrix4x4.TRS(head, facing, Vector3.one * size), m_Card, 0);
                 }
@@ -414,6 +418,7 @@ namespace HiddenBull.UrpStyle.Editor
                 {
                     m_Card.SetTexture(s_BaseMap, card);
                     m_Card.SetTextureScale(s_BaseMap, Vector2.one);
+                    m_Card.SetTextureOffset(s_BaseMap, Vector2.zero);
                     m_Card.SetColor(s_BaseColor, ground);
                     m_Utility.DrawMesh(Cross(), Matrix4x4.Scale(new Vector3(layer.grassCardWidth, height,
                                                                             layer.grassCardWidth)), m_Card, 0);

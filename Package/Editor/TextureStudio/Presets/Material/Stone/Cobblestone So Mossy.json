@@ -1,0 +1,340 @@
+{
+    "name": "Cobblestone",
+    "resolution": 1024,
+    "layers": [
+        {
+            "pattern": 0,
+            "randomShift": false,
+            "naturalGround": false,
+            "seed": 7,
+            "stones": 7,
+            "jitter": 0.8999999761581421,
+            "rows": 8,
+            "perRow": 4,
+            "rowOffset": 0.5,
+            "lengthVariation": 0.0,
+            "repeats": 3,
+            "brickLength": 2,
+            "gap": 0.03700000047683716,
+            "roundness": 0.14000000059604646,
+            "chipping": 0.30000001192092898,
+            "density": 0.30000001192092898,
+            "pebbleSize": 0.4000000059604645,
+            "elongation": 0.30000001192092898,
+            "fineCracks": 0.0,
+            "groundRelief": 0.10000000149011612,
+            "lumps": 6,
+            "ripples": 0.0,
+            "rippleCount": 8,
+            "rippleWarp": 0.4000000059604645,
+            "bevel": 0.30000001192092898,
+            "dome": 0.6000000238418579,
+            "facets": 0.6119999885559082,
+            "heightVariation": 0.30000001192092898,
+            "tilt": 0.20000000298023225,
+            "roughness": 0.30000001192092898,
+            "colours": {
+                "stops": [
+                    {
+                        "colour": {
+                            "r": 0.36000001430511477,
+                            "g": 0.3499999940395355,
+                            "b": 0.33000001311302187,
+                            "a": 1.0
+                        },
+                        "at": 0.0
+                    }
+                ]
+            },
+            "gapColour": {
+                "r": 0.33018869161605837,
+                "g": 0.31208282709121706,
+                "b": 0.2819063663482666,
+                "a": 1.0
+            },
+            "grain": 0.15000000596046449,
+            "variation": 0.5,
+            "heightTint": 0.30000001192092898,
+            "depth": 0.04019999876618385,
+            "smoothness": 0.30000001192092898,
+            "gapSmoothness": 0.0,
+            "metallic": 0.0,
+            "edgeHighlight": 2.0,
+            "cavityShade": 0.5,
+            "occlusion": 0.5,
+            "lightWidth": 2.0,
+            "label": "Cobblestone",
+            "visible": true,
+            "coverage": 1.0,
+            "blend": 0,
+            "contrast": 0.5,
+            "offset": 0.0,
+            "modules": [
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.5609999895095825,
+                                    "g": 0.5440000295639038,
+                                    "b": 0.5099999904632568,
+                                    "a": 1.0
+                                },
+                                "at": 0.0
+                            }
+                        ]
+                    },
+                    "variation": 0.30000001192092898,
+                    "seed": 1,
+                    "height": 0,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.25,
+                    "metallic": 0.0,
+                    "emission": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    },
+                    "area": 1,
+                    "masks": [
+                        {
+                            "kind": 7,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.44999998807907107,
+                            "softness": 0.3499999940395355,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 1
+                        },
+                        {
+                            "kind": 10,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.4000000059604645,
+                            "softness": 0.4000000059604645,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 8,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 4
+                        }
+                    ]
+                },
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.1599999964237213,
+                                    "g": 0.11999999731779099,
+                                    "b": 0.07999999821186066,
+                                    "a": 0.800000011920929
+                                },
+                                "at": 0.0
+                            }
+                        ]
+                    },
+                    "variation": 0.4000000059604645,
+                    "seed": 1,
+                    "height": 0,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.10000000149011612,
+                    "metallic": 0.0,
+                    "emission": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 8,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.3499999940395355,
+                            "softness": 0.5,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 1
+                        },
+                        {
+                            "kind": 10,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.3499999940395355,
+                            "softness": 0.5,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 5
+                        }
+                    ]
+                },
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.16909684240818025,
+                                    "g": 0.21698111295700074,
+                                    "b": 0.0,
+                                    "a": 1.0
+                                },
+                                "at": 0.0
+                            },
+                            {
+                                "colour": {
+                                    "r": 0.2468453198671341,
+                                    "g": 0.3148723244667053,
+                                    "b": 0.09578035771846771,
+                                    "a": 1.0
+                                },
+                                "at": 0.4941176474094391
+                            },
+                            {
+                                "colour": {
+                                    "r": 0.32644495368003847,
+                                    "g": 0.4150943160057068,
+                                    "b": 0.19384120404720307,
+                                    "a": 1.0
+                                },
+                                "at": 1.0
+                            }
+                        ]
+                    },
+                    "variation": 0.20000000298023225,
+                    "seed": 1,
+                    "height": 3,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.30000001192092898,
+                    "metallic": 0.0,
+                    "emission": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 10,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.49900001287460329,
+                            "softness": 0.0949999988079071,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 25,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 1
+                        },
+                        {
+                            "kind": 9,
+                            "blend": 0,
+                            "invert": true,
+                            "threshold": 0.3580000102519989,
+                            "softness": 1.0,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 2
+                        }
+                    ]
+                },
+                {
+                    "on": true,
+                    "colours": {
+                        "stops": [
+                            {
+                                "colour": {
+                                    "r": 0.16909684240818025,
+                                    "g": 0.21698111295700074,
+                                    "b": 0.0,
+                                    "a": 1.0
+                                },
+                                "at": 0.0
+                            },
+                            {
+                                "colour": {
+                                    "r": 0.2468453198671341,
+                                    "g": 0.3148723244667053,
+                                    "b": 0.09578035771846771,
+                                    "a": 1.0
+                                },
+                                "at": 0.4941176474094391
+                            },
+                            {
+                                "colour": {
+                                    "r": 0.32644495368003847,
+                                    "g": 0.4150943160057068,
+                                    "b": 0.19384120404720307,
+                                    "a": 1.0
+                                },
+                                "at": 1.0
+                            }
+                        ]
+                    },
+                    "variation": 0.20000000298023225,
+                    "seed": 1,
+                    "height": 0,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.30000001192092898,
+                    "metallic": 0.0,
+                    "emission": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    },
+                    "area": 0,
+                    "masks": [
+                        {
+                            "kind": 10,
+                            "blend": 0,
+                            "invert": false,
+                            "threshold": 0.42500001192092898,
+                            "softness": 0.34200000762939455,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 1
+                        },
+                        {
+                            "kind": 9,
+                            "blend": 0,
+                            "invert": true,
+                            "threshold": 0.5220000147819519,
+                            "softness": 1.0,
+                            "warp": 0.0,
+                            "amount": 0.5,
+                            "scale": 4,
+                            "size": 0.5,
+                            "extra": 0.30000001192092898,
+                            "seed": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

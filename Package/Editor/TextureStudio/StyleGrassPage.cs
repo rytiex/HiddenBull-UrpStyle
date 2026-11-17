@@ -587,6 +587,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             rect = preview.DrawFieldBar(rect);
             preview.singleFlower = m_Target == StylePlantKind.Flower;
+            preview.singleVariant = SingleVariant();
             preview.DrawField(rect, field, cardGenerator.output, flowerGenerator.output,
                               m_Design.flower.variantCount);
 
@@ -614,6 +615,16 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (Event.current.type == EventType.Repaint)
                 host?.Repaint();
+        }
+
+        int SingleVariant()
+        {
+            var parts = m_Design.flower.parts;
+
+            if (parts.Count == 0)
+                return 0;
+
+            return Mathf.Max(m_Design.flower.Drawn().IndexOf(parts[selected]), 0);
         }
 
         void DrawGround()

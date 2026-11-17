@@ -8,67 +8,67 @@
             "naturalGround": false,
             "seed": 7,
             "stones": 7,
-            "jitter": 0.9,
+            "jitter": 0.8999999761581421,
             "rows": 8,
             "perRow": 4,
             "rowOffset": 0.5,
-            "lengthVariation": 0,
+            "lengthVariation": 0.0,
             "repeats": 3,
             "brickLength": 2,
-            "gap": 0.07,
-            "roundness": 0.5,
-            "chipping": 0.3,
-            "density": 0.3,
-            "pebbleSize": 0.4,
-            "elongation": 0.3,
-            "fineCracks": 0,
-            "groundRelief": 0.1,
+            "gap": 0.03700000047683716,
+            "roundness": 0.14000000059604646,
+            "chipping": 0.30000001192092898,
+            "density": 0.30000001192092898,
+            "pebbleSize": 0.4000000059604645,
+            "elongation": 0.30000001192092898,
+            "fineCracks": 0.0,
+            "groundRelief": 0.10000000149011612,
             "lumps": 6,
-            "ripples": 0,
+            "ripples": 0.0,
             "rippleCount": 8,
-            "rippleWarp": 0.4,
-            "bevel": 0.3,
-            "dome": 0.6,
-            "facets": 0,
-            "heightVariation": 0.3,
-            "tilt": 0.2,
-            "roughness": 0.3,
+            "rippleWarp": 0.4000000059604645,
+            "bevel": 0.30000001192092898,
+            "dome": 0.6000000238418579,
+            "facets": 0.6119999885559082,
+            "heightVariation": 0.30000001192092898,
+            "tilt": 0.20000000298023225,
+            "roughness": 0.30000001192092898,
             "colours": {
                 "stops": [
                     {
                         "colour": {
-                            "r": 0.36,
-                            "g": 0.35,
-                            "b": 0.33,
-                            "a": 1
+                            "r": 0.36000001430511477,
+                            "g": 0.3499999940395355,
+                            "b": 0.33000001311302187,
+                            "a": 1.0
                         },
-                        "at": 0
+                        "at": 0.0
                     }
                 ]
             },
             "gapColour": {
-                "r": 0.24,
-                "g": 0.2,
-                "b": 0.16,
-                "a": 1
+                "r": 0.33018869161605837,
+                "g": 0.31208282709121706,
+                "b": 0.2819063663482666,
+                "a": 1.0
             },
-            "grain": 0.15,
+            "grain": 0.15000000596046449,
             "variation": 0.5,
-            "heightTint": 0.3,
-            "depth": 0.02,
-            "smoothness": 0.3,
-            "gapSmoothness": 0.1,
-            "metallic": 0,
-            "edgeHighlight": 0.5,
+            "heightTint": 0.30000001192092898,
+            "depth": 0.04019999876618385,
+            "smoothness": 0.30000001192092898,
+            "gapSmoothness": 0.0,
+            "metallic": 0.0,
+            "edgeHighlight": 2.0,
             "cavityShade": 0.5,
             "occlusion": 0.5,
-            "lightWidth": 2,
+            "lightWidth": 2.0,
             "label": "Cobblestone",
             "visible": true,
-            "coverage": 1,
+            "coverage": 1.0,
             "blend": 0,
             "contrast": 0.5,
-            "offset": 0,
+            "offset": 0.0,
             "modules": [
                 {
                     "on": true,
@@ -76,26 +76,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.561,
-                                    "g": 0.544,
-                                    "b": 0.51,
-                                    "a": 1
+                                    "r": 0.5609999895095825,
+                                    "g": 0.5440000295639038,
+                                    "b": 0.5099999904632568,
+                                    "a": 1.0
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.3,
+                    "variation": 0.30000001192092898,
                     "seed": 1,
                     "height": 0,
-                    "depth": 0.1,
+                    "depth": 0.10000000149011612,
                     "smoothness": 0.25,
-                    "metallic": 0,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 1,
                     "masks": [
@@ -103,26 +103,26 @@
                             "kind": 7,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.45,
-                            "softness": 0.35,
-                            "warp": 0,
+                            "threshold": 0.44999998807907107,
+                            "softness": 0.3499999940395355,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 1
                         },
                         {
                             "kind": 10,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.4,
-                            "softness": 0.4,
-                            "warp": 0,
+                            "threshold": 0.4000000059604645,
+                            "softness": 0.4000000059604645,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 8,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 4
                         }
                     ]
@@ -133,26 +133,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.16,
-                                    "g": 0.12,
-                                    "b": 0.08,
-                                    "a": 0.8
+                                    "r": 0.1599999964237213,
+                                    "g": 0.11999999731779099,
+                                    "b": 0.07999999821186066,
+                                    "a": 0.800000011920929
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.4,
+                    "variation": 0.4000000059604645,
                     "seed": 1,
                     "height": 0,
-                    "depth": 0.1,
-                    "smoothness": 0.1,
-                    "metallic": 0,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.10000000149011612,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 0,
                     "masks": [
@@ -160,26 +160,26 @@
                             "kind": 8,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.35,
+                            "threshold": 0.3499999940395355,
                             "softness": 0.5,
-                            "warp": 0,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 1
                         },
                         {
                             "kind": 10,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.35,
+                            "threshold": 0.3499999940395355,
                             "softness": 0.5,
-                            "warp": 0,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 5
                         }
                     ]

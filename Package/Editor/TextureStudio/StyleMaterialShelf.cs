@@ -114,7 +114,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var snapshot = Snapshot(picked, stack.resolution);
             var known = snapshot != null;
-            var changed = !known || JsonUtility.ToJson(stack) != snapshot;
+            var changed = !known || Compare(stack, picked) != snapshot;
             var state = !known ? Styles.NoPreset : changed ? Styles.Unsaved : Styles.Saved;
 
             GUILayout.Label(state, changed ? Styles.warning : EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
@@ -237,7 +237,25 @@ namespace HiddenBull.UrpStyle.Editor
 
             JsonUtility.FromJsonOverwrite(json, stack);
             stack.resolution = resolution;
+            stack.name = ExportName(name);
             return stack;
+        }
+
+        internal static string ExportName(string preset)
+        {
+            return preset.Replace('/', ' ').Replace('\\', ' ');
+        }
+
+        static string Compare(StyleMaterialStack stack, string preset)
+        {
+            var name = stack.name;
+
+            stack.name = ExportName(preset);
+
+            var json = JsonUtility.ToJson(stack);
+
+            stack.name = name;
+            return json;
         }
 
         internal bool Load(string name, StyleMaterialStack target)

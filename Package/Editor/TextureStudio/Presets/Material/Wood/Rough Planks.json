@@ -8,67 +8,67 @@
             "naturalGround": false,
             "seed": 8,
             "stones": 8,
-            "jitter": 0.9,
-            "rows": 5,
+            "jitter": 0.8999999761581421,
+            "rows": 4,
             "perRow": 1,
             "rowOffset": 0.5,
-            "lengthVariation": 0.6,
+            "lengthVariation": 0.6000000238418579,
             "repeats": 3,
             "brickLength": 2,
-            "gap": 0.04,
-            "roundness": 0.2,
+            "gap": 0.03999999910593033,
+            "roundness": 0.20000000298023225,
             "chipping": 0.5,
-            "density": 0.3,
-            "pebbleSize": 0.4,
-            "elongation": 0.3,
-            "fineCracks": 0,
-            "groundRelief": 0.1,
+            "density": 0.30000001192092898,
+            "pebbleSize": 0.4000000059604645,
+            "elongation": 0.30000001192092898,
+            "fineCracks": 0.0,
+            "groundRelief": 0.10000000149011612,
             "lumps": 6,
-            "ripples": 0,
+            "ripples": 0.0,
             "rippleCount": 8,
-            "rippleWarp": 0.4,
-            "bevel": 0.12,
-            "dome": 0.2,
-            "facets": 0,
+            "rippleWarp": 0.4000000059604645,
+            "bevel": 0.11999999731779099,
+            "dome": 0.20000000298023225,
+            "facets": 0.0,
             "heightVariation": 0.25,
-            "tilt": 0.3,
-            "roughness": 0.4,
+            "tilt": 0.30000001192092898,
+            "roughness": 0.4000000059604645,
             "colours": {
                 "stops": [
                     {
                         "colour": {
-                            "r": 0.3,
-                            "g": 0.24,
-                            "b": 0.18,
-                            "a": 1
+                            "r": 0.30000001192092898,
+                            "g": 0.23999999463558198,
+                            "b": 0.18000000715255738,
+                            "a": 1.0
                         },
-                        "at": 0
+                        "at": 0.0
                     }
                 ]
             },
             "gapColour": {
-                "r": 0.1,
-                "g": 0.08,
-                "b": 0.06,
-                "a": 1
+                "r": 0.10000000149011612,
+                "g": 0.07999999821186066,
+                "b": 0.05999999865889549,
+                "a": 1.0
             },
-            "grain": 0.2,
-            "variation": 0.6,
-            "heightTint": 0,
-            "depth": 0.02,
-            "smoothness": 0.2,
-            "gapSmoothness": 0.1,
-            "metallic": 0,
+            "grain": 0.20000000298023225,
+            "variation": 0.6000000238418579,
+            "heightTint": 0.0,
+            "depth": 0.019999999552965165,
+            "smoothness": 0.20000000298023225,
+            "gapSmoothness": 0.10000000149011612,
+            "metallic": 0.0,
             "edgeHighlight": 0.5,
             "cavityShade": 0.5,
             "occlusion": 0.5,
-            "lightWidth": 2,
+            "lightWidth": 2.0,
             "label": "Rough Planks",
             "visible": true,
-            "coverage": 1,
+            "coverage": 1.0,
             "blend": 0,
             "contrast": 0.5,
-            "offset": 0,
+            "offset": 0.0,
             "modules": [
                 {
                     "on": true,
@@ -76,26 +76,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.2,
-                                    "g": 0.15,
-                                    "b": 0.1,
-                                    "a": 1
+                                    "r": 0.20000000298023225,
+                                    "g": 0.15000000596046449,
+                                    "b": 0.10000000149011612,
+                                    "a": 1.0
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.3,
+                    "variation": 0.30000001192092898,
                     "seed": 1,
                     "height": 1,
-                    "depth": 0.06,
-                    "smoothness": 0.3,
-                    "metallic": 0,
+                    "depth": 0.05999999865889549,
+                    "smoothness": 0.30000001192092898,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 1,
                     "masks": [
@@ -104,11 +104,11 @@
                             "blend": 0,
                             "invert": false,
                             "threshold": 0.5,
-                            "softness": 0.2,
-                            "warp": 0,
-                            "amount": 0.7,
+                            "softness": 0.20000000298023225,
+                            "warp": 0.0,
+                            "amount": 0.699999988079071,
                             "scale": 10,
-                            "size": 0.8,
+                            "size": 0.800000011920929,
                             "extra": 0.5,
                             "seed": 1
                         }
@@ -120,26 +120,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.2,
-                                    "g": 0.17,
-                                    "b": 0.13,
-                                    "a": 1
+                                    "r": 0.20000000298023225,
+                                    "g": 0.17000000178813935,
+                                    "b": 0.12999999523162843,
+                                    "a": 1.0
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.2,
+                    "variation": 0.20000000298023225,
                     "seed": 1,
                     "height": 1,
-                    "depth": 0.04,
-                    "smoothness": 0.3,
-                    "metallic": 0,
+                    "depth": 0.03999999910593033,
+                    "smoothness": 0.30000001192092898,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 1,
                     "masks": [
@@ -148,12 +148,12 @@
                             "blend": 0,
                             "invert": false,
                             "threshold": 0.5,
-                            "softness": 0.2,
-                            "warp": 0,
-                            "amount": 0.4,
+                            "softness": 0.20000000298023225,
+                            "warp": 0.0,
+                            "amount": 0.4000000059604645,
                             "scale": 6,
-                            "size": 0.15,
-                            "extra": 0.3,
+                            "size": 0.15000000596046449,
+                            "extra": 0.30000001192092898,
                             "seed": 1
                         }
                     ]
@@ -164,26 +164,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.51,
-                                    "g": 0.4675,
-                                    "b": 0.408,
-                                    "a": 1
+                                    "r": 0.5099999904632568,
+                                    "g": 0.4675000011920929,
+                                    "b": 0.40799999237060549,
+                                    "a": 1.0
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.3,
+                    "variation": 0.30000001192092898,
                     "seed": 1,
                     "height": 0,
-                    "depth": 0.1,
+                    "depth": 0.10000000149011612,
                     "smoothness": 0.25,
-                    "metallic": 0,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 1,
                     "masks": [
@@ -191,26 +191,26 @@
                             "kind": 7,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.45,
-                            "softness": 0.35,
-                            "warp": 0,
+                            "threshold": 0.44999998807907107,
+                            "softness": 0.3499999940395355,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 1
                         },
                         {
                             "kind": 10,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.4,
-                            "softness": 0.4,
-                            "warp": 0,
+                            "threshold": 0.4000000059604645,
+                            "softness": 0.4000000059604645,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 8,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 4
                         }
                     ]
@@ -221,26 +221,26 @@
                         "stops": [
                             {
                                 "colour": {
-                                    "r": 0.16,
-                                    "g": 0.12,
-                                    "b": 0.08,
-                                    "a": 0.8
+                                    "r": 0.1599999964237213,
+                                    "g": 0.11999999731779099,
+                                    "b": 0.07999999821186066,
+                                    "a": 0.800000011920929
                                 },
-                                "at": 0
+                                "at": 0.0
                             }
                         ]
                     },
-                    "variation": 0.4,
+                    "variation": 0.4000000059604645,
                     "seed": 1,
                     "height": 0,
-                    "depth": 0.1,
-                    "smoothness": 0.1,
-                    "metallic": 0,
+                    "depth": 0.10000000149011612,
+                    "smoothness": 0.10000000149011612,
+                    "metallic": 0.0,
                     "emission": {
-                        "r": 0,
-                        "g": 0,
-                        "b": 0,
-                        "a": 1
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
                     },
                     "area": 0,
                     "masks": [
@@ -248,26 +248,26 @@
                             "kind": 8,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.35,
+                            "threshold": 0.3499999940395355,
                             "softness": 0.5,
-                            "warp": 0,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 1
                         },
                         {
                             "kind": 10,
                             "blend": 0,
                             "invert": false,
-                            "threshold": 0.35,
+                            "threshold": 0.3499999940395355,
                             "softness": 0.5,
-                            "warp": 0,
+                            "warp": 0.0,
                             "amount": 0.5,
                             "scale": 4,
                             "size": 0.5,
-                            "extra": 0.3,
+                            "extra": 0.30000001192092898,
                             "seed": 5
                         }
                     ]

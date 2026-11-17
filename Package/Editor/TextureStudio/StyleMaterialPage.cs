@@ -11,6 +11,10 @@ namespace HiddenBull.UrpStyle.Editor
     {
         static readonly int[] s_Resolutions = { 512, 1024, 2048 };
         const string RenameControl = "TextureStudio.Material.Rename";
+        const string LayerClipboard = "HBStyleMaterialLayer:";
+        const string ModuleClipboard = "HBStyleMaterialModule:";
+        const string TerrainLayerKey = "HiddenBull.UrpStyle.TextureStudio.Material.TerrainLayer";
+        const string TerrainLayerPrefix = "TL";
 
         static class Styles
         {
@@ -35,6 +39,10 @@ namespace HiddenBull.UrpStyle.Editor
             internal static readonly GUIContent NoModules = new GUIContent("No modules. Add one with +.");
             internal static readonly GUIContent AddModule = new GUIContent("+",
                 "Adds a white Fill module on top; give it shapes and masks to place it.");
+            internal static readonly GUIContent CopyModule = new GUIContent("Copy Module");
+            internal static readonly GUIContent PasteModule = new GUIContent("Paste Module");
+            internal static readonly GUIContent CopyLayer = new GUIContent("Copy Layer");
+            internal static readonly GUIContent PasteLayer = new GUIContent("Paste Layer");
             internal static readonly GUIContent DuplicateModule = new GUIContent("Duplicate",
                 "Copies the picked module above itself.");
             internal static readonly GUIContent RemoveModule = new GUIContent("−", "Removes the picked module.");
@@ -104,7 +112,12 @@ namespace HiddenBull.UrpStyle.Editor
                 "Size of the saved textures.");
             internal static readonly GUIContent Name = new GUIContent("Name",
                 "File name start, saved as TEX_Words_Like_This. Saving writes TEX_Name_Albedo, TEX_Name_Normal, " +
-                "TEX_Name_Mask and, when something glows, TEX_Name_Emission.");
+                "TEX_Name_Mask and, when something glows, TEX_Name_Emission. Picking a preset sets it to the " +
+                "preset's folder and name.");
+            internal static readonly GUIContent TerrainLayer = new GUIContent("Terrain Layer",
+                "Also saves an HB Style Terrain Layer, TL_Name, in the folder with the albedo, normal and mask " +
+                "maps. An existing one only gets its textures replaced, so its size, grass and weather settings " +
+                "stay.");
             internal static readonly GUIContent Save = new GUIContent("Save Textures",
                 "Writes the albedo, normal, mask and emission PNGs into the folder. Files with the same names are " +
                 "replaced.");
@@ -595,6 +608,83 @@ namespace HiddenBull.UrpStyle.Editor
             menu.AddItem(new GUIContent("Remove"), false, () => Reset(() => RemoveModule(modules, index)));
         }
 
+        static string Clipboard(string prefix)
+        {
+            var text = EditorGUIUtility.systemCopyBuffer;
+
+            if (text == null || !text.StartsWith(prefix, StringComparison.Ordinal))
+                return null;
+
+            return text.Substring(prefix.Length);
+        }
+
+        void ShowModuleMenu(List<StyleMaterialModule> modules, int index)
+        {
+            var menu = new GenericMenu();
+            var copied = Clipboard(ModuleClipboard);
+
+            if (index >= 0 && index < modules.Count)
+            {
+                var module = modules[index];
+
+                menu.AddItem(Styles.CopyModule, false,
+                             () => EditorGUIUtility.systemCopyBuffer = ModuleClipboard + JsonUtility.ToJson(module));
+            }
+            else
+            {
+                menu.AddDisabledItem(Styles.CopyModule);
+            }
+
+            if (copied != null)
+                menu.AddItem(Styles.PasteModule, false, () => Reset(() => PasteModule(modules, index, copied)));
+            else
+                menu.AddDisabledItem(Styles.PasteModule);
+
+            menu.ShowAsContext();
+        }
+
+        void PasteModule(List<StyleMaterialModule> modules, int index, string json)
+        {
+            var module = JsonUtility.FromJson<StyleMaterialModule>(json);
+
+            if (module == null)
+                return;
+
+            m_Module = Mathf.Clamp(index + 1, 0, modules.Count);
+            modules.Insert(m_Module, module);
+            m_EditModule = true;
+        }
+
+        void ShowLayerMenu(int index)
+        {
+            var menu = new GenericMenu();
+            var copied = Clipboard(LayerClipboard);
+            var layer = m_Stack.layers[index];
+
+            menu.AddItem(Styles.CopyLayer, false,
+                         () => EditorGUIUtility.systemCopyBuffer = LayerClipboard + JsonUtility.ToJson(layer));
+
+            if (copied != null)
+                menu.AddItem(Styles.PasteLayer, false, () => Reset(() => PasteLayer(index, copied)));
+            else
+                menu.AddDisabledItem(Styles.PasteLayer);
+
+            menu.ShowAsContext();
+        }
+
+        void PasteLayer(int index, string json)
+        {
+            var layer = JsonUtility.FromJson<StyleMaterialSettings>(json);
+
+            if (layer == null)
+                return;
+
+            m_Selected = Mathf.Clamp(index + 1, 0, m_Stack.layers.Count);
+            m_Stack.layers.Insert(m_Selected, layer);
+            m_Module = -1;
+            m_EditModule = false;
+        }
+
         void DuplicateModule(List<StyleMaterialModule> modules, int index)
         {
             modules.Insert(index + 1, modules[index].Clone());
@@ -768,7 +858,16 @@ namespace HiddenBull.UrpStyle.Editor
                     EditorGUILayout.LabelField(Styles.NoModules, EditorStyles.centeredGreyMiniLabel);
 
                 for (var i = modules.Count - 1; i >= 0; i--)
-                    DrawModuleRow(modules[i], i);
+                    DrawModuleRow(modules, i);
+            }
+
+            var box = GUILayoutUtility.GetLastRect();
+
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 1 &&
+                box.Contains(Event.current.mousePosition))
+            {
+                ShowModuleMenu(modules, modules.Count - 1);
+                Event.current.Use();
             }
 
             using (new EditorGUILayout.HorizontalScope())
@@ -801,8 +900,9 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
-        void DrawModuleRow(StyleMaterialModule module, int index)
+        void DrawModuleRow(List<StyleMaterialModule> modules, int index)
         {
+            var module = modules[index];
             var row = GUILayoutUtility.GetRect(0f, 22f, GUILayout.ExpandWidth(true));
             var eye = new Rect(row.x + 4f, row.y + 3f, 16f, 16f);
             var swatch = new Rect(eye.xMax + 6f, row.y + 4f, 14f, 14f);
@@ -835,6 +935,10 @@ namespace HiddenBull.UrpStyle.Editor
             m_Module = index;
             m_EditModule = true;
             GUI.FocusControl(null);
+
+            if (Event.current.button == 1)
+                ShowModuleMenu(modules, index);
+
             Event.current.Use();
         }
 
@@ -920,6 +1024,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_Stack.name = EditorGUILayout.TextField(Styles.Name, m_Stack.name);
             StyleStudioExport.DrawFolder();
+            terrainLayer = EditorGUILayout.Toggle(Styles.TerrainLayer, terrainLayer);
             undo.Commit("Change Texture Studio Output");
             host?.Repaint();
         }
@@ -935,7 +1040,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             public override Vector2 GetWindowSize()
             {
-                return new Vector2(320f, 112f);
+                return new Vector2(320f, 132f);
             }
 
             public override void OnGUI(Rect rect)
@@ -1174,6 +1279,16 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_Selected = index;
             m_EditModule = false;
+
+            if (Event.current.button == 1)
+            {
+                m_Renaming = -1;
+                GUI.FocusControl(null);
+                ShowLayerMenu(index);
+                Event.current.Use();
+                return;
+            }
+
             m_Renaming = Event.current.clickCount == 2 ? index : -1;
             m_Focus = m_Renaming == index;
             GUI.FocusControl(null);
@@ -1246,7 +1361,12 @@ namespace HiddenBull.UrpStyle.Editor
 
             var changed = GUI.changed;
             GUI.changed = false;
+            var preset = m_Preset;
             rect = shelf.Draw(rect, m_Stack, ref m_Preset, ref m_Category, LoadPreset);
+
+            if (m_Preset != preset && !string.IsNullOrEmpty(m_Preset))
+                NameFromPreset();
+
             DrawMapPicker(rect);
             rect = preview.DrawBar(rect);
 
@@ -1312,6 +1432,48 @@ namespace HiddenBull.UrpStyle.Editor
             host?.Repaint();
         }
 
+        static bool terrainLayer
+        {
+            get => EditorPrefs.GetBool(TerrainLayerKey, false);
+            set => EditorPrefs.SetBool(TerrainLayerKey, value);
+        }
+
+        void NameFromPreset()
+        {
+            m_Stack.name = StyleMaterialShelf.ExportName(m_Preset);
+        }
+
+        static void SaveTerrainLayer(string name, string albedo, string normal, string mask)
+        {
+            var path = $"{StyleStudioExport.folder}/{StyleStudioExport.FileName(name, TerrainLayerPrefix)}.asset";
+            var layer = AssetDatabase.LoadAssetAtPath<HBStyleTerrainLayer>(path);
+            var created = layer == null;
+
+            if (created)
+                layer = ScriptableObject.CreateInstance<HBStyleTerrainLayer>();
+
+            var target = new SerializedObject(layer);
+
+            target.FindProperty("m_Albedo").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Texture2D>(albedo);
+            target.FindProperty("m_Normal").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Texture2D>(normal);
+            target.FindProperty("m_Mask").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Texture2D>(mask);
+
+            if (created)
+            {
+                target.FindProperty("m_Smoothness").floatValue = 1f;
+                target.FindProperty("m_Metallic").floatValue = 1f;
+            }
+
+            target.ApplyModifiedPropertiesWithoutUndo();
+
+            if (created)
+                AssetDatabase.CreateAsset(layer, path);
+            else
+                EditorUtility.SetDirty(layer);
+
+            AssetDatabase.SaveAssets();
+        }
+
         void SaveTextures()
         {
             if (!generator.ready)
@@ -1320,13 +1482,17 @@ namespace HiddenBull.UrpStyle.Editor
             var name = m_Stack.name.Trim();
             var albedo = StyleStudioExport.Save(generator.Export(StyleMaterialMap.Albedo), name + "_Albedo",
                                                 StyleExportKind.Colour);
-            StyleStudioExport.Save(generator.Export(StyleMaterialMap.Normal), name + "_Normal",
-                                   StyleExportKind.Normal);
-            StyleStudioExport.Save(generator.Export(StyleMaterialMap.Mask), name + "_Mask", StyleExportKind.Data);
+            var normal = StyleStudioExport.Save(generator.Export(StyleMaterialMap.Normal), name + "_Normal",
+                                                StyleExportKind.Normal);
+            var mask = StyleStudioExport.Save(generator.Export(StyleMaterialMap.Mask), name + "_Mask",
+                                              StyleExportKind.Data);
 
             if (generator.glows)
                 StyleStudioExport.Save(generator.Export(StyleMaterialMap.Emission), name + "_Emission",
                                        StyleExportKind.Colour);
+
+            if (terrainLayer)
+                SaveTerrainLayer(name, albedo, normal, mask);
 
             EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<Texture2D>(albedo));
             GUIUtility.ExitGUI();

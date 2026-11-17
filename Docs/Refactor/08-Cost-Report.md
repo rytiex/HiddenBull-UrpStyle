@@ -709,3 +709,29 @@ CPU for that cell.
 
 Not measured, left for the user's game and Phase 12: the cavity pass in ms (target ≤ 0.4 ms at 1080p) and the DBuffer
 decal pass.
+
+## Phase 10 — Texture Studio
+
+### Phase 10 closed (2026-11-17): final offline costs (compiled offline; the user confirmed the studio pages in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Lit forward (all, triplanar, moving) | 3781 | 148 | 2733 / 47 | 2735 / 60 — OK, unchanged |
+| Lit forward (albedo only) | 1747 | 116 | 699 / 15 | 700 / 15 — OK, unchanged |
+| Foliage forward (all) / (all, GPU) | 3518 / 3569 | 134 / 140 | 2470 / 33, 2521 / 39 | 2500, 2525 / 60 — OK |
+| Billboard forward | 2346 | 137 | 1298 / 36 | 1500 / 36 — OK, unchanged |
+| Terrain forward / (APV) | 4383 / 4811 | 166 / 191 | 3335 / 65, – | 4500 / 175, 4815 / 200 — OK, unchanged |
+| Grass forward | 435 | 9 | – | 2000 / 30 — OK, unchanged |
+| Sky / Sky Map | 1050 / 1066 | 14 / 14 | – | 1500 / 20, 1100 / 16 — OK |
+| Underwater overlay | 325 | 21 | – | 330 / 22 — OK |
+| Liquid Surface | 3739 | 148 | – | 3740 / 148 — OK, 1 slot left |
+| Liquid Surface (pool) | 2814 | 106 | – | – |
+
+The studio itself costs nothing at runtime: its compute kernels run only in the editor, and every runtime hook it
+needs is `#if UNITY_EDITOR`. Liquid Surface went up to 4057 slots during the lava rounds (budget raised to 4060) and
+came back down to 3739 when the runtime plate bake, Open Melt, the Pattern map and Shore Crust were removed for
+Studio-made mask maps; the budget is set back to the measured 3740. The reads stay at 148: a masked layer reads one
+normal and two mask taps per stream cell where an unmasked layer reads three normal taps. On flowing water a masked
+layer now reads its mask once per stream cell (up to four cells) instead of once per pixel.
+
+Not measured, left for the user's game and Phase 12: the liquid surface in ms on a masked river.
