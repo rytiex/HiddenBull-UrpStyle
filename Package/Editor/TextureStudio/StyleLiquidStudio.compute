@@ -1,0 +1,422 @@
+#pragma kernel Clear
+#pragma kernel Height
+#pragma kernel Reduce
+#pragma kernel Gather
+#pragma kernel Accumulate
+#pragma kernel Normal
+#pragma kernel Show
+
+#define HB_RIPPLE_PARTIALS 256
+#define HB_RIPPLE_TWO_PI 6.28318530718
+#define HB_RIPPLE_MOST_WAVES 16
+
+RWTexture2D<float> _Layer;
+RWTexture2D<float> _Total;
+RWTexture2D<float4> _Normal;
+RWTexture2D<float4> _Display;
+Texture2D<float> _Source;
+Texture2D<float> _LayerIn;
+Texture2D<float> _TotalIn;
+Texture2D<float4> _NormalIn;
+RWStructuredBuffer<float4> _Partials;
+RWStructuredBuffer<float4> _Stats;
+
+float4 _Size;
+float4 _Kind;
+float4 _Shape;
+float4 _Detail;
+float4 _Show;
+float4 _Waves[HB_RIPPLE_MOST_WAVES];
+int _Seed;
+int _Slot;
+
+groupshared float3 s_Reduce[HB_RIPPLE_PARTIALS];
+
+float HB_RippleHash(int x, int y, int seed)
+{
+    int h = x * 374761393 + y * 668265263 + seed * 1274126177;
+
+    h = (h ^ (h >> 13)) * 1274126177;
+    h ^= h >> 16;
+    return float(h & 0x7fffffff) / 2147483647.0;
+}
+
+int HB_RippleWrap(int value, int size)
+{
+    return value - size * (int)floor(value / (float)size);
+}
+
+float HB_RippleFade(float t)
+{
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float HB_RippleValue(float x, float y, int period, int seed)
+{
+    int xi = (int)floor(x);
+    int yi = (int)floor(y);
+    float u = HB_RippleFade(x - xi);
+    float v = HB_RippleFade(y - yi);
+    int x0 = HB_RippleWrap(xi, period);
+    int x1 = HB_RippleWrap(xi + 1, period);
+    int y0 = HB_RippleWrap(yi, period);
+    int y1 = HB_RippleWrap(yi + 1, period);
+    float bottom = lerp(HB_RippleHash(x0, y0, seed), HB_RippleHash(x1, y0, seed), u);
+    float top = lerp(HB_RippleHash(x0, y1, seed), HB_RippleHash(x1, y1, seed), u);
+
+    return lerp(bottom, top, v);
+}
+
+float HB_RippleFbm(float u, float v, int period, int octaves, int seed)
+{
+    float sum = 0.0;
+    float amplitude = 0.5;
+    float total = 0.0;
+
+    [loop]
+    for (int i = 0; i < octaves; i++)
+    {
+        sum += HB_RippleValue(u * period, v * period, period, seed + i * 31) * amplitude;
+        total += amplitude;
+        amplitude *= 0.5;
+        period *= 2;
+    }
+
+    return sum / total;
+}
+
+float2 HB_RippleWorley(float u, float v, int period, int seed)
+{
+    float x = u * period;
+    float y = v * period;
+    int xi = (int)floor(x);
+    int yi = (int)floor(y);
+    float first = 8.0;
+    float second = 8.0;
+
+    [unroll]
+    for (int oy = -1; oy <= 1; oy++)
+    {
+        [unroll]
+        for (int ox = -1; ox <= 1; ox++)
+        {
+            int cx = xi + ox;
+            int cy = yi + oy;
+            int wx = HB_RippleWrap(cx, period);
+            int wy = HB_RippleWrap(cy, period);
+            float dx = cx + HB_RippleHash(wx, wy, seed) - x;
+            float dy = cy + HB_RippleHash(wx, wy, seed + 7919) - y;
+            float gap = sqrt(dx * dx + dy * dy);
+
+            if (gap < first)
+            {
+                second = first;
+                first = gap;
+            }
+            else if (gap < second)
+            {
+                second = gap;
+            }
+        }
+    }
+
+    return float2(first, second);
+}
+
+float HB_RippleDome(float gap, float radius)
+{
+    float t = saturate(1.0 - gap / max(radius, 1e-3));
+
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float HB_RippleWaves(float u, float v)
+{
+    int count = clamp((int)_Shape.x, 1, HB_RIPPLE_MOST_WAVES);
+    float sharpness = max(_Shape.y, 0.25);
+    float h = 0.0;
+
+    [loop]
+    for (int i = 0; i < count; i++)
+    {
+        float4 wave = _Waves[i];
+        float crest = 0.5 + 0.5 * sin(HB_RIPPLE_TWO_PI * (wave.x * u + wave.y * v) + wave.z);
+
+        h += pow(crest, sharpness) * wave.w;
+    }
+
+    return h;
+}
+
+float HB_RippleDomes(float u, float v, int scale)
+{
+    float swell = HB_RippleFbm(u, v, max(scale >> 1, 1), 3, _Seed + 3);
+    float large = HB_RippleWorley(u, v, scale, _Seed + 5).x;
+    float small = HB_RippleWorley(u, v, scale * 2, _Seed + 7).x;
+    float dome = HB_RippleDome(large, _Shape.x) + HB_RippleDome(small, _Shape.x * 0.78) * _Shape.y;
+
+    return dome + swell * _Shape.z;
+}
+
+float HB_RippleFlow(float u, float v, int scale)
+{
+    float reach = _Shape.x / scale;
+    float h1 = HB_RippleFbm(u, v, scale, 4, _Seed + 13);
+    float h2 = HB_RippleFbm(u, v, scale, 4, _Seed + 17);
+    float g1 = HB_RippleFbm(u + (h1 - 0.5) * reach, v + (h2 - 0.5) * reach, scale, 4, _Seed + 19);
+    float g2 = HB_RippleFbm(u + (h2 - 0.5) * reach, v + (h1 - 0.5) * reach, scale, 4, _Seed + 23);
+    float flow = HB_RippleFbm(u + (g1 - 0.5) * reach * 1.4, v + (g2 - 0.5) * reach * 1.4, scale * 2, 5,
+                              _Seed + 29);
+    float streak = 1.0 - abs(flow * 2.0 - 1.0);
+    float cool = saturate((flow - _Shape.z) * 2.0) * (1.0 - _Shape.y) + streak * streak * streak * _Shape.y;
+
+    return cool;
+}
+
+float HB_RippleCells(float u, float v, int scale)
+{
+    float2 gaps = HB_RippleWorley(u, v, scale, _Seed + 41);
+    float edge = saturate((gaps.y - gaps.x) / max(_Shape.x, 1e-3));
+
+    return pow(edge, max(_Shape.y, 0.25));
+}
+
+float2 HB_RipplePlatePoint(int2 cell, int period, out int2 wrapped)
+{
+    wrapped = int2(HB_RippleWrap(cell.x, period), HB_RippleWrap(cell.y, period));
+
+    return cell + 0.1 + 0.8 * float2(HB_RippleHash(wrapped.x, wrapped.y, _Seed + 43),
+                                     HB_RippleHash(wrapped.x, wrapped.y, _Seed + 47));
+}
+
+float HB_RipplePlates(float u, float v, int scale)
+{
+    float2 warp = float2(HB_RippleFbm(u, v, scale, 2, _Seed + 79), HB_RippleFbm(u, v, scale, 2, _Seed + 83)) - 0.5;
+    float2 p = float2(u, v) * scale + warp * 0.35;
+    int2 base = (int2)floor(p);
+    float2 nearest = float2(0.0, 0.0);
+    int2 owner = int2(0, 0);
+    float closest = 64.0;
+
+    [unroll]
+    for (int oy = -1; oy <= 1; oy++)
+    {
+        [unroll]
+        for (int ox = -1; ox <= 1; ox++)
+        {
+            int2 wrapped;
+            float2 r = HB_RipplePlatePoint(base + int2(ox, oy), scale, wrapped) - p;
+            float d = dot(r, r);
+
+            if (d < closest)
+            {
+                closest = d;
+                nearest = r;
+                owner = wrapped;
+            }
+        }
+    }
+
+    float border = 64.0;
+
+    [loop]
+    for (int by = -2; by <= 2; by++)
+    {
+        [loop]
+        for (int bx = -2; bx <= 2; bx++)
+        {
+            int2 wrapped;
+            float2 r = HB_RipplePlatePoint(base + int2(bx, by), scale, wrapped) - p;
+            float2 apart = r - nearest;
+
+            if (dot(apart, apart) > 1e-6)
+                border = min(border, dot(0.5 * (nearest + r), normalize(apart)));
+        }
+    }
+
+    float widest = _Shape.x;
+    float wiggle = HB_RippleFbm(u, v, scale * 2, 3, _Seed + 53);
+    float gap = widest * (1.0 - _Shape.y * wiggle);
+    float steep = 16.0 / max(1.0 - 16.0 * widest, 0.1);
+    float tilt = _Shape.z * 3.0;
+    float turn = HB_RippleHash(owner.x, owner.y, _Seed + 59) * HB_RIPPLE_TWO_PI;
+    float drop = 0.0;
+
+    [loop]
+    for (int k = 0; k < 6; k++)
+    {
+        int salt = _Seed + 61 + k * 5;
+        float angle = turn + (k + 0.6 * HB_RippleHash(owner.x, owner.y, salt)) * (HB_RIPPLE_TWO_PI / 6.0);
+        float lean = tilt * (0.6 + 0.4 * HB_RippleHash(owner.x, owner.y, salt + 1));
+        float start = 0.08 + 0.12 * HB_RippleHash(owner.x, owner.y, salt + 2);
+
+        drop = max(drop, lean * (dot(float2(cos(angle), sin(angle)), -nearest) - start));
+    }
+
+    float top = 1.0 - 0.15 * HB_RippleHash(owner.x, owner.y, _Seed + 71);
+    float grain = (HB_RippleFbm(u, v, scale * 8, 3, _Seed + 73) - 0.5) * 0.08 * _Shape.w;
+    float shoulder = 1.0 - saturate((border - gap) / 0.15);
+    float dome = top - min(drop, 0.9) - 0.35 * shoulder * shoulder + grain;
+
+    return min(dome, steep * (border - gap));
+}
+
+void HB_RippleReduce(uint index, float3 value, uint2 group)
+{
+    s_Reduce[index] = value;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_RIPPLE_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+        _Partials[group.y * (uint)_Size.w + group.x] = float4(s_Reduce[0], 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    _Total[id.xy] = 0.0;
+}
+
+[numthreads(8, 8, 1)]
+void Height(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    float u = id.x * _Size.y;
+    float v = id.y * _Size.y;
+    int kind = (int)_Kind.x;
+    int scale = max((int)_Kind.y, 1);
+    float h;
+
+    if (kind == 0)
+        h = HB_RippleWaves(u, v);
+    else if (kind == 1)
+        h = HB_RippleDomes(u, v, scale);
+    else if (kind == 2)
+        h = HB_RippleFlow(u, v, scale);
+    else if (kind == 3)
+        h = HB_RippleCells(u, v, scale);
+    else if (kind == 5)
+        h = HB_RipplePlates(u, v, scale);
+    else
+        h = HB_RippleFbm(u, v, scale, clamp((int)_Detail.x, 1, 6), _Seed + 11);
+
+    _Layer[id.xy] = h;
+}
+
+[numthreads(16, 16, 1)]
+void Reduce(uint3 id : SV_DispatchThreadID, uint3 group : SV_GroupID, uint index : SV_GroupIndex)
+{
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    if (all(float2(id.xy) < _Size.x))
+    {
+        float value = _Source[id.xy];
+
+        reduce = float3(value, value, value);
+    }
+
+    HB_RippleReduce(index, reduce, group.xy);
+}
+
+[numthreads(HB_RIPPLE_PARTIALS, 1, 1)]
+void Gather(uint3 id : SV_DispatchThreadID, uint index : SV_GroupIndex)
+{
+    uint partials = (uint)(_Size.w * _Size.w);
+    float3 reduce = float3(0.0, 1e20, -1e20);
+
+    for (uint i = index; i < partials; i += HB_RIPPLE_PARTIALS)
+    {
+        float3 other = _Partials[i].xyz;
+
+        reduce = float3(reduce.x + other.x, min(reduce.y, other.y), max(reduce.z, other.z));
+    }
+
+    s_Reduce[index] = reduce;
+    GroupMemoryBarrierWithGroupSync();
+
+    [unroll]
+    for (uint stride = HB_RIPPLE_PARTIALS / 2u; stride > 0u; stride >>= 1u)
+    {
+        if (index < stride)
+        {
+            float3 other = s_Reduce[index + stride];
+            float3 mine = s_Reduce[index];
+
+            s_Reduce[index] = float3(mine.x + other.x, min(mine.y, other.y), max(mine.z, other.z));
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (index == 0u)
+        _Stats[_Slot] = float4(s_Reduce[0], 0.0);
+}
+
+[numthreads(8, 8, 1)]
+void Accumulate(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    float4 range = _Stats[0];
+    float normalised = (_LayerIn[id.xy] - range.y) / max(range.z - range.y, 1e-5);
+
+    _Total[id.xy] += normalised * _Kind.z;
+}
+
+[numthreads(8, 8, 1)]
+void Normal(uint3 id : SV_DispatchThreadID)
+{
+    int resolution = (int)_Size.x;
+
+    if (any((int2)id.xy >= resolution))
+        return;
+
+    int x = (int)id.x;
+    int y = (int)id.y;
+    float scale = resolution * 0.5;
+    float left = _TotalIn[int2(HB_RippleWrap(x - 1, resolution), y)];
+    float right = _TotalIn[int2(HB_RippleWrap(x + 1, resolution), y)];
+    float down = _TotalIn[int2(x, HB_RippleWrap(y - 1, resolution))];
+    float up = _TotalIn[int2(x, HB_RippleWrap(y + 1, resolution))];
+    float3 normal = normalize(float3(-(right - left) * scale, -(up - down) * scale, 1.0));
+
+    _Normal[id.xy] = float4(normal * 0.5 + 0.5, 1.0);
+}
+
+[numthreads(8, 8, 1)]
+void Show(uint3 id : SV_DispatchThreadID)
+{
+    if (any(float2(id.xy) >= _Size.x))
+        return;
+
+    if (_Show.x > 0.5)
+    {
+        float4 range = _Stats[1];
+        float height = saturate((_TotalIn[id.xy] - range.y) / max(range.z - range.y, 1e-6));
+
+        _Display[id.xy] = float4(height, height, height, 1.0);
+    }
+    else
+    {
+        _Display[id.xy] = float4(_NormalIn[id.xy].rgb, 1.0);
+    }
+}

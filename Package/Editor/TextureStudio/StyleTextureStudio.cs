@@ -47,8 +47,11 @@ namespace HiddenBull.UrpStyle.Editor
             var cloud = m_Pages != null && m_Pages.Length > 3 && m_Pages[3] is StyleCloudPage keptCloud
                 ? keptCloud
                 : new StyleCloudPage();
+            var liquid = m_Pages != null && m_Pages.Length > 4 && m_Pages[4] is StyleLiquidPage keptLiquid
+                ? keptLiquid
+                : new StyleLiquidPage();
 
-            m_Pages = new StyleStudioPage[] { material, grass, brush, cloud };
+            m_Pages = new StyleStudioPage[] { material, grass, brush, cloud, liquid };
 
             foreach (var page in m_Pages)
                 page.host = this;

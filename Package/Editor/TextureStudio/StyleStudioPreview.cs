@@ -98,6 +98,7 @@ namespace HiddenBull.UrpStyle.Editor
         Skybox m_Skybox;
         Vector2 m_SkyLook = new Vector2(0f, 25f);
         float m_SkyField = 60f;
+        float m_LiquidDistance = 16f;
         float m_Heading;
         Mesh m_Cross;
         Mesh m_Quad;
@@ -288,6 +289,48 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
+        internal void DrawLiquid(Rect rect, StyleStudioPool pool, HBStyleLiquidLayer layer)
+        {
+            if (!Prepare() || !pool.Build(m_Utility, layer))
+            {
+                EditorGUI.HelpBox(rect, $"The shader '{LitShader}' was not found.", MessageType.Warning);
+                return;
+            }
+
+            var width = Mathf.Min(PanelWidth, rect.width - PanelMargin * 2f);
+            var panel = new Rect(rect.xMax - width - PanelMargin, rect.yMax - PanelHeight - PanelMargin, width,
+                                 PanelHeight);
+
+            HandleFieldCamera(rect, panel, true);
+
+            if (Event.current.type == EventType.Repaint)
+                RenderLiquid(rect, pool);
+
+            DrawPanel(panel);
+        }
+
+        void RenderLiquid(Rect rect, StyleStudioPool pool)
+        {
+            var turn = Quaternion.Euler(0f, m_Orbit.x, 0f);
+            var look = turn * Quaternion.Euler(m_Orbit.y, 0f, 0f);
+            var camera = m_Utility.camera;
+            var rise = Mathf.Sqrt(Mathf.Max(1f - m_Sun.sqrMagnitude, 0f));
+
+            camera.farClipPlane = 200f;
+            camera.transform.SetPositionAndRotation(pool.centre - look * Vector3.forward * m_LiquidDistance, look);
+            m_Environment.sunDirection = (turn * new Vector3(m_Sun.x, Mathf.Max(rise, 0.05f), m_Sun.y)).normalized;
+            m_Environment.KeyLight(out var colour, out var intensity);
+
+            var light = m_Utility.lights[0];
+            light.transform.rotation = Quaternion.LookRotation(-m_Environment.sunDirection);
+            light.color = colour;
+            light.intensity = intensity;
+
+            m_Utility.BeginPreview(rect, GUIStyle.none);
+            camera.Render();
+            GUI.DrawTexture(rect, m_Utility.EndPreview(), ScaleMode.StretchToFill, false);
+        }
+
         internal Rect DrawFieldBar(Rect rect)
         {
             var width = Mathf.Min(rect.width, BarWidth * 2f / 3f);
@@ -439,7 +482,7 @@ namespace HiddenBull.UrpStyle.Editor
             return m_Quad;
         }
 
-        void HandleFieldCamera(Rect rect, Rect panel)
+        void HandleFieldCamera(Rect rect, Rect panel, bool liquid = false)
         {
             var current = Event.current;
             var control = GUIUtility.GetControlID(FocusType.Passive, rect);
@@ -450,7 +493,9 @@ namespace HiddenBull.UrpStyle.Editor
                 case EventType.ScrollWheel when over:
                     var zoom = 1f + current.delta.y * 0.03f;
 
-                    if (fieldView == StyleFieldView.Single)
+                    if (liquid)
+                        m_LiquidDistance = Mathf.Clamp(m_LiquidDistance * zoom, 4f, 40f);
+                    else if (fieldView == StyleFieldView.Single)
                         m_SingleDistance = Mathf.Clamp(m_SingleDistance * zoom, 1f, 8f);
                     else
                         m_FieldDistance = Mathf.Clamp(m_FieldDistance * zoom, 3f, 40f);

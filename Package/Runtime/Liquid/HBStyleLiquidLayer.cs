@@ -7,13 +7,6 @@ namespace HiddenBull.UrpStyle
                      menuName = "HiddenBull/URP Style/Liquid/Liquid Layer")]
     public sealed class HBStyleLiquidLayer : ScriptableObject
     {
-        public enum Preset
-        {
-            Water,
-            Acid,
-            Lava
-        }
-
         [SerializeField]
         [Tooltip("Takes the height of the waves from the wind instead of Waves: flat at no wind, tallest in a " +
                  "storm. While on, white caps follow the wind too.")]
@@ -99,7 +92,7 @@ namespace HiddenBull.UrpStyle
         [Tooltip("The liquid by how much of it you look through, from the shore on the left to deep on the " +
                  "right. Colour is the liquid's colour there; alpha is how much it hides the bottom. The middle " +
                  "is about three metres. Up to six colour and six alpha keys are used.")]
-        Gradient m_DepthGradient = DepthGradient(Preset.Water);
+        Gradient m_DepthGradient = DepthGradient();
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -166,15 +159,15 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How much of each plate in the normal map cools into crust, as on lava, while its cracks keep " +
-                 "glowing. Foam and glow stay under the crust. 0 turns it off.")]
+        [Tooltip("How much of each plate in the normal map cools into crust, as on lava. The crust is lit like " +
+                 "rock while its cracks keep glowing, hottest where they are narrow. Foam and glow stay under the " +
+                 "crust. 0 turns it off.")]
         float m_Crust;
 
         [SerializeField]
         [ColorUsage(false)]
-        [Tooltip("What the crust does to the liquid's colour and glow. Dark cools it to rock; white leaves it as " +
-                 "it is.")]
-        Color m_CrustColor = Color.black;
+        [Tooltip("Colour of the cooled rock crust. Its edges catch the glow of the cracks around it.")]
+        Color m_CrustColor = new Color(0.26f, 0.17f, 0.18f);
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -258,7 +251,7 @@ namespace HiddenBull.UrpStyle
 
         public bool rainRipples => m_RainRipples;
 
-        public Gradient depthGradient => m_DepthGradient ??= DepthGradient(Preset.Water);
+        public Gradient depthGradient => m_DepthGradient ??= DepthGradient();
 
         public float glow => m_Glow;
 
@@ -318,106 +311,32 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        public void Apply(Preset preset)
-        {
-            var water = preset == Preset.Water;
-            var acid = preset == Preset.Acid;
-            var lava = preset == Preset.Lava;
-
-            m_Tiling = lava ? 0.435f : acid ? 0.145f : 1f;
-            m_Waves = 0.2f;
-            m_WindWaves = water;
-            m_WaveHeight = lava ? 1.65f : 1f;
-            m_WaveSteepness = lava ? 2f : 1f;
-            m_WaveLength = lava ? 0.45f : 1f;
-            m_NormalStrength = lava ? 2f : acid ? 1f : 0.125f;
-            m_RippleDrift = lava ? 0f : 1f;
-            m_Smoothness = lava ? 0.25f : acid ? 0.65f : 0.8f;
-            m_SurfaceDistortion = lava ? 0f : 1f;
-            m_RefractionBlur = lava ? 0f : acid ? 0.125f : 0.05f;
-            m_Brush = water ? 0.2f : 0.5f;
-            m_BrushSize = water ? 2f : 1f;
-            m_DiffuseWrap = lava ? 0.246f : 0.125f;
-            m_DiffuseSoftness = lava ? 2f : 0.25f;
-            m_Caustics = lava ? 0f : acid ? 0.085f : 0.125f;
-            m_Glow = water ? 0f : 1f;
-            m_CausticScale = 0.25f;
-            m_CrestSoftness = water ? 0.225f : 0f;
-            m_WaterlineDepth = water ? 1f : 3f;
-            m_FoamAmount = water ? 0.5f : 1f;
-            m_ShoreFoam = lava ? 0f : acid ? 2.5f : 0.75f;
-            m_Bubbles = lava ? 0.0225f : acid ? 0.125f : 0f;
-            m_Pulse = lava ? 0.125f : acid ? 1.5f : 0f;
-            m_PatternScale = water ? 0.5f : 3f;
-            m_Crust = lava ? 0.222f : 0f;
-            m_LightShafts = acid ? 0.4f : 1f;
-            m_UnderBubbles = lava ? 0f : acid ? 1f : 0.25f;
-            m_Distortion = lava ? 1f : 0.3f;
-            m_SnellWindow = lava ? 0f : acid ? 0.525f : 1f;
-            m_UnderBlur = water ? 0.25f : 0.5f;
-            m_UnderVisibility = lava ? 0.75f : acid ? 2f : 0.65f;
-            m_UnderLightDepth = lava ? 2f : acid ? 18f : 6f;
-            m_RainRipples = true;
-
-            m_CrestColor = lava ? new Color(0.44339618f, 0.44339618f, 0.44339618f, 1f)
-                         : acid ? new Color(0.7546641f, 1f, 0.3820755f, 1f)
-                         : new Color(0.5566038f, 0.5566038f, 0.5566038f, 1f);
-            m_FoamColor = lava ? new Color(1f, 0.69112843f, 0f, 1f)
-                        : acid ? Color.white
-                        : new Color(0.8396226f, 0.8396226f, 0.8396226f, 1f);
-            m_CrustColor = Color.black;
-            m_DepthGradient = DepthGradient(preset);
-            m_Version++;
-        }
-
         void OnValidate()
         {
             m_Version++;
         }
 
-        static Gradient DepthGradient(Preset preset)
+        internal void Touch()
+        {
+            m_Version++;
+        }
+
+        static Gradient DepthGradient()
         {
             var gradient = new Gradient();
 
-            switch (preset)
+            gradient.SetKeys(new[]
             {
-                case Preset.Lava:
-                    gradient.SetKeys(new[]
-                    {
-                        new GradientColorKey(new Color(4f, 0.565445f, 0f), 0f),
-                        new GradientColorKey(new Color(3.5584905f, 0.5034067f, 0f), 0.114702f),
-                        new GradientColorKey(new Color(0.2830189f, 0.04468719f, 0f), 1f)
-                    }, new[] { new GradientAlphaKey(0.47058824f, 0f), new GradientAlphaKey(1f, 1f) });
-                    break;
-
-                case Preset.Acid:
-                    gradient.SetKeys(new[]
-                    {
-                        new GradientColorKey(new Color(0.69479233f, 0.7176471f, 0f), 0f),
-                        new GradientColorKey(new Color(0.12174808f, 0.34117648f, 0f), 0.682353f),
-                        new GradientColorKey(new Color(0.2601031f, 0.4245283f, 0f), 1f)
-                    }, new[]
-                    {
-                        new GradientAlphaKey(0.25f, 0f), new GradientAlphaKey(0.75f, 0.50588f),
-                        new GradientAlphaKey(0.7764706f, 0.85f)
-                    });
-                    break;
-
-                default:
-                    gradient.SetKeys(new[]
-                    {
-                        new GradientColorKey(new Color(0.21586053f, 0.26225072f, 0.33245158f), 0f),
-                        new GradientColorKey(new Color(0.038204376f, 0.06662595f, 0.09084173f), 0.30000764f),
-                        new GradientColorKey(new Color(0.013702081f, 0.045186214f, 0.05448028f), 0.66764f),
-                        new GradientColorKey(new Color(0.010329823f, 0.04091521f, 0.048171833f), 1f)
-                    }, new[]
-                    {
-                        new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.3137255f, 0.25f),
-                        new GradientAlphaKey(0.7f, 0.5f),
-                        new GradientAlphaKey(0.92f, 0.75f), new GradientAlphaKey(1f, 1f)
-                    });
-                    break;
-            }
+                new GradientColorKey(new Color(0.21586053f, 0.26225072f, 0.33245158f), 0f),
+                new GradientColorKey(new Color(0.038204376f, 0.06662595f, 0.09084173f), 0.30000764f),
+                new GradientColorKey(new Color(0.013702081f, 0.045186214f, 0.05448028f), 0.66764f),
+                new GradientColorKey(new Color(0.010329823f, 0.04091521f, 0.048171833f), 1f)
+            }, new[]
+            {
+                new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.3137255f, 0.25f),
+                new GradientAlphaKey(0.7f, 0.5f),
+                new GradientAlphaKey(0.92f, 0.75f), new GradientAlphaKey(1f, 1f)
+            });
 
             return gradient;
         }

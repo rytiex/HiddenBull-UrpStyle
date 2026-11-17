@@ -77,13 +77,13 @@ namespace HiddenBull.UrpStyle.Editor
             return relative == "." ? "Assets" : "Assets/" + relative.Replace('\\', '/');
         }
 
-        internal static string FileName(string name)
+        internal static string FileName(string name, string prefix = Prefix)
         {
-            var words = new List<string> { Prefix };
+            var words = new List<string> { prefix };
 
             foreach (var word in name.Split(s_Breaks, StringSplitOptions.RemoveEmptyEntries))
             {
-                if (words.Count == 1 && string.Equals(word, Prefix, StringComparison.OrdinalIgnoreCase))
+                if (words.Count == 1 && string.Equals(word, prefix, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 words.Add(char.ToUpperInvariant(word[0]) + word.Substring(1));

@@ -173,6 +173,13 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_CRUST_CALM     0.3h
 #define HB_LIQUID_CRUST_PATCH    0.35h
 #define HB_LIQUID_CRUST_TEXELS   256.0
+#define HB_LIQUID_LAVA_SHARP     20.0h
+#define HB_LIQUID_MELT_FLAT      0.8h
+#define HB_LIQUID_HEAT_GLOW      0.5h
+#define HB_LIQUID_RIM_FULL       0.85h
+#define HB_LIQUID_RIM_SPAN       0.2h
+#define HB_LIQUID_ROCK_BOUNCE    1.2h
+#define HB_LIQUID_ROCK_RELIEF    1.0h
 #define HB_LIQUID_ANISO_LEAST    0.25
 #define HB_LIQUID_FAR_LODS       6.0
 #define HB_LIQUID_FAR_FLATTEN    0.5h
@@ -402,7 +409,7 @@ HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
 
 float2 HB_LiquidGradientUV(float at, int slot)
 {
-    float seen = min(at, _HB_LiquidMolten[slot].w);
+    float seen = _HB_LiquidMolten[slot].x > 0.0 ? at : min(at, _HB_LiquidMolten[slot].w);
 
     return float2((seen * (HB_LIQUID_GRADIENT_SIZE - 1.0) + 0.5) / HB_LIQUID_GRADIENT_SIZE,
                   (slot + 0.5) / HB_LIQUID_SLOTS);
@@ -1040,7 +1047,7 @@ half3 HB_LiquidScaled(half3 raw, half strength)
 }
 
 half3 HB_LiquidRippleRead(TEXTURE2D_PARAM(map, samplerMap), TEXTURE2D_PARAM(plates, samplerPlates), float2 xz,
-                          float2 dx, float2 dy, float tiling, half strength, half calm, float pace, out half plate)
+                          float2 dx, float2 dy, float tiling, half strength, half calm, float pace, out half3 plate)
 {
     float2 drift = HB_LiquidWind() * (HB_LIQUID_RIPPLE_SPEED * _Time.y * pace);
     float wide = tiling * HB_LIQUID_SECOND_SCALE;
@@ -1060,14 +1067,14 @@ half3 HB_LiquidRippleRead(TEXTURE2D_PARAM(map, samplerMap), TEXTURE2D_PARAM(plat
     half3 b = HB_LiquidScaled(rawB, strength * calm);
     half3 c = HB_LiquidScaled(rawC, strength * (HB_LIQUID_SWELL_STRENGTH * calm));
 
-    plate = 0.0h;
+    plate = half3(0.0h, 0.0h, 0.0h);
 
     UNITY_BRANCH
     if (calm < 1.0h)
     {
-        half2 shape = half2(SAMPLE_TEXTURE2D_GRAD(plates, samplerPlates, first, dx * tiling, dy * tiling).rg);
+        half4 shape = half4(SAMPLE_TEXTURE2D_GRAD(plates, samplerPlates, first, dx * tiling, dy * tiling));
 
-        plate = shape.r * lerp(1.0h - HB_LIQUID_CRUST_PATCH, 1.0h + HB_LIQUID_CRUST_PATCH, shape.g);
+        plate = half3(shape.r * lerp(1.0h - HB_LIQUID_CRUST_PATCH, 1.0h + HB_LIQUID_CRUST_PATCH, shape.g), shape.ba);
     }
 
     return normalize(half3(a.xy + b.xy + c.xy, a.z * b.z * c.z));
@@ -1108,18 +1115,19 @@ half HB_LiquidCrustOf(half plate, half amount)
     UNITY_BRANCH                                                                                                     \
     if (live[index])                                                                                                 \
     {                                                                                                                \
-        half flat;                                                                                                   \
+        half3 flat;                                                                                                  \
         half3 read = HB_LiquidRippleRead(TEXTURE2D_ARGS(_HB_LiquidNormal##index, sampler_trilinear_repeat),          \
                                          TEXTURE2D_ARGS(_HB_LiquidPlates##index, sampler_trilinear_repeat), along,   \
                                          alongDx, alongDy, _HB_LiquidRipple[index].x,                                \
                                          half(_HB_LiquidRipple[index].y) * rush, calm[index],                        \
                                          _HB_LiquidRipple[index].w, flat);                                           \
         sums[index] += half3(HB_LiquidBack(heading, read.xy), read.z) * weight;                                      \
-        plates[index] += flat * weight;                                                                              \
+        plates[index] += flat.x * weight;                                                                            \
+        glowing += flat.yz * (weight * half(mix[index]));                                                            \
     }
 
 half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidStream stream, out half crust,
-                      out float even)
+                      out half2 glowing, out float even)
 {
     float wideX = length(dx);
     float wideY = length(dy);
@@ -1137,6 +1145,7 @@ half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidS
     half plates[HB_LIQUID_SLOTS];
 
     crust = 0.0h;
+    glowing = half2(0.0h, 0.0h);
 
     UNITY_UNROLL
     for (int slot = 0; slot < HB_LIQUID_SLOTS; slot++)
@@ -1417,12 +1426,18 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     HBLiquidStream stream = HB_LiquidStreamAt(restXZ, input.shear);
 
     half crust;
+    half2 glowing;
     float even;
-    half3 ripple = HB_LiquidRipple(restXZ, restDx, restDy, water.mix, stream, crust, even);
+    half3 ripple = HB_LiquidRipple(restXZ, restDx, restDy, water.mix, stream, crust, glowing, even);
     half4 rippleSet = HB_LiquidMixed(_HB_LiquidRipple, water.mix);
     half far = HB_LiquidFarOf(even, rippleSet);
+    half lava = saturate(HB_LiquidMixed(_HB_LiquidMolten, water.mix).x * HB_LIQUID_LAVA_SHARP);
+    half melt = (1.0h - crust) * lava;
+    half heat = glowing.y * melt;
+    half rim = saturate(max(1.0h - crust, (HB_LIQUID_RIM_FULL - glowing.x) * rcp(HB_LIQUID_RIM_SPAN))) * crust;
 
-    ripple.xy *= 1.0h - far * HB_LIQUID_FAR_FLATTEN;
+    ripple.xy *= (1.0h - far * HB_LIQUID_FAR_FLATTEN) * (1.0h - melt * HB_LIQUID_MELT_FLAT)
+               * (1.0h + crust * lava * HB_LIQUID_ROCK_RELIEF);
     half3 normalWS = HB_LiquidRipples(input.positionWS, input.positionWS.y - input.wave.x,
                                        normalize(half3(ripple.x - half(slope.x), ripple.z, ripple.y - half(slope.y))),
                                        water.mix);
@@ -1445,7 +1460,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     float deep = front ? HB_LiquidDeepBelow(input.positionWS, screenUV, input.foam.y) : input.foam.y;
     float path = front ? HB_LiquidReach(thickness, input.positionWS, input.foam.y) : 0.0;
 
-    HBLiquidLook look = HB_LiquidLookAt(water.mix, path);
+    float cooled = (1.0 - float(glowing.y)) / HB_LIQUID_GRADIENT_END;
+    HBLiquidLook look = HB_LiquidLookAt(water.mix, lerp(path, -HB_LIQUID_GRADIENT_DEPTH * log(1.0 - cooled), lava));
 
     look.murk = lerp(look.murk, 1.0h, crust);
     HBLiquidFoam foam = HB_LiquidFoamAt(look, restXZ, restDx, restDy, deep, thickness,
@@ -1521,8 +1537,10 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     half fresnelTerm = Pow4(1.0h - saturate(dot(litNormalWS, viewWS))) * (gloss * gloss);
 
     half3 reflection = EnvironmentBRDFSpecular(brdfData, fresnelTerm) * environment;
+    half3 sunResponse = HB_LightResponse(mainLight, litNormalWS, normalWS, style,
+                                         brush.coverage * HB_LIQUID_BRUSH_SHADING);
 
-    reflection += HB_LightResponse(mainLight, litNormalWS, normalWS, style, brush.coverage * HB_LIQUID_BRUSH_SHADING)
+    reflection += sunResponse
                 * HB_DirectSpecular(brdfData, litNormalWS, sunDirection, viewWS, style.diffuseSoftness, 0.0h)
                 * HB_SUN_GLOSS;
     half3 extraLight = half3(0.0h, 0.0h, 0.0h);
@@ -1541,9 +1559,11 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
                    * 0.5h;
     half throb = HB_LiquidThrob(water.mix, foam.grain);
     half3 lit = skyLight + (sunLight + extraLight) * HB_LIQUID_SUN_SCATTER;
-    half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * foam.grain) * throb;
-    half3 cooled = lerp(half3(1.0h, 1.0h, 1.0h), HB_LiquidMixed(_HB_LiquidCrustTone, water.mix).rgb, crust);
-    half3 inscatter = look.tone * look.murk * (lit + glow) * cooled;
+    half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * foam.grain) * throb
+              * (1.0h + heat * HB_LIQUID_HEAT_GLOW);
+    half3 rock = HB_LiquidMixed(_HB_LiquidCrustTone, water.mix).rgb * (skyLight + sunResponse + extraFoam)
+               + look.tone * (glow * rim * rim * HB_LIQUID_ROCK_BOUNCE);
+    half3 inscatter = lerp(look.tone * look.murk * (lit + glow), rock, crust);
     half window = 1.0h;
 
     UNITY_BRANCH

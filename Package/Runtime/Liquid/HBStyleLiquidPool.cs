@@ -58,6 +58,10 @@ namespace HiddenBull.UrpStyle
 
         StyleLiquidWaves m_Waves;
 
+#if UNITY_EDITOR
+        internal Camera onlyCamera { get; set; }
+#endif
+
         public static bool any => s_Pools.Count > 0;
 
         public HBStyleLiquidLayer layer
@@ -139,7 +143,10 @@ namespace HiddenBull.UrpStyle
         void OnEnable()
         {
             s_Pools.Remove(this);
-            s_Pools.Add(this);
+#if UNITY_EDITOR
+            if (onlyCamera == null)
+#endif
+                s_Pools.Add(this);
             RenderPipelineManager.beginCameraRendering += Draw;
         }
 
@@ -202,16 +209,23 @@ namespace HiddenBull.UrpStyle
         {
             m_Drawn = null;
 
-            if (m_Layer == null || camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
+            if (m_Layer == null)
                 return;
 
 #if UNITY_EDITOR
-            if (camera.scene.IsValid() && camera.scene != gameObject.scene &&
+            if (onlyCamera != null ? camera != onlyCamera
+                    : camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
+                return;
+
+            if (onlyCamera == null && camera.scene.IsValid() && camera.scene != gameObject.scene &&
                 UnityEditor.SceneManagement.EditorSceneManager.IsPreviewScene(camera.scene))
                 return;
 
             if (m_Shader == null || m_WaveCompute == null)
                 LoadShaders();
+#else
+            if (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
+                return;
 #endif
 
             if (camera.TryGetComponent<UniversalAdditionalCameraData>(out var additional) &&

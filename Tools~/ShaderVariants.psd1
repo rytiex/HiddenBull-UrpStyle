@@ -1232,7 +1232,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3705
+            Slots = 3755
             Reads = 145
         }
         @{
@@ -1976,6 +1976,76 @@
         @{
             Name = 'Texture Studio Cloud Show'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
+            Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Clear'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Clear'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Height'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Height'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Reduce'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Reduce'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Gather'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Gather'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Accumulate'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Accumulate'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Normal'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Normal'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Show'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
             Entry = 'Show'
             Stage = 'cs'
             Urp = 'Minimal'

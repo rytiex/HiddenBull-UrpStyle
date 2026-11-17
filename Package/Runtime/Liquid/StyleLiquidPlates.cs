@@ -89,7 +89,7 @@ namespace HiddenBull.UrpStyle
             if (entry.texture == null || !entry.texture.IsCreated())
             {
                 Destroy(entry);
-                entry.texture = new RenderTexture(Size, Size, 0, GraphicsFormat.R16G16_SFloat)
+                entry.texture = new RenderTexture(Size, Size, 0, GraphicsFormat.R16G16B16A16_SFloat)
                 {
                     name = "HB Style Liquid Plates",
                     hideFlags = HideFlags.HideAndDontSave,
