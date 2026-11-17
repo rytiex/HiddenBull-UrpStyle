@@ -47,6 +47,8 @@ float _HB_ShelterPass;
 #define HB_GRASS_BAKED_TONES        _HB_GrassAmbient.x
 #define HB_GRASS_BAKED_SOFTNESS     _HB_GrassAmbient.y
 #define HB_GRASS_WET_DARKEN   0.3h
+#define HB_GRASS_REFLECT_SKIP 0.05h
+#define HB_GRASS_REFLECT_FULL 0.1h
 #define HB_GRASS_SNOW_COLOUR  half3(0.5h, 0.54h, 0.6h)
 #define HB_GRASS_SNOW_SHRINK  0.6
 #define HB_GRASS_PRESS_SHORT  0.7
@@ -509,7 +511,8 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     half4 maos = half4(LOAD_TEXTURE2D_X(_DBufferTexture2, uint2(input.positionCS.xy)));
 
     surfaceData.metallic = surfaceData.metallic * maos.w + maos.x;
-    surfaceData.smoothness = surfaceData.smoothness * maos.w + maos.z;
+    surfaceData.smoothness = HB_DecalSmoothnessOverWeather(surfaceData.smoothness, maos, saturate(normalWS.y), wet,
+                                                           0.0h, snowed, half(_HB_LayerWetGloss[input.data.x]));
 #endif
 
     BRDFData brdfData;
@@ -537,12 +540,20 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     half3 environment = HB_EnvironmentReflection(reflectVector, normalWS, input.positionWS,
                                                  brdfData.perceptualRoughness,
                                                  GetNormalizedScreenSpaceUV(input.positionCS.xy), reach);
-    half4 screen = HB_ScreenReflectAbove(input.positionWS, reflectVector, normalWS, brdfData.perceptualRoughness);
-
-    environment = lerp(environment, screen.rgb, screen.a);
-
     half gloss = 1.0h - brdfData.perceptualRoughness;
     half fresnel = Pow4(1.0h - saturate(dot(normalWS, viewDirectionWS))) * (gloss * gloss);
+    half3 specular = EnvironmentBRDFSpecular(brdfData, fresnel);
+    half share = max(specular.r, max(specular.g, specular.b));
+    half4 screen = half4(0.0h, 0.0h, 0.0h, 0.0h);
+
+    UNITY_BRANCH
+    if (share > HB_GRASS_REFLECT_SKIP)
+    {
+        screen = HB_ScreenReflectAbove(input.positionWS, reflectVector, normalWS, brdfData.perceptualRoughness);
+        screen.a *= smoothstep(HB_GRASS_REFLECT_SKIP, HB_GRASS_REFLECT_FULL, share);
+    }
+
+    environment = lerp(environment, screen.rgb, screen.a);
     half3 sun = half3(_MainLightColor.rgb) * tone;
     half3 colour = EnvironmentBRDF(brdfData, ambient, environment, fresnel) + brdfData.diffuse * direct
                  + sun * HB_DirectSpecular(brdfData, normalWS, half3(_MainLightPosition.xyz), viewDirectionWS,

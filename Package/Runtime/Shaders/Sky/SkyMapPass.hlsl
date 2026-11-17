@@ -3,6 +3,8 @@
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Sky/StyleClouds.hlsl"
 
+float4 _HB_SkyMapPart;
+
 struct HBSkyMapVaryings
 {
     float4 positionCS : SV_POSITION;
@@ -21,7 +23,8 @@ HBSkyMapVaryings HB_SkyMapVertex(uint vertexID : SV_VertexID)
 
 half4 HB_SkyMapFragment(HBSkyMapVaryings input) : SV_Target
 {
-    float3 folded = UnpackNormalOctQuadEncode(input.uv * 2.0 - 1.0);
+    float2 uv = input.uv * _HB_SkyMapPart.xy + _HB_SkyMapPart.zw;
+    float3 folded = UnpackNormalOctQuadEncode(uv * 2.0 - 1.0);
 
     return half4(HB_SkyWithClouds(half3(normalize(folded.xzy))), 1.0h);
 }

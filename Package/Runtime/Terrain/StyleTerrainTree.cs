@@ -9,6 +9,8 @@ namespace HiddenBull.UrpStyle
         public float z;
         public float size;
         public int level;
+        public float minY;
+        public float maxY;
     }
 
     sealed class StyleTerrainTree
@@ -149,7 +151,10 @@ namespace HiddenBull.UrpStyle
 
             if (level == 0 || distance > m_Ranges[level - 1])
             {
-                output.Add(new StyleTerrainNode { x = minX, z = minZ, size = size, level = level });
+                output.Add(new StyleTerrainNode
+                {
+                    x = minX, z = minZ, size = size, level = level, minY = minY, maxY = maxY
+                });
                 return true;
             }
 
@@ -167,7 +172,9 @@ namespace HiddenBull.UrpStyle
                         x = minX + (child & 1) * half,
                         z = minZ + (child >> 1) * half,
                         size = half,
-                        level = level
+                        level = level,
+                        minY = minY,
+                        maxY = maxY
                     });
                 }
             }

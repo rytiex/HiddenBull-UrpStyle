@@ -84,6 +84,8 @@ namespace HiddenBull.UrpStyle
         StyleUnderwaterHeightPass m_UnderwaterHeightPass;
         StyleReflectionHistoryPass m_ReflectionHistoryPass;
         StyleSkyMapPass m_SkyMapPass;
+        StylePlantShadowPass m_PlantShadowPass;
+        StylePlantPunctualPass m_PlantPunctualPass;
         HBStyleQualityProfile m_DefaultQuality;
 
         public HBStyleQualityProfile quality
@@ -130,6 +132,8 @@ namespace HiddenBull.UrpStyle
             m_UnderwaterHeightPass = new StyleUnderwaterHeightPass();
             m_ReflectionHistoryPass = new StyleReflectionHistoryPass();
             m_SkyMapPass = new StyleSkyMapPass();
+            m_PlantShadowPass = new StylePlantShadowPass();
+            m_PlantPunctualPass = new StylePlantPunctualPass();
 
 #if UNITY_EDITOR
             m_ShelterCompute = Load(m_ShelterCompute, StyleShelterPass.ComputePath);
@@ -163,6 +167,12 @@ namespace HiddenBull.UrpStyle
             StyleTerrains.pyramid = m_PyramidPass;
             StylePlantSystem.Setup(m_PlantCompute, m_PyramidPass);
             renderer.EnqueuePass(m_GlobalsPass);
+
+            if (StylePlantSystem.active)
+            {
+                renderer.EnqueuePass(m_PlantPunctualPass);
+                renderer.EnqueuePass(m_PlantShadowPass);
+            }
 
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
 
@@ -331,6 +341,9 @@ namespace HiddenBull.UrpStyle
 
             m_SkyMapPass?.Dispose();
             m_SkyMapPass = null;
+
+            m_PlantShadowPass = null;
+            m_PlantPunctualPass = null;
 
             m_Cameras?.Dispose();
             m_Cameras = null;

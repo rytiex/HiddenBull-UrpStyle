@@ -20,8 +20,9 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Min(0.05f)]
-        [Tooltip("Width in metres of the foam trail this object leaves on a liquid. Put the object at the " +
-                 "waterline of the thing that moves: the trail only starts while it is at the surface.")]
+        [Tooltip("Width in metres before scale of the foam trail this object leaves on a liquid. The larger of " +
+                 "the X and Z scale multiplies it. Put the object at the waterline of the thing that moves: the " +
+                 "trail only starts while it is at the surface.")]
         float m_Width = 1f;
 
         [SerializeField]
@@ -60,6 +61,16 @@ namespace HiddenBull.UrpStyle
 
         internal static bool any => s_Enabled.Count > 0;
 
+        float scaledWidth
+        {
+            get
+            {
+                var scale = transform.lossyScale;
+
+                return m_Width * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            }
+        }
+
         void OnEnable()
         {
             s_Enabled.Remove(this);
@@ -89,7 +100,7 @@ namespace HiddenBull.UrpStyle
                 return;
             }
 
-            var reach = Mathf.Max(m_Width, LeastReach);
+            var reach = Mathf.Max(scaledWidth, LeastReach);
             var moved = position - m_Last;
             var speed = new Vector2(moved.x, moved.z).magnitude / step;
             var afloat = HBStyleLiquid.TryGetUncut(position, out var surface) &&
@@ -116,7 +127,8 @@ namespace HiddenBull.UrpStyle
                     continue;
 
                 var away = (trail.m_Last - camera).sqrMagnitude;
-                var limit = reach + trail.m_Width;
+                var width = trail.scaledWidth;
+                var limit = reach + width;
 
                 if (away > limit * limit)
                     continue;
@@ -141,7 +153,7 @@ namespace HiddenBull.UrpStyle
                     count++;
                 }
 
-                stamps[slot * StampSize] = new Vector4(trail.m_Last.x, trail.m_Last.z, trail.m_Width * 0.5f,
+                stamps[slot * StampSize] = new Vector4(trail.m_Last.x, trail.m_Last.z, width * 0.5f,
                                                        trail.m_Strength);
                 stamps[slot * StampSize + 1] = new Vector4(trail.m_Before.x, trail.m_Before.z,
                                                            1f / trail.m_Lifetime, trail.m_Ripples);
@@ -154,7 +166,7 @@ namespace HiddenBull.UrpStyle
         void OnDrawGizmosSelected()
         {
             Gizmos.color = new Color(0.8f, 0.9f, 1f, 0.8f);
-            Gizmos.DrawWireSphere(transform.position, m_Width * 0.5f);
+            Gizmos.DrawWireSphere(transform.position, scaledWidth * 0.5f);
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

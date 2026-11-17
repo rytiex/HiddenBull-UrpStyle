@@ -1,5 +1,5 @@
 {
-    "name": "Sand",
+    "name": "Sand Pebbles",
     "resolution": 1024,
     "layers": [
         {
@@ -192,7 +192,7 @@
             "randomShift": false,
             "naturalGround": false,
             "seed": 1,
-            "stones": 24,
+            "stones": 20,
             "jitter": 0.8999999761581421,
             "rows": 8,
             "perRow": 4,
@@ -201,39 +201,39 @@
             "repeats": 3,
             "brickLength": 2,
             "gap": 0.05999999865889549,
-            "roundness": 0.20000000298023225,
-            "chipping": 0.0,
-            "density": 0.17499999701976777,
-            "pebbleSize": 0.36399999260902407,
-            "elongation": 0.30000001192092898,
+            "roundness": 1.0,
+            "chipping": 0.2669999897480011,
+            "density": 0.33000001311302187,
+            "pebbleSize": 0.42800000309944155,
+            "elongation": 0.18000000715255738,
             "fineCracks": 0.0,
-            "groundRelief": 0.0,
-            "lumps": 1,
+            "groundRelief": 0.10000000149011612,
+            "lumps": 6,
             "ripples": 0.0,
-            "rippleCount": 1,
-            "rippleWarp": 0.0,
-            "bevel": 0.13500000536441804,
-            "dome": 0.20000000298023225,
+            "rippleCount": 8,
+            "rippleWarp": 0.4000000059604645,
+            "bevel": 0.1509999930858612,
+            "dome": 0.46000000834465029,
             "facets": 0.0,
             "heightVariation": 0.0,
             "tilt": 0.0,
-            "roughness": 0.2669999897480011,
+            "roughness": 0.4009999930858612,
             "colours": {
                 "stops": [
                     {
                         "colour": {
-                            "r": 0.46226418018341067,
-                            "g": 0.4305204451084137,
-                            "b": 0.37722501158714297,
+                            "r": 0.4433962106704712,
+                            "g": 0.3701988458633423,
+                            "b": 0.29071733355522158,
                             "a": 1.0
                         },
                         "at": 0.0
                     },
                     {
                         "colour": {
-                            "r": 0.6692216992378235,
-                            "g": 0.698113203048706,
-                            "b": 0.6092025637626648,
+                            "r": 0.6132075786590576,
+                            "g": 0.5820749998092651,
+                            "b": 0.5408953428268433,
                             "a": 1.0
                         },
                         "at": 1.0
@@ -246,12 +246,12 @@
                 "b": 0.30000001192092898,
                 "a": 1.0
             },
-            "grain": 0.30300000309944155,
-            "variation": 0.5419999957084656,
-            "heightTint": 0.13300000131130219,
+            "grain": 0.5,
+            "variation": 0.527999997138977,
+            "heightTint": 0.0,
             "depth": 0.016499999910593034,
-            "smoothness": 0.0,
-            "gapSmoothness": 0.0,
+            "smoothness": 0.3499999940395355,
+            "gapSmoothness": 0.10000000149011612,
             "metallic": 0.0,
             "edgeHighlight": 0.5,
             "cavityShade": 0.5,

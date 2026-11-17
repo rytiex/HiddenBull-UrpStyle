@@ -965,6 +965,26 @@
             Reads = 0
         }
         @{
+            Name = 'Plant Cascade'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/StylePlant.compute'
+            Entry = 'Cascade'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Plant Punctual'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/StylePlant.compute'
+            Entry = 'Punctual'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Depth Pyramid Base'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleDepthPyramid.compute'
             Entry = 'Base'

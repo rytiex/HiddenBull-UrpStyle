@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
 namespace HiddenBull.UrpStyle
@@ -23,6 +24,10 @@ namespace HiddenBull.UrpStyle
         const string ShelterPass = "DepthOnly";
         const int UndersidePlantPass = 1;
         const float MovingWeather = 2f;
+        const string CasterPass = "ShadowCaster";
+
+        internal const int CascadeLimit = 4;
+        internal const int LightLimit = 16;
 
         [StructLayout(LayoutKind.Sequential)]
         struct InstanceData
@@ -102,15 +107,20 @@ namespace HiddenBull.UrpStyle
             public GraphicsBuffer sky;
             public GraphicsBuffer shadowNear;
             public GraphicsBuffer shadowFar;
+            public readonly GraphicsBuffer[] cascadeNear = new GraphicsBuffer[CascadeLimit];
+            public readonly GraphicsBuffer[] cascadeFar = new GraphicsBuffer[CascadeLimit];
             public GraphicsBuffer everyone;
             public GraphicsBuffer arguments;
             public GraphicsBuffer skyArguments;
             public GraphicsBuffer farArguments;
             public GraphicsBuffer shadowArguments;
+            public GraphicsBuffer cascadeArguments;
             public MaterialPropertyBlock[] blocks;
             public MaterialPropertyBlock[] skyBlocks;
             public MaterialPropertyBlock[] shadowBlocks;
+            public MaterialPropertyBlock[] cascadeBlocks;
             public int[] shelterPasses;
+            public int[] casterPasses;
             public int capacity;
             public int count;
             public int drawCount;
@@ -152,6 +162,21 @@ namespace HiddenBull.UrpStyle
         static readonly int s_TimeId = Shader.PropertyToID("_Time");
         static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
         static readonly int s_ExtentId = Shader.PropertyToID("_HB_PlantExtent");
+        static readonly int s_CascadesId = Shader.PropertyToID("_HB_PlantCascades");
+        static readonly int s_LightsId = Shader.PropertyToID("_HB_PlantLights");
+        static readonly int s_ShadowSetId = Shader.PropertyToID("_HB_PlantShadowSet");
+
+        static readonly int[] s_CascadeNearIds =
+        {
+            Shader.PropertyToID("_HB_PlantCascadeNear0"), Shader.PropertyToID("_HB_PlantCascadeNear1"),
+            Shader.PropertyToID("_HB_PlantCascadeNear2"), Shader.PropertyToID("_HB_PlantCascadeNear3")
+        };
+
+        static readonly int[] s_CascadeFarIds =
+        {
+            Shader.PropertyToID("_HB_PlantCascadeFar0"), Shader.PropertyToID("_HB_PlantCascadeFar1"),
+            Shader.PropertyToID("_HB_PlantCascadeFar2"), Shader.PropertyToID("_HB_PlantCascadeFar3")
+        };
 
         static readonly Dictionary<HBStylePlantAsset, Group> s_Groups = new Dictionary<HBStylePlantAsset, Group>();
         static readonly List<Group> s_Order = new List<Group>();
@@ -163,6 +188,14 @@ namespace HiddenBull.UrpStyle
         static CommandBuffer s_Commands;
         static int s_CullKernel = -1;
         static int s_SkyKernel = -1;
+        static int s_CascadeKernel = -1;
+        static int s_PunctualKernel = -1;
+        static Camera s_ShadowCamera;
+        static int s_Cascades;
+        static Vector3 s_Eye;
+        static Vector4 s_View;
+        static Vector4 s_Sun;
+        static Vector4 s_Air;
         static bool s_Hooked;
         static bool s_Casting;
         static HBStylePlantAsset s_Watched;
@@ -194,6 +227,8 @@ namespace HiddenBull.UrpStyle
             s_Pyramid = pyramid;
             s_CullKernel = compute != null && compute.HasKernel("Cull") ? compute.FindKernel("Cull") : -1;
             s_SkyKernel = compute != null && compute.HasKernel("Sky") ? compute.FindKernel("Sky") : -1;
+            s_CascadeKernel = compute != null && compute.HasKernel("Cascade") ? compute.FindKernel("Cascade") : -1;
+            s_PunctualKernel = compute != null && compute.HasKernel("Punctual") ? compute.FindKernel("Punctual") : -1;
 
             Hook();
 
@@ -400,6 +435,8 @@ namespace HiddenBull.UrpStyle
 
         static void Render(ScriptableRenderContext context, Camera camera)
         {
+            s_ShadowCamera = null;
+
             if (!ready || s_Order.Count == 0)
                 return;
 
@@ -427,15 +464,16 @@ namespace HiddenBull.UrpStyle
             var travel = sun != null ? sun.transform.forward : Vector3.down;
 
             s_Casting = sun != null && shadowDistance > 0f;
+            s_Eye = eye;
+            s_View = new Vector4(Zoom(viewer), StyleShelterPass.Extent * 0.5f, 0f, 0f);
+            s_Sun = new Vector4(travel.x, travel.y, travel.z, sun != null ? shadowDistance : 0f);
+            s_Air = new Vector4(StyleEnvironment.weather.z, StyleEnvironment.windHeading * Mathf.Deg2Rad,
+                                Shader.GetGlobalVector(s_TimeId).y, 0f);
 
             s_Commands.SetComputeVectorArrayParam(s_Compute, s_PlanesId, s_PlaneVectors);
-            s_Commands.SetComputeVectorParam(s_Compute, s_ViewId, new Vector4(Zoom(viewer),
-                                                                             StyleShelterPass.Extent * 0.5f, 0f, 0f));
-            s_Commands.SetComputeVectorParam(s_Compute, s_SunId, new Vector4(travel.x, travel.y, travel.z,
-                                                                             sun != null ? shadowDistance : 0f));
-            s_Commands.SetComputeVectorParam(s_Compute, s_AirId, new Vector4(
-                StyleEnvironment.weather.z, StyleEnvironment.windHeading * Mathf.Deg2Rad,
-                Shader.GetGlobalVector(s_TimeId).y, 0f));
+            s_Commands.SetComputeVectorParam(s_Compute, s_ViewId, s_View);
+            s_Commands.SetComputeVectorParam(s_Compute, s_SunId, s_Sun);
+            s_Commands.SetComputeVectorParam(s_Compute, s_AirId, s_Air);
 
             StyleDepthPyramidPass.Bind(s_Pyramid, s_Commands, s_Compute, s_CullKernel, camera, viewer, eye);
 
@@ -466,6 +504,9 @@ namespace HiddenBull.UrpStyle
 
             if (!drawn)
                 return;
+
+            if (s_Casting)
+                s_ShadowCamera = camera;
 
             foreach (var group in s_Order)
             {
@@ -549,6 +590,7 @@ namespace HiddenBull.UrpStyle
             group.skyArguments?.Release();
             group.farArguments?.Release();
             group.shadowArguments?.Release();
+            group.cascadeArguments?.Release();
             group.farArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, ArgumentStride,
                                                     sizeof(uint));
             group.shadowArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments,
@@ -560,13 +602,20 @@ namespace HiddenBull.UrpStyle
             group.arguments.SetData(arguments);
             group.skyArguments.SetData(arguments);
             group.shadowArguments.SetData(arguments);
+            group.cascadeArguments = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments,
+                                                        CascadeLimit * count * ArgumentStride, sizeof(uint));
+
+            for (var cascade = 0; cascade < CascadeLimit; cascade++)
+                group.cascadeArguments.SetData(arguments, 0, cascade * count * ArgumentStride, arguments.Length);
 
             if (group.blocks == null || group.blocks.Length != count)
             {
                 group.blocks = NewBlocks(count);
                 group.skyBlocks = NewBlocks(count);
                 group.shadowBlocks = NewBlocks(count);
+                group.cascadeBlocks = NewBlocks(count);
                 group.shelterPasses = new int[count];
+                group.casterPasses = new int[count];
             }
 
             for (var index = 0; index < count; index++)
@@ -581,10 +630,17 @@ namespace HiddenBull.UrpStyle
                 Describe(group.skyBlocks[index], local, bounds);
                 Describe(group.shadowBlocks[index], local, bounds);
                 group.shadowBlocks[index].SetFloat(s_ReceiveWeatherId, MovingWeather);
+                Describe(group.cascadeBlocks[index], local, bounds);
+                group.cascadeBlocks[index].SetFloat(s_ReceiveWeatherId, MovingWeather);
+                group.casterPasses[index] = -1;
 
-                if (billboard ? asset.billboarded : Usable(draws[index]))
-                    group.shelterPasses[index] = (billboard ? asset.billboardMaterial : draws[index].material)
-                        .FindPass(ShelterPass);
+                if (!(billboard ? asset.billboarded : Usable(draws[index])))
+                    continue;
+
+                var material = billboard ? asset.billboardMaterial : draws[index].material;
+
+                group.shelterPasses[index] = material.FindPass(ShelterPass);
+                group.casterPasses[index] = material.FindPass(CasterPass);
             }
 
             group.meshTriangles = 0;
@@ -810,13 +866,18 @@ namespace HiddenBull.UrpStyle
             group.sky = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
             group.shadowNear = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
             group.shadowFar = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
+
+            for (var cascade = 0; cascade < CascadeLimit; cascade++)
+            {
+                group.cascadeNear[cascade]?.Release();
+                group.cascadeFar[cascade]?.Release();
+                group.cascadeNear[cascade] = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
+                group.cascadeFar[cascade] = new GraphicsBuffer(GraphicsBuffer.Target.Append, capacity, VisibleStride);
+            }
         }
 
         static void Cull(Group group, Vector3 eye)
         {
-            var asset = group.asset;
-            var near = asset.switchDistance;
-            var far = asset.cullDistance;
             var groups = (group.count + ThreadGroup - 1) / ThreadGroup;
 
             s_Commands.SetBufferCounterValue(group.near, 0);
@@ -825,20 +886,12 @@ namespace HiddenBull.UrpStyle
             s_Commands.SetBufferCounterValue(group.shadowFar, 0);
 
             s_Commands.SetComputeVectorParam(s_Compute, s_EyeId, new Vector4(eye.x, eye.y, eye.z, group.count));
-            s_Commands.SetComputeVectorParam(s_Compute, s_RangesId, new Vector4(
-                near, far, 1f / Mathf.Max(near * FadeShare, MinFade), 1f / Mathf.Max(far * FadeShare, MinFade)));
-
-            var shade = asset.shadowMeshDistance;
-
-            s_Commands.SetComputeVectorParam(s_Compute, s_ShadeId, new Vector4(
-                shade, 1f / Mathf.Max(shade * FadeShare, MinFade), 0f, 0f));
-
+            s_Commands.SetComputeVectorParam(s_Compute, s_RangesId, Ranges(group.asset));
+            s_Commands.SetComputeVectorParam(s_Compute, s_ShadeId, Shade(group.asset));
             s_Commands.SetComputeVectorParam(s_Compute, s_ExtentId, group.extent);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_InstancesId, group.instanceBuffer);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_NearId, group.near);
             s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_FarId, group.far);
-            s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_ShadowNearId, group.shadowNear);
-            s_Commands.SetComputeBufferParam(s_Compute, s_CullKernel, s_ShadowFarId, group.shadowFar);
             s_Commands.DispatchCompute(s_Compute, s_CullKernel, groups, 1, 1);
 
             var sheltered = StyleShelterPass.Needed();
@@ -868,6 +921,152 @@ namespace HiddenBull.UrpStyle
 
             s_Commands.CopyCounterValue(group.far, group.arguments, billboards);
             s_Commands.CopyCounterValue(group.shadowFar, group.shadowArguments, billboards);
+        }
+
+        static Vector4 Ranges(HBStylePlantAsset asset)
+        {
+            var near = asset.switchDistance;
+            var far = asset.cullDistance;
+
+            return new Vector4(near, far, 1f / Mathf.Max(near * FadeShare, MinFade),
+                               1f / Mathf.Max(far * FadeShare, MinFade));
+        }
+
+        static Vector4 Shade(HBStylePlantAsset asset)
+        {
+            var shade = asset.shadowMeshDistance;
+
+            return new Vector4(shade, 1f / Mathf.Max(shade * FadeShare, MinFade), 0f, 0f);
+        }
+
+        internal static bool Casts(Camera camera)
+        {
+            return ready && camera != null && s_ShadowCamera == camera && s_CascadeKernel >= 0 &&
+                   s_PunctualKernel >= 0;
+        }
+
+        static void BindShadows(UnsafeCommandBuffer cmd, Group group, int kernel, Vector4 set)
+        {
+            cmd.SetComputeVectorArrayParam(s_Compute, s_PlanesId, s_PlaneVectors);
+            cmd.SetComputeVectorParam(s_Compute, s_ViewId, s_View);
+            cmd.SetComputeVectorParam(s_Compute, s_SunId, s_Sun);
+            cmd.SetComputeVectorParam(s_Compute, s_AirId, s_Air);
+            cmd.SetComputeVectorParam(s_Compute, s_ShadowSetId, set);
+            cmd.SetComputeVectorParam(s_Compute, s_EyeId, new Vector4(s_Eye.x, s_Eye.y, s_Eye.z, group.count));
+            cmd.SetComputeVectorParam(s_Compute, s_RangesId, Ranges(group.asset));
+            cmd.SetComputeVectorParam(s_Compute, s_ShadeId, Shade(group.asset));
+            cmd.SetComputeBufferParam(s_Compute, kernel, s_InstancesId, group.instanceBuffer);
+        }
+
+        internal static void CullCascades(UnsafeCommandBuffer cmd, Vector4[] spheres, int cascades)
+        {
+            s_Cascades = cascades;
+            cmd.SetComputeVectorArrayParam(s_Compute, s_CascadesId, spheres);
+
+            foreach (var group in s_Order)
+            {
+                if (!group.drawable)
+                    continue;
+
+                var stride = group.drawCount * ArgumentStride;
+                var billboard = group.drawCount - 1;
+
+                BindShadows(cmd, group, s_CascadeKernel, new Vector4(cascades, 0f, 0f, 0f));
+
+                for (var cascade = 0; cascade < CascadeLimit; cascade++)
+                {
+                    cmd.SetBufferCounterValue(group.cascadeNear[cascade], 0);
+                    cmd.SetBufferCounterValue(group.cascadeFar[cascade], 0);
+                    cmd.SetComputeBufferParam(s_Compute, s_CascadeKernel, s_CascadeNearIds[cascade],
+                                              group.cascadeNear[cascade]);
+                    cmd.SetComputeBufferParam(s_Compute, s_CascadeKernel, s_CascadeFarIds[cascade],
+                                              group.cascadeFar[cascade]);
+                }
+
+                cmd.DispatchCompute(s_Compute, s_CascadeKernel, (group.count + ThreadGroup - 1) / ThreadGroup, 1, 1);
+
+                for (var cascade = 0; cascade < cascades; cascade++)
+                {
+                    var start = cascade * stride;
+
+                    for (var index = 0; index < billboard; index++)
+                        cmd.CopyCounterValue(group.cascadeNear[cascade], group.cascadeArguments,
+                                             (uint)((start + index * ArgumentStride + 1) * sizeof(uint)));
+
+                    cmd.CopyCounterValue(group.cascadeFar[cascade], group.cascadeArguments,
+                                         (uint)((start + billboard * ArgumentStride + 1) * sizeof(uint)));
+                }
+            }
+        }
+
+        internal static void CullPunctual(UnsafeCommandBuffer cmd, Vector4[] lights, int count, float distance)
+        {
+            cmd.SetComputeVectorArrayParam(s_Compute, s_LightsId, lights);
+
+            foreach (var group in s_Order)
+            {
+                if (!group.drawable)
+                    continue;
+
+                var billboard = group.drawCount - 1;
+
+                BindShadows(cmd, group, s_PunctualKernel, new Vector4(0f, count, distance, 0f));
+                cmd.SetComputeBufferParam(s_Compute, s_PunctualKernel, s_ShadowNearId, group.shadowNear);
+                cmd.SetComputeBufferParam(s_Compute, s_PunctualKernel, s_ShadowFarId, group.shadowFar);
+                cmd.DispatchCompute(s_Compute, s_PunctualKernel, (group.count + ThreadGroup - 1) / ThreadGroup, 1,
+                                    1);
+
+                for (var index = 0; index < billboard; index++)
+                    cmd.CopyCounterValue(group.shadowNear, group.shadowArguments,
+                                         (uint)((index * ArgumentStride + 1) * sizeof(uint)));
+
+                cmd.CopyCounterValue(group.shadowFar, group.shadowArguments,
+                                     (uint)((billboard * ArgumentStride + 1) * sizeof(uint)));
+            }
+        }
+
+        internal static void DrawCascade(RasterCommandBuffer cmd, int cascade, int cullingMask)
+        {
+            foreach (var group in s_Order)
+            {
+                if (!group.drawable || (cullingMask & (1 << group.layer)) == 0)
+                    continue;
+
+                var asset = group.asset;
+                var draws = asset.draws;
+                var start = cascade * group.drawCount;
+
+                for (var index = 0; index < draws.Length; index++)
+                {
+                    var draw = draws[index];
+
+                    if (Usable(draw) && draw.shadows != ShadowCastingMode.Off)
+                        DrawCaster(cmd, group, draw.mesh, draw.submesh, draw.material, index, start,
+                                   group.cascadeNear[cascade]);
+                }
+
+                if (asset.billboarded)
+                    DrawCaster(cmd, group, asset.billboardMesh, 0, asset.billboardMaterial, draws.Length, start,
+                               group.cascadeFar[cascade]);
+            }
+        }
+
+        static void DrawCaster(RasterCommandBuffer cmd, Group group, Mesh mesh, int submesh, Material material,
+                               int index, int start, GraphicsBuffer visible)
+        {
+            var pass = group.casterPasses[index];
+
+            if (pass < 0)
+                return;
+
+            var block = group.cascadeBlocks[index];
+
+            block.SetBuffer(s_InstancesId, group.instanceBuffer);
+            block.SetBuffer(s_ProbesId, group.probeBuffer);
+            block.SetBuffer(s_VisibleId, visible);
+
+            cmd.DrawMeshInstancedIndirect(mesh, submesh, material, pass, group.cascadeArguments,
+                                          (start + index) * ArgumentStride * sizeof(uint), block);
         }
 
         internal static Counts Watch(HBStylePlantAsset asset)
@@ -924,17 +1123,27 @@ namespace HiddenBull.UrpStyle
                 };
             });
 
-            s_Commands.RequestAsyncReadback(group.shadowArguments, request =>
+            var stride = group.drawCount * ArgumentStride;
+            var cascades = s_Cascades;
+
+            s_Commands.RequestAsyncReadback(group.cascadeArguments, request =>
             {
                 if (request.hasError)
                     return;
 
                 var data = request.GetData<uint>();
+                var billboarded = group.asset != null && group.asset.billboarded;
 
-                group.shadowMeshes = (int)data[1];
-                group.shadowBillboards = group.asset != null && group.asset.billboarded
-                    ? (int)data[billboard * ArgumentStride + 1]
-                    : 0;
+                group.shadowMeshes = 0;
+                group.shadowBillboards = 0;
+
+                for (var cascade = 0; cascade < cascades; cascade++)
+                {
+                    group.shadowMeshes += (int)data[cascade * stride + 1];
+
+                    if (billboarded)
+                        group.shadowBillboards += (int)data[cascade * stride + billboard * ArgumentStride + 1];
+                }
             });
         }
 
@@ -1056,6 +1265,15 @@ namespace HiddenBull.UrpStyle
             group.skyArguments?.Release();
             group.farArguments?.Release();
             group.shadowArguments?.Release();
+            group.cascadeArguments?.Release();
+
+            for (var cascade = 0; cascade < CascadeLimit; cascade++)
+            {
+                group.cascadeNear[cascade]?.Release();
+                group.cascadeFar[cascade]?.Release();
+                group.cascadeNear[cascade] = null;
+                group.cascadeFar[cascade] = null;
+            }
 
             group.instanceBuffer = null;
             group.probeBuffer = null;
@@ -1069,6 +1287,7 @@ namespace HiddenBull.UrpStyle
             group.skyArguments = null;
             group.farArguments = null;
             group.shadowArguments = null;
+            group.cascadeArguments = null;
             group.capacity = 0;
             group.count = 0;
             group.drawCount = 0;

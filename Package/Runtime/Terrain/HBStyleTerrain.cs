@@ -20,6 +20,8 @@ namespace HiddenBull.UrpStyle
         const float ShadowMargin = 64f;
         const float FallbackShadowDistance = 150f;
         const int BatchSize = 1023;
+        const int ShadowChunk = 4;
+        const float ShadowBoundsMargin = 1f;
         const float GrassFarStart = 0.5f;
 
         static readonly int s_HeightmapId = Shader.PropertyToID("_HB_TerrainHeightmap");
@@ -100,6 +102,8 @@ namespace HiddenBull.UrpStyle
         readonly List<Matrix4x4> m_Quarters = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_ShadowFull = new List<Matrix4x4>();
         readonly List<Matrix4x4> m_ShadowQuarters = new List<Matrix4x4>();
+        readonly List<Bounds> m_ShadowFullBounds = new List<Bounds>();
+        readonly List<Bounds> m_ShadowQuarterBounds = new List<Bounds>();
         readonly Dictionary<Camera, MaterialPropertyBlock> m_Blocks = new Dictionary<Camera, MaterialPropertyBlock>();
         readonly Plane[] m_Planes = new Plane[6];
         readonly float[] m_LocalPlanes = new float[24];
@@ -556,10 +560,10 @@ namespace HiddenBull.UrpStyle
             var shadowDistance = pipeline != null ? pipeline.shadowDistance : FallbackShadowDistance;
 
             m_Tree.Select(local.x, local.y, local.z, null, shadowDistance + ShadowMargin, m_Nodes);
-            Fill(origin, m_ShadowFull, m_ShadowQuarters);
+            Fill(origin, m_ShadowFull, m_ShadowQuarters, m_ShadowFullBounds, m_ShadowQuarterBounds);
             m_Watch.Stop();
 
-            Render(camera, block, bounds, ShadowCastingMode.ShadowsOnly, m_ShadowFull, m_ShadowQuarters);
+            RenderShadows(camera, block, bounds);
 
             if (camera.cameraType == CameraType.Game)
             {
@@ -568,10 +572,13 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        void Fill(Vector3 origin, List<Matrix4x4> full, List<Matrix4x4> quarters)
+        void Fill(Vector3 origin, List<Matrix4x4> full, List<Matrix4x4> quarters,
+                  List<Bounds> fullBounds = null, List<Bounds> quarterBounds = null)
         {
             full.Clear();
             quarters.Clear();
+            fullBounds?.Clear();
+            quarterBounds?.Clear();
 
             foreach (var node in m_Nodes)
             {
@@ -584,9 +591,15 @@ namespace HiddenBull.UrpStyle
                 matrix.m23 = origin.z + node.z;
 
                 if (node.size < m_Tree.leafSize * (1 << node.level) * 0.75f)
+                {
                     quarters.Add(matrix);
+                    quarterBounds?.Add(NodeBounds(origin, node));
+                }
                 else
+                {
                     full.Add(matrix);
+                    fullBounds?.Add(NodeBounds(origin, node));
+                }
             }
         }
 
@@ -813,10 +826,8 @@ namespace HiddenBull.UrpStyle
                 m_Blocks.Remove(camera);
         }
 
-        void Render(Camera camera, MaterialPropertyBlock block, Bounds bounds, ShadowCastingMode shadows,
-                    List<Matrix4x4> full, List<Matrix4x4> quarters)
-        {
-            var parameters = new RenderParams(m_Material)
+        RenderParams Parameters(Camera camera, MaterialPropertyBlock block, Bounds bounds, ShadowCastingMode shadows) =>
+            new RenderParams(m_Material)
             {
                 camera = camera,
                 layer = gameObject.layer,
@@ -827,6 +838,53 @@ namespace HiddenBull.UrpStyle
                 lightProbeUsage = LightProbeUsage.Off,
                 reflectionProbeUsage = ReflectionProbeUsage.BlendProbes
             };
+
+        void RenderShadows(Camera camera, MaterialPropertyBlock block, Bounds bounds)
+        {
+#if UNITY_EDITOR
+            if (onlyCamera != null)
+            {
+                Render(camera, block, bounds, ShadowCastingMode.ShadowsOnly, m_ShadowFull, m_ShadowQuarters);
+                return;
+            }
+#endif
+
+            var parameters = Parameters(camera, block, bounds, ShadowCastingMode.ShadowsOnly);
+
+            SubmitChunks(parameters, Patch(false), m_ShadowFull, m_ShadowFullBounds);
+            SubmitChunks(parameters, Patch(true), m_ShadowQuarters, m_ShadowQuarterBounds);
+        }
+
+        static void SubmitChunks(RenderParams parameters, Mesh mesh, List<Matrix4x4> instances, List<Bounds> bounds)
+        {
+            for (var start = 0; start < instances.Count; start += ShadowChunk)
+            {
+                var count = Mathf.Min(ShadowChunk, instances.Count - start);
+                var chunk = bounds[start];
+
+                for (var i = 1; i < count; i++)
+                    chunk.Encapsulate(bounds[start + i]);
+
+                parameters.worldBounds = chunk;
+                Graphics.RenderMeshInstanced(parameters, mesh, 0, instances, count, start);
+            }
+        }
+
+        static Bounds NodeBounds(Vector3 origin, StyleTerrainNode node)
+        {
+            var bounds = new Bounds();
+
+            bounds.SetMinMax(new Vector3(origin.x + node.x, origin.y + node.minY, origin.z + node.z) -
+                             Vector3.one * ShadowBoundsMargin,
+                             new Vector3(origin.x + node.x + node.size, origin.y + node.maxY, origin.z + node.z +
+                                         node.size) + Vector3.one * ShadowBoundsMargin);
+            return bounds;
+        }
+
+        void Render(Camera camera, MaterialPropertyBlock block, Bounds bounds, ShadowCastingMode shadows,
+                    List<Matrix4x4> full, List<Matrix4x4> quarters)
+        {
+            var parameters = Parameters(camera, block, bounds, shadows);
 #if UNITY_EDITOR
             if (onlyCamera != null)
             {

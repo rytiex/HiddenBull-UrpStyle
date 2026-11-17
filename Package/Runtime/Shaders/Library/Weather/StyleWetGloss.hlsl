@@ -15,4 +15,15 @@ half HB_WeatherSmoothness(half smoothness, half flat, half wet, half flow, half 
     return lerp(smoothness, HB_SNOW_SMOOTHNESS, snow);
 }
 
+half HB_DecalSmoothnessOverWeather(half weathered, half4 maos, half flat, half wet, half flow, half snow, half shine)
+{
+    half cover = 1.0h - maos.w;
+    half decal = max(maos.z, lerp(HB_WET_WALL_SMOOTHNESS, HB_WET_FLAT_SMOOTHNESS, flat) * cover);
+
+    decal = lerp(maos.z, decal, wet * shine);
+    decal = lerp(decal, HB_FLOW_SMOOTHNESS * cover, flow * shine);
+    decal = lerp(decal, HB_SNOW_SMOOTHNESS * cover, snow);
+    return weathered * maos.w + decal;
+}
+
 #endif

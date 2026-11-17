@@ -236,10 +236,18 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     HB_ApplyWeather(weather, surfaceData, normalWS, true, wetGloss);
 
 #if defined(_DBUFFER)
+    half weathered = surfaceData.smoothness;
+    half flat = saturate(half(normalWS.y));
     InputData decalInput = (InputData)0;
     decalInput.normalWS = normalWS;
     HB_ApplyDecalOverWeather(input.positionCS, weather, true, surfaceData, decalInput);
     normalWS = decalInput.normalWS;
+    #if defined(_DBUFFER_MRT3)
+    half4 maos = half4(LOAD_TEXTURE2D_X(_DBufferTexture2, uint2(input.positionCS.xy)));
+
+    surfaceData.smoothness = HB_DecalSmoothnessOverWeather(weathered, maos, flat, weather.wet, weather.flow,
+                                                           weather.snow, wetGloss * weather.gloss);
+    #endif
 #endif
 
     UNITY_BRANCH

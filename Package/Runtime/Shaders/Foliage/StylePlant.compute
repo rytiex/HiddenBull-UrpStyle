@@ -1,5 +1,7 @@
 #pragma kernel Cull
 #pragma kernel Sky
+#pragma kernel Cascade
+#pragma kernel Punctual
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWind.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Core/StyleOcclusion.hlsl"
@@ -11,6 +13,14 @@ AppendStructuredBuffer<HBPlantVisible> _HB_PlantFar;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantSky;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantShadowNear;
 AppendStructuredBuffer<HBPlantVisible> _HB_PlantShadowFar;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeNear0;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeNear1;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeNear2;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeNear3;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeFar0;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeFar1;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeFar2;
+AppendStructuredBuffer<HBPlantVisible> _HB_PlantCascadeFar3;
 
 float4 _HB_PlantPlanes[6];
 float4 _HB_PlantEye;
@@ -20,9 +30,14 @@ float4 _HB_PlantView;
 float4 _HB_PlantAir;
 float4 _HB_PlantShade;
 float4 _HB_PlantExtent;
+float4 _HB_PlantCascades[4];
+float4 _HB_PlantLights[16];
+float4 _HB_PlantShadowSet;
 
 #define HB_PLANT_SHADOW_REACH 2.0
 #define HB_PLANT_LOW_SUN      0.25
+#define HB_PLANT_LIGHT_LIMIT  16
+#define HB_PLANT_CASCADE_EDGE 1.0
 
 bool HB_PlantSeen(float4 sphere, float3 tail)
 {
@@ -75,8 +90,7 @@ void Cull(uint3 id : SV_DispatchThreadID)
     if (sphere.w <= 0.0)
         return;
 
-    float away = length(sphere.xyz - _HB_PlantEye.xyz);
-    float seen = away * _HB_PlantView.x;
+    float seen = length(sphere.xyz - _HB_PlantEye.xyz) * _HB_PlantView.x;
 
     if (seen >= _HB_PlantRanges.y)
         return;
@@ -84,28 +98,14 @@ void Cull(uint3 id : SV_DispatchThreadID)
     float3 extent = float3(dot(abs(instance.row0.xyz), _HB_PlantExtent.xyz),
                            dot(abs(instance.row1.xyz), _HB_PlantExtent.xyz),
                            dot(abs(instance.row2.xyz), _HB_PlantExtent.xyz));
-    bool visible = HB_PlantSeen(sphere, sphere.xyz) && !HB_BoxHidden(sphere.xyz, extent);
-    bool casting = HB_PlantCasts(sphere, away);
 
-    if (!visible && !casting)
+    if (!HB_PlantSeen(sphere, sphere.xyz) || HB_BoxHidden(sphere.xyz, extent))
         return;
 
     float2 wind = float2(sin(_HB_PlantAir.y), cos(_HB_PlantAir.y));
     float2 root = float2(instance.row0.w, instance.row2.w);
     float gust = HB_GustStreak(root, 0.0, wind, _HB_PlantAir.x, _HB_PlantAir.z);
     float shade = saturate((_HB_PlantShade.x - seen) * _HB_PlantShade.y);
-
-    if (casting)
-    {
-        if (shade > 0.0)
-            _HB_PlantShadowNear.Append(HB_PlantEntry(index, shade, gust, 0.0));
-
-        if (shade < 1.0)
-            _HB_PlantShadowFar.Append(HB_PlantEntry(index, shade > 0.0 ? -shade : 1.0, gust, 0.0));
-    }
-
-    if (!visible)
-        return;
 
     float mesh = saturate((_HB_PlantRanges.x - seen) * _HB_PlantRanges.z);
 
@@ -134,4 +134,113 @@ void Sky(uint3 id : SV_DispatchThreadID)
 
     if (sphere.w > 0.0 && max(gap.x, gap.y) < _HB_PlantView.y)
         _HB_PlantSky.Append(HB_PlantEntry(index, 1.0, 0.0, 0.0));
+}
+
+bool HB_PlantShadowed(uint index, out HBPlantVisible near, out HBPlantVisible far, out float shade)
+{
+    near = HB_PlantEntry(index, 0.0, 0.0, 0.0);
+    far = near;
+    shade = 0.0;
+
+    if (index >= (uint)_HB_PlantEye.w)
+        return false;
+
+    HBPlantInstance instance = _HB_PlantInstances[index];
+
+    float4 sphere = instance.sphere;
+
+    if (sphere.w <= 0.0)
+        return false;
+
+    float seen = length(sphere.xyz - _HB_PlantEye.xyz) * _HB_PlantView.x;
+
+    if (seen >= _HB_PlantRanges.y)
+        return false;
+
+    float2 wind = float2(sin(_HB_PlantAir.y), cos(_HB_PlantAir.y));
+    float2 root = float2(instance.row0.w, instance.row2.w);
+    float gust = HB_GustStreak(root, 0.0, wind, _HB_PlantAir.x, _HB_PlantAir.z);
+
+    shade = saturate((_HB_PlantShade.x - seen) * _HB_PlantShade.y);
+    near = HB_PlantEntry(index, shade, gust, 0.0);
+    far = HB_PlantEntry(index, shade > 0.0 ? -shade : 1.0, gust, 0.0);
+
+    return true;
+}
+
+bool HB_PlantInCascade(float4 sphere, uint cascade)
+{
+    if (cascade >= (uint)_HB_PlantShadowSet.x)
+        return false;
+
+    float4 bound = _HB_PlantCascades[cascade];
+    float3 gap = bound.xyz - sphere.xyz;
+    float reach = bound.w + sphere.w + HB_PLANT_CASCADE_EDGE;
+    float along = dot(gap, _HB_PlantSun.xyz);
+
+    return along > -reach && dot(gap, gap) - along * along < reach * reach;
+}
+
+#define HB_PLANT_CASCADE(cascade, nearList, farList)                 \
+    if (HB_PlantInCascade(sphere, cascade))                          \
+    {                                                                \
+        if (shade > 0.0)                                             \
+            nearList.Append(near);                                   \
+        if (shade < 1.0)                                             \
+            farList.Append(far);                                     \
+    }
+
+[numthreads(64, 1, 1)]
+void Cascade(uint3 id : SV_DispatchThreadID)
+{
+    HBPlantVisible near, far;
+    float shade;
+
+    if (!HB_PlantShadowed(id.x, near, far, shade))
+        return;
+
+    float4 sphere = _HB_PlantInstances[id.x].sphere;
+
+    if (!HB_PlantCasts(sphere, length(sphere.xyz - _HB_PlantEye.xyz)))
+        return;
+
+    HB_PLANT_CASCADE(0u, _HB_PlantCascadeNear0, _HB_PlantCascadeFar0)
+    HB_PLANT_CASCADE(1u, _HB_PlantCascadeNear1, _HB_PlantCascadeFar1)
+    HB_PLANT_CASCADE(2u, _HB_PlantCascadeNear2, _HB_PlantCascadeFar2)
+    HB_PLANT_CASCADE(3u, _HB_PlantCascadeNear3, _HB_PlantCascadeFar3)
+}
+
+[numthreads(64, 1, 1)]
+void Punctual(uint3 id : SV_DispatchThreadID)
+{
+    HBPlantVisible near, far;
+    float shade;
+
+    if (!HB_PlantShadowed(id.x, near, far, shade))
+        return;
+
+    float4 sphere = _HB_PlantInstances[id.x].sphere;
+
+    if (length(sphere.xyz - _HB_PlantEye.xyz) >= _HB_PlantShadowSet.z + sphere.w)
+        return;
+
+    bool lit = false;
+
+    [loop]
+    for (uint light = 0u; light < HB_PLANT_LIGHT_LIMIT; light++)
+    {
+        float4 bound = _HB_PlantLights[light];
+
+        if (light < (uint)_HB_PlantShadowSet.y && length(bound.xyz - sphere.xyz) < bound.w + sphere.w)
+            lit = true;
+    }
+
+    if (!lit)
+        return;
+
+    if (shade > 0.0)
+        _HB_PlantShadowNear.Append(near);
+
+    if (shade < 1.0)
+        _HB_PlantShadowFar.Append(far);
 }
