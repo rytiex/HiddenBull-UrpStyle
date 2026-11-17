@@ -53,7 +53,6 @@ namespace HiddenBull.UrpStyle
         public Vector4 _HB_FogPaint;
         public Vector4 _HB_Debug;
         public Vector4 _HB_WeatherClocks;
-        public Vector4 _HB_Cavity;
 
         internal static StyleFrameGlobals Resolve(HBStyleEnvironmentProfile profile, StyleSkyLut lut,
                                                   HBStyleQualityProfile quality, int cascades)
@@ -100,11 +99,6 @@ namespace HiddenBull.UrpStyle
             PackCelestial(profile, elevation, blend, afterglow, ref globals);
             PackClouds(profile, sunDirection, elevation, spread, ref globals);
             PackFog(profile.atmosphere, quality.atmosphere, afterglow * (1f - overcast), ref globals);
-
-            var cavity = profile.cavity;
-
-            globals._HB_Cavity = new Vector4(cavity.ridge, cavity.valley, cavity.width,
-                                             cavity.distance * quality.cavity.reach);
 
             globals._HB_Debug = new Vector4((int)StyleDebug.view, 0f, 0f, 0f);
 
@@ -175,9 +169,6 @@ namespace HiddenBull.UrpStyle
                 current._HB_WeatherLook = new Vector4(look.x, look.y, look.z, current._HB_WeatherLook.w);
                 current._HB_Precipitation = L(current._HB_Precipitation, other._HB_Precipitation, t);
             }
-
-            if ((sections & HBStyleProfileSections.Cavity) != 0)
-                current._HB_Cavity = L(current._HB_Cavity, other._HB_Cavity, t);
 
             if ((sections & HBStyleProfileSections.Atmosphere) != 0)
             {

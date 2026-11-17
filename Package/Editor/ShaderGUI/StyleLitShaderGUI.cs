@@ -17,8 +17,6 @@ namespace HiddenBull.UrpStyle.Editor
             public static readonly GUIContent Advanced = new GUIContent("Advanced");
             public static readonly GUIContent Subsurface = new GUIContent("Subsurface");
 
-            public static readonly GUIContent Cavity = new GUIContent(
-                "Cavity", "Takes the edge lines and corner darkening of the Environment Profile's Cavity section.");
 
             public static readonly GUIContent Weather = new GUIContent(
                 "Weather", "How the surface takes part in the weather of the HB Style Environment Controller.");
@@ -340,7 +338,6 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_FlakeLife;
         MaterialProperty m_AlphaClipEnabled;
         MaterialProperty m_Cutoff;
-        MaterialProperty m_Cavity;
         MaterialProperty m_ReceiveShadows;
         MaterialProperty m_Cull;
         MaterialProperty m_QueueOffset;
@@ -496,7 +493,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_FlakeLife = Optional("_FlakeLife", properties);
             m_AlphaClipEnabled = Optional("_AlphaClipEnabled", properties);
             m_Cutoff = Optional("_Cutoff", properties);
-            m_Cavity = Optional("_Cavity", properties);
             m_ReceiveShadows = Optional("_ReceiveShadows", properties);
             m_Cull = Optional("_Cull", properties);
             m_QueueOffset = Optional("_QueueOffset", properties);
@@ -814,7 +810,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         protected void DrawAdvanced(MaterialEditor materialEditor)
         {
-            var reset = ResetAction(materialEditor, m_AlphaClipEnabled, m_Cutoff, m_ReceiveShadows, m_Cavity, m_Cull,
+            var reset = ResetAction(materialEditor, m_AlphaClipEnabled, m_Cutoff, m_ReceiveShadows, m_Cull,
                                     m_QueueOffset);
             var expanded = StyleMaterialHeader.Draw(Styles.Advanced, "Advanced", materialEditor, reset: reset);
 
@@ -829,9 +825,6 @@ namespace HiddenBull.UrpStyle.Editor
                 }
 
                 materialEditor.ShaderProperty(m_ReceiveShadows, m_ReceiveShadows.displayName);
-
-                if (m_Cavity != null)
-                    materialEditor.ShaderProperty(m_Cavity, Styles.Cavity);
 
                 materialEditor.ShaderProperty(m_Cull, m_Cull.displayName);
                 materialEditor.ShaderProperty(m_QueueOffset, m_QueueOffset.displayName);

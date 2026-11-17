@@ -109,7 +109,6 @@ namespace HiddenBull.UrpStyle.Editor
             DrawSection("m_Clouds", "Clouds", s_Clouds);
             DrawSection("m_Atmosphere", "Atmosphere", s_Atmosphere);
             DrawSection("m_Weather", "Weather", s_Weather);
-            DrawSection("m_Cavity", "Cavity");
 
             serializedObject.ApplyModifiedProperties();
         }
@@ -138,7 +137,6 @@ namespace HiddenBull.UrpStyle.Editor
             DrawSection("m_AntiAliasing", "Anti Aliasing", s_Levels);
             DrawSection("m_Transparency", "Transparency", s_Levels);
             DrawSection("m_Reflections", "Screen Space Reflections", s_Levels);
-            DrawSection("m_Cavity", "Cavity", s_Levels);
 
             serializedObject.ApplyModifiedProperties();
         }

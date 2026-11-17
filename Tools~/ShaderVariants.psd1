@@ -490,16 +490,6 @@
             Reads = 0
         }
         @{
-            Name = 'Cavity fullscreen'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Cavity/CavityPass.hlsl'
-            Entry = 'HB_CavityFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 0
-            Reads = 0
-        }
-        @{
             Name = 'Decal DBuffer'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Decal/DecalPass.hlsl'
             Entry = 'HB_DecalFragment'
@@ -516,16 +506,6 @@
             Stage = 'vs'
             Urp = 'Minimal'
             Defines = @('_DBUFFER_MRT3')
-            Slots = 0
-            Reads = 0
-        }
-        @{
-            Name = 'Cavity fullscreen (debug)'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Cavity/CavityPass.hlsl'
-            Entry = 'HB_CavityDebugFragment'
-            Stage = 'ps'
-            Urp = 'Minimal'
-            Defines = @()
             Slots = 0
             Reads = 0
         }

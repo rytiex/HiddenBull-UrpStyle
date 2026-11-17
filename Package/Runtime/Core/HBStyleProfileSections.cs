@@ -12,7 +12,6 @@ namespace HiddenBull.UrpStyle
         Clouds = 1 << 3,
         Atmosphere = 1 << 4,
         Weather = 1 << 5,
-        Cavity = 1 << 6,
-        All = Brush | Sky | Celestial | Clouds | Atmosphere | Weather | Cavity
+        All = Brush | Sky | Celestial | Clouds | Atmosphere | Weather
     }
 }

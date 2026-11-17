@@ -33,10 +33,6 @@ namespace HiddenBull.UrpStyle
                  "the HB Style Environment Controller.")]
         HBStyleWeatherSettings m_Weather = new HBStyleWeatherSettings();
 
-        [SerializeField]
-        [Tooltip("Thin light lines on the outer edges of Lit objects and darkening in their inner corners.")]
-        HBStyleCavitySettings m_Cavity = new HBStyleCavitySettings();
-
         [NonSerialized]
         int m_Version;
 
@@ -51,8 +47,6 @@ namespace HiddenBull.UrpStyle
         public HBStyleAtmosphereSettings atmosphere => m_Atmosphere;
 
         public HBStyleWeatherSettings weather => m_Weather;
-
-        public HBStyleCavitySettings cavity => m_Cavity;
 
         internal int version => m_Version;
 
