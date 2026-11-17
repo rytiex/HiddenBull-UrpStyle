@@ -114,7 +114,9 @@ half4 HB_ReflectTrace(float3 positionWS, float3 heading, half perceptualRoughnes
                     front = past ? front : middle;
                 }
 
-                if (rcp(lerp(nearStart, nearEnd, behind)) <= HB_ReflectThick(HB_ReflectEye(start + span * behind)))
+                float nearest = lerp(nearStart, nearEnd, nearStart > nearEnd ? front : behind);
+
+                if (nearest * HB_ReflectThick(HB_ReflectEye(start + span * behind)) >= 1.0)
                 {
                     now = behind;
                     hit = true;

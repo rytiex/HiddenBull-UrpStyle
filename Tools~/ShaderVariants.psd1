@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2750
+            Slots = 2752
             Reads = 60
         }
         @{
@@ -607,7 +607,7 @@
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
                         '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2130
+            Slots = 2147
             Reads = 48
         }
         @{
@@ -617,7 +617,7 @@
             Stage = 'ps'
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2320
+            Slots = 2331
             Reads = 75
         }
         @{
@@ -780,7 +780,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2525
+            Slots = 2527
             Reads = 60
         }
         @{
@@ -1232,7 +1232,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3740
+            Slots = 3741
             Reads = 148
         }
         @{

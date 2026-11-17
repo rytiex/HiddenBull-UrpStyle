@@ -5,6 +5,7 @@
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleShelter.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWeatherNoise.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Lighting/StyleTones.hlsl"
+#include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Library/Weather/StyleWetGloss.hlsl"
 
 #if defined(_DBUFFER_MRT1) || defined(_DBUFFER_MRT2) || defined(_DBUFFER_MRT3)
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DBuffer.hlsl"
@@ -27,11 +28,8 @@
 #define HB_WET_DARKEN           0.3h
 #define HB_GROUND_WET_DARKEN    0.3h
 #define HB_GROUND_SHORE_DARKEN  half(_HB_WeatherClocks.w)
-#define HB_WET_FLAT_SMOOTHNESS  0.92h
-#define HB_WET_WALL_SMOOTHNESS  0.6h
 
 #define HB_SNOW_ALBEDO          half3(0.5h, 0.54h, 0.6h)
-#define HB_SNOW_SMOOTHNESS      0.2h
 #define HB_SNOW_SOFTEN          0.35h
 #define HB_SNOW_STEEP_CALM      1.4h
 #ifndef HB_SNOW_EDGE_DELAY
@@ -78,7 +76,6 @@
 #define HB_FLOW_TRAIL_WET       0.5h
 #define HB_FLOW_BEND            0.5h
 #define HB_FLOW_DARKEN          0.25h
-#define HB_FLOW_SMOOTHNESS      0.95h
 
 #define HB_RIPPLE_CELL          0.35
 #define HB_RIPPLE_SPEED         1.3
@@ -593,15 +590,12 @@ void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 nor
         half flow = weather.flow;
         half snow = weather.snow;
         half flat = saturate(normalWS.y);
-        half gloss = max(surfaceData.smoothness, lerp(HB_WET_WALL_SMOOTHNESS, HB_WET_FLAT_SMOOTHNESS, flat));
 
         surfaceData.albedo = HB_WetAlbedo(surfaceData.albedo, weather, ground);
         shine *= weather.gloss;
-        surfaceData.smoothness = lerp(surfaceData.smoothness, gloss, wet * shine);
-        surfaceData.smoothness = lerp(surfaceData.smoothness, HB_FLOW_SMOOTHNESS, flow * shine);
+        surfaceData.smoothness = HB_WeatherSmoothness(surfaceData.smoothness, flat, wet, flow, snow, shine);
 
         surfaceData.albedo = lerp(surfaceData.albedo, HB_SNOW_ALBEDO, snow);
-        surfaceData.smoothness = lerp(surfaceData.smoothness, HB_SNOW_SMOOTHNESS, snow);
         surfaceData.metallic = lerp(surfaceData.metallic, 0.0h, snow);
         surfaceData.emission *= 1.0h - snow;
     }

@@ -47,6 +47,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_DiffuseWrapId = Shader.PropertyToID("_DiffuseWrap");
         static readonly int s_DiffuseSoftnessId = Shader.PropertyToID("_DiffuseSoftness");
         static readonly int s_HalfToneId = Shader.PropertyToID("_HalfTone");
+        static readonly int s_BakedTonesId = Shader.PropertyToID("_BakedTones");
+        static readonly int s_BakedSoftnessId = Shader.PropertyToID("_BakedSoftness");
         static readonly int s_LayerGrassId = Shader.PropertyToID("_HB_LayerGrass");
         static readonly int s_LayerGrassEdgeId = Shader.PropertyToID("_HB_LayerGrassEdge");
         static readonly int s_LayerVaryId = Shader.PropertyToID("_HB_LayerVary");
@@ -198,6 +200,10 @@ namespace HiddenBull.UrpStyle
         internal Vector4 grassStyle => m_Material != null
             ? new Vector4(m_Material.GetFloat(s_DiffuseWrapId), m_Material.GetFloat(s_DiffuseSoftnessId),
                           m_Material.GetFloat(s_HalfToneId), 0f)
+            : Vector4.zero;
+
+        internal Vector4 grassAmbient => m_Material != null
+            ? new Vector4(m_Material.GetFloat(s_BakedTonesId), m_Material.GetFloat(s_BakedSoftnessId), 0f, 0f)
             : Vector4.zero;
 
         internal Texture grassMap => m_Data.grass != null ? m_Data.grass : UnpaintedGrass();

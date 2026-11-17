@@ -91,6 +91,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayerLookId = Shader.PropertyToID("_HB_LayerLook");
         static readonly int s_GrassMapId = Shader.PropertyToID("_HB_GrassMap");
         static readonly int s_StyleId = Shader.PropertyToID("_HB_GrassStyle");
+        static readonly int s_AmbientId = Shader.PropertyToID("_HB_GrassAmbient");
         static readonly int s_TerrainStyleId = Shader.PropertyToID("_HB_TerrainStyle");
         static readonly int s_TerrainVariationId = Shader.PropertyToID("_HB_TerrainVariation");
         static readonly int s_TerrainBrushId = Shader.PropertyToID("_HB_TerrainBrush");
@@ -621,6 +622,10 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_CameraId, camera);
             block.SetVector(s_RootsId, Roots(terrain));
             block.SetVector(s_StyleId, style);
+            block.SetVector(s_AmbientId, terrain.grassAmbient);
+            block.SetVectorArray(s_LayerSurfaceId, terrain.layerSurface);
+            block.SetTexture(s_MaskId, terrain.data.maskArray != null ? (Texture)terrain.data.maskArray
+                                                                   : terrain.emptyArray);
             block.SetFloat(s_ReceiveWeatherId, MovingWeather);
             block.SetVectorArray(s_LayerGrassTipId, terrain.layerGrassTip);
             block.SetVectorArray(s_LayerGrassEdgeId, terrain.layerGrassEdge);

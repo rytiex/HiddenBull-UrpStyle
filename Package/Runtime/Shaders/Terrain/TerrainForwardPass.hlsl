@@ -23,6 +23,7 @@
 #define HB_TERRAIN_LAYER_MAP        -1.5
 #define HB_DEBUG_TERRAIN_CURVATURE  14
 #define HB_DEBUG_GRASS_DENSITY      15
+#define HB_DEBUG_TERRAIN_ALBEDO     30
 #define HB_GRASS_DEBUG_BARE         half3(0.18h, 0.18h, 0.18h)
 #define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
 #define HB_GRASS_DEBUG_TALL         half3(0.05h, 0.5h, 0.4h)
@@ -292,6 +293,9 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
     if (HB_DEBUG_VIEW == HB_DEBUG_WETNESS)
         colour.rgb = half3(wet, wet, wet);
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_TERRAIN_ALBEDO)
+        colour.rgb = surfaceData.albedo * saturate(1.0h + min(brush.coverage, 0.0h) * style.brushAlbedo);
 
     if (HB_DEBUG_VIEW == HB_DEBUG_SNOW)
         colour.rgb = half3(weather.snow, weather.snow, weather.snow);
