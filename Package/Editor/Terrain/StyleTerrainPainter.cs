@@ -24,6 +24,22 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (old.Length >= HBStyleTerrainData.MaxLayers)
             {
+                var free = Reusable(data, old);
+
+                if (free >= 0)
+                {
+                    Undo.RegisterCompleteObjectUndo(new Object[] { data.hand, data }, "Paint HB Style Terrain");
+                    Clear(data.hand, free);
+
+                    var reused = (HBStyleTerrainLayer[])old.Clone();
+
+                    reused[free] = layer;
+                    data.SetHand(data.hand, reused);
+                    EditorUtility.SetDirty(data);
+                    EditorUtility.SetDirty(data.hand);
+                    return free;
+                }
+
                 Debug.LogWarning($"HB Style Terrain: {data.name} already holds hand painting for " +
                                  $"{HBStyleTerrainData.MaxLayers} layers; clear the hand painting to paint others.");
                 return -1;
@@ -43,6 +59,68 @@ namespace HiddenBull.UrpStyle.Editor
             data.SetHand(hand, layers);
             EditorUtility.SetDirty(data);
             return old.Length;
+        }
+
+        static int Reusable(HBStyleTerrainData data, HBStyleTerrainLayer[] channels)
+        {
+            for (var channel = 0; channel < channels.Length; channel++)
+            {
+                if (!InSet(data, channels[channel]))
+                    return channel;
+            }
+
+            var hand = data.hand;
+
+            if (hand == null)
+                return -1;
+
+            for (var channel = 0; channel < channels.Length && channel < hand.depth * 4; channel++)
+            {
+                if (Empty(hand, channel))
+                    return channel;
+            }
+
+            return -1;
+        }
+
+        static bool InSet(HBStyleTerrainData data, HBStyleTerrainLayer layer)
+        {
+            if (layer == null)
+                return false;
+
+            for (var index = 0; index < data.layerCount; index++)
+            {
+                if (data.layers[index].layer == layer)
+                    return true;
+            }
+
+            return false;
+        }
+
+        static bool Empty(Texture2DArray hand, int channel)
+        {
+            var pixels = hand.GetPixelData<byte>(0, channel >> 2);
+
+            for (var texel = channel & 3; texel < pixels.Length; texel += 4)
+            {
+                if (pixels[texel] != 0)
+                    return false;
+            }
+
+            return true;
+        }
+
+        static void Clear(Texture2DArray hand, int channel)
+        {
+            if (hand == null || channel >> 2 >= hand.depth)
+                return;
+
+            var pixels = hand.GetPixelData<byte>(0, channel >> 2);
+
+            for (var texel = channel & 3; texel < pixels.Length; texel += 4)
+                pixels[texel] = 0;
+
+            hand.Apply(false, false);
         }
 
         static Texture2DArray Grow(HBStyleTerrainData data, Texture2DArray old, int slices)

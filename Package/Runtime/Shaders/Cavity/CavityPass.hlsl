@@ -15,6 +15,7 @@
 #define HB_CAVITY_FADE       0.25
 #define HB_CAVITY_NEAR       8.0
 #define HB_CAVITY_NEAR_MOST  4.0
+#define HB_CAVITY_STEP       0.02
 
 struct HBCavityVaryings
 {
@@ -57,6 +58,11 @@ float3 HB_CavityTap(float2 uv, float eye, float3 centre)
     return abs(tap - eye) > eye * HB_CAVITY_DEPTH_GAP ? centre : HB_CavityNormal(uv);
 }
 
+float HB_CavityAxis(float change)
+{
+    return sign(change) * max(abs(change) - HB_CAVITY_STEP, 0.0);
+}
+
 half HB_CavityCurve(float2 uv)
 {
     float depth = SampleSceneDepth(uv);
@@ -84,7 +90,7 @@ half HB_CavityCurve(float2 uv)
     float3 up = HB_CavityTap(uv + float2(0.0, reach.y), eye, centre);
     float3 down = HB_CavityTap(uv - float2(0.0, reach.y), eye, centre);
 
-    return half((right.x - left.x) + (up.y - down.y)) * HB_CAVITY_GAIN * fade;
+    return half(HB_CavityAxis(right.x - left.x) + HB_CavityAxis(up.y - down.y)) * HB_CAVITY_GAIN * fade;
 }
 
 half4 HB_CavityFragment(HBCavityVaryings input) : SV_Target

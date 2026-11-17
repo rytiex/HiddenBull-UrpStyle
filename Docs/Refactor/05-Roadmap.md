@@ -68,6 +68,10 @@ modules, masks, emission), texture import was dropped, Grass, Flower, Brush and 
 Studio-made mask maps (runtime plate bake and Shore Crust removed), and the Mask Map packer was dropped because every
 texture of the game comes from the studio. Next by the table: Phase 11 Shader Graph.
 
+**Fixes after Phase 10 (2026-11-17)**, listed at the end of `03` §13: cavity dead zone and mesh-only cavity, Brush
+Paint 0.25, terrain specular, wet tone match, shore wetness band, SSR self-hit lift, two terrain editor fixes. Open
+before Phase 11: wet grass blades brighter than the ground under them with SSR on.
+
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start
 instead of a retrofit; the terrain-specific weather parts land with Terrain. The first Foliage + Billboards build was

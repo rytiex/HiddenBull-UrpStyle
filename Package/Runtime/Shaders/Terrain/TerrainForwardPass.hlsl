@@ -3,6 +3,7 @@
 
 #define HB_WEATHER
 #define HB_DECAL_SURFACE
+#define _HB_SPECULAR
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"

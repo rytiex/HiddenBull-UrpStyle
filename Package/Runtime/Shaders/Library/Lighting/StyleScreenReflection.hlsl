@@ -18,6 +18,7 @@ float4 _HB_ReflectSet;
 #define HB_REFLECT_LIFT    0.002
 #define HB_REFLECT_KEEP    0.25
 #define HB_REFLECT_NEAR    0.05
+#define HB_REFLECT_GRAZE   0.05h
 
 float4 HB_ReflectClip(float3 positionWS)
 {
@@ -154,6 +155,14 @@ half4 HB_ScreenReflect(float3 positionWS, half3 reflectWS, half perceptualRoughn
     }
 
     return found;
+}
+
+half4 HB_ScreenReflectAbove(float3 positionWS, half3 reflectWS, half3 geometryWS, half perceptualRoughness)
+{
+    half lean = dot(reflectWS, geometryWS);
+    half3 above = normalize(reflectWS + geometryWS * max(HB_REFLECT_GRAZE - lean, 0.0h));
+
+    return HB_ScreenReflect(positionWS, above, perceptualRoughness);
 }
 
 #endif

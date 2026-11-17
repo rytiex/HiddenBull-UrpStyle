@@ -14,7 +14,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How far the strokes drag the layer textures along, for a painted look.")]
-        float m_BrushPaint = 1f;
+        float m_BrushPaint = 0.25f;
 
         [SerializeField]
         [Range(0f, 2f)]

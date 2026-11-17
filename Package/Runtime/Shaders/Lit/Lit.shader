@@ -23,7 +23,7 @@ Shader "HB URP Style/Lit"
         [Toggle(_HB_BRUSH)] _BrushEnabled("Enable Brush", Float) = 1.0
         [Enum(World, 0, Object, 1, Rest Pose, 2)] _BrushObjectSpace("Brush Space", Float) = 1.0
         _BrushScale("Brush Size", Range(0.25, 4.0)) = 1.0
-        _BrushPaint("Brush Paint", Range(0.0, 1.0)) = 1.0
+        _BrushPaint("Brush Paint", Range(0.0, 1.0)) = 0.25
         _BrushEdgeKeep("Brush Edge Keep", Range(0.0, 1.0)) = 1.0
         _ToneStrokes("Tone Strokes", Range(0.0, 2.0)) = 1.0
         _BakedStrokes("Baked Strokes", Range(0.0, 1.0)) = 1.0

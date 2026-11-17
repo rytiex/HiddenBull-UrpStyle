@@ -438,6 +438,8 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
             }
 
+            m_Selected = Mathf.Clamp(m_Selected, 0, m_Layers.arraySize - 1);
+
             var row = m_Layers.GetArrayElementAtIndex(m_Selected);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))

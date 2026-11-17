@@ -201,7 +201,7 @@ void HB_DepthNormalsFragment(
     LODFadeCrossFade(input.positionCS);
 #endif
 
-    outNormalWS = half4(HB_ResolveNormal(surface, surface.normalWS * surface.facing), _Cavity);
+    outNormalWS = half4(NormalizeNormalPerPixel(surface.normalWS * surface.facing), _Cavity);
 
 #ifdef _WRITE_RENDERING_LAYERS
     outRenderingLayers = EncodeMeshRenderingLayer();

@@ -17,7 +17,8 @@ and the Decal block of 03 §4, Phase 6 Liquids the first block of 03 §10 with t
 Phase 5 Grass the first block of 03 §9, Phase 7 Foliage + Billboards 03 §4, Phase 8 Transparency 03 §11. Costs are
 the last sections of 08. The game has buildings that players build and tear down; vehicles use Moving, Static is only
 for what never moves. Every texture of the game comes from the Texture Studio; there is no Sandbox build, I measure
-in my own game.
+in my own game. After the close a round of fixes followed (cavity dead zone, wet tone, shore wetness, SSR
+self-hit lift, terrain specular, Brush Paint 0.25); they are the last block of 03 §13 and the last section of 08.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -30,17 +31,36 @@ Read before doing anything (do not ask me what these answer):
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**The tree may hold uncommitted work.** Phase 10 closed with the liquid redesign, the Liquid preset shelf and the
-phase-close docs uncommitted. Git is my job; do not commit, only check `git status` so you know what you are
-standing on.
+**The tree may hold uncommitted work.** The fixes after Phase 10 and their docs may be uncommitted.
+Git is my job; do not commit, only check `git status` so you know what you are standing on.
 
 **Not run or not confirmed in Unity:** the slow return of snow after a roof is removed since the cover age moved to
 its own texture; `HBStyleLiquid.TryGetDepth`; the overlay camera with glass; whether the outer shelter cascade
 (2560 m) hitches on the frame it is redrawn; colliders, harvest and the billboard leaf light fix from Phase 7; liquid
-mask maps following the flow on a Liquid Terrain river.
+mask maps following the flow on a Liquid Terrain river. From the fixes after Phase 10, the user confirmed the cavity
+dead zone, the wet tone, the shore wetness and the SSR spots; mesh-only cavity, the Brush Paint default, the two
+terrain editor fixes and every look after the revert of the unconfirmed SSR and specular changes are not confirmed.
 
 **Every surface shader sits within a few slots of its budget** (see the last section of 08). Anything that adds to
 one of them must cut something first or come with a measured budget raise that I approve.
+
+**Open problems before Phase 11 (fix these first, one at a time, before Phase 11):**
+
+1. **SSR stripes on water came back.** Wavy water shows horizontal stripes of the reflected ground. A looser hit
+   test in `HB_ReflectTrace` (StyleScreenReflection.hlsl) had fixed them and was reverted on 2026-11-17 with the
+   other unconfirmed changes. It replaced
+   `if (rcp(lerp(nearStart, nearEnd, behind)) <= HB_ReflectThick(HB_ReflectEye(start + span * behind)))` with
+   `float nearest = max(lerp(nearStart, nearEnd, front), lerp(nearStart, nearEnd, behind));` and
+   `if (nearest * HB_ReflectThick(HB_ReflectEye(start + span * behind)) >= 1.0)`. Putting it back is the likely
+   fix; first check with me whether problem 2 is still there without it.
+2. **Wet grass brighter than the ground under it with SSR on.** With Reflections off they match, so SSR is the
+   difference. It was suspected (not measured) that the looser hit test of problem 1 caused it. Specular
+   anti-aliasing, horizon occlusion and an SSR fade on meadow terrain were tried and reverted; do not try them
+   again. Ask me for the debug view that shows the data before any change.
+3. **Cavity debug view** still shows thin lines on a round object (a circle and a few straight lines on flat
+   grey). The 0.02 dead zone removed the 8-bit normal-step lines on smooth slopes; the remaining lines may be real
+   mesh edges. Ask me which object it is and where lines must not appear before changing anything.
+4. Run the test list of the fixes after Phase 10 with me (03 §13, last block) and note what I confirm.
 
 **Next job: Phase 11 Shader Graph** (05 and 03 §14). The old package had a node library on `main` under
 `Package/ShaderGraph/` (HB Style Lighting, HB Weather Static / Moving, HB Fog sub-graphs, an HB Lit template and

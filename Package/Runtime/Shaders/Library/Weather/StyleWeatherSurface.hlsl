@@ -24,7 +24,7 @@
 #define HB_FLAKE_BEND           0.2
 #define HB_WEATHER_DETAIL_FADE  5.0
 
-#define HB_WET_DARKEN           0.2h
+#define HB_WET_DARKEN           0.3h
 #define HB_GROUND_WET_DARKEN    0.3h
 #define HB_GROUND_SHORE_DARKEN  half(_HB_WeatherClocks.w)
 #define HB_WET_FLAT_SMOOTHNESS  0.92h
@@ -243,10 +243,11 @@ HBWeather HB_ResolveSurfaceWeather(float3 positionWS, half3 normalWS, half brush
     UNITY_BRANCH
     if (wet > 0.0h || cover > 0.0h || shore > 0.0h)
     {
-        half uncovered = HB_ShelterCoverOf(state, HB_ShelterAgeAt(spot), positionWS.y);
+        half age = HB_ShelterAgeAt(spot);
+        half uncovered = HB_ShelterCoverOf(state, age, positionWS.y);
         half exposure = HB_ShelterOpenAt(spot, positionWS.y);
 
-        wet *= uncovered;
+        wet *= age;
         cover *= uncovered * (1.0h - shore);
 
         float3 boundsMin = ground ? positionWS - 1e3 : unity_RendererBounds_Min.xyz;
@@ -580,8 +581,7 @@ half3 HB_WetAlbedo(half3 albedo, HBWeather weather, bool ground)
     if (ground)
         return albedo * (1.0h - HB_GROUND_WET_DARKEN * weather.wet - HB_GROUND_SHORE_DARKEN * weather.shore);
 
-    return PositivePow(max(albedo, 0.0h), 1.0h + weather.wet)
-         * (1.0h - HB_WET_DARKEN * weather.wet) * (1.0h - HB_FLOW_DARKEN * weather.flow);
+    return albedo * (1.0h - HB_WET_DARKEN * weather.wet) * (1.0h - HB_FLOW_DARKEN * weather.flow);
 }
 
 void HB_ApplyWeather(HBWeather weather, inout SurfaceData surfaceData, half3 normalWS, bool ground, half shine)

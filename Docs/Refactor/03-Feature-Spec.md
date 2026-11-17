@@ -1103,6 +1103,26 @@ Common framework first, then pages.
 - **Liquid**: presets + extra detail options. **Brush**: keep. **Cloud**: keep, presets; cloud types
   (cumulus, stratus, cirrus) if cheap. **Mask Map**: keep.
 
+### Fixes after Phase 10 (2026-11-17)
+
+- **Cavity**: each normal-difference axis has a dead zone of 0.02 (`HB_CAVITY_STEP`), so the 8-bit steps of the
+  normal buffer on a smooth slope no longer draw lines. Lit's DepthNormals writes the mesh normal only; normal maps
+  no longer feed cavity.
+- **Brush Paint** defaults to 0.25 on Lit and on the terrain look.
+- **Terrain specular**: the terrain always runs the specular path (`_HB_SPECULAR`), so a layer's mask smoothness
+  works.
+- **Wet tone**: non-ground surfaces darken like the ground, `albedo × (1 − 0.3 × wet) × (1 − flow darken)`;
+  `HB_WET_DARKEN` 0.2 → 0.3, so a Lit material and a terrain layer at the same wetness match.
+- **Shore wetness**: the shelter age multiplies the wetness instead of gating it, which removes the dry band
+  0.15–0.45 m above the water. Grass blades read the shore wetness from the shelter map too.
+- **SSR self-hits**: rays are lifted to at least 0.05 above the geometric normal from ddx/ddy
+  (`HB_ScreenReflectAbove`), which removes the brown self-reflection spots.
+- **Editor**: the terrain layer list clamps its selection after a remove; hand painting reuses an unused or empty
+  channel when all 16 are taken.
+- **Tried and reverted**: a looser SSR hit test against stripes on wavy water, specular anti-aliasing, horizon
+  occlusion and an SSR fade on meadow terrain. **Open**: with SSR on, wet grass blades look brighter than the wet
+  ground under them; with Reflections off they match.
+
 ## 14. Shader Graph — Change
 
 Node library for **Unlit** graphs, no template: HB Style Lighting (incl. specular/metallic), HB Brush,

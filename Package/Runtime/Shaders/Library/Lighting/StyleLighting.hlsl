@@ -251,6 +251,9 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
 
     float3 positionDx = ddx(inputData.positionWS);
     float3 positionDy = ddy(inputData.positionWS);
+    half3 geometry = half3(normalize(cross(positionDy, positionDx)));
+
+    geometry = dot(geometry, inputData.normalWS) < 0.0h ? -geometry : geometry;
 
     half3 mainDirection = half3(_MainLightPosition.xyz);
     float3 shadowPosition = brushed ? inputData.positionWS + brush.offset
@@ -311,7 +314,7 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     half3 environmentSpecular = HB_EnvironmentReflection(reflectVector, inputData.normalWS, inputData.positionWS,
                                                          brdfData.perceptualRoughness,
                                                          inputData.normalizedScreenSpaceUV, lightReach);
-    half4 screen = HB_ScreenReflect(inputData.positionWS, reflectVector, brdfData.perceptualRoughness);
+    half4 screen = HB_ScreenReflectAbove(inputData.positionWS, reflectVector, geometry, brdfData.perceptualRoughness);
 
     environmentSpecular = lerp(environmentSpecular, screen.rgb, screen.a) * occlusion;
     half gloss = 1.0h - brdfData.perceptualRoughness;
@@ -355,7 +358,8 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
                                                      brdfData.perceptualRoughness,
                                                      inputData.normalizedScreenSpaceUV, lightReach);
         #ifdef HB_WEATHER
-        half4 screen = HB_ScreenReflect(inputData.positionWS, reflectVector, brdfData.perceptualRoughness);
+        half4 screen = HB_ScreenReflectAbove(inputData.positionWS, reflectVector, geometry,
+                                             brdfData.perceptualRoughness);
 
         environment = lerp(environment, screen.rgb, screen.a);
         #endif

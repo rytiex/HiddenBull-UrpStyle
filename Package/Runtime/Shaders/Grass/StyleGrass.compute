@@ -285,39 +285,44 @@ float3 HB_GrassGust(float3 root, float seed, float gap, out float streak)
 float2 HB_GrassWeather(HBGrassBlade blade)
 {
     float2 weather = float2(0.0, 0.0);
+    float open = 1.0;
+    float uncovered = 1.0;
+    float age = 1.0;
+    float shore = 0.0;
 
     UNITY_BRANCH
-    if (HB_GRASS_WET > 0.0 || HB_GRASS_SNOW > 0.0)
+    if (HB_SHELTER_BOUND > 0.5)
     {
-        float open = 1.0;
-        float uncovered = 1.0;
+        HBShelterSpot spot = HB_ShelterSpot(blade.root.xz);
 
-        UNITY_BRANCH
-        if (HB_SHELTER_BOUND > 0.5)
+        if (spot.edge > 0.0)
         {
-            HBShelterSpot spot = HB_ShelterSpot(blade.root.xz);
+            float roof = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_PointClamp, spot.uv.xy, spot.uv.z, 0).r;
+            float2 state = HB_ShelterStateAt(spot);
 
-            if (spot.edge > 0.0)
-            {
-                float roof = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_PointClamp, spot.uv.xy, spot.uv.z, 0).r;
-
-                open = roof > HB_SHELTER_NONE
-                     ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE)
-                     : 1.0;
-                uncovered = HB_ShelterCoverAt(spot, blade.root.y);
-            }
+            open = roof > HB_SHELTER_NONE
+                 ? 1.0 - saturate((roof - blade.root.y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE)
+                 : 1.0;
+            age = HB_ShelterAgeAt(spot);
+            uncovered = HB_ShelterCoverOf(state, age, blade.root.y);
+            shore = HB_ShelterShore(state, blade.root.y).x;
         }
+    }
 
+    UNITY_BRANCH
+    if (HB_GRASS_WET > 0.0 || HB_GRASS_SNOW > 0.0 || shore > 0.0)
+    {
         float4 surface = _HB_LayerSurface[blade.layer];
         float patches = blade.patches + (frac(blade.rand * HB_GRASS_PATCH_SHAKE) - 0.5) * HB_GRASS_PATCH_STEP;
         float delay = saturate(patches * HB_SNOW_PATCH_DELAY + 0.5 * HB_SNOW_DROP_DELAY);
         float settled = saturate((HB_GRASS_SNOW * uncovered * surface.w - delay * HB_SNOW_SPREAD)
                                  / (1.0 - HB_SNOW_SPREAD));
         float snow = blade.snowy * saturate(settled * HB_SNOW_FADE_IN) * open;
-        float soaked = saturate((HB_GRASS_WET * uncovered - saturate(patches * HB_WET_PATCH_DELAY) * HB_WET_SPREAD)
+        float soaked = saturate((HB_GRASS_WET * age - saturate(patches * HB_WET_PATCH_DELAY) * HB_WET_SPREAD)
                                 / (1.0 - HB_WET_SPREAD));
+        float washed = saturate((shore - patches * HB_WET_PATCH_DELAY * HB_WET_SPREAD) / (1.0 - HB_WET_SPREAD));
 
-        weather = float2(soaked * open * (1.0 - snow) * surface.z, snow);
+        weather = float2(max(soaked * open * (1.0 - snow), washed) * surface.z, snow);
     }
 
     return weather;

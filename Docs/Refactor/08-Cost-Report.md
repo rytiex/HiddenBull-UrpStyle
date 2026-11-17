@@ -735,3 +735,18 @@ normal and two mask taps per stream cell where an unmasked layer reads three nor
 layer now reads its mask once per stream cell (up to four cells) instead of once per pixel.
 
 Not measured, left for the user's game and Phase 12: the liquid surface in ms on a masked river.
+
+## Fixes after Phase 10 (2026-11-17, compiled offline, not run in Unity)
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Lit forward (all, triplanar, moving) | 3797 | 148 | 2749 / 47 | 2750 / 60 — OK, raised from 2735 |
+| Lit forward (all, triplanar) / (all, UV) | 3762 / 3682 | 147 / 139 | 2714 / 46, 2634 / 38 | 2735 / 60 — OK |
+| Foliage forward (all, GPU) / Body (all, GPU) | 3585 / 3570 | 140 / 141 | 2537 / 39, 2522 / 40 | 2540, 2525 / 60 — OK |
+| Terrain forward / (APV) | 4370 / 4798 | 165 / 190 | 3322 / 64, – | 4500 / 175, 4815 / 200 — OK |
+| Liquid Surface | 3739 | 148 | – | 3740 / 148 — OK |
+| Grass forward | 435 | 9 | – | 2000 / 30 — OK |
+
+The geometric normal and the SSR lift cost Lit 14–16 slots; the Lit and Foliage GPU budgets moved by the measured
+amount. The terrain now always runs the specular path and still fits its budgets. The grass compute reads the
+shelter map for shore wetness; it has no budget.
