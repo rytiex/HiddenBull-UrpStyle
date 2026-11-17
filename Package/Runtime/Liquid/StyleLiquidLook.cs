@@ -25,6 +25,9 @@ namespace HiddenBull.UrpStyle
         static readonly int s_UnderFogId = Shader.PropertyToID("_HB_LiquidUnderFog");
         static readonly int s_MoltenId = Shader.PropertyToID("_HB_LiquidMolten");
         static readonly int s_CrustToneId = Shader.PropertyToID("_HB_LiquidCrustTone");
+        static readonly int s_LinesId = Shader.PropertyToID("_HB_LiquidLines");
+        static readonly int s_FlowId = Shader.PropertyToID("_HB_LiquidFlow");
+        static readonly int s_RockId = Shader.PropertyToID("_HB_LiquidRock");
 
         static readonly int[] s_NormalIds =
         {
@@ -32,10 +35,10 @@ namespace HiddenBull.UrpStyle
             Shader.PropertyToID("_HB_LiquidNormal2"), Shader.PropertyToID("_HB_LiquidNormal3")
         };
 
-        static readonly int[] s_PlateIds =
+        static readonly int[] s_MaskIds =
         {
-            Shader.PropertyToID("_HB_LiquidPlates0"), Shader.PropertyToID("_HB_LiquidPlates1"),
-            Shader.PropertyToID("_HB_LiquidPlates2"), Shader.PropertyToID("_HB_LiquidPlates3")
+            Shader.PropertyToID("_HB_LiquidMask0"), Shader.PropertyToID("_HB_LiquidMask1"),
+            Shader.PropertyToID("_HB_LiquidMask2"), Shader.PropertyToID("_HB_LiquidMask3")
         };
 
         static readonly Color s_Missing = new Color(0.2f, 0.2f, 0.2f, 1f);
@@ -52,9 +55,11 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_UnderFog = new Vector4[Slots];
         readonly Vector4[] m_Molten = new Vector4[Slots];
         readonly Vector4[] m_CrustTone = new Vector4[Slots];
+        readonly Vector4[] m_Lines = new Vector4[Slots];
+        readonly Vector4[] m_Flow = new Vector4[Slots];
+        readonly Vector4[] m_Rock = new Vector4[Slots];
         readonly HBStyleLiquidLayer[] m_Layers = new HBStyleLiquidLayer[Slots];
         readonly int[] m_Versions = new int[Slots];
-        readonly Texture2D[] m_Plates = new Texture2D[Slots];
         readonly ushort[] m_Pixels = new ushort[GradientSize * Slots * 4];
         readonly Color[] m_Colours = new Color[GradientKeys];
         readonly float[] m_ColourTimes = new float[GradientKeys];
@@ -78,15 +83,6 @@ namespace HiddenBull.UrpStyle
                 m_Layers[slot] = liquid;
                 m_Versions[slot] = version;
                 changed = true;
-
-                var plates = liquid != null && liquid.crust > 0f ? liquid.normalMap : null;
-
-                if (plates == m_Plates[slot])
-                    continue;
-
-                StyleLiquidPlates.Release(m_Plates[slot]);
-                StyleLiquidPlates.Acquire(plates);
-                m_Plates[slot] = plates;
             }
 
             if (changed)
@@ -105,12 +101,17 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_UnderFogId, m_UnderFog);
             block.SetVectorArray(s_MoltenId, m_Molten);
             block.SetVectorArray(s_CrustToneId, m_CrustTone);
+            block.SetVectorArray(s_LinesId, m_Lines);
+            block.SetVectorArray(s_FlowId, m_Flow);
+            block.SetVectorArray(s_RockId, m_Rock);
 
             for (var slot = 0; slot < Slots; slot++)
             {
                 var normal = m_Layers[slot] != null ? m_Layers[slot].normalMap : null;
+                var mask = m_Layers[slot] != null ? m_Layers[slot].maskMap : null;
+
                 block.SetTexture(s_NormalIds[slot], normal != null ? normal : Texture2D.normalTexture);
-                block.SetTexture(s_PlateIds[slot], StyleLiquidPlates.Get(m_Plates[slot]));
+                block.SetTexture(s_MaskIds[slot], mask != null ? mask : Texture2D.blackTexture);
             }
         }
 
@@ -123,8 +124,6 @@ namespace HiddenBull.UrpStyle
             {
                 m_Layers[slot] = null;
                 m_Versions[slot] = -1;
-                StyleLiquidPlates.Release(m_Plates[slot]);
-                m_Plates[slot] = null;
             }
         }
 
@@ -159,6 +158,9 @@ namespace HiddenBull.UrpStyle
                     m_UnderFog[slot] = new Vector4(1f, 18f, 0f, 0f);
                     m_Molten[slot] = new Vector4(0f, 0f, 0f, 1f);
                     m_CrustTone[slot] = Vector4.zero;
+                    m_Lines[slot] = Vector4.zero;
+                    m_Flow[slot] = Vector4.zero;
+                    m_Rock[slot] = Vector4.zero;
 
                     for (var x = 0; x < GradientSize; x++)
                         Write(slot, x, s_Missing, 1f);
@@ -190,11 +192,20 @@ namespace HiddenBull.UrpStyle
                 m_Under[slot] = new Vector4(liquid.lightShafts, liquid.underBubbles, liquid.distortion,
                                             liquid.underBlur);
                 m_UnderFog[slot] = new Vector4(liquid.underVisibility, liquid.underLightDepth, 0f, 0f);
-                m_Molten[slot] = new Vector4(liquid.crust, liquid.bubbles, liquid.surfaceDistortion, OpaqueFrom());
+                m_Molten[slot] = new Vector4(0f, liquid.bubbles, liquid.surfaceDistortion, OpaqueFrom());
 
-                var crustTone = liquid.crustColor.linear;
+                var rock = liquid.rockColor.linear;
+                var masked = liquid.maskMap != null;
 
-                m_CrustTone[slot] = new Vector4(crustTone.r, crustTone.g, crustTone.b, 0f);
+                m_CrustTone[slot] = new Vector4(rock.r, rock.g, rock.b, liquid.rockEdge);
+
+                var lineTone = liquid.lineColor.linear;
+
+                m_Lines[slot] = new Vector4(lineTone.r, lineTone.g, lineTone.b, liquid.lines);
+                m_Flow[slot] = masked
+                    ? new Vector4(liquid.toneAmount, liquid.flowSpeed, liquid.flowSwirl, 1f)
+                    : Vector4.zero;
+                m_Rock[slot] = new Vector4(liquid.rockSmoothness, 0f, 0f, 0f);
 
                 for (var x = 0; x < GradientSize; x++)
                 {

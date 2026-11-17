@@ -19,16 +19,19 @@ TEXTURE2D(_HB_LiquidNormal0);
 TEXTURE2D(_HB_LiquidNormal1);
 TEXTURE2D(_HB_LiquidNormal2);
 TEXTURE2D(_HB_LiquidNormal3);
-TEXTURE2D(_HB_LiquidPlates0);
-TEXTURE2D(_HB_LiquidPlates1);
-TEXTURE2D(_HB_LiquidPlates2);
-TEXTURE2D(_HB_LiquidPlates3);
+TEXTURE2D(_HB_LiquidMask0);
+TEXTURE2D(_HB_LiquidMask1);
+TEXTURE2D(_HB_LiquidMask2);
+TEXTURE2D(_HB_LiquidMask3);
 TEXTURE2D(_HB_UnderHeight);
 
 float4 _HB_LiquidRipple[4];
 float4 _HB_LiquidMolten[4];
 float4 _HB_LiquidUnderFog[4];
 float4 _HB_LiquidCrustTone[4];
+float4 _HB_LiquidLines[4];
+float4 _HB_LiquidFlow[4];
+float4 _HB_LiquidRock[4];
 float4 _HB_LiquidOptics[4];
 float4 _HB_LiquidStyle[4];
 float4 _HB_LiquidFoam[4];
@@ -59,9 +62,6 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_GLOW_HUE_LEAST 1e-3h
 #define HB_LIQUID_GLOW_LIT_LEAST 0.1h
 #define HB_LIQUID_GLOW_LIFT_MOST 8.0h
-#define HB_LIQUID_THROB_BASE     0.85
-#define HB_LIQUID_THROB_RANGE    0.15
-#define HB_LIQUID_THROB_GRAIN    9.0
 #define HB_LIQUID_SUN_SCATTER    0.5h
 #define HB_LIQUID_HALF_TONE      0.35h
 #define HB_LIQUID_BAKED_SOFTNESS 0.5h
@@ -169,23 +169,19 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_GLINT_FROM     0.72h
 #define HB_LIQUID_GLINT_TO       0.85h
 #define HB_LIQUID_GLINT_GAIN     4.0h
-#define HB_LIQUID_CRUST_SOFT     0.3h
-#define HB_LIQUID_CRUST_CALM     0.3h
-#define HB_LIQUID_CRUST_PATCH    0.35h
 #define HB_LIQUID_CRUST_TEXELS   256.0
-#define HB_LIQUID_LAVA_SHARP     20.0h
-#define HB_LIQUID_MELT_FLAT      0.8h
-#define HB_LIQUID_HEAT_GLOW      0.5h
-#define HB_LIQUID_RIM_FULL       0.85h
-#define HB_LIQUID_RIM_SPAN       0.2h
+#define HB_LIQUID_RING_GLOW      1.5h
 #define HB_LIQUID_ROCK_BOUNCE    1.2h
-#define HB_LIQUID_ROCK_RELIEF    1.0h
+#define HB_LIQUID_FLOW_SPEED     0.05
+#define HB_LIQUID_FLOW_HEADING   float2(0.83, 0.56)
+#define HB_LIQUID_FLOW_WAVES     2.0
+#define HB_LIQUID_FLOW_TURN      0.35
+#define HB_LIQUID_FLOW_REACH     0.06
 #define HB_LIQUID_ANISO_LEAST    0.25
 #define HB_LIQUID_FAR_LODS       6.0
 #define HB_LIQUID_FAR_FLATTEN    0.5h
 #define HB_LIQUID_FAR_SPREAD     0.4h
 #define HB_LIQUID_FAR_MOST       0.06h
-#define HB_LIQUID_THROB_CRUST    8.0h
 #define HB_LIQUID_BUBBLE_CELLS   6.0
 #define HB_LIQUID_BUBBLE_RADIUS  0.36
 #define HB_LIQUID_BUBBLE_POP     0.82
@@ -407,15 +403,18 @@ HBLiquidVaryings HB_LiquidVertex(HBLiquidAttributes input)
     return output;
 }
 
-float2 HB_LiquidGradientUV(float at, int slot)
+float2 HB_LiquidGradientUV(float at, int slot, half tone)
 {
-    float seen = _HB_LiquidMolten[slot].x > 0.0 ? at : min(at, _HB_LiquidMolten[slot].w);
+    float seen = min(at, _HB_LiquidMolten[slot].w);
+
+    if (tone >= 0.0h)
+        seen = lerp(seen, float(tone), _HB_LiquidFlow[slot].x);
 
     return float2((seen * (HB_LIQUID_GRADIENT_SIZE - 1.0) + 0.5) / HB_LIQUID_GRADIENT_SIZE,
                   (slot + 0.5) / HB_LIQUID_SLOTS);
 }
 
-HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
+HBLiquidLook HB_LiquidLookToned(half4 mix, float path, half4 tones)
 {
     HBLiquidLook look = (HBLiquidLook)0;
 
@@ -430,7 +429,7 @@ HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
         UNITY_BRANCH
         if (share > HB_LIQUID_SHARE_MIN)
         {
-            float2 uv = HB_LiquidGradientUV(at, slot);
+            float2 uv = HB_LiquidGradientUV(at, slot, tones[slot]);
             half4 depth = half4(SAMPLE_TEXTURE2D_LOD(_HB_LiquidGradient, sampler_LinearClamp, uv, 0));
             half4 optics = half4(_HB_LiquidOptics[slot]);
             half4 style = half4(_HB_LiquidStyle[slot]);
@@ -478,6 +477,11 @@ HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
     return look;
 }
 
+HBLiquidLook HB_LiquidLookAt(half4 mix, float path)
+{
+    return HB_LiquidLookToned(mix, path, half4(-1.0h, -1.0h, -1.0h, -1.0h));
+}
+
 half4 HB_LiquidShadeAt(float4 mix, float path)
 {
     float at = saturate((1.0 - exp(-max(path, 0.0) / HB_LIQUID_GRADIENT_DEPTH)) * HB_LIQUID_GRADIENT_END);
@@ -492,7 +496,7 @@ half4 HB_LiquidShadeAt(float4 mix, float path)
         UNITY_BRANCH
         if (share > HB_LIQUID_SHARE_MIN)
         {
-            float2 uv = HB_LiquidGradientUV(at, slot);
+            float2 uv = HB_LiquidGradientUV(at, slot, -1.0h);
 
             shade += half4(SAMPLE_TEXTURE2D_LOD(_HB_LiquidGradient, sampler_LinearClamp, uv, 0)) * share;
             total += share;
@@ -1046,15 +1050,11 @@ half3 HB_LiquidScaled(half3 raw, half strength)
     return half3(tilt, sqrt(saturate(1.0h - dot(tilt, tilt))));
 }
 
-half3 HB_LiquidRippleRead(TEXTURE2D_PARAM(map, samplerMap), TEXTURE2D_PARAM(plates, samplerPlates), float2 xz,
-                          float2 dx, float2 dy, float tiling, half strength, half calm, float pace, out half3 plate)
+half3 HB_LiquidRippleRest(TEXTURE2D_PARAM(map, samplerMap), half3 first, float2 xz, float2 dx, float2 dy,
+                          float tiling, half strength, float2 drift)
 {
-    float2 drift = HB_LiquidWind() * (HB_LIQUID_RIPPLE_SPEED * _Time.y * pace);
     float wide = tiling * HB_LIQUID_SECOND_SCALE;
-    float2 first = xz * tiling + frac(drift);
     float2 second = HB_LiquidTurn(xz, HB_LIQUID_SECOND_TURN) * wide + frac(drift * HB_LIQUID_SECOND_PACE);
-
-    half3 rawA = UnpackNormal(SAMPLE_TEXTURE2D_GRAD(map, samplerMap, first, dx * tiling, dy * tiling));
     half3 rawB = UnpackNormal(SAMPLE_TEXTURE2D_GRAD(map, samplerMap, second,
                                                     HB_LiquidTurn(dx, HB_LIQUID_SECOND_TURN) * wide,
                                                     HB_LiquidTurn(dy, HB_LIQUID_SECOND_TURN) * wide));
@@ -1063,21 +1063,10 @@ half3 HB_LiquidRippleRead(TEXTURE2D_PARAM(map, samplerMap), TEXTURE2D_PARAM(plat
     half3 rawC = UnpackNormal(SAMPLE_TEXTURE2D_GRAD(map, samplerMap, third,
                                                     HB_LiquidTurn(dx, HB_LIQUID_SWELL_TURN) * big,
                                                     HB_LiquidTurn(dy, HB_LIQUID_SWELL_TURN) * big));
-    half3 a = HB_LiquidScaled(rawA, strength);
-    half3 b = HB_LiquidScaled(rawB, strength * calm);
-    half3 c = HB_LiquidScaled(rawC, strength * (HB_LIQUID_SWELL_STRENGTH * calm));
+    half3 b = HB_LiquidScaled(rawB, strength);
+    half3 c = HB_LiquidScaled(rawC, strength * HB_LIQUID_SWELL_STRENGTH);
 
-    plate = half3(0.0h, 0.0h, 0.0h);
-
-    UNITY_BRANCH
-    if (calm < 1.0h)
-    {
-        half4 shape = half4(SAMPLE_TEXTURE2D_GRAD(plates, samplerPlates, first, dx * tiling, dy * tiling));
-
-        plate = half3(shape.r * lerp(1.0h - HB_LIQUID_CRUST_PATCH, 1.0h + HB_LIQUID_CRUST_PATCH, shape.g), shape.ba);
-    }
-
-    return normalize(half3(a.xy + b.xy + c.xy, a.z * b.z * c.z));
+    return normalize(half3(first.xy + b.xy + c.xy, first.z * b.z * c.z));
 }
 
 half HB_LiquidFarOf(float even, half4 ripple)
@@ -1103,31 +1092,68 @@ half3 HB_LiquidUnderCalm(half3 normalWS, half most)
     return half3(tilt.x, -sqrt(saturate(1.0h - dot(tilt, tilt))), tilt.y);
 }
 
-half HB_LiquidCrustOf(half plate, half amount)
+struct HBLiquidMask
 {
-    half threshold = 1.0h - amount;
+    half4 tone;
+    half solid;
+    half lines;
+    half edge;
+};
 
-    return smoothstep(threshold - HB_LIQUID_CRUST_SOFT, threshold + HB_LIQUID_CRUST_SOFT, plate)
-         * saturate(amount / HB_LIQUID_CRUST_SOFT);
+void HB_LiquidMaskRead(TEXTURE2D_PARAM(map, samplerMap), float2 uv, float2 dx, float2 dy, int slot,
+                       out half4 painted, out half solid)
+{
+    float4 flow = _HB_LiquidFlow[slot];
+    float time = _Time.y * flow.y * HB_LIQUID_FLOW_SPEED;
+    float2 wave = TWO_PI * (uv * HB_LIQUID_FLOW_WAVES + time * HB_LIQUID_FLOW_TURN);
+    float2 sway = float2(sin(wave.y), cos(wave.x)) * (flow.z * HB_LIQUID_FLOW_REACH);
+
+    painted = half4(SAMPLE_TEXTURE2D_GRAD(map, samplerMap, uv + sway, dx, dy));
+    solid = half(SAMPLE_TEXTURE2D_GRAD(map, samplerMap, uv, dx, dy).g);
+}
+
+float2 HB_LiquidShiftOf(int slot, bool masked)
+{
+    float flowTime = _Time.y * _HB_LiquidFlow[slot].y * HB_LIQUID_FLOW_SPEED;
+    float2 drift = HB_LiquidWind() * (HB_LIQUID_RIPPLE_SPEED * _Time.y * _HB_LiquidRipple[slot].w);
+
+    return masked ? HB_LIQUID_FLOW_HEADING * flowTime : drift;
 }
 
 #define HB_LIQUID_RIPPLE_SLOT(index)                                                                                 \
     UNITY_BRANCH                                                                                                     \
     if (live[index])                                                                                                 \
     {                                                                                                                \
-        half3 flat;                                                                                                  \
-        half3 read = HB_LiquidRippleRead(TEXTURE2D_ARGS(_HB_LiquidNormal##index, sampler_trilinear_repeat),          \
-                                         TEXTURE2D_ARGS(_HB_LiquidPlates##index, sampler_trilinear_repeat), along,   \
-                                         alongDx, alongDy, _HB_LiquidRipple[index].x,                                \
-                                         half(_HB_LiquidRipple[index].y) * rush, calm[index],                        \
-                                         _HB_LiquidRipple[index].w, flat);                                           \
+        float tiling = _HB_LiquidRipple[index].x;                                                                    \
+        half strength = half(_HB_LiquidRipple[index].y) * rush;                                                      \
+        float2 shift = HB_LiquidShiftOf(index, masked[index]);                                                       \
+        float2 first = along * tiling + frac(shift);                                                                 \
+        float2 tapDx = alongDx * tiling;                                                                             \
+        float2 tapDy = alongDy * tiling;                                                                             \
+        half3 read = HB_LiquidScaled(UnpackNormal(SAMPLE_TEXTURE2D_GRAD(_HB_LiquidNormal##index,                     \
+                                                                        sampler_trilinear_repeat, first, tapDx,      \
+                                                                        tapDy)), strength);                          \
+        UNITY_BRANCH                                                                                                 \
+        if (masked[index])                                                                                           \
+        {                                                                                                            \
+            half4 painted;                                                                                           \
+            half solid;                                                                                              \
+            HB_LiquidMaskRead(TEXTURE2D_ARGS(_HB_LiquidMask##index, sampler_trilinear_repeat), first, tapDx, tapDy,  \
+                              index, painted, solid);                                                                \
+            tones[index] += painted.r * weight;                                                                      \
+            mask.solid += solid * (weight * half(mix[index]));                                                       \
+            mask.lines += painted.b * (weight * half(mix[index]));                                                   \
+        }                                                                                                            \
+        else                                                                                                         \
+        {                                                                                                            \
+            read = HB_LiquidRippleRest(TEXTURE2D_ARGS(_HB_LiquidNormal##index, sampler_trilinear_repeat), read,      \
+                                       along, alongDx, alongDy, tiling, strength, shift);                            \
+        }                                                                                                            \
         sums[index] += half3(HB_LiquidBack(heading, read.xy), read.z) * weight;                                      \
-        plates[index] += flat.x * weight;                                                                            \
-        glowing += flat.yz * (weight * half(mix[index]));                                                            \
     }
 
-half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidStream stream, out half crust,
-                      out half2 glowing, out float even)
+half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidStream stream, out float even,
+                      out HBLiquidMask mask)
 {
     float wideX = length(dx);
     float wideY = length(dy);
@@ -1140,21 +1166,20 @@ half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidS
     half3 ripple = half3(0.0h, 0.0h, 1.0h);
     half rush = 1.0h + half(saturate(stream.speed / HB_LIQUID_STREAM_WHITE)) * HB_LIQUID_STREAM_RUSH;
     bool live[HB_LIQUID_SLOTS];
-    half calm[HB_LIQUID_SLOTS];
+    bool masked[HB_LIQUID_SLOTS];
     half3 sums[HB_LIQUID_SLOTS];
-    half plates[HB_LIQUID_SLOTS];
+    half4 tones = half4(0.0h, 0.0h, 0.0h, 0.0h);
 
-    crust = 0.0h;
-    glowing = half2(0.0h, 0.0h);
+    mask = (HBLiquidMask)0;
 
     UNITY_UNROLL
     for (int slot = 0; slot < HB_LIQUID_SLOTS; slot++)
     {
-        live[slot] = half(mix[slot]) > HB_LIQUID_SHARE_MIN
-                  && (_HB_LiquidRipple[slot].y > 0.0 || _HB_LiquidMolten[slot].x > 0.0);
-        calm[slot] = _HB_LiquidMolten[slot].x > 0.0 ? HB_LIQUID_CRUST_CALM : 1.0h;
+        bool share = half(mix[slot]) > HB_LIQUID_SHARE_MIN;
+
+        masked[slot] = share && _HB_LiquidFlow[slot].w > 0.0;
+        live[slot] = share && (_HB_LiquidRipple[slot].y > 0.0 || masked[slot]);
         sums[slot] = half3(0.0h, 0.0h, 0.0h);
-        plates[slot] = 0.0h;
     }
 
     HB_LIQUID_PHASES
@@ -1178,8 +1203,10 @@ half3 HB_LiquidRipple(float2 restXZ, float2 dx, float2 dy, float4 mix, HBLiquidS
         if (live[layer])
         {
             ripple += (normalize(sums[layer]) - half3(0.0h, 0.0h, 1.0h)) * half(mix[layer]);
-            crust += HB_LiquidCrustOf(plates[layer], half(_HB_LiquidMolten[layer].x)) * half(mix[layer]);
         }
+
+        mask.tone[layer] = masked[layer] ? tones[layer] : -1.0h;
+        mask.edge += masked[layer] ? half(_HB_LiquidCrustTone[layer].w) * half(mix[layer]) : 0.0h;
     }
 
     return normalize(half3(ripple.xy, max(ripple.z, HB_LIQUID_FLAT_LEAST)));
@@ -1288,16 +1315,6 @@ void HB_LiquidLights(float3 positionWS, float2 screenUV, half3 litNormalWS, half
         HB_LiquidLight(light, litNormalWS, normalWS, viewWS, brdfData, style, shading, reflection, scatter, foam);
     LIGHT_LOOP_END
 #endif
-}
-
-half HB_LiquidThrob(float4 mix, half grain)
-{
-    float pulse = HB_LiquidMixed(_HB_LiquidStyle, mix).z;
-    half crust = HB_LiquidMixed(_HB_LiquidMolten, mix).x;
-    half throb = half(HB_LIQUID_THROB_BASE + HB_LIQUID_THROB_RANGE * sin(_Time.y * pulse
-                                                                         + float(grain) * HB_LIQUID_THROB_GRAIN));
-
-    return lerp(1.0h, throb, saturate(crust * HB_LIQUID_THROB_CRUST));
 }
 
 half3 HB_LiquidGlowLift(half3 tone, half glow, half3 lit)
@@ -1425,19 +1442,23 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     float2 screenUV = GetNormalizedScreenSpaceUV(input.positionCS);
     HBLiquidStream stream = HB_LiquidStreamAt(restXZ, input.shear);
 
-    half crust;
-    half2 glowing;
+    float surfaceEye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
+    float thickness = max(HB_LiquidBehind(surfaceEye, screenUV), 0.0);
+    float deep = front ? HB_LiquidDeepBelow(input.positionWS, screenUV, input.foam.y) : input.foam.y;
+    float path = front ? HB_LiquidReach(thickness, input.positionWS, input.foam.y) : 0.0;
+
     float even;
-    half3 ripple = HB_LiquidRipple(restXZ, restDx, restDy, water.mix, stream, crust, glowing, even);
+    HBLiquidMask mask;
+    half3 ripple = HB_LiquidRipple(restXZ, restDx, restDy, water.mix, stream, even, mask);
     half4 rippleSet = HB_LiquidMixed(_HB_LiquidRipple, water.mix);
     half far = HB_LiquidFarOf(even, rippleSet);
-    half lava = saturate(HB_LiquidMixed(_HB_LiquidMolten, water.mix).x * HB_LIQUID_LAVA_SHARP);
-    half melt = (1.0h - crust) * lava;
-    half heat = glowing.y * melt;
-    half rim = saturate(max(1.0h - crust, (HB_LIQUID_RIM_FULL - glowing.x) * rcp(HB_LIQUID_RIM_SPAN))) * crust;
 
-    ripple.xy *= (1.0h - far * HB_LIQUID_FAR_FLATTEN) * (1.0h - melt * HB_LIQUID_MELT_FLAT)
-               * (1.0h + crust * lava * HB_LIQUID_ROCK_RELIEF);
+    half crust = mask.solid;
+    half ring = saturate(4.0h * mask.solid * (1.0h - mask.solid)) * mask.edge;
+    half4 lineTone = HB_LiquidMixed(_HB_LiquidLines, water.mix);
+    half lineCover = saturate(mask.lines * lineTone.w) * (1.0h - crust);
+
+    ripple.xy *= 1.0h - far * HB_LIQUID_FAR_FLATTEN;
     half3 normalWS = HB_LiquidRipples(input.positionWS, input.positionWS.y - input.wave.x,
                                        normalize(half3(ripple.x - half(slope.x), ripple.z, ripple.y - half(slope.y))),
                                        water.mix);
@@ -1455,15 +1476,10 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     }
 #endif
 
-    float surfaceEye = LinearEyeDepth(input.positionWS, GetWorldToViewMatrix());
-    float thickness = max(HB_LiquidBehind(surfaceEye, screenUV), 0.0);
-    float deep = front ? HB_LiquidDeepBelow(input.positionWS, screenUV, input.foam.y) : input.foam.y;
-    float path = front ? HB_LiquidReach(thickness, input.positionWS, input.foam.y) : 0.0;
-
-    float cooled = (1.0 - float(glowing.y)) / HB_LIQUID_GRADIENT_END;
-    HBLiquidLook look = HB_LiquidLookAt(water.mix, lerp(path, -HB_LIQUID_GRADIENT_DEPTH * log(1.0 - cooled), lava));
+    HBLiquidLook look = HB_LiquidLookToned(water.mix, path, mask.tone);
 
     look.murk = lerp(look.murk, 1.0h, crust);
+    look.smoothness = lerp(look.smoothness, HB_LiquidMixed(_HB_LiquidRock, water.mix).x, crust);
     HBLiquidFoam foam = HB_LiquidFoamAt(look, restXZ, restDx, restDy, deep, thickness,
                                         distance(input.positionWS, GetCameraPositionWS()), input.foam, shape,
                                         stream);
@@ -1557,13 +1573,13 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
 
     half3 skyLight = (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h)))
                    * 0.5h;
-    half throb = HB_LiquidThrob(water.mix, foam.grain);
     half3 lit = skyLight + (sunLight + extraLight) * HB_LIQUID_SUN_SCATTER;
-    half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * foam.grain) * throb
-              * (1.0h + heat * HB_LIQUID_HEAT_GLOW);
+    half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * foam.grain)
+              * (1.0h + ring * HB_LIQUID_RING_GLOW);
     half3 rock = HB_LiquidMixed(_HB_LiquidCrustTone, water.mix).rgb * (skyLight + sunResponse + extraFoam)
-               + look.tone * (glow * rim * rim * HB_LIQUID_ROCK_BOUNCE);
+               + look.tone * (glow * ring * HB_LIQUID_ROCK_BOUNCE);
     half3 inscatter = lerp(look.tone * look.murk * (lit + glow), rock, crust);
+
     half window = 1.0h;
 
     UNITY_BRANCH
@@ -1623,7 +1639,7 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     half fade = water.fade;
     half molten = 1.0h - crust;
     half cover = foam.cover * fade * molten;
-    half block = saturate(foam.cover * molten * rcp(HB_LIQUID_FOAM_MOST));
+    half block = saturate(max(foam.cover * molten * rcp(HB_LIQUID_FOAM_MOST), lineCover));
 
     HBTransparentFog fog = HB_TransparentFog(input.positionWS);
 
@@ -1634,7 +1650,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
         fog.clear = 1.0h;
     }
 
-    half3 colour = lerp((reflection + inscatter) * fade, spotColour, cover) * fog.clear + fog.colour * fade;
+    half3 surface = lerp((reflection + inscatter) * fade, lineTone.rgb * spotLight, lineCover * fade);
+    half3 colour = lerp(surface, spotColour, cover) * fog.clear + fog.colour * fade;
 
     colour += look.tone * (glow * foam.flash * HB_LIQUID_BUBBLE_FLASH * molten * fade * fog.clear);
 

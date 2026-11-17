@@ -51,7 +51,8 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How fast the small ripples, the crust and the brush strokes drift with the wind. 0 holds them " +
-                 "still; painted flow still moves them.")]
+                 "still; painted flow still moves them. With a Mask Map the bumps move with Motion instead, " +
+                 "together with the rocks.")]
         float m_RippleDrift = 1f;
 
         [SerializeField]
@@ -149,25 +150,64 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 8f)]
-        [Tooltip("How quickly bubbles swell and burst and how fast the glow under a crust throbs.")]
+        [Tooltip("How quickly bubbles swell and burst.")]
         float m_Pulse = 0f;
 
         [SerializeField]
         [Range(0.1f, 8f)]
-        [Tooltip("Size of the foam cells, the sun glints, the bubbles and the crust patches.")]
+        [Tooltip("Size of the foam cells, the sun glints and the bubbles.")]
         float m_PatternScale = 0.5f;
 
         [SerializeField]
+        [Tooltip("Mask map saved inside the layer by the Texture Studio. Red picks the colour along Depth Gradient, " +
+                 "green marks floating rocks, blue marks lines and foam. Without it the liquid is coloured by " +
+                 "depth alone.")]
+        Texture2D m_MaskMap;
+
+        [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How much of each plate in the normal map cools into crust, as on lava. The crust is lit like " +
-                 "rock while its cracks keep glowing, hottest where they are narrow. Foam and glow stay under the " +
-                 "crust. 0 turns it off.")]
-        float m_Crust;
+        [Tooltip("How much the Tone of the Mask Map picks the colour along Depth Gradient instead of depth. 1 " +
+                 "paints the liquid fully from the mask, as on lava. 0 colours it by depth alone.")]
+        float m_ToneAmount;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How strongly the lines and foam of the Mask Map show in Line Color.")]
+        float m_Lines;
 
         [SerializeField]
         [ColorUsage(false)]
-        [Tooltip("Colour of the cooled rock crust. Its edges catch the glow of the cracks around it.")]
-        Color m_CrustColor = new Color(0.26f, 0.17f, 0.18f);
+        [Tooltip("Colour of the lines and foam of the Mask Map. It is lit like foam.")]
+        Color m_LineColor = new Color(0.92f, 0.98f, 1f);
+
+        [SerializeField]
+        [ColorUsage(false)]
+        [FormerlySerializedAs("m_CrustColor")]
+        [Tooltip("Colour of the floating rocks of the Mask Map. Rocks are lit like stone.")]
+        Color m_RockColor = new Color(0.26f, 0.17f, 0.18f);
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How brightly the liquid glows in a thin ring around each rock, and how much that glow lights " +
+                 "the rock's edge. Needs Glow.")]
+        float m_RockEdge = 0.5f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How glossy the rocks are. Low gives dull, matte rock next to the " +
+                 "shiny liquid.")]
+        float m_RockSmoothness = 0.2f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How fast the Mask Map drifts across the surface. Rocks drift with it.")]
+        float m_FlowSpeed = 0.2f;
+
+        [SerializeField]
+        [Range(0f, 1f)]
+        [Tooltip("How much the colours and lines of the Mask Map curl and sway as they drift. Rocks keep their " +
+                 "shape.")]
+        float m_FlowSwirl = 0.3f;
 
         [SerializeField]
         [Range(0f, 1f)]
@@ -277,9 +317,23 @@ namespace HiddenBull.UrpStyle
 
         public float patternScale => m_PatternScale;
 
-        public float crust => m_Crust;
+        public Texture2D maskMap => m_MaskMap;
 
-        public Color crustColor => m_CrustColor;
+        public float toneAmount => m_ToneAmount;
+
+        public float lines => m_Lines;
+
+        public Color lineColor => m_LineColor;
+
+        public Color rockColor => m_RockColor;
+
+        public float rockEdge => m_RockEdge;
+
+        public float rockSmoothness => m_RockSmoothness;
+
+        public float flowSpeed => m_FlowSpeed;
+
+        public float flowSwirl => m_FlowSwirl;
 
         public float diffuseWrap => m_DiffuseWrap;
 

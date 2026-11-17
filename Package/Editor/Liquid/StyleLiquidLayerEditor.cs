@@ -9,11 +9,14 @@ namespace HiddenBull.UrpStyle.Editor
     {
         const string FoldKey = "HiddenBull.UrpStyle.Liquid.Layer.";
         const string NormalMapField = "m_NormalMap";
+        const string MaskMapField = "m_MaskMap";
 
         static readonly Color s_WaveTint = new Color(0.35f, 0.7f, 0.95f);
         static readonly Color s_ColourTint = new Color(0.3f, 0.85f, 0.8f);
         static readonly Color s_FoamTint = new Color(0.85f, 0.9f, 0.95f);
-        static readonly Color s_CrustTint = new Color(0.95f, 0.5f, 0.2f);
+        static readonly Color s_LinesTint = new Color(0.6f, 0.9f, 0.75f);
+        static readonly Color s_RockTint = new Color(0.95f, 0.5f, 0.2f);
+        static readonly Color s_FlowTint = new Color(0.75f, 0.6f, 0.95f);
         static readonly Color s_UnderTint = new Color(0.3f, 0.45f, 0.85f);
 
         static readonly string[] s_WaveFields =
@@ -23,14 +26,15 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly string[] s_SurfaceFields =
         {
-            "m_Tiling", "m_NormalMap", "m_NormalStrength", "m_RippleDrift", "m_Smoothness", "m_SurfaceDistortion",
-            "m_RefractionBlur",
-            "m_Brush", "m_BrushSize", "m_RainRipples"
+            "m_Tiling", "m_NormalMap", "m_MaskMap", "m_NormalStrength", "m_RippleDrift", "m_Smoothness",
+            "m_SurfaceDistortion", "m_RefractionBlur", "m_DiffuseWrap", "m_DiffuseSoftness", "m_Brush", "m_BrushSize",
+            "m_RainRipples"
         };
 
         static readonly string[] s_ColourFields =
         {
-            "m_DepthGradient", "m_Glow", "m_Caustics", "m_CausticScale", "m_CrestColor", "m_CrestSoftness"
+            "m_DepthGradient", "m_ToneAmount", "m_Glow", "m_Caustics", "m_CausticScale", "m_CrestColor",
+            "m_CrestSoftness"
         };
 
         static readonly string[] s_FoamFields =
@@ -38,7 +42,20 @@ namespace HiddenBull.UrpStyle.Editor
             "m_FoamColor", "m_WaterlineDepth", "m_FoamAmount", "m_ShoreFoam", "m_Bubbles", "m_Pulse", "m_PatternScale"
         };
 
-        static readonly string[] s_CrustFields = { "m_Crust", "m_CrustColor", "m_DiffuseWrap", "m_DiffuseSoftness" };
+        static readonly string[] s_RockFields =
+        {
+            "m_RockColor", "m_RockEdge", "m_RockSmoothness"
+        };
+
+        static readonly string[] s_LineFields =
+        {
+            "m_Lines", "m_LineColor"
+        };
+
+        static readonly string[] s_FlowFields =
+        {
+            "m_FlowSpeed", "m_FlowSwirl"
+        };
 
         static readonly string[] s_UnderFields =
         {
@@ -67,8 +84,14 @@ namespace HiddenBull.UrpStyle.Editor
             if (StyleTerrainGUI.Section("Foam And Bubbles", s_FoamTint, FoldKey + "Foam", true))
                 Fields(layer, s_FoamFields, studio);
 
-            if (StyleTerrainGUI.Section("Crust", s_CrustTint, FoldKey + "Crust", false))
-                Fields(layer, s_CrustFields, studio);
+            if (StyleTerrainGUI.Section("Rocks", s_RockTint, FoldKey + "Rocks", true))
+                Fields(layer, s_RockFields, studio);
+
+            if (StyleTerrainGUI.Section("Lines", s_LinesTint, FoldKey + "Lines", true))
+                Fields(layer, s_LineFields, studio);
+
+            if (StyleTerrainGUI.Section("Motion", s_FlowTint, FoldKey + "Motion", true))
+                Fields(layer, s_FlowFields, studio);
 
             if (StyleTerrainGUI.Section("Underwater", s_UnderTint, FoldKey + "Underwater", false))
                 Fields(layer, s_UnderFields, studio);
@@ -78,7 +101,7 @@ namespace HiddenBull.UrpStyle.Editor
         {
             foreach (var field in names)
             {
-                if (studio && field == NormalMapField)
+                if (studio && (field == NormalMapField || field == MaskMapField))
                     continue;
 
                 EditorGUILayout.PropertyField(layer.FindProperty(field));

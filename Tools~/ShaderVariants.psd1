@@ -1232,8 +1232,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3755
-            Reads = 145
+            Slots = 4060
+            Reads = 148
         }
         @{
             Name = 'Liquid Surface (debug)'
@@ -1479,46 +1479,6 @@
             Name = 'Liquid Waves Caustics'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
             Entry = 'Caustics'
-            Stage = 'cs'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 0
-            Reads = 0
-        }
-        @{
-            Name = 'Liquid Waves PlateMask'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
-            Entry = 'PlateMask'
-            Stage = 'cs'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 0
-            Reads = 0
-        }
-        @{
-            Name = 'Liquid Waves PlateSpread'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
-            Entry = 'PlateSpread'
-            Stage = 'cs'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 0
-            Reads = 0
-        }
-        @{
-            Name = 'Liquid Waves PlateFill'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
-            Entry = 'PlateFill'
-            Stage = 'cs'
-            Urp = 'Minimal'
-            Defines = @()
-            Slots = 0
-            Reads = 0
-        }
-        @{
-            Name = 'Liquid Waves PlateTone'
-            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidWaves.compute'
-            Entry = 'PlateTone'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()
@@ -1977,6 +1937,66 @@
             Name = 'Texture Studio Cloud Show'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleCloudStudio.compute'
             Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid ClearMask'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'ClearMask'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid MaskLayer'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'MaskLayer'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid MaskHeight'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'MaskHeight'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Warp'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Warp'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Blur'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Blur'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Liquid Levels'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
+            Entry = 'Levels'
             Stage = 'cs'
             Urp = 'Minimal'
             Defines = @()
