@@ -92,6 +92,16 @@ namespace HiddenBull.UrpStyle.Editor
             return material.HasProperty(property) && material.GetFloat(property) >= 0.5f;
         }
 
+        protected static bool HasTexture(Material material, string property)
+        {
+            return material.HasProperty(property) && material.GetTexture(property) != null;
+        }
+
+        protected static bool HasTexture(MaterialProperty property)
+        {
+            return property != null && property.textureValue != null;
+        }
+
         protected static MaterialProperty Optional(string name, MaterialProperty[] properties)
         {
             return FindProperty(name, properties, false);

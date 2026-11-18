@@ -750,3 +750,30 @@ Not measured, left for the user's game and Phase 12: the liquid surface in ms on
 The geometric normal and the SSR lift cost Lit 14–16 slots; the Lit and Foliage GPU budgets moved by the measured
 amount. The terrain now always runs the specular path and still fits its budgets. The grass compute reads the
 shelter map for shore wetness; it has no budget.
+
+## Phase 11 — Shader Graph
+
+### Phase 11 closed (2026-11-18): final offline costs (compiled offline; the user confirmed the nodes in Unity)
+
+Graph rows compile `Tools~/Shaders/GraphProbe.hlsl` (HB Base with the listed sections, Unlit forward); the added
+numbers are above URP Lit forward (1048 / 101).
+
+| Variant | Slots | Reads | Added above URP | Budget |
+|---|---|---|---|---|
+| Graph Base (plain) | 1675 | 116 | 627 / 15 | 627 / 15 — OK |
+| Graph Base (maps) | 1699 | 120 | 651 / 19 | 651 / 19 — OK |
+| Graph Base (maps, brush) | 2225 | 122 | 1177 / 21 | 1177 / 21 — OK |
+| Graph Base (maps, triplanar port wired) | 1859 | 129 | 811 / 28 | 811 / 28 — OK |
+| Graph Base (maps, brush, triplanar port wired) | 2411 | 134 | 1363 / 33 | 1363 / 33 — OK |
+| Graph Base (weather only) / (weather moving only) | 2879 / 2886 | 131 / 132 | 1831 / 30, 1838 / 31 | same — OK |
+| Graph Base (all, skin) / (all, cloth) | 1943 / 1919 | 128 / 127 | 895 / 27, 871 / 26 | same — OK |
+| Graph Base (APV) | 1069 | 63 | 21 / −38 | 21 / 0 — OK |
+| Graph Decal (HB Decal node, DBuffer) | 563 | 5 | – | – |
+
+Triplanar is a Boolean port, not a keyword: left at a constant off it compiles out (the maps row); wired to a
+property, both the UV and the triplanar path compile and a branch picks one (the triplanar rows). For comparison Lit
+all UV / all triplanar adds 2637 / 38 and 2717 / 46. The HB Decal shader is 602 / 7 for the whole pass.
+
+Before Phase 11 the cavity pass was removed (2026-11-17), so its 0.4 ms budget and its rows are gone. Lit and
+Foliage costs are unchanged by the phase; the Use Base / Normal / Mask / Translucency Map toggles were replaced by
+"texture assigned" keywords set by the material GUI.

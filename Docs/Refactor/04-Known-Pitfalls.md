@@ -109,7 +109,8 @@ Read this before touching the related system. Each entry: **symptom â†’ cause â†
 | Shadows | ZClip / depth clamp change for pancaking | User sets Near Plane = 1. |
 | Variant stripping | Pass-level stripping (ForwardLit on transparent, transparent passes on opaque) | Risky for runtime-created materials. Only strip keywords that are provably unused project-wide. |
 | Transparency | Weighted-Blended OIT tiers | Sorted forward since 2026-11-02; MBOIT was replaced too (kept in commit fb167c6). |
-| Shader Graph | A base/template graph | Node library only. |
+| Shader Graph | Transparent graphs and a takeover of URP's transparent queue | Third-party transparents (TextMesh Pro) draw twice; opaque graphs only. |
+| Shader Graph | Integer ports and keywords on sub graph nodes | Integer mode is ignored on ports, keywords never reach the material; use Boolean ports and read texture use from the graph file. |
 | Brush | "Minimum Detail" setting | Destroyed fine detail, no FPS gain. |
 | Temporal | A temporal accumulation layer | Dropped. |
 | Plants | A separate plant Raycast call next to `Physics.Raycast` | Hidden static colliders, plain `Physics.Raycast` + `HBStylePlantBody`. |

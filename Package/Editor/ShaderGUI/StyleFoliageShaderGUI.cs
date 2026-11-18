@@ -64,43 +64,11 @@ namespace HiddenBull.UrpStyle.Editor
 
         void DrawPlantMaps(MaterialEditor materialEditor)
         {
-            var reset = ResetAction(materialEditor, m_BaseMapEnabled, m_NormalMapEnabled, m_BumpScale,
-                                    m_MaskMapEnabled);
+            var reset = ResetAction(materialEditor, m_BumpScale);
             var expanded = StyleMaterialHeader.Draw(Styles.Maps, "Foliage.Maps", materialEditor, reset: reset);
 
             if (expanded)
-            {
-                materialEditor.ShaderProperty(m_BaseMapEnabled, m_BaseMapEnabled.displayName);
-
-                if (IsEnabled(m_BaseMapEnabled))
-                {
-                    using (new EditorGUI.IndentLevelScope())
-                    {
-                        materialEditor.TexturePropertySingleLine(new GUIContent(m_BaseMap.displayName), m_BaseMap);
-                        materialEditor.TextureScaleOffsetProperty(m_BaseMap);
-                    }
-                }
-
-                if (m_NormalMapEnabled != null)
-                {
-                    materialEditor.ShaderProperty(m_NormalMapEnabled, m_NormalMapEnabled.displayName);
-
-                    if (IsEnabled(m_NormalMapEnabled))
-                    {
-                        using (new EditorGUI.IndentLevelScope())
-                            materialEditor.TexturePropertySingleLine(new GUIContent(m_BumpMap.displayName), m_BumpMap,
-                                                                     m_BumpScale);
-                    }
-
-                    materialEditor.ShaderProperty(m_MaskMapEnabled, m_MaskMapEnabled.displayName);
-
-                    if (IsEnabled(m_MaskMapEnabled))
-                    {
-                        using (new EditorGUI.IndentLevelScope())
-                            materialEditor.TexturePropertySingleLine(Styles.BodyMask, m_MaskMap);
-                    }
-                }
-            }
+                DrawMapFields(materialEditor, Styles.BodyMask);
 
             StyleMaterialHeader.End(expanded);
         }

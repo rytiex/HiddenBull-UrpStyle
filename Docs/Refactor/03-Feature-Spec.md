@@ -38,7 +38,10 @@ Particles, Decals, Shader Graph nodes.
 
 ### Lit
 - Sections: Surface, Maps (Base/Normal/Mask, Triplanar with its own Mapping Space), Shading, Brush,
-  Specular/Rim, Subsurface (skin/cloth), Emission, Weather (Receive Weather None / Static / Moving), Cavity.
+  Specular/Rim, Subsurface (skin/cloth), Emission, Weather (Receive Weather None / Static / Moving). Cavity was
+  removed on 2026-11-17.
+- Maps have no "Use … Map" toggles (Phase 11): the material GUI turns `_HB_BASE_MAP`, `_NORMALMAP`, `_HB_MASK_MAP`
+  and `_HB_THICKNESS_MAP` on when that texture is assigned (Lit, Foliage, Foliage Body, Transparent).
 - Receive Weather: **Static** = world-space patterns, full wetness, snow blanket, shelters what is below;
   **Moving** = beaded drops / flakes in object or rest space, **never shelters**; **None** = untouched.
 - Mask map: R metallic, G occlusion, B height (terrain), A smoothness.
@@ -1041,7 +1044,11 @@ transparency; the MBOIT build stays in commit `fb167c6` for reference only.
   Transparency ≤ 0.6 ms without refraction and the refraction cost are measured in Phase 12. The overlay camera
   case was not tested by the user.
 
-## 12. Cavity / edge highlight — New
+## 12. Cavity / edge highlight — Removed
+
+**Removed by the user on 2026-11-17** (before Phase 11): the cavity pass, its shaders, the Quality and Environment
+profile sections, the Lit `_Cavity` toggle and the debug view are gone; Lit's DepthNormals writes the resolved normal
+with no cavity data. The rest of this section is history.
 
 Blender-viewport-style cavity: thin light lines on convex edges, darkening in concave corners.
 - Screen-space pass from depth + normals (shared with SSAO's DepthNormals), half or full resolution by
@@ -1125,9 +1132,39 @@ Common framework first, then pages.
 
 ## 14. Shader Graph — Change
 
-Node library for **Unlit** graphs, no template: HB Style Lighting (incl. specular/metallic), HB Brush,
-HB Weather Static, HB Weather Moving, HB Atmosphere, HB Cavity. Each node brings its own keywords. Graph
-shaders appear under `HB URP Style/`.
+- **Final state (Phase 11, closed by the user on 2026-11-18; this block is binding):**
+  - **Where**: sub graphs in `Package/ShaderGraph/` (node menu `HB URP Style`), HLSL in `HBShaderGraph.hlsl` and
+    `Includes/HBGraph*.hlsl`; editor code in `Package/Editor/ShaderGraph/` and `StyleGraphMapKeywords.cs` (Editor
+    assembly, no ShaderGraph assembly). Offline checks: `Tools~/Shaders/GraphProbe.hlsl` and `GraphDecalProbe.hlsl`.
+  - **Graphs**: URP **Unlit**, **Opaque only**, Keep Lighting Variants on. Each rule is an `#error` with the fix in
+    its text; a transparent graph is told to use `HB URP Style/Transparent`. Transparent graph support and a
+    transparency takeover of URP's transparent queue were built and removed: third-party transparents (TextMesh Pro,
+    legacy shaders) would draw twice, and a per-material filter cannot be built. Fog reaches graphs through the
+    full-screen atmosphere pass like Lit, so there is no Atmosphere node; cavity was removed from the package, so
+    there is no Cavity node.
+  - **HB Base** (Color, Alpha into the Unlit outputs): geometry inputs, Diffuse Wrap / Softness, Half Tone, Baked
+    Tones / Softness and one `float4x4` input per section. Section nodes feed it: **HB Maps** (Base Color, Base / Normal
+    / Mask Map, Normal Scale, Triplanar on/off, Mapping Space 0 World / 1 Object / 2 Rest Pose, rounded to a whole
+    number in code, Brush Paint), **HB Brush**, **HB Specular**, **HB Rim Light**, **HB Subsurface** (Material keyword
+    Skin / Cloth on the node), **HB Emission**, **HB Weather (Static)**, **HB Weather (Moving)** (vertex offset output;
+    collapses in the shelter pass). Same lighting, brush, decal and weather code as Lit (`StyleSubsurface.hlsl` was
+    split out of Lit for this).
+  - **Inputs on sub graph nodes** are plain ports: Shader Graph ignores Integer mode on sub graph ports, and sub graph
+    keywords never reach the material inspector. On/off options are Boolean ports; to expose one, wire a property.
+  - **Map keywords are automatic**: `StyleGraphMapKeywords` reads the graph file and turns `_HB_BASE_MAP`,
+    `_HB_NORMAL_MAP`, `_HB_MASK_MAP`, `_HB_THICKNESS_MAP` and `_HB_BRUSH_MASK` on when that texture port is connected
+    to a property with a texture, or has a texture of its own. Runs on material change, material import and graph
+    import.
+  - **Material GUI**: `StyleGraphShaderGUI` wraps URP's Unlit graph GUI and hides internal properties
+    (`_ReceiveWeather`) together with their empty category header.
+  - **HB Decal** node for URP **Decal** graphs: Base Map, Base Color, Normal Map, Normal Strength, Normal Opacity,
+    Affect Normal, Affect Surface, Metallic, Smoothness, Edge Wear, Brush Size, Stroke Alpha; outputs Base Color,
+    Alpha (texture alpha × edge wear × brush strokes, the HB Decal shader's formula), Normal, Normal Alpha, Metallic,
+    Smoothness, MAOS Alpha. Edge wear needs a Decal Projector (box position); URP applies its fade after the node.
+  - **Create menu** `Assets/Create/Shader Graph/`: **HB URP Style Graph** (Unlit graph with HB Base wired) and **HB
+    URP Style Decal Graph** (Decal graph, Affect Normal and MAOS on, HB Decal wired to every output, the 12 settings
+    exposed as material properties with the HB Decal shader's names). The user asked for both templates.
+  - Costs: last section of `08`.
 
 ## 15. Tools
 

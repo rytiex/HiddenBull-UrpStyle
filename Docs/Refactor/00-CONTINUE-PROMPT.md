@@ -10,15 +10,15 @@ You are continuing the HiddenBull URP Style v1 rebuild (Unity 6000.4.1f1, URP 17
 `C:\Users\rytie\Documents\Github\HiddenBull-UrpStyle`, branch `refactor/v1`. This continues an earlier session
 exactly where it stopped.
 
-**Status (2026-11-17):** Phases 0–10 are closed; 7 and 8 ran before 6 by my choice. Phase 10 Texture Studio
-closed on 2026-11-17: its final state is the first block of 03 §13, and the liquid change it brought (Studio-made mask
-maps, runtime plate bake and Shore Crust removed) is the Phase 10 block of 03 §10. Phase 9 Cavity + Decal is 03 §12
-and the Decal block of 03 §4, Phase 6 Liquids the first block of 03 §10 with the shelter block at the top of 03 §7,
-Phase 5 Grass the first block of 03 §9, Phase 7 Foliage + Billboards 03 §4, Phase 8 Transparency 03 §11. Costs are
-the last sections of 08. The game has buildings that players build and tear down; vehicles use Moving, Static is only
-for what never moves. Every texture of the game comes from the Texture Studio; there is no Sandbox build, I measure
-in my own game. After the close a round of fixes followed (cavity dead zone, wet tone, shore wetness, SSR
-self-hit lift, terrain specular, Brush Paint 0.25); they are the last block of 03 §13 and the last section of 08.
+**Status (2026-11-18):** Phases 0–11 are closed; 7 and 8 ran before 6 by my choice. Phase 11 Shader Graph closed on
+2026-11-18: its final state is 03 §14 (opaque Unlit node library, HB Decal node for URP Decal graphs, two Create-menu
+templates, automatic map keywords), costs in the last section of 08. Before it, cavity was removed from the package
+(03 §12 says so) and Lit, Foliage and Transparent lost their "Use … Map" toggles (assigning a texture turns the map
+on). Phase 10 Texture Studio is the first block of 03 §13, Phase 9 Decal the Decal block of 03 §4, Phase 6 Liquids
+the first block of 03 §10 with the shelter block at the top of 03 §7, Phase 5 Grass the first block of 03 §9, Phase 7
+Foliage + Billboards 03 §4, Phase 8 Transparency 03 §11. The game has buildings that players build and tear down;
+vehicles use Moving, Static is only for what never moves. Every texture of the game comes from the Texture Studio;
+there is no Sandbox build, I measure in my own game.
 
 Read before doing anything (do not ask me what these answer):
 
@@ -26,46 +26,36 @@ Read before doing anything (do not ask me what these answer):
    `C:\Users\rytie\.claude\projects\C--Users-rytie-Documents-Github-HiddenBull-UrpStyle\memory\`). Binding,
    especially `confirm-before-new-work.md` and `shelter-rewrite-plan.md`.
 2. `Docs/Refactor/01-Vision-and-Rules.md`, `04-Known-Pitfalls.md`, `05-Roadmap.md`, `07-Tooling.md` in full.
-3. `Docs/Refactor/03-Feature-Spec.md` §14 Shader Graph, §1 Lighting core, §3 Brush and the first blocks
-   of §7 and §12.
+3. `Docs/Refactor/03-Feature-Spec.md` §15 Tools, §16 Runtime API, §14 Shader Graph and §1 Lighting core.
 4. `Docs/Refactor/02-Architecture.md`: skim only.
 5. `Docs/Refactor/08-Cost-Report.md`: only the last section (current budgets).
 
-**The tree may hold uncommitted work.** The fixes after Phase 10 and their docs may be uncommitted.
+**The tree may hold uncommitted work.** The Phase 11 work and its docs may be uncommitted.
 Git is my job; do not commit, only check `git status` so you know what you are standing on.
 
 **Not run or not confirmed in Unity:** the slow return of snow after a roof is removed since the cover age moved to
 its own texture; `HBStyleLiquid.TryGetDepth`; the overlay camera with glass; whether the outer shelter cascade
 (2560 m) hitches on the frame it is redrawn; colliders, harvest and the billboard leaf light fix from Phase 7; liquid
-mask maps following the flow on a Liquid Terrain river. From the fixes after Phase 10, the user confirmed the cavity
-dead zone, the wet tone, the shore wetness and the SSR spots; mesh-only cavity, the Brush Paint default, the two
-terrain editor fixes and every look after the revert of the unconfirmed SSR and specular changes are not confirmed.
+mask maps following the flow on a Liquid Terrain river. From the fixes after Phase 10, the user confirmed the wet
+tone, the shore wetness and the SSR spots; the Brush Paint default and the two terrain editor fixes are not
+confirmed. From Phase 11, the HB Decal template and the material inspector of graph materials made with it were
+checked only through the user's phase confirmation, not one by one.
 
 **Every surface shader sits within a few slots of its budget** (see the last section of 08). Anything that adds to
 one of them must cut something first or come with a measured budget raise that I approve.
 
-**Open problems before Phase 11 (fix these first, one at a time, before Phase 11):**
+**Open before Phase 12 (ask me first, one at a time):**
 
-1. **SSR stripes on water came back.** Wavy water shows horizontal stripes of the reflected ground. A looser hit
-   test in `HB_ReflectTrace` (StyleScreenReflection.hlsl) had fixed them and was reverted on 2026-11-17 with the
-   other unconfirmed changes. It replaced
-   `if (rcp(lerp(nearStart, nearEnd, behind)) <= HB_ReflectThick(HB_ReflectEye(start + span * behind)))` with
-   `float nearest = max(lerp(nearStart, nearEnd, front), lerp(nearStart, nearEnd, behind));` and
-   `if (nearest * HB_ReflectThick(HB_ReflectEye(start + span * behind)) >= 1.0)`. Putting it back is the likely
-   fix; first check with me whether problem 2 is still there without it.
-2. **Wet grass brighter than the ground under it with SSR on.** With Reflections off they match, so SSR is the
-   difference. It was suspected (not measured) that the looser hit test of problem 1 caused it. Specular
-   anti-aliasing, horizon occlusion and an SSR fade on meadow terrain were tried and reverted; do not try them
-   again. Ask me for the debug view that shows the data before any change.
-3. **Cavity debug view** still shows thin lines on a round object (a circle and a few straight lines on flat
-   grey). The 0.02 dead zone removed the 8-bit normal-step lines on smooth slopes; the remaining lines may be real
-   mesh edges. Ask me which object it is and where lines must not appear before changing anything.
-4. Run the test list of the fixes after Phase 10 with me (03 §13, last block) and note what I confirm.
+1. **SSR on wet grass and wavy water.** At the Phase 10 close, wet grass blades looked brighter than the wet ground
+   under them with SSR on, and stripes of reflected ground showed on wavy water. The SSR hit test was refined in a
+   later commit; whether either problem is still there is not confirmed. Ask me before any change. Specular
+   anti-aliasing, horizon occlusion and an SSR fade on meadow terrain were tried and reverted; do not try them again.
+2. **Snow on statically batched meshes.** Static batching breaks `unity_RendererBounds`, which snow reads (see the
+   memory). Talk with me before changing anything.
 
-**Next job: Phase 11 Shader Graph** (05 and 03 §14). The old package had a node library on `main` under
-`Package/ShaderGraph/` (HB Style Lighting, HB Weather Static / Moving, HB Fog sub-graphs, an HB Lit template and
-`Docs/Features/ShaderGraph.md`); v1 has none yet. Start with a design talk: name the first step in one line and wait
-for my yes.
+**Next job: Phase 12 Finish** (05): runtime settings API (`HBStyleRenderSettings`), Bake Panel, variant stripping
+(provable only), docs, golden screenshots, final Profiler measurement in my game. Start with a design talk: name the
+first step in one line and wait for my yes.
 
 For the Bake Panel in Phase 12: it must check that APV Dilation is on (04 §1.25).
 

@@ -228,9 +228,6 @@ namespace HiddenBull.UrpStyle.Editor
             public static readonly GUIContent ClothTransmissionColor = new GUIContent(
                 "Transmission Color", "Colour of the light that passes through the cloth.");
 
-            public static readonly GUIContent ThicknessMapToggle = new GUIContent(
-                "Use Translucency Map", "Takes the thinness from a painted map instead of measuring it.");
-
             public static readonly GUIContent ThicknessMap = new GUIContent(
                 "Translucency Map", "Red channel: white where the skin is thin, black where it is thick.");
 
@@ -264,9 +261,6 @@ namespace HiddenBull.UrpStyle.Editor
             ("_BrushMaskEnabled", "_HB_BRUSH_MASK"),
             ("_RimEnabled", "_HB_RIM"),
             ("_SpecularEnabled", "_HB_SPECULAR"),
-            ("_BaseMapEnabled", "_HB_BASE_MAP"),
-            ("_NormalMapEnabled", "_NORMALMAP"),
-            ("_MaskMapEnabled", "_HB_MASK_MAP"),
             ("_TriplanarEnabled", "_HB_TRIPLANAR"),
             ("_EmissionEnabled", "_HB_EMISSION"),
             ("_SubsurfaceEnabled", "_HB_SUBSURFACE")
@@ -275,12 +269,9 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_BaseColor;
         MaterialProperty m_TriplanarEnabled;
         MaterialProperty m_TriplanarSpace;
-        protected MaterialProperty m_BaseMapEnabled;
         protected MaterialProperty m_BaseMap;
-        protected MaterialProperty m_NormalMapEnabled;
         protected MaterialProperty m_BumpMap;
         protected MaterialProperty m_BumpScale;
-        protected MaterialProperty m_MaskMapEnabled;
         protected MaterialProperty m_MaskMap;
         MaterialProperty m_DiffuseWrap;
         MaterialProperty m_DiffuseSoftness;
@@ -317,7 +308,6 @@ namespace HiddenBull.UrpStyle.Editor
         MaterialProperty m_TransmissionBend;
         MaterialProperty m_TransmissionFocus;
         MaterialProperty m_TransmissionColor;
-        MaterialProperty m_ThicknessMapEnabled;
         MaterialProperty m_ThicknessMap;
         MaterialProperty m_SheenColor;
         MaterialProperty m_SheenStrength;
@@ -391,6 +381,10 @@ namespace HiddenBull.UrpStyle.Editor
             foreach (var (property, keyword) in s_ToggleKeywords)
                 CoreUtils.SetKeyword(material, keyword, GetToggle(material, property));
 
+            CoreUtils.SetKeyword(material, "_HB_BASE_MAP", HasTexture(material, "_BaseMap"));
+            CoreUtils.SetKeyword(material, "_NORMALMAP", HasTexture(material, "_BumpMap"));
+            CoreUtils.SetKeyword(material, "_HB_MASK_MAP", HasTexture(material, "_MaskMap"));
+
             var weather = material.HasProperty("_ReceiveWeather")
                 ? Mathf.RoundToInt(material.GetFloat("_ReceiveWeather"))
                 : 0;
@@ -408,7 +402,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             CoreUtils.SetKeyword(material, "_HB_CLOTH", cloth);
             CoreUtils.SetKeyword(material, "_HB_THICKNESS_MAP",
-                                 subsurface && !cloth && GetToggle(material, "_ThicknessMapEnabled"));
+                                 subsurface && !cloth && HasTexture(material, "_ThicknessMap"));
 
             var flags = material.globalIlluminationFlags;
 
@@ -430,12 +424,9 @@ namespace HiddenBull.UrpStyle.Editor
             m_BaseColor = Optional("_BaseColor", properties);
             m_TriplanarEnabled = Optional("_TriplanarEnabled", properties);
             m_TriplanarSpace = Optional("_TriplanarSpace", properties);
-            m_BaseMapEnabled = Optional("_BaseMapEnabled", properties);
             m_BaseMap = Optional("_BaseMap", properties);
-            m_NormalMapEnabled = Optional("_NormalMapEnabled", properties);
             m_BumpMap = Optional("_BumpMap", properties);
             m_BumpScale = Optional("_BumpScale", properties);
-            m_MaskMapEnabled = Optional("_MaskMapEnabled", properties);
             m_MaskMap = Optional("_MaskMap", properties);
             m_DiffuseWrap = Optional("_DiffuseWrap", properties);
             m_DiffuseSoftness = Optional("_DiffuseSoftness", properties);
@@ -472,7 +463,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_TransmissionBend = Optional("_TransmissionBend", properties);
             m_TransmissionFocus = Optional("_TransmissionFocus", properties);
             m_TransmissionColor = Optional("_TransmissionColor", properties);
-            m_ThicknessMapEnabled = Optional("_ThicknessMapEnabled", properties);
             m_ThicknessMap = Optional("_ThicknessMap", properties);
             m_SheenColor = Optional("_SheenColor", properties);
             m_SheenStrength = Optional("_SheenStrength", properties);
@@ -507,7 +497,7 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 materialEditor.ShaderProperty(m_BaseColor, m_BaseColor.displayName);
 
-                if (!IsEnabled(m_BaseMapEnabled) && !IsEnabled(m_NormalMapEnabled) && !IsEnabled(m_MaskMapEnabled))
+                if (!HasTexture(m_BaseMap) && !HasTexture(m_BumpMap) && !HasTexture(m_MaskMap))
                     EditorGUILayout.HelpBox(Styles.AlbedoOnlyHint, MessageType.None);
             }
 
@@ -516,8 +506,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         protected void DrawMaps(MaterialEditor materialEditor)
         {
-            var reset = ResetAction(materialEditor, m_TriplanarEnabled, m_TriplanarSpace, m_BaseMapEnabled,
-                                    m_NormalMapEnabled, m_BumpScale, m_MaskMapEnabled);
+            var reset = ResetAction(materialEditor, m_TriplanarEnabled, m_TriplanarSpace, m_BumpScale);
             var expanded = StyleMaterialHeader.Draw(Styles.Maps, "Maps", materialEditor, reset: reset);
 
             if (expanded)
@@ -530,43 +519,26 @@ namespace HiddenBull.UrpStyle.Editor
                     {
                         materialEditor.ShaderProperty(m_TriplanarSpace, Styles.TriplanarSpace);
 
-                        if (!IsEnabled(m_BaseMapEnabled))
-                            materialEditor.TextureScaleOffsetProperty(m_BaseMap);
-
                         DrawRestPoseWarning(materialEditor, m_TriplanarSpace);
                     }
                 }
 
-                materialEditor.ShaderProperty(m_BaseMapEnabled, m_BaseMapEnabled.displayName);
-
-                if (IsEnabled(m_BaseMapEnabled))
-                {
-                    using (new EditorGUI.IndentLevelScope())
-                    {
-                        materialEditor.TexturePropertySingleLine(new GUIContent(m_BaseMap.displayName), m_BaseMap);
-                        materialEditor.TextureScaleOffsetProperty(m_BaseMap);
-                    }
-                }
-
-                materialEditor.ShaderProperty(m_NormalMapEnabled, m_NormalMapEnabled.displayName);
-
-                if (IsEnabled(m_NormalMapEnabled))
-                {
-                    using (new EditorGUI.IndentLevelScope())
-                        materialEditor.TexturePropertySingleLine(new GUIContent(m_BumpMap.displayName), m_BumpMap,
-                                                                 m_BumpScale);
-                }
-
-                materialEditor.ShaderProperty(m_MaskMapEnabled, m_MaskMapEnabled.displayName);
-
-                if (IsEnabled(m_MaskMapEnabled))
-                {
-                    using (new EditorGUI.IndentLevelScope())
-                        materialEditor.TexturePropertySingleLine(Styles.MaskMap, m_MaskMap);
-                }
+                DrawMapFields(materialEditor, Styles.MaskMap);
             }
 
             StyleMaterialHeader.End(expanded);
+        }
+
+        protected void DrawMapFields(MaterialEditor materialEditor, GUIContent maskLabel)
+        {
+            materialEditor.TexturePropertySingleLine(new GUIContent(m_BaseMap.displayName), m_BaseMap);
+            materialEditor.TextureScaleOffsetProperty(m_BaseMap);
+
+            if (m_BumpMap == null)
+                return;
+
+            materialEditor.TexturePropertySingleLine(new GUIContent(m_BumpMap.displayName), m_BumpMap, m_BumpScale);
+            materialEditor.TexturePropertySingleLine(maskLabel, m_MaskMap);
         }
 
         protected void DrawShading(MaterialEditor materialEditor)
@@ -651,7 +623,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (expanded)
             {
-                if (!IsEnabled(m_MaskMapEnabled))
+                if (!HasTexture(m_MaskMap))
                     materialEditor.ShaderProperty(m_Metallic, Styles.Metallic);
 
                 materialEditor.ShaderProperty(m_Smoothness, Styles.Smoothness);
@@ -712,13 +684,7 @@ namespace HiddenBull.UrpStyle.Editor
                     materialEditor.ShaderProperty(m_SubsurfaceWidth, Styles.SubsurfaceWidth);
                     materialEditor.ShaderProperty(m_Transmission, Styles.Transmission);
                     DrawTransmissionShape(materialEditor);
-                    materialEditor.ShaderProperty(m_ThicknessMapEnabled, Styles.ThicknessMapToggle);
-
-                    if (IsEnabled(m_ThicknessMapEnabled))
-                    {
-                        using (new EditorGUI.IndentLevelScope())
-                            materialEditor.TexturePropertySingleLine(Styles.ThicknessMap, m_ThicknessMap);
-                    }
+                    materialEditor.TexturePropertySingleLine(Styles.ThicknessMap, m_ThicknessMap);
                 }
             }
 

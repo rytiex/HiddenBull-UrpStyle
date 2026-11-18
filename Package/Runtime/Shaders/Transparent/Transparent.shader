@@ -11,12 +11,9 @@ Shader "HB URP Style/Transparent"
 
         [Toggle(_HB_TRIPLANAR)] _TriplanarEnabled("Triplanar Mapping", Float) = 0.0
         [Enum(World, 0, Object, 1, Rest Pose, 2)] _TriplanarSpace("Mapping Space", Float) = 1.0
-        [Toggle(_HB_BASE_MAP)] _BaseMapEnabled("Use Base Map", Float) = 0.0
         [MainTexture] _BaseMap("Base Map", 2D) = "white" {}
-        [Toggle(_NORMALMAP)] _NormalMapEnabled("Use Normal Map", Float) = 0.0
         _BumpMap("Normal Map", 2D) = "bump" {}
         _BumpScale("Normal Scale", Float) = 1.0
-        [Toggle(_HB_MASK_MAP)] _MaskMapEnabled("Use Mask Map", Float) = 0.0
         [NoScaleOffset] _MaskMap("Mask Map", 2D) = "white" {}
 
         _DiffuseWrap("Diffuse Wrap", Range(0.0, 1.0)) = 0.265

@@ -106,6 +106,131 @@
             Reads = 60
         }
         @{
+            Name = 'Graph Base (plain)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @()
+            Slots = 627
+            Reads = 15
+        }
+        @{
+            Name = 'Graph Base (maps)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
+            Slots = 651
+            Reads = 19
+        }
+        @{
+            Name = 'Graph Base (maps, brush)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_BRUSH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_BRUSH_MASK')
+            Slots = 1177
+            Reads = 21
+        }
+        @{
+            Name = 'Graph Base (maps, triplanar)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
+            Slots = 811
+            Reads = 28
+        }
+        @{
+            Name = 'Graph Base (maps, brush, triplanar)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_BRUSH', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP',
+                        '_HB_BRUSH_MASK')
+            Slots = 1363
+            Reads = 33
+        }
+        @{
+            Name = 'Graph Base (weather only)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_WEATHER')
+            Slots = 1831
+            Reads = 30
+        }
+        @{
+            Name = 'Graph Base (weather moving only)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_WEATHER_MOVING')
+            Slots = 1838
+            Reads = 31
+        }
+        @{
+            Name = 'Graph Base (all, weather, debug)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_BRUSH', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_WEATHER', 'HB_STYLE_DEBUG',
+                        '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_BRUSH_MASK')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Graph Base (all, skin)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_SKIN',
+                        '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_THICKNESS_MAP')
+            Slots = 895
+            Reads = 27
+        }
+        @{
+            Name = 'Graph Base (all, cloth)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Full'
+            Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_CLOTH',
+                        '_HB_CLOTH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
+            Slots = 871
+            Reads = 26
+        }
+        @{
+            Name = 'Graph Base (APV)'
+            Reference = 'URP Lit Forward (reference)'
+            Include = 'Tools~/Shaders/GraphProbe.hlsl'
+            Entry = 'GraphBaseFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('PROBE_VOLUMES_L1', '_MAIN_LIGHT_SHADOWS_CASCADE', '_SHADOWS_SOFT',
+                        '_CLUSTER_LIGHT_LOOP')
+            Slots = 21
+            Reads = 0
+        }
+        @{
             Name = 'Lit Forward (all, debug)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitForwardPass.hlsl'
             Entry = 'HB_LitFragment'
@@ -496,6 +621,16 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @('_DBUFFER_MRT3', '_DECAL_LAYERS')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Graph Decal'
+            Include = 'Tools~/Shaders/GraphDecalProbe.hlsl'
+            Entry = 'GraphDecalFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
             Slots = 0
             Reads = 0
         }

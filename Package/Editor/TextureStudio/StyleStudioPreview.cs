@@ -747,9 +747,6 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_Material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             m_Material.SetColor("_BaseColor", Color.white);
-            m_Material.SetFloat("_BaseMapEnabled", 1f);
-            m_Material.SetFloat("_NormalMapEnabled", 1f);
-            m_Material.SetFloat("_MaskMapEnabled", 1f);
             m_Material.SetFloat("_SpecularEnabled", 1f);
             m_Material.SetFloat("_BrushEnabled", 0f);
             m_Material.SetFloat("_ReceiveWeather", 0f);
@@ -762,7 +759,6 @@ namespace HiddenBull.UrpStyle.Editor
             m_Material.DisableKeyword("_HB_BRUSH");
 
             m_Card = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
-            m_Card.SetFloat("_BaseMapEnabled", 1f);
             m_Card.SetFloat("_AlphaClipEnabled", 1f);
             m_Card.SetFloat("_Cutoff", 0.5f);
             m_Card.SetFloat("_Cull", 2f);

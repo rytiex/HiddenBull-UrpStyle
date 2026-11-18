@@ -4,12 +4,9 @@ Shader "HB URP Style/Foliage Body"
     {
         [MainColor] _BaseColor("Base Color", Color) = (0.7, 0.7, 0.7, 1.0)
 
-        [Toggle(_HB_BASE_MAP)] _BaseMapEnabled("Use Base Map", Float) = 0.0
         [MainTexture] _BaseMap("Base Map", 2D) = "white" {}
-        [Toggle(_NORMALMAP)] _NormalMapEnabled("Use Normal Map", Float) = 0.0
         _BumpMap("Normal Map", 2D) = "bump" {}
         _BumpScale("Normal Scale", Float) = 1.0
-        [Toggle(_HB_MASK_MAP)] _MaskMapEnabled("Use Mask Map", Float) = 0.0
         [NoScaleOffset] _MaskMap("Mask Map", 2D) = "white" {}
 
         _DiffuseWrap("Diffuse Wrap", Range(0.0, 1.0)) = 0.265

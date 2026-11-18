@@ -17,7 +17,7 @@ written down in `Docs/`.
 | **8 Transparency** | Sorted forward (MBOIT replaced) with Tinted / Refractive / Alpha / Premultiply / Additive; nearest-glass split for rain and refraction; skip when none visible; blurred refraction pyramid; coloured shadows; particles; Transparency quality levels | ≤ 0.6 ms without refraction (measured in Phase 12); tinted glass reads as glass |
 | **9 Cavity + Decal** | Screen-space cavity pass; decal shader | Edge highlights on props/buildings ≤ 0.4 ms |
 | **10 Texture Studio** | Shared framework (fullscreen, presets everywhere, GPU generation); Terrain import/edit; Grass & per-flower presets; Liquid/Cloud presets | Fast generation, consistent UI |
-| **11 Shader Graph** | Node library: Lighting, Brush, Weather Static/Moving, Atmosphere, Cavity | Unlit graph matches Lit look |
+| **11 Shader Graph** | Node library: Lighting, Brush, Weather Static/Moving, Decal (Atmosphere comes from the full-screen pass; Cavity removed) | Unlit graph matches Lit look |
 | **12 Finish** | Runtime settings API (`HBStyleRenderSettings`), Bake Panel, variant stripping (provable only), docs, golden screenshots, final Profiler measurement in a build | Docs complete; measured cost table |
 
 Order rationale: the core (0–2) must be right before anything is built on it; terrain (4) comes before
@@ -71,6 +71,16 @@ texture of the game comes from the studio. Next by the table: Phase 11 Shader Gr
 **Fixes after Phase 10 (2026-11-17)**, listed at the end of `03` §13: cavity dead zone and mesh-only cavity, Brush
 Paint 0.25, terrain specular, wet tone match, shore wetness band, SSR self-hit lift, two terrain editor fixes. Open
 before Phase 11: wet grass blades brighter than the ground under them with SSR on.
+
+**Before Phase 11 (2026-11-17/18, in commits):** cavity removed from the package; terrain and grass share the
+reflection and weather-gloss helpers and the SSR hit test was refined; plants got cascade-aware directional and
+punctual shadow passes; precipitation renders after the reflection history copies.
+
+**Phase 11 closed (user, 2026-11-18).** Final state in `03` §14, costs in the last section of `08`. On the way:
+transparent graphs and a transparency takeover were built and removed (TextMesh Pro and legacy transparents would draw
+twice), triplanar moved from a keyword to Boolean ports, an HB Decal node for URP Decal graphs was added, and the user
+asked for two Create-menu templates (HB URP Style Graph and HB URP Style Decal Graph). Lit, Foliage and Transparent lost
+their "Use … Map" toggles: assigning the texture turns the map on. Next by the table: Phase 12 Finish.
 
 Swapped on 2026-10-24 (Phase 3 test): Weather moved from 7 to 3 and Foliage + Billboards from 3 to 7. Weather is a
 module every later surface family uses (terrain, grass, liquids, foliage snow), so each family gets it from the start

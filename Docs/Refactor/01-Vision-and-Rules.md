@@ -33,7 +33,7 @@ fixes stacked on fixes. v1 keeps the look and rebuilds the structure.
 | Fog | Replace the froxel volumetric fog with a cheaper analytic **height fog + horizon / aerial perspective** applied in-shader. |
 | Transparency | Sorted full-resolution forward transparency with real tinted transmission (MBOIT replaced on 2026-11-02, no Weighted-Blended tiers). |
 | MSAA | **Not supported** (Depth Priming Forced and the transparency targets need it off). Document it; post AA only. |
-| Shader Graph | **Node library only** (Custom Function / Sub Graph nodes for an Unlit graph). No template graph. |
+| Shader Graph | **Node library** (Sub Graph nodes for an opaque Unlit graph, HB Decal for a URP Decal graph) plus two Create-menu templates the user asked for (Phase 11). No transparent graphs. |
 | Unity version | Unity 6000.4 (6000.0 minimum), URP 17.4, Forward+, Render Graph only. PC and console. No WebGL/mobile. |
 | Lighting | Mixed lighting with **Shadowmask** is the supported bake mode. APV recommended. Time of day and weather live on HB Style Environment Controller. |
 
