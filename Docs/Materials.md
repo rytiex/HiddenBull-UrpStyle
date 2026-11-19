@@ -18,6 +18,8 @@ hand, except Sky on the skybox material.
 
 ## Lit
 
+![Lit materials](Images/materials-lit.png)
+
 The inspector is split into sections. Sections with a toggle in their header cost nothing while they are off.
 
 | Section | What it does |

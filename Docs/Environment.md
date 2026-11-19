@@ -66,6 +66,10 @@ shade stay dark, so no light leaks indoors. **Sky Grey** and **Fog Grey** drain 
 
 ## Rain and snow
 
+| Rain | Snow |
+|---|---|
+| ![Rain](Images/weather-rain.png) | ![Snow](Images/weather-snow.png) |
+
 Set **Rain**, **Snow** and **Wind** on the controller, or use its preset buttons. From code, use
 `HBStyleEnvironment.SetWeather` to change them over time (see [Scripting](Scripting.md)).
 

@@ -86,6 +86,8 @@ prefer Capsule over Mesh. **Harvest** removes one plant at runtime; see [Scripti
 
 ## Liquids
 
+![Water, lava and acid](Images/liquid-types.png)
+
 Water, acid and lava are **HB Style Liquid Layer** assets. Make them on the Liquid page of the Texture Studio,
 which starts from Water, Acid and Lava presets.
 

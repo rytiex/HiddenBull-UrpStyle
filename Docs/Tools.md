@@ -21,6 +21,8 @@ Use **Export** in the toolbar to choose the name, resolution and folder, then **
 
 ## Bake Panel
 
+![Bake Panel](Images/bake-panel.png)
+
 Sets up and runs lighting bakes for the style.
 
 | Tab | What it does |
