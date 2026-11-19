@@ -1,71 +1,73 @@
 # Performance
 
-Performance is the first requirement of the package. Numbers below are from the development PC
-(RTX 3060, 1080p, Unity editor) and are a guide, not a guarantee.
+## Quality levels
 
-## Quality settings
+Each module has its own level in the **HB Style Quality Profile** on the renderer feature. A game can change
+them at runtime with `HBStyleRenderSettings` (see [Scripting](Scripting.md#quality-at-runtime)). Every level's
+values can be edited in the profile; the table says what the levels change.
 
-| Where | Setting | Effect |
+| Module | Levels | What the level changes |
 |---|---|---|
-| Renderer feature | Grass | Off to Ultra: distance, density, translucency per level |
-| Renderer feature | Precipitation | Off to Ultra: share of drops drawn, far layer |
-| Renderer feature | Liquid Quality | Low / Medium / High liquid detail |
-| Renderer feature | Shadows | Quality, distance, softness, contact hardening |
-| URP renderer | Depth Priming Mode | Forced, set by the feature: dense foliage is shaded once per pixel |
+| Shadows | Off – Ultra | Distance, cascades, resolution and softness of the sun's shadows |
+| Atmosphere | Off – Ultra | Sun colour in the fog and drifting fog patches; Off turns fog off |
+| Weather | Low – Ultra | Size of the shelter map and how far small rain and snow details reach |
+| Precipitation | Off – Ultra | How many drops and flakes fall, and the far layer |
+| Terrain | Low – Ultra | How fast terrain detail drops with distance |
+| Grass | Off – Ultra | How far grass reaches, how thick it grows, how many triangles a blade has |
+| Anti Aliasing | Off – Ultra | How carefully edges and pixel-sized details are smoothed |
+| Transparency | Low – Ultra | Refraction resolution, coloured glass shadows, simple light on Low |
+| Reflections | Off – Ultra | Screen-space reflection steps; Off mirrors only the sky |
 
-## Changing quality at runtime
+To turn the weather off, set Rain and Snow to 0; nothing of it is drawn then.
 
-`HBStyleRenderSettings` reads and writes the player-facing quality settings of the renderer feature, for a
-game's settings menu. It works in builds and in Play mode.
+## Shader cost
 
-```csharp
-var settings = HBStyleRenderSettings.Get();
+Instruction slots and texture reads of the main pixel shaders, compiled offline with the heaviest URP keyword set
+(cascades, soft shadows, Forward+ light loop, shadowmask, light layers, cookies, SSAO, decals). URP's own Lit is
+the reference. Every section turned on is the worst case; a material only pays for the sections it uses.
 
-settings.shadowQuality = HBStyleShadowQuality.Medium;
-settings.grass = HBStyleGrassQuality.Low;
-settings.precipitation = HBStylePrecipitationQuality.High;
-settings.liquid = HBStyleLiquidQuality.Medium;
+| Shader | Slots | Texture reads |
+|---|---|---|
+| URP Lit (reference) | 1048 | 101 |
+| Lit, colour only | 1751 | 116 |
+| Lit, every section, triplanar | 3770 | 147 |
+| Shader Graph, HB Base with maps and brush | 2230 | 122 |
+| Foliage, every section | 3590 | 140 |
+| Plant billboard | 2363 | 137 |
+| Terrain | 4392 | 166 |
+| Grass | 850 | 19 |
+| Liquid surface | 3767 | 149 |
+| Transparent, alpha | 2176 | 49 |
+| Transparent, tinted or refractive | 2381 | 78 |
+| Particle, lit | 1339 | 35 |
+| Sky | 1133 | 14 |
+| Fog (full screen, once per frame) | 604 | 22 |
 
-HBStyleRenderSettings.Set(settings);
-```
+<!-- Frame cost: filled in from the final Profiler measurement in a game scene. -->
 
-| Field | Values |
-|---|---|
-| shadowQuality | Low / Medium / High / Ultra; changing it resets the distance to that level's default |
-| shadowDistance | Metres, clamped to the range of the quality level |
-| grass | Off / Low / Medium / High / Ultra |
-| precipitation | Off / Low / Medium / High / Ultra |
-| liquid | Low / Medium / High |
+## Where the time goes
 
-- `Set` writes only what differs, to every HiddenBull Style feature of the active URP asset, and returns
-  whether anything changed. Changes take effect on the next frame.
-- `TryGet` returns false when no renderer has the feature; `Get` then returns `HBStyleRenderSettings.Default`.
-- The struct is serializable, so a game can save it with `JsonUtility`.
-- In the editor, values changed in Play mode are put back when Play mode ends, so a settings menu does
-  not overwrite the renderer asset.
-- Shadow quality changes cascades, resolution and distance on the URP asset at runtime. URP's soft
-  shadow quality can only be written in the editor, so in a build it stays at the authored value; the
-  package's own shadow filter still follows the quality level.
+- **Fog** is one full-screen pass, so its cost does not grow with the number of objects.
+- **Grass and plants** are culled and drawn on the GPU. Plants hidden behind hills and buildings are skipped.
+  Mesh trees are the most expensive thing in a dense forest: the billboard takes over at the Switch Distance, so
+  keep that short where many trees stand together.
+- **Weather** redraws at most one part of its shelter map per frame.
+- **Glass** costs extra targets only when glass is on screen, and a blurred copy of the screen only when
+  refractive glass is.
+- **Debug views** are compiled only in the editor and stripped from builds.
 
-## What costs what
+## Limitations
 
-| System | Cost notes |
-|---|---|
-| Lit / Foliage | Fragment cost is dominated by weather; a material with Receive Weather None skips it |
-| Terrain | Strongest 3 painted layers per pixel; automatic layers baked into splat maps |
-| Grass | Around 2.5–4.5 ms on Ultra in a full-screen meadow; lower levels scale down |
-| Billboards | One indirect draw per mesh/material pair per pass for all copies; CPU cost does not grow with the number of plants |
-| Shelter maps | Two extra top-down depth renders per camera (near 160 m and far 1 km, the far one refreshed every 2 s or 32 m) |
-| Underwater | Full-screen pass only when the camera is within 1 m of the water or below it; the waterline is solved on a 64 × 36 grid |
-| Colored transparent shadows | Their cull is skipped while no Cast Colored Shadows material is in view |
-
-## Build stripping
-
-At build time the package removes, from its own shaders only:
-
-- the GPU billboard (procedural instancing) variants when the project has no baked billboard data;
-- DOTS instancing variants when Entities Graphics is absent and GPU Resident Drawer is off in every URP
-  asset.
-
-URP strips its own keywords (shadows, shadow mask, reflection probes and so on) from the package's
-shaders according to the URP asset settings.
+- **Rendering**: Forward+ and Render Graph only. No MSAA (use the package's anti aliasing), no WebGL, no mobile.
+- **Lighting**: built for Mixed lighting with Shadowmask. The HB Style Terrain takes no baked light.
+- **Terrain**: one square terrain up to 4 × 4 km, no tiles or streaming. Caves and overhangs are separate meshes
+  through terrain holes.
+- **Plants**: no middle detail level between the mesh and the billboard. A LOD Group on a plant draws every LOD.
+  Plants with the same name share their baked files.
+- **Weather**: one rain, snow and wind state for the whole scene. Shelter is seen from above, so a floating object
+  keeps the ground under it dry as if it reached down to it.
+- **Liquids**: no waterfalls; pools never join each other or the terrain's water. Liquids are visual: floating
+  rocks in a liquid have no collision.
+- **Shader Graph**: opaque graphs only; use HB URP Style/Transparent for see-through materials.
+- **Statistics window**: Unity does not count GPU-driven draws, so grass and plants are missing from its triangle
+  count. Use the Profiler or the Frame Debugger.

@@ -1,7 +1,7 @@
 # Offline Tools
 
-PowerShell scripts that compile and measure the package outside Unity. Run them before every hand-off
-(see `Docs/Refactor/07-Tooling.md`). Output goes to `-Out <folder>` (default `%TEMP%\hb-urpstyle-tools`).
+PowerShell scripts that compile and measure the package outside Unity. Run `Check-All.ps1` before every change
+is handed over. Output goes to `-Out <folder>` (default `%TEMP%\hb-urpstyle-tools`).
 
 | Script | What it does |
 |---|---|
@@ -15,7 +15,7 @@ PowerShell scripts that compile and measure the package outside Unity. Run them 
   it adds above that reference (URP's own Lit at the same keywords); `IsReference = $true` variants always compile.
   `-Manifest <file>` runs another variant list, e.g. a one-off cost breakdown. `Urp = 'Full'` adds the heaviest URP keyword set
   (cascades, soft shadows, cluster light loop, additional light shadows, lightmap + shadowmask, light layers,
-  cookies, SSAO, DBuffer); budgets in `01-Vision-and-Rules.md` are measured with it.
+  cookies, SSAO, DBuffer); the budgets are measured with it.
 - Texture reads count `sample*`, `ld_*` and `gather*` instructions in the fxc listing.
 - `Stage` is `vs`, `ps` or `cs` (compute kernels). A define written `NAME=VALUE` is emitted as
   `#define NAME VALUE`, e.g. `UNITY_INSTANCING_PROCEDURAL_FUNC=<setup function>` for procedural-instancing

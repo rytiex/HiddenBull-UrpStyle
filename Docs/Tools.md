@@ -1,42 +1,60 @@
 # Tools
 
-All tools are under **Tools → HiddenBull → URP Style**.
+All windows are under *Tools → HiddenBull → URP Style*.
 
 ## Texture Studio
 
-One window with a page per texture kind. Pages that have presets offer Revert / Save / Save As; presets
-are JSON files in `Package/Editor/Authoring/Presets`. Saving asks for a folder (remembered) and names
-files `TEX_<Category>_<Type>_<What>_<Index>`.
+Makes every texture the style needs, on the GPU, with a live preview in the real HB shaders. Every file it saves
+is named `TEX_Words_Like_This`; liquid layers are saved as `LIQ_Name.asset`. Undo works on every page.
 
 | Page | Makes |
 |---|---|
-| Terrain | Tileable hand-painted ground textures (rock, dirt, sand, grass ground, gravel, mud, forest floor with procedural leaves, cobblestone, cliff): albedo, normal, mask and an optional Terrain Layer |
-| Grass | Grass clump and flower-head textures for the terrain's grass |
-| Liquid | Liquid normal and crust textures |
-| Brush | The brush stroke atlas |
-| Cloud | The cloud atlas |
-| Mask Map | Packs separate maps into the Lit Mask Map: Metallic (R), Occlusion (G), Height (B), Smoothness (A) |
+| Material | Albedo, normal, mask and emission maps for Lit materials and terrain layers. A stack of layers, each with a pattern (Cells, Rows, Herringbone, Basket, Scatter) and modules such as Cracks, Scratches, Wood Grain, Chips and Leaves. Starts from a shelf of presets. |
+| Grass | Grass card shapes and up to eight flower kinds for the terrain. |
+| Brush | The brush atlas: Oil, Gouache, Dry Brush, Hatching or Watercolour strokes. |
+| Cloud | The cloud atlas: Cumulus, Stratus, Cirrus, Altocumulus. |
+| Liquid | A whole liquid layer: its look, plus a stack of layers (Waves, Flow, Cells, Rocks, ...) that bake its mask and normal maps. Starts from Water, Acid and Lava presets. |
 
-### Mask Map page
+Use **Export** in the toolbar to choose the name, resolution and folder, then **Save**.
 
-For each channel pick a texture, the channel to read (Red, Green, Blue, Alpha or Gray) and **Invert**
-(turns a roughness map into smoothness), or leave the texture empty and set a constant **Value**.
-Source textures do not need Read/Write, and textures imported as sRGB keep their stored values.
-Resolution is the largest input or a fixed size. The map is saved as `TEX_Mask_<Name>_<Index>.png`
-with linear import settings; HB Lit or Foliage materials selected in the Project window get it as their
-Mask Map with Use Mask Map turned on.
-
-## Billboard Baker
-
-Bakes plants for the GPU billboard system. See [Billboards](Features/Billboards.md).
-
-## Terrain Layers
-
-Edits the HB Style Terrain profile: painted and automatic layers, ranges, variation, grass and flowers.
-See [Terrain](Features/Terrain.md).
+<!-- Screenshot: Texture Studio, Material page -->
 
 ## Bake Panel
 
-Lighting settings with the package's defaults, quality presets (Potato / Low / Default / Ultra),
-checks with one-click fixes, and Bake / Cancel with a report. Lightmap mipmaps are stripped after
-each bake unless mipmap limits are on.
+Sets up and runs lighting bakes for the style.
+
+| Tab | What it does |
+|---|---|
+| Lighting | Bake quality from four presets (Potato, Low, Default, Ultra) or by hand |
+| Checks | What the scene needs for the style's lighting, with a **Fix** button where one click can fix it |
+| Bake | Bakes lightmaps and Adaptive Probe Volumes together, then reports time, lightmap count and size |
+
+Red checks must pass before a bake; yellow ones are advice. The footer always shows the check summary and the
+Bake and Cancel buttons.
+
+- While a bake runs, fog, clouds and weather are held neutral, so the baked light is the same in any weather.
+- **Use Mipmap Limits** off (the default) removes the lightmaps' mipmaps after every bake. This keeps distant
+  lightmapped surfaces from bleeding into each other.
+
+## Debug window
+
+Shows what the renderer sees. Pick a **View** to replace the scene's colours with one quantity:
+
+| Group | Views |
+|---|---|
+| Shadows | Cascades, filter values, blockers, search radius, unfiltered, attenuation, transparent tint |
+| Weather | Shelter, wetness, snow, precipitation, moving bodies, gust |
+| Atmosphere | Fog amount |
+| Terrain | Layers, albedo, curvature, detail rings |
+| Grass | Cells, density |
+| Foliage | Canopy, sway |
+| Liquid | Depth, flow, foam, waves, trails, underwater |
+| Culling | What the game camera skips, seen from the Scene view |
+
+The window also shows the shelter map from above, the number of falling drops and flakes, and the terrain's
+patch count. Debug views exist only in the editor; they are stripped from builds.
+
+## Terrain editing
+
+Terrain tools have no window of their own: they are on the HB Style Terrain inspector and work in the Scene view.
+See [Terrain](Terrain.md).

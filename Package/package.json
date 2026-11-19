@@ -4,7 +4,7 @@
     "displayName": "HiddenBull URP Style",
     "description": "Shared URP painterly style toolkit for HiddenBull games: one renderer feature and shader modules.",
     "unity": "6000.0",
-    "documentationUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/Docs/README.md",
+    "documentationUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/README.md",
     "licensesUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/LICENSE",
     "keywords": [
         "urp",
