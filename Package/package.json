@@ -1,10 +1,11 @@
 {
     "name": "com.hiddenbull.urpstyle",
-    "version": "1.0.0-pre.0",
+    "version": "1.0.0",
     "displayName": "HiddenBull URP Style",
-    "description": "Shared URP painterly style toolkit for HiddenBull games: one renderer feature and shader modules.",
+    "description": "Painterly look for URP: sky, fog, weather, terrain, grass, plants, liquids and glass.",
     "unity": "6000.0",
     "documentationUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/README.md",
+    "changelogUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/Package/CHANGELOG.md",
     "licensesUrl": "https://github.com/rytiex/HiddenBull-UrpStyle/blob/main/LICENSE",
     "keywords": [
         "urp",

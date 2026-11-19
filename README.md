@@ -27,6 +27,8 @@ Add the package to `Packages/manifest.json`:
 "com.hiddenbull.urpstyle": "https://github.com/rytiex/HiddenBull-UrpStyle.git?path=Package"
 ```
 
+To stay on one release, add its tag to the end of the address, for example `?path=Package#1.0.0`.
+
 ## First scene in five minutes
 
 1. Select your **Universal Renderer Data** and add the **HB Style** renderer feature.
