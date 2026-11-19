@@ -74,9 +74,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleGrassQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.grass : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleGrassQualityLevel authoredLevel => m_Level;
 
         public HBStyleGrassLevel Get(HBStyleGrassQualityLevel level)
         {
@@ -89,8 +91,8 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleGrassLevel current => Get(m_Level);
+        public HBStyleGrassLevel current => Get(level);
 
-        public bool enabled => m_Level != HBStyleGrassQualityLevel.Off;
+        public bool enabled => level != HBStyleGrassQualityLevel.Off;
     }
 }

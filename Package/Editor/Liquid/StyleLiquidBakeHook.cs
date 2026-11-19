@@ -58,6 +58,7 @@ namespace HiddenBull.UrpStyle.Editor
         static void Finished()
         {
             StyleLiquidBakeLight.Clear();
+            StyleBakeLightmaps.QueueStrip();
         }
 
         static void Watch()

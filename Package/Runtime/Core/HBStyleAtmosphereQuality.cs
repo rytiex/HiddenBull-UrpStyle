@@ -45,9 +45,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.atmosphere : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleQualityLevel authoredLevel => m_Level;
 
         public HBStyleAtmosphereLevel Get(HBStyleQualityLevel level)
         {
@@ -60,6 +62,6 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleAtmosphereLevel current => Get(m_Level);
+        public HBStyleAtmosphereLevel current => Get(level);
     }
 }

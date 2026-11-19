@@ -349,7 +349,7 @@ namespace HiddenBull.UrpStyle
                                                Mix3(w, AirDensity(clear), AirDensity(rain), AirDensity(snow)),
                                                Mix3(w, clear.layerCover, rain.layerCover, snow.layerCover));
 
-            var drift = FogDrift();
+            var drift = FogDrift(StyleFogNoise.CellsAcross * Mathf.Max(clumpSize, 1f));
 
             globals._HB_FogClumps = new Vector4(level.clumps ? clumps : 0f, 1f / Mathf.Max(clumpSize, 1f), drift.x,
                                                 drift.y);
@@ -387,7 +387,7 @@ namespace HiddenBull.UrpStyle
             return Density(Mathf.Max(state.start, 0f), state.end);
         }
 
-        static Vector2 FogDrift()
+        static Vector2 FogDrift(float period)
         {
             var now = StyleEnvironment.clock;
             var step = double.IsNegativeInfinity(s_FogClock) ? 0f : Mathf.Clamp((float)(now - s_FogClock), 0f, 0.25f);
@@ -396,6 +396,8 @@ namespace HiddenBull.UrpStyle
 
             s_FogClock = now;
             s_FogDrift += new Vector2(Mathf.Sin(heading), Mathf.Cos(heading)) * (speed * step);
+            s_FogDrift.x -= period * Mathf.Floor(s_FogDrift.x / period);
+            s_FogDrift.y -= period * Mathf.Floor(s_FogDrift.y / period);
 
             return s_FogDrift;
         }

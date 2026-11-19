@@ -43,9 +43,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.reflections : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleQualityLevel authoredLevel => m_Level;
 
         public HBStyleReflectionLevel Get(HBStyleQualityLevel level)
         {
@@ -58,8 +60,8 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public int steps => m_Level == HBStyleQualityLevel.Off ? 0 : Get(m_Level).steps;
+        public int steps => level == HBStyleQualityLevel.Off ? 0 : Get(level).steps;
 
-        public int skyMapSize => m_Level >= HBStyleQualityLevel.High ? 512 : 256;
+        public int skyMapSize => level >= HBStyleQualityLevel.High ? 512 : 256;
     }
 }

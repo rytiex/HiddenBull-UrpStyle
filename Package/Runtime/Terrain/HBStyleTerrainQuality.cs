@@ -52,9 +52,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleTerrainQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.terrain : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleTerrainQualityLevel authoredLevel => m_Level;
 
         public HBStyleTerrainLevel Get(HBStyleTerrainQualityLevel level)
         {
@@ -67,6 +69,6 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleTerrainLevel current => Get(m_Level);
+        public HBStyleTerrainLevel current => Get(level);
     }
 }

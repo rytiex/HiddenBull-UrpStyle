@@ -152,7 +152,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             try
             {
-                var source = new SerializedObject(defaults);
+                using var source = new SerializedObject(defaults);
 
                 serializedObject.Update();
 
@@ -181,7 +181,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             try
             {
-                var source = new SerializedObject(defaults).FindProperty(property);
+                using var owner = new SerializedObject(defaults);
+                var source = owner.FindProperty(property);
 
                 serializedObject.Update();
                 serializedObject.CopyFromSerializedProperty(source);

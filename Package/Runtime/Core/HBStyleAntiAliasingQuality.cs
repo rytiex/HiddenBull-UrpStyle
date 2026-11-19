@@ -46,9 +46,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.antiAliasing : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleQualityLevel authoredLevel => m_Level;
 
         public HBStyleAntiAliasingLevel Get(HBStyleQualityLevel level)
         {
@@ -61,6 +63,6 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleAntiAliasingLevel current => Get(m_Level);
+        public HBStyleAntiAliasingLevel current => Get(level);
     }
 }

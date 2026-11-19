@@ -69,9 +69,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleTransparencyQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.transparency : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleTransparencyQualityLevel authoredLevel => m_Level;
 
         public HBStyleTransparencyLevel Get(HBStyleTransparencyQualityLevel level)
         {
@@ -84,6 +86,6 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleTransparencyLevel current => Get(m_Level);
+        public HBStyleTransparencyLevel current => Get(level);
     }
 }

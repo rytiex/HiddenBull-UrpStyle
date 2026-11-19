@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -88,6 +89,8 @@ namespace HiddenBull.UrpStyle
         StylePlantPunctualPass m_PlantPunctualPass;
         HBStyleQualityProfile m_DefaultQuality;
 
+        static readonly List<HBStyleFeature> s_Features = new List<HBStyleFeature>();
+
         public HBStyleQualityProfile quality
         {
             get => m_Quality;
@@ -95,6 +98,26 @@ namespace HiddenBull.UrpStyle
         }
 
         internal StyleCameraStates cameras => m_Cameras;
+
+        internal static HBStyleQualityProfile authoredQuality
+        {
+            get
+            {
+                for (var i = s_Features.Count - 1; i >= 0; i--)
+                {
+                    if (s_Features[i] == null)
+                        s_Features.RemoveAt(i);
+                }
+
+                foreach (var feature in s_Features)
+                {
+                    if (feature.isActive)
+                        return feature.activeQuality;
+                }
+
+                return s_Features.Count > 0 ? s_Features[0].activeQuality : null;
+            }
+        }
 
         HBStyleQualityProfile activeQuality
         {
@@ -117,6 +140,7 @@ namespace HiddenBull.UrpStyle
         public override void Create()
         {
             Dispose(true);
+            s_Features.Add(this);
 
             m_Cameras = new StyleCameraStates();
             m_GlobalsPass = new StyleGlobalsPass();
@@ -302,6 +326,8 @@ namespace HiddenBull.UrpStyle
 
         protected override void Dispose(bool disposing)
         {
+            s_Features.Remove(this);
+
             m_GlobalsPass?.Dispose();
             m_GlobalsPass = null;
 

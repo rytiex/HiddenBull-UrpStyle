@@ -94,9 +94,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleQualityLevel level
         {
-            get => m_Level;
+            get => HBStyleRenderSettings.isSet ? HBStyleRenderSettings.current.shadows : m_Level;
             set => m_Level = value;
         }
+
+        internal HBStyleQualityLevel authoredLevel => m_Level;
 
         public float contact => m_Contact;
 
@@ -115,6 +117,6 @@ namespace HiddenBull.UrpStyle
             };
         }
 
-        public HBStyleShadowLevel current => Get(m_Level);
+        public HBStyleShadowLevel current => Get(level);
     }
 }
