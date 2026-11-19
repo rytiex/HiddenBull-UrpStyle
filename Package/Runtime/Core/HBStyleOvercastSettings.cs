@@ -9,9 +9,9 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How far rain and snow close the sky (0 to 1): at 1 steady rain brings the sky to full overcast. " +
-                 "Overcast dims the sun, fades its shadows away, greys the sky and the fog and blends baked light " +
-                 "toward the cloudy sky's ambient. It also follows the cloud cover set in the Clouds tab of the " +
-                 "Environment Profile.")]
+                 "Overcast takes the sun's light away (at full overcast none is left, so its shadows go with it while " +
+                 "rooms and shade stay dark), greys the sky and the fog and blends baked light toward the cloudy " +
+                 "sky's ambient. It also follows the cloud cover set in the Clouds tab of the Environment Profile.")]
         float m_CloudResponse = 1f;
 
         [SerializeField]

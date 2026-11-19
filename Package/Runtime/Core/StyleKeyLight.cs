@@ -9,7 +9,7 @@ namespace HiddenBull.UrpStyle
         const float OvercastStart = 0.55f;
         const float OvercastFull = 0.95f;
         const float PrecipitationToCover = 2f;
-        const float OvercastSunLoss = 0.7f;
+        const float OvercastSunFloor = 0.001f;
 
         const HBStyleProfileSections KeyLightSections =
             HBStyleProfileSections.Sky | HBStyleProfileSections.Clouds | HBStyleProfileSections.Atmosphere;
@@ -123,7 +123,7 @@ namespace HiddenBull.UrpStyle
 
             colour = OverElevation(SkyLight(sky), elevation);
             intensity = sky.skyLightIntensity * Handoff(elevation) * Share(sky, elevation)
-                      * (1f - Overcast(profile) * OvercastSunLoss);
+                      * Mathf.Max(1f - Overcast(profile), OvercastSunFloor);
         }
     }
 }

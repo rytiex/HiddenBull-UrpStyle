@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2759
+            Slots = 2775
             Reads = 60
         }
         @{
