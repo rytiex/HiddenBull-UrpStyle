@@ -17,7 +17,7 @@ is named `TEX_Words_Like_This`; liquid layers are saved as `LIQ_Name.asset`. Und
 
 Use **Export** in the toolbar to choose the name, resolution and folder, then **Save**.
 
-<!-- Screenshot: Texture Studio, Material page -->
+![Texture Studio](Images/texture-studio.png)
 
 ## Bake Panel
 
@@ -32,7 +32,8 @@ Sets up and runs lighting bakes for the style.
 Red checks must pass before a bake; yellow ones are advice. The footer always shows the check summary and the
 Bake and Cancel buttons.
 
-- While a bake runs, fog, clouds and weather are held neutral, so the baked light is the same in any weather.
+- While a bake runs, fog and weather are held neutral and clouds keep the profile's Coverage, so the baked
+  light is the same in any weather.
 - **Use Mipmap Limits** off (the default) removes the lightmaps' mipmaps after every bake. This keeps distant
   lightmapped surfaces from bleeding into each other.
 

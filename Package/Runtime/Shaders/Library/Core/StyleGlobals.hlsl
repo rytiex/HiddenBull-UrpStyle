@@ -50,6 +50,7 @@ CBUFFER_END
 #define HB_WIND _HB_Weather.z
 #define HB_WIND_HEADING _HB_Weather.w
 
+#define HB_OVERCAST_UNLIFT _HB_Overcast.y
 #define HB_OVERCAST_BAKED _HB_Overcast.z
 #define HB_OVERCAST_SKY _HB_Overcast.w
 

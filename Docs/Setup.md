@@ -65,7 +65,8 @@ report. See [Tools](Tools.md#bake-panel).
 Things worth knowing:
 
 - Set **Time Of Day** to the hour you want before baking; the baked sun comes from it.
-- During a bake, fog, clouds and weather are held neutral, so the baked light looks right in any weather.
+- During a bake, fog and weather are held neutral and clouds keep the profile's Coverage, so the baked light
+  looks right in any weather.
 - Set the sun's **Shadow Near Plane** to 1 or more; lower values can leak shadow on very large faces.
 - Turn on **Dilation** in the probe baking set; without it dark contour lines appear on the ground.
 - The HB Style Terrain takes no baked light: it gets realtime shadows and the style's ambient.

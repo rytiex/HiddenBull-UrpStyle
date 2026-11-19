@@ -6,7 +6,7 @@ a whole game the same hand-painted style, with frame cost treated as the first r
 Sky, fog, weather, terrain, grass, plants, liquids and glass all share one lighting model and one brush, so
 everything in a scene reads as painted by the same hand.
 
-<!-- Screenshot: showcase -->
+![HiddenBull URP Style](Docs/Images/showcase.png)
 
 ## Requirements
 

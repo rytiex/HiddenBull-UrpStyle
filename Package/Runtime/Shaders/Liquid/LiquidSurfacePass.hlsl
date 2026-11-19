@@ -1572,7 +1572,7 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     reflection *= saturate(look.murk * HB_LIQUID_EDGE_SOFT);
 
     half3 skyLight = (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h)))
-                   * 0.5h;
+                   * (0.5h * half(HB_OVERCAST_UNLIFT));
     half3 lit = skyLight + (sunLight + extraLight) * HB_LIQUID_SUN_SCATTER;
     half glow = look.glow * (HB_LIQUID_GLOW_BASE + HB_LIQUID_GLOW_GRAIN * foam.grain)
               * (1.0h + ring * HB_LIQUID_RING_GLOW);

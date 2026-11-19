@@ -3,7 +3,7 @@
 The package has its own terrain, built for the style: ground layers placed by rules, painted grass and flowers,
 GPU-drawn plants and trees, and connected water, all edited from one inspector.
 
-<!-- Screenshot: terrain with grass, trees and a lake -->
+![HB Style Terrain with grass, trees and a lake](Images/terrain-overview.png)
 
 ## HB Style Terrain
 

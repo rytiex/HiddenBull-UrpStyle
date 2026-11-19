@@ -361,8 +361,9 @@ namespace HiddenBull.UrpStyle
 
             var bakedToSky = settings != null ? settings.bakedToSky * overcast : 0f;
             var skyGrey = settings != null ? settings.skyGrey * overcast : 0f;
+            var unlifted = Mathf.Lerp(1f / (1f + overcast * OvercastAmbientLift), 1f, bakedToSky);
 
-            globals._HB_Overcast = new Vector4(overcast, overcast, bakedToSky, skyGrey);
+            globals._HB_Overcast = new Vector4(overcast, unlifted, bakedToSky, skyGrey);
         }
 
         static float AirDensity(HBStyleFogState state)

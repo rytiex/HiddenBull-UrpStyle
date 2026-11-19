@@ -51,9 +51,6 @@ namespace HiddenBull.UrpStyle
 
         internal static float Coverage(HBStyleEnvironmentProfile profile)
         {
-            if (StyleEnvironment.baking)
-                return 0f;
-
             var coverage = profile.clouds.atlas != null ? profile.clouds.coverage : 0f;
             var atmosphere = profile.atmosphere;
 

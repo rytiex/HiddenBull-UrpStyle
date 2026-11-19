@@ -19,7 +19,7 @@
 #define HB_WIND_RISE_RATE       0.07
 #define HB_WIND_HEIGHT          30.0
 #define HB_WIND_SPREAD          8.0
-#define HB_WIND_AMBIENT         1.2h
+#define HB_WIND_AMBIENT         (1.2h * half(HB_OVERCAST_UNLIFT))
 #define HB_WIND_KEY             0.8h
 
 float3 HB_WindPath(float along, float3 origin, float2 heading, float3 shape)

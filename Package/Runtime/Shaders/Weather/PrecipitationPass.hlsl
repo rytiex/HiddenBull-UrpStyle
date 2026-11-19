@@ -36,12 +36,12 @@ float _HB_PrecipitationStage;
 
 #define HB_RAIN_SHUTTER         0.04
 #define HB_RAIN_MAX_PIXELS      4.0
-#define HB_RAIN_AMBIENT         1.2h
+#define HB_RAIN_AMBIENT         (1.2h * half(HB_OVERCAST_UNLIFT))
 #define HB_RAIN_KEY             0.5h
 
 #define HB_SNOW_SIZE_RANGE      0.4
 #define HB_SNOW_SWAY            0.25
-#define HB_SNOW_AMBIENT         1.2h
+#define HB_SNOW_AMBIENT         (1.2h * half(HB_OVERCAST_UNLIFT))
 #define HB_SNOW_KEY             0.8h
 
 #define HB_SHELTERED_COLOUR     half3(1.0h, 0.1h, 0.05h)

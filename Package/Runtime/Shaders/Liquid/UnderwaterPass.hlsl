@@ -133,7 +133,8 @@ bool HB_UnderAt(float3 positionWS)
 
 half3 HB_UnderSky()
 {
-    return (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h))) * 0.5h;
+    return (HB_GradientAmbient(half3(0.0h, 1.0h, 0.0h)) + HB_GradientAmbient(half3(1.0h, 0.0h, 0.0h)))
+           * (0.5h * half(HB_OVERCAST_UNLIFT));
 }
 
 half HB_UnderDim(float depth, float lightDepth)

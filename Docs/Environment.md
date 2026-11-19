@@ -8,7 +8,9 @@ The scene's sky, light, fog and weather come from two profiles and one component
 
 Every setting has a tooltip; this page explains how the parts work together.
 
-<!-- Screenshot: same view at day, dusk and night -->
+| Day | Dusk | Night |
+|---|---|---|
+| ![Day](Images/environment-day.png) | ![Dusk](Images/environment-dusk.png) | ![Night](Images/environment-night.png) |
 
 ## Time of day
 
@@ -53,7 +55,7 @@ Each state has four groups:
 Fog is drawn in one full-screen pass after the opaque objects, so it costs the same however many objects are on
 screen. The sky, glass, liquids and falling rain apply the same fog themselves.
 
-<!-- Screenshot: fog layer seen from a mountain -->
+![Fog layer seen from above](Images/fog-layer.png)
 
 ## Overcast
 

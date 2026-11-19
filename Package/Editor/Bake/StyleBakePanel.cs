@@ -153,8 +153,8 @@ namespace HiddenBull.UrpStyle.Editor
                 : $"probes in \"{set.name}\", dilation {(HasDilation(set) ? "on" : "OFF")}";
 
             m_Report = $"Baked in {TimeSpan.FromSeconds(seconds):mm\\:ss}: {LightmapSettings.lightmaps.Length} " +
-                       $"lightmap(s), {StyleBakeLightmaps.Bytes() / (1024f * 1024f):0.0} MB; {probes}. Fog, " +
-                       "clouds and weather were held neutral during the bake, so the light is the same in any weather.";
+                       $"lightmap(s), {StyleBakeLightmaps.Bytes() / (1024f * 1024f):0.0} MB; {probes}. Fog and " +
+                       "weather were held neutral during the bake, so the light is the same in any weather.";
             m_BakeStart = 0.0;
             Repaint();
         }
@@ -383,8 +383,8 @@ namespace HiddenBull.UrpStyle.Editor
                 EditorGUILayout.HelpBox(m_Report, MessageType.None);
             else
                 EditorGUILayout.HelpBox("Bake bakes lightmaps and Adaptive Probe Volumes together. While it runs, " +
-                                        "fog, clouds and weather are held neutral, so the baked light is the same " +
-                                        "in any weather.", MessageType.None);
+                                        "fog and weather are held neutral and clouds keep the profile's Coverage, " +
+                                        "so the baked light is the same in any weather.", MessageType.None);
 
             EditorGUILayout.Space(4f);
 
