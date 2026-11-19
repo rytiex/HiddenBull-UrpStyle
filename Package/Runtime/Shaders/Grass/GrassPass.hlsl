@@ -415,7 +415,7 @@ half HB_GrassShadow(float3 positionWS)
     shadow = lerp(shadow, 1.0h, GetMainLightShadowFade(positionWS));
 #endif
 
-    return shadow;
+    return lerp(shadow, 1.0h, half(HB_OVERCAST_SHADOW));
 }
 
 half3 HB_GrassExtraLight(Light light, half3 normalWS, half wrap, half inverseWrap)

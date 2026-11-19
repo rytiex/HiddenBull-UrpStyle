@@ -33,8 +33,8 @@ bool HB_AtmosphereSurface(float depth)
 #endif
 }
 
-HBAtmosphere HB_SilhouetteAtmosphere(float3 positionWS, float3 cameraPositionWS, float span, float tileAngle,
-                                     HBAtmosphere atmosphere, inout half3 direction)
+half HB_SilhouetteFog(float3 positionWS, float3 cameraPositionWS, float span, float tileAngle, half fog,
+                      inout half3 direction)
 {
     half strength = half(HB_FOG_SILHOUETTE);
 
@@ -49,29 +49,26 @@ HBAtmosphere HB_SilhouetteAtmosphere(float3 positionWS, float3 cameraPositionWS,
         float2 paintedUV = saturate(ComputeNormalizedDeviceCoordinates(cameraPositionWS + painted, UNITY_MATRIX_VP));
         float paintedDepth = HB_AtmosphereDepth(paintedUV);
 
-        HBAtmosphere other;
-        other.horizon = 0.0h;
+        half other;
 
         if (HB_AtmosphereSurface(paintedDepth))
         {
             float3 paintedWS = ComputeWorldSpacePosition(paintedUV, paintedDepth, UNITY_MATRIX_I_VP);
-            other = HB_AtmosphereAmount(paintedWS, cameraPositionWS);
+            other = HB_FogAmount(paintedWS, cameraPositionWS);
         }
         else
         {
-            other.fog = HB_SkyHaze(half3(normalize(painted)));
+            other = HB_SkyHaze(half3(normalize(painted)));
         }
 
-        if (other.fog > atmosphere.fog)
+        if (other > fog)
         {
-            atmosphere.fog = other.fog;
+            fog = other;
             direction = half3(normalize(painted));
         }
-
-        atmosphere.horizon = max(atmosphere.horizon, other.horizon);
     }
 
-    return atmosphere;
+    return fog;
 }
 
 half4 HB_AtmosphereFragment(HBAtmosphereVaryings input) : SV_Target
@@ -94,30 +91,25 @@ half4 HB_AtmosphereFragment(HBAtmosphereVaryings input) : SV_Target
     float tileAngle = HB_FogTileAngle();
     float span = rayLength * tileAngle;
 
-    HBAtmosphere atmosphere = HB_AtmosphereAmount(positionWS, cameraPositionWS);
-    half3 view = direction;
+    half clump;
+    half fog = HB_FogAmountClumped(positionWS, cameraPositionWS, clump);
 
-    atmosphere = HB_SilhouetteAtmosphere(positionWS, cameraPositionWS, span, tileAngle, atmosphere, direction);
+    fog = HB_SilhouetteFog(positionWS, cameraPositionWS, span, tileAngle, fog, direction);
 
 #if defined(HB_STYLE_DEBUG)
     if (HB_DEBUG_VIEW == HB_DEBUG_FOG_AMOUNT)
-        return half4(atmosphere.fog, atmosphere.horizon, 0.0h, 1.0h);
+        return half4(fog, HB_FogSunShare(direction), clump * 0.5h, 1.0h);
 #endif
 
-    half fog = atmosphere.fog;
-    half horizon = atmosphere.horizon;
     half4 result = half4(0.0h, 0.0h, 0.0h, 0.0h);
 
     UNITY_BRANCH
-    if (fog + horizon > 0.0h)
+    if (fog > 0.0h)
     {
         half4 atlas;
         half paint = HB_FogPaintStroke(positionWS, direction, span, fog, atlas);
-        half3 fogColour = HB_FogColourPainted(direction, atlas, paint);
-        half3 horizonColour = HB_SkyGradient(view);
 
-        result.rgb = horizonColour * (horizon * (1.0h - fog)) + fogColour * fog;
-        result.a = 1.0h - (1.0h - horizon) * (1.0h - fog);
+        result = half4(HB_FogColourPainted(direction, atlas, paint) * fog, fog);
     }
 
     return result;

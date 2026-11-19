@@ -12,7 +12,7 @@ namespace HiddenBull.UrpStyle
         const float OvercastSunLoss = 0.7f;
 
         const HBStyleProfileSections KeyLightSections =
-            HBStyleProfileSections.Sky | HBStyleProfileSections.Clouds | HBStyleProfileSections.Weather;
+            HBStyleProfileSections.Sky | HBStyleProfileSections.Clouds | HBStyleProfileSections.Atmosphere;
 
         static Gradient s_DefaultSkyLight;
         static Gradient s_DefaultSunDisc;
@@ -51,18 +51,23 @@ namespace HiddenBull.UrpStyle
 
         internal static float Coverage(HBStyleEnvironmentProfile profile)
         {
-            var coverage = profile.clouds.coverage;
+            if (StyleEnvironment.baking)
+                return 0f;
+
+            var coverage = profile.clouds.atlas != null ? profile.clouds.coverage : 0f;
+            var atmosphere = profile.atmosphere;
+
+            if (atmosphere == null)
+                return coverage;
+
             var weather = StyleEnvironment.weather;
             var falling = Mathf.Clamp01(Mathf.Max(weather.x, weather.y) * PrecipitationToCover);
 
-            return Mathf.Lerp(coverage, Mathf.Max(coverage, OvercastFull), profile.weather.cloudResponse * falling);
+            return Mathf.Lerp(coverage, Mathf.Max(coverage, OvercastFull), atmosphere.overcast.cloudResponse * falling);
         }
 
         internal static float Overcast(HBStyleEnvironmentProfile profile)
         {
-            if (profile.clouds.atlas == null)
-                return 0f;
-
             return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OvercastStart, OvercastFull, Coverage(profile)));
         }
 

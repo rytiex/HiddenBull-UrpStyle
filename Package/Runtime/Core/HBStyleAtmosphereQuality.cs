@@ -6,16 +6,16 @@ namespace HiddenBull.UrpStyle
     [Serializable]
     public struct HBStyleAtmosphereLevel
     {
-        [Tooltip("Steps the far distance into the Horizon Layers of the Environment Profile.")]
-        public bool horizonLayers;
-
         [Tooltip("Lets the fog take on the sun's colour when looking toward it.")]
         public bool sunInscatter;
 
-        public HBStyleAtmosphereLevel(bool horizonLayers, bool sunInscatter)
+        [Tooltip("Gathers the fog into the drifting patches set by Clumps in the Environment Profile.")]
+        public bool clumps;
+
+        public HBStyleAtmosphereLevel(bool sunInscatter, bool clumps)
         {
-            this.horizonLayers = horizonLayers;
             this.sunInscatter = sunInscatter;
+            this.clumps = clumps;
         }
     }
 
@@ -23,8 +23,8 @@ namespace HiddenBull.UrpStyle
     public sealed class HBStyleAtmosphereQuality
     {
         [SerializeField]
-        [Tooltip("Active atmosphere level. Off turns the fog and aerial perspective off; Low to Ultra pick " +
-                 "which optional terms run.")]
+        [Tooltip("Active atmosphere level. Off turns the fog off; Low to Ultra pick which " +
+                 "optional terms run.")]
         HBStyleQualityLevel m_Level = HBStyleQualityLevel.High;
 
         [SerializeField]
@@ -33,7 +33,7 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Tooltip("Settings used when the level is Medium.")]
-        HBStyleAtmosphereLevel m_Medium = new HBStyleAtmosphereLevel(false, true);
+        HBStyleAtmosphereLevel m_Medium = new HBStyleAtmosphereLevel(true, true);
 
         [SerializeField]
         [Tooltip("Settings used when the level is High.")]

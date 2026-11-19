@@ -56,7 +56,7 @@ half3 HB_ResolveAmbient(half3 normalWS, half3 bakedGI, half brush, half bakedTon
 
     half banded = HB_BakedToneBands(ratio, softness) / max(ratio, half(HB_EPSILON));
 
-    return bakedGI * lerp(1.0h, banded, saturate(bakedTones));
+    return lerp(bakedGI * lerp(1.0h, banded, saturate(bakedTones)), gradient, half(HB_OVERCAST_BAKED));
 }
 
 #endif

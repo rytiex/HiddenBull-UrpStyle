@@ -128,7 +128,7 @@ half4 HB_CloudsGrad(half3 direction, float4 planeDx, float4 planeDy)
 
         float3 cameraPositionWS = GetCameraPositionWS();
         float3 positionWS = cameraPositionWS + float3(direction) * (travel * HB_CLOUD_DISTANCE_SCALE);
-        half fogged = HB_FogAmount(positionWS, cameraPositionWS);
+        half fogged = HB_FogAmountEven(positionWS, cameraPositionWS);
 
         colour = lerp(colour, HB_FogColour(direction) * alpha, fogged);
     }

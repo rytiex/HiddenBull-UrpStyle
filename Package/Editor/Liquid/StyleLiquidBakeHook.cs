@@ -51,6 +51,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         static void Started()
         {
+            StyleBakeEnvironment.Begin();
             StyleLiquidBakeLight.Create();
         }
 
@@ -63,11 +64,14 @@ namespace HiddenBull.UrpStyle.Editor
         {
             var probing = AdaptiveProbeVolumes.isRunning;
 
-            if (probing && !s_Probing && !Lightmapping.isRunning && !StyleLiquidBakeLight.built)
-            {
-                StyleLiquidBakeLight.Create();
+            var neutral = probing && !s_Probing && StyleBakeEnvironment.Begin();
 
-                if (StyleLiquidBakeLight.built && AdaptiveProbeVolumes.Cancel())
+            if (probing && !s_Probing && !Lightmapping.isRunning && (neutral || !StyleLiquidBakeLight.built))
+            {
+                if (!StyleLiquidBakeLight.built)
+                    StyleLiquidBakeLight.Create();
+
+                if ((neutral || StyleLiquidBakeLight.built) && AdaptiveProbeVolumes.Cancel())
                 {
                     s_Rerun = true;
                     probing = AdaptiveProbeVolumes.isRunning;
@@ -80,6 +84,7 @@ namespace HiddenBull.UrpStyle.Editor
             }
 
             s_Probing = probing;
+            StyleBakeEnvironment.Watch(probing || Lightmapping.isRunning || s_Rerun);
 
             if (!s_Rerun && StyleLiquidBakeLight.built && !probing && !Lightmapping.isRunning)
                 StyleLiquidBakeLight.Clear();

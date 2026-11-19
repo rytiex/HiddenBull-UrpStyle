@@ -11,7 +11,7 @@ namespace HiddenBull.UrpStyle
         HBStyleShadowQuality m_Shadows = new HBStyleShadowQuality();
 
         [SerializeField]
-        [Tooltip("Atmosphere levels: which optional fog and horizon terms run.")]
+        [Tooltip("Atmosphere levels: which optional fog terms run.")]
         HBStyleAtmosphereQuality m_Atmosphere = new HBStyleAtmosphereQuality();
 
         [SerializeField]

@@ -27,6 +27,8 @@ namespace HiddenBull.UrpStyle
         internal static event Action<HBStyleEnvironmentProfile> profileChanged;
         internal static event Action weatherChanged;
 
+        internal static bool baking { get; set; }
+
 #if UNITY_EDITOR
         static StylePreviewEnvironment s_Preview;
 
@@ -116,6 +118,9 @@ namespace HiddenBull.UrpStyle
         {
             get
             {
+                if (baking)
+                    return Vector3.zero;
+
 #if UNITY_EDITOR
                 if (s_Preview != null)
                     return Vector3.zero;

@@ -27,6 +27,7 @@ namespace HiddenBull.UrpStyle
         StyleCameraStates m_Cameras;
         StyleShelterPass m_Shelter;
         GraphicsBuffer m_Bodies;
+        Texture3D m_FogNoise;
         float m_OverlayShadowNear;
 
         class PassData
@@ -36,6 +37,7 @@ namespace HiddenBull.UrpStyle
             public Texture brushAtlas;
             public Texture cloudAtlas;
             public Texture skyLut;
+            public Texture fogNoise;
             public bool resetShelter;
             public bool bindShelter;
             public Vector4[] shelterAreas;
@@ -121,6 +123,7 @@ namespace HiddenBull.UrpStyle
             passData.brushAtlas = resolved.brushAtlas != null ? resolved.brushAtlas : Texture2D.grayTexture;
             passData.cloudAtlas = resolved.cloudAtlas != null ? resolved.cloudAtlas : Texture2D.blackTexture;
             passData.skyLut = resolved.skyLut;
+            passData.fogNoise = m_FogNoise != null ? m_FogNoise : (m_FogNoise = StyleFogNoise.Create());
             passData.bindShelter = false;
             passData.overlayShadow = kind == StyleCameraKind.Overlay
                 ? m_OverlayShadowNear * m_OverlayShadowNear
@@ -160,6 +163,7 @@ namespace HiddenBull.UrpStyle
                 context.cmd.SetGlobalTexture(s_BrushAtlasId, data.brushAtlas);
                 context.cmd.SetGlobalTexture(s_CloudAtlasId, data.cloudAtlas);
                 context.cmd.SetGlobalTexture(s_SkyLutId, data.skyLut);
+                context.cmd.SetGlobalTexture(StyleFogNoise.textureId, data.fogNoise);
                 context.cmd.SetGlobalFloat(s_OverlayShadowId, data.overlayShadow);
 
                 if (data.bodyCount > 0)
@@ -211,6 +215,8 @@ namespace HiddenBull.UrpStyle
             m_Buffer.Release();
             m_Bodies?.Release();
             m_Bodies = null;
+            CoreUtils.Destroy(m_FogNoise);
+            m_FogNoise = null;
             m_Mixer.Dispose();
             m_SharedMixLut.Dispose();
         }

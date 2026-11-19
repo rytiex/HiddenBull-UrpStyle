@@ -42,7 +42,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 700
+            Slots = 705
             Reads = 15
         }
         @{
@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2752
+            Slots = 2759
             Reads = 60
         }
         @{
@@ -113,7 +113,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 627
+            Slots = 634
             Reads = 15
         }
         @{
@@ -124,7 +124,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 651
+            Slots = 658
             Reads = 19
         }
         @{
@@ -135,7 +135,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_BRUSH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_BRUSH_MASK')
-            Slots = 1177
+            Slots = 1184
             Reads = 21
         }
         @{
@@ -146,7 +146,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 811
+            Slots = 818
             Reads = 28
         }
         @{
@@ -158,7 +158,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_BRUSH', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP',
                         '_HB_BRUSH_MASK')
-            Slots = 1363
+            Slots = 1370
             Reads = 33
         }
         @{
@@ -169,7 +169,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER')
-            Slots = 1831
+            Slots = 1835
             Reads = 30
         }
         @{
@@ -180,7 +180,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER_MOVING')
-            Slots = 1838
+            Slots = 1845
             Reads = 31
         }
         @{
@@ -203,7 +203,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_SKIN',
                         '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_THICKNESS_MAP')
-            Slots = 895
+            Slots = 902
             Reads = 27
         }
         @{
@@ -215,7 +215,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_CLOTH',
                         '_HB_CLOTH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 871
+            Slots = 878
             Reads = 26
         }
         @{
@@ -227,7 +227,7 @@
             Urp = 'Minimal'
             Defines = @('PROBE_VOLUMES_L1', '_MAIN_LIGHT_SHADOWS_CASCADE', '_SHADOWS_SOFT',
                         '_CLUSTER_LIGHT_LOOP')
-            Slots = 21
+            Slots = 25
             Reads = 0
         }
         @{
@@ -591,7 +591,7 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @()
-            Slots = 1100
+            Slots = 1148
             Reads = 16
         }
         @{
@@ -722,8 +722,8 @@
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
                         '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2147
-            Reads = 48
+            Slots = 2178
+            Reads = 51
         }
         @{
             Name = 'Transparent Forward (tinted or refractive, brush)'
@@ -732,8 +732,8 @@
             Stage = 'ps'
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2331
-            Reads = 75
+            Slots = 2383
+            Reads = 78
         }
         @{
             Name = 'Particle Forward (lit, all)'
@@ -844,7 +844,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2540
+            Slots = 2545
             Reads = 60
         }
         @{
@@ -895,7 +895,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2527
+            Slots = 2534
             Reads = 60
         }
         @{
@@ -1317,7 +1317,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4815
+            Slots = 4822
             Reads = 200
         }
         @{
@@ -1367,8 +1367,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3741
-            Reads = 148
+            Slots = 3771
+            Reads = 151
         }
         @{
             Name = 'Liquid Surface (debug)'

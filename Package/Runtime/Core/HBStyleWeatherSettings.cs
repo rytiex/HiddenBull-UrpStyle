@@ -31,14 +31,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 1f)]
         [Tooltip("How strongly the falling snow flakes show (0 to 1).")]
-        float m_SnowOpacity = 1f;
-
-        [SerializeField]
-        [Range(0f, 1f)]
-        [Tooltip("How far rain and snow close the sky (0 to 1): at 1 steady rain brings the cloud cover to " +
-                 "overcast, which also dims the sunlight. Lighter rain closes it less. Has no effect without a " +
-                 "cloud atlas in the Clouds section.")]
-        float m_CloudResponse = 1f;
+        float m_SnowOpacity = 0.5f;
 
         [SerializeField]
         [Range(0f, 1.5f)]
@@ -114,7 +107,6 @@ namespace HiddenBull.UrpStyle
 
         public float snowOpacity => m_SnowOpacity;
 
-        public float cloudResponse => m_CloudResponse;
 
         public float roofMargin => m_RoofMargin;
 

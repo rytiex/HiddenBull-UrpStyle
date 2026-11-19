@@ -12,20 +12,17 @@ struct HBTransparentFog
 HBTransparentFog HB_TransparentFog(float3 positionWS)
 {
     float3 cameraPositionWS = GetCameraPositionWS();
-    HBAtmosphere atmosphere = HB_AtmosphereAmount(positionWS, cameraPositionWS);
+    half amount = HB_FogAmount(positionWS, cameraPositionWS);
 
     HBTransparentFog fog;
     fog.colour = half3(0.0h, 0.0h, 0.0h);
     fog.clear = 1.0h;
 
     UNITY_BRANCH
-    if (atmosphere.fog + atmosphere.horizon > 0.0h)
+    if (amount > 0.0h)
     {
-        half3 direction = half3(normalize(positionWS - cameraPositionWS));
-
-        fog.colour = HB_SkySample(direction, direction.y) * (atmosphere.horizon * (1.0h - atmosphere.fog))
-                   + HB_FogColour(direction) * atmosphere.fog;
-        fog.clear = (1.0h - atmosphere.horizon) * (1.0h - atmosphere.fog);
+        fog.colour = HB_FogColour(half3(normalize(positionWS - cameraPositionWS))) * amount;
+        fog.clear = 1.0h - amount;
     }
 
     return fog;
@@ -33,9 +30,7 @@ HBTransparentFog HB_TransparentFog(float3 positionWS)
 
 half HB_TransparentClear(float3 positionWS)
 {
-    HBAtmosphere atmosphere = HB_AtmosphereAmount(positionWS, GetCameraPositionWS());
-
-    return (1.0h - atmosphere.horizon) * (1.0h - atmosphere.fog);
+    return 1.0h - HB_FogAmount(positionWS, GetCameraPositionWS());
 }
 
 #endif

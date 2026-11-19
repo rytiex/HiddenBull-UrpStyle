@@ -15,6 +15,9 @@ namespace HiddenBull.UrpStyle
         readonly Color[] m_Ambient = new Color[Count];
         readonly Color[] m_Sky = new Color[Count];
         readonly Color[] m_Fog = new Color[Count];
+        readonly Color[] m_FogClear = new Color[Count];
+        readonly Color[] m_FogRain = new Color[Count];
+        readonly Color[] m_FogSnow = new Color[Count];
         readonly Color[] m_Ground = new Color[Rows];
 
         Texture2DArray m_Texture;
@@ -22,6 +25,9 @@ namespace HiddenBull.UrpStyle
 
         HBStyleEnvironmentProfile m_Profile;
         int m_Version = -1;
+        HBStyleAtmosphereProfile m_FogProfile;
+        int m_FogVersion = -1;
+        Vector3 m_FogWeights = -Vector3.one;
         int m_Bakes;
 
         internal int mixKey = int.MinValue;
@@ -61,30 +67,72 @@ namespace HiddenBull.UrpStyle
 
         internal void Bake(HBStyleEnvironmentProfile profile)
         {
-            if (profile == m_Profile && profile.version == m_Version)
+            var fog = profile.atmosphere;
+            var fogVersion = fog != null ? fog.version : 0;
+            var weather = StyleEnvironment.weather;
+            var weights = Quantise(HBStyleAtmosphereProfile.Weights(weather.x, weather.y));
+            var changed = false;
+
+            if (profile != m_Profile || profile.version != m_Version)
+            {
+                m_Profile = profile;
+                m_Version = profile.version;
+
+                var sky = profile.sky;
+
+                Write(m_Ambient, 0, sky.dayAmbient ?? HBStyleSkySettings.DefaultDayAmbient());
+                Write(m_Ambient, 1, sky.duskAmbient ?? HBStyleSkySettings.DefaultDuskAmbient());
+                Write(m_Ambient, 2, sky.nightAmbient ?? HBStyleSkySettings.DefaultNightAmbient());
+                Write(m_Sky, 0, sky.daySky ?? HBStyleSkySettings.DefaultDaySky());
+                Write(m_Sky, 1, sky.duskSky ?? HBStyleSkySettings.DefaultDuskSky());
+                Write(m_Sky, 2, sky.nightSky ?? HBStyleSkySettings.DefaultNightSky());
+
+                for (var row = 0; row < Rows; row++)
+                    m_Ground[row] = m_Ambient[row * Width];
+
+                changed = true;
+            }
+
+            if (changed || fog != m_FogProfile || fogVersion != m_FogVersion)
+            {
+                m_FogProfile = fog;
+                m_FogVersion = fogVersion;
+
+                WriteFog(m_FogClear, fog != null ? fog.clear : null);
+                WriteFog(m_FogRain, fog != null ? fog.rain : null);
+                WriteFog(m_FogSnow, fog != null ? fog.snow : null);
+
+                changed = true;
+            }
+
+            if (changed || weights != m_FogWeights)
+            {
+                m_FogWeights = weights;
+
+                for (var i = 0; i < Count; i++)
+                    m_Fog[i] = m_FogClear[i] * weights.x + m_FogRain[i] * weights.y + m_FogSnow[i] * weights.z;
+
+                changed = true;
+            }
+
+            if (!changed)
                 return;
-
-            m_Profile = profile;
-            m_Version = profile.version;
-
-            var sky = profile.sky;
-            var atmosphere = profile.atmosphere;
-
-            Write(m_Ambient, 0, sky.dayAmbient ?? HBStyleSkySettings.DefaultDayAmbient());
-            Write(m_Ambient, 1, sky.duskAmbient ?? HBStyleSkySettings.DefaultDuskAmbient());
-            Write(m_Ambient, 2, sky.nightAmbient ?? HBStyleSkySettings.DefaultNightAmbient());
-            Write(m_Sky, 0, sky.daySky ?? HBStyleSkySettings.DefaultDaySky());
-            Write(m_Sky, 1, sky.duskSky ?? HBStyleSkySettings.DefaultDuskSky());
-            Write(m_Sky, 2, sky.nightSky ?? HBStyleSkySettings.DefaultNightSky());
-            Write(m_Fog, 0, atmosphere.dayFog ?? HBStyleSkySettings.DefaultDayAmbient());
-            Write(m_Fog, 1, atmosphere.duskFog ?? HBStyleSkySettings.DefaultDuskAmbient());
-            Write(m_Fog, 2, atmosphere.nightFog ?? HBStyleAtmosphereSettings.DefaultNightFog());
-
-            for (var row = 0; row < Rows; row++)
-                m_Ground[row] = m_Ambient[row * Width];
 
             m_Bakes++;
             m_Dirty = true;
+        }
+
+        static Vector3 Quantise(Vector3 weights)
+        {
+            return new Vector3(Mathf.Round(weights.x * 128f), Mathf.Round(weights.y * 128f),
+                               Mathf.Round(weights.z * 128f)) / 128f;
+        }
+
+        static void WriteFog(Color[] pixels, HBStyleFogState state)
+        {
+            Write(pixels, 0, state?.dayFog ?? HBStyleSkySettings.DefaultDayAmbient());
+            Write(pixels, 1, state?.duskFog ?? HBStyleSkySettings.DefaultDuskAmbient());
+            Write(pixels, 2, state?.nightFog ?? HBStyleFogState.DefaultNightFog());
         }
 
         internal void CopyFrom(StyleSkyLut source)
@@ -95,6 +143,7 @@ namespace HiddenBull.UrpStyle
             Array.Copy(source.m_Ground, m_Ground, Rows);
 
             m_Profile = null;
+            m_FogProfile = null;
             m_Dirty = true;
         }
 
@@ -147,6 +196,7 @@ namespace HiddenBull.UrpStyle
             CoreUtils.Destroy(m_Texture);
             m_Texture = null;
             m_Profile = null;
+            m_FogProfile = null;
         }
     }
 }

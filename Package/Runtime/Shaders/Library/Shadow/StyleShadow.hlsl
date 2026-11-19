@@ -284,7 +284,7 @@ half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask,
     half baked = 1.0h;
 #endif
 
-    return MixRealtimeAndBakedShadows(realtime, baked, fade);
+    return lerp(MixRealtimeAndBakedShadows(realtime, baked, fade), 1.0h, half(HB_OVERCAST_SHADOW));
 }
 
 Light HB_GetAdditionalLight(uint index, float3 positionWS, float3 positionDx, float3 positionDy, half3 normalWS,

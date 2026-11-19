@@ -24,14 +24,12 @@ namespace HiddenBull.UrpStyle
         HBStyleCloudSettings m_Clouds = new HBStyleCloudSettings();
 
         [SerializeField]
-        [Tooltip("Height fog with its own colour, and the horizon haze toward the sky colour.")]
-        HBStyleAtmosphereSettings m_Atmosphere = new HBStyleAtmosphereSettings();
+        [Tooltip("Atmosphere Profile with everything that changes with the weather: fog for clear weather, rain " +
+                 "and snow, overcast, the look of rain and snow and how surfaces wet and dry. It is left out of " +
+                 "light bakes. Empty means no fog and default weather looks.")]
+        HBStyleAtmosphereProfile m_AtmosphereProfile;
 
-        [SerializeField]
-        [Tooltip("How the weather looks and behaves: rain colour, how far it closes the sky, roof margin and the " +
-                 "wet, dry, settle, melt, cover and uncover times. How hard it rains, snows and blows is set on " +
-                 "the HB Style Environment Controller.")]
-        HBStyleWeatherSettings m_Weather = new HBStyleWeatherSettings();
+        static HBStyleWeatherSettings s_DefaultWeather;
 
         [NonSerialized]
         int m_Version;
@@ -44,9 +42,11 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleCloudSettings clouds => m_Clouds;
 
-        public HBStyleAtmosphereSettings atmosphere => m_Atmosphere;
+        public HBStyleAtmosphereProfile atmosphere => m_AtmosphereProfile;
 
-        public HBStyleWeatherSettings weather => m_Weather;
+        public HBStyleWeatherSettings weather => m_AtmosphereProfile != null
+            ? m_AtmosphereProfile.weather
+            : s_DefaultWeather ??= new HBStyleWeatherSettings();
 
         internal int version => m_Version;
 

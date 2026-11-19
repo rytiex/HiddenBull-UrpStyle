@@ -138,6 +138,11 @@ namespace HiddenBull.UrpStyle
             field = Mathf.Clamp01(value);
         }
 
+        internal void Refresh()
+        {
+            Apply();
+        }
+
         void Apply()
         {
             var angle = SunAngle(m_TimeOfDay);

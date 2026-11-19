@@ -37,8 +37,9 @@ CBUFFER_START(HBStyleFrame)
     float4 _HB_CloudLook;
     float4 _HB_Fog;
     float4 _HB_FogScatter;
-    float4 _HB_Horizon;
     float4 _HB_FogPaint;
+    float4 _HB_FogClumps;
+    float4 _HB_Overcast;
     float4 _HB_Debug;
     float4 _HB_WeatherClocks;
 CBUFFER_END
@@ -48,6 +49,10 @@ CBUFFER_END
 #define HB_SNOW _HB_Weather.y
 #define HB_WIND _HB_Weather.z
 #define HB_WIND_HEADING _HB_Weather.w
+
+#define HB_OVERCAST_SHADOW _HB_Overcast.y
+#define HB_OVERCAST_BAKED _HB_Overcast.z
+#define HB_OVERCAST_SKY _HB_Overcast.w
 
 #define HB_SURFACE_WET _HB_WeatherSurface.x
 #define HB_SURFACE_SNOW _HB_WeatherSurface.y

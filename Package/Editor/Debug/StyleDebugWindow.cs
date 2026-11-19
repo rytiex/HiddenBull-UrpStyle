@@ -14,8 +14,9 @@ namespace HiddenBull.UrpStyle.Editor
             "contact-hardening filter; Blockers shows the blocker share in red and the contact reach in green; " +
             "Cascades colours each cascade; Filter Values shows softness, contact and taps as red, green and " +
             "blue (black means the settings never arrived); Search Radius shows the blocker search size.\n\n" +
-            "Atmosphere: Fog Amount shows the fog in front of each surface in red and the horizon haze (after " +
-            "Horizon Layers) in green.\n\n" +
+            "Atmosphere: Fog Amount shows the fog in front of each surface in red and how much of " +
+            "its colour comes from the sun in green; blue is the fog patches along the view (mid blue is " +
+            "even fog, bright blue a thick patch, dark blue a gap).\n\n" +
             "Weather: Shelter is white where a surface has open sky above it and black where something covers " +
             "it, read from the top-down shelter map 160 m around the camera. Wetness shows how wet each surface " +
             "with Receive Weather is (white is soaked, after its material's Wetness); Snow shows how much snow " +

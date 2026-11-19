@@ -35,10 +35,6 @@ namespace HiddenBull.UrpStyle
         float m_Scale = 0.815f;
 
         [SerializeField]
-        [Tooltip("Direction and speed the cloud bank drifts, as a velocity.")]
-        Vector2 m_Wind = new Vector2(1.25f, 0.2f);
-
-        [SerializeField]
         [Tooltip("How softly the cloud edge dissolves into the sky (0.01 to 1).")]
         [Range(0.01f, 1f)]
         float m_Softness = 0.125f;
@@ -87,7 +83,6 @@ namespace HiddenBull.UrpStyle
         public Color tint => m_Tint;
         public float tintShade => m_TintShade;
         public float scale => m_Scale;
-        public Vector2 wind => m_Wind;
         public float softness => m_Softness;
         public int steps => m_Steps;
         public float stepSpacing => m_StepSpacing;

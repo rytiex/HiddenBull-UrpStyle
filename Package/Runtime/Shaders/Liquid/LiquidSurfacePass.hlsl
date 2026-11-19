@@ -995,7 +995,8 @@ half HB_LiquidFloorShadow(float3 floorWS)
     half4 crisp = GetMainLightShadowParams();
 
     crisp.y = SOFT_SHADOW_QUALITY_OFF;
-    return MainLightRealtimeShadow(TransformWorldToShadowCoord(floorWS), crisp, GetMainLightShadowSamplingData());
+    return lerp(MainLightRealtimeShadow(TransformWorldToShadowCoord(floorWS), crisp, GetMainLightShadowSamplingData()),
+                1.0h, half(HB_OVERCAST_SHADOW));
 #else
     return 1.0h;
 #endif

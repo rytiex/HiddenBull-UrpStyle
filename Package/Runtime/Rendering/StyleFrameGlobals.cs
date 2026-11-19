@@ -11,8 +11,15 @@ namespace HiddenBull.UrpStyle
 
         const float OvercastAmbientLift = 0.75f;
         const float CloudElevationLift = 0.09f;
+        const float FogDriftSpeed = 0.4f;
+        const float FogWindDrift = 6f;
+        const float AirHeight = 1000f;
+        const float AirHorizonRise = 0.1f;
+        const float AirHazeCeiling = 0.95f;
 
         static Gradient s_DefaultAurora;
+        static double s_FogClock = double.NegativeInfinity;
+        static Vector2 s_FogDrift;
 
         public Vector4 _HB_Environment;
         public Vector4 _HB_AmbientFloor;
@@ -49,8 +56,9 @@ namespace HiddenBull.UrpStyle
         public Vector4 _HB_CloudLook;
         public Vector4 _HB_Fog;
         public Vector4 _HB_FogScatter;
-        public Vector4 _HB_Horizon;
         public Vector4 _HB_FogPaint;
+        public Vector4 _HB_FogClumps;
+        public Vector4 _HB_Overcast;
         public Vector4 _HB_Debug;
         public Vector4 _HB_WeatherClocks;
 
@@ -96,9 +104,10 @@ namespace HiddenBull.UrpStyle
             globals._HB_SkyBrush = new Vector4(sky.skyBrushScale, sky.skyPaint, StyleSkyLut.RowCoordinate(away), blend);
             globals._HB_SunDirection = new Vector4(sunDirection.x, sunDirection.y, sunDirection.z, 1f);
 
-            PackCelestial(profile, elevation, blend, afterglow, ref globals);
+            PackCelestial(profile, elevation, blend, afterglow, overcast, ref globals);
             PackClouds(profile, sunDirection, elevation, spread, ref globals);
-            PackFog(profile.atmosphere, quality.atmosphere, afterglow * (1f - overcast), ref globals);
+            PackFog(profile.atmosphere, quality.atmosphere, afterglow * (1f - overcast), overcast, ref globals);
+            PackOvercast(profile.atmosphere, overcast, ref globals);
 
             globals._HB_Debug = new Vector4((int)StyleDebug.view, 0f, 0f, 0f);
 
@@ -162,23 +171,21 @@ namespace HiddenBull.UrpStyle
                 current._HB_CloudLook = L(current._HB_CloudLook, other._HB_CloudLook, t);
             }
 
-            if ((sections & HBStyleProfileSections.Weather) != 0)
+            if ((sections & HBStyleProfileSections.Atmosphere) != 0)
             {
                 var look = L(current._HB_WeatherLook, other._HB_WeatherLook, t);
 
                 current._HB_WeatherLook = new Vector4(look.x, look.y, look.z, current._HB_WeatherLook.w);
                 current._HB_Precipitation = L(current._HB_Precipitation, other._HB_Precipitation, t);
-            }
-
-            if ((sections & HBStyleProfileSections.Atmosphere) != 0)
-            {
-                var layers = half ? other._HB_Horizon.w : current._HB_Horizon.w;
-
+                current._HB_Overcast = L(current._HB_Overcast, other._HB_Overcast, t);
                 current._HB_Fog = L(current._HB_Fog, other._HB_Fog, t);
                 current._HB_FogScatter = L(current._HB_FogScatter, other._HB_FogScatter, t);
-                current._HB_Horizon = L(current._HB_Horizon, other._HB_Horizon, t);
-                current._HB_Horizon.w = layers;
                 current._HB_FogPaint = L(current._HB_FogPaint, other._HB_FogPaint, t);
+
+                var clumps = L(current._HB_FogClumps, other._HB_FogClumps, t);
+
+                current._HB_FogClumps = new Vector4(clumps.x, clumps.y, current._HB_FogClumps.z,
+                                                    current._HB_FogClumps.w);
             }
         }
 
@@ -232,7 +239,7 @@ namespace HiddenBull.UrpStyle
         }
 
         static void PackCelestial(HBStyleEnvironmentProfile profile, float elevation, float blend, float afterglow,
-                                  ref StyleFrameGlobals globals)
+                                  float overcast, ref StyleFrameGlobals globals)
         {
             var sky = profile.sky;
             var celestial = profile.celestial;
@@ -240,18 +247,19 @@ namespace HiddenBull.UrpStyle
 
             var sun = StyleKeyLight.Linear(StyleKeyLight.OverElevation(StyleKeyLight.SunDisc(sky), elevation));
             var power = Mathf.Lerp(celestial.sunIntensity, celestial.sunDuskIntensity, sunTime);
+            var clear = 1f - overcast;
 
-            globals._HB_SunColor = new Vector4(sun.r, sun.g, sun.b, power);
+            globals._HB_SunColor = new Vector4(sun.r, sun.g, sun.b, power * clear);
             globals._HB_SunDisc = PackDisc(Mathf.Lerp(celestial.sunSize, celestial.sunDuskSize, sunTime),
                                            celestial.sunBrush);
-            globals._HB_SunGlow = PackGlow(celestial.sunGlow, celestial.sunRays, afterglow);
+            globals._HB_SunGlow = PackGlow(celestial.sunGlow, celestial.sunRays, afterglow * clear);
 
             var moon = StyleKeyLight.Linear(StyleKeyLight.OverElevation(StyleKeyLight.MoonDisc(sky), -elevation));
             var moonFade = StyleKeyLight.Smooth01(0.5f - elevation / (2f * StyleKeyLight.Transition));
 
-            globals._HB_MoonColor = new Vector4(moon.r, moon.g, moon.b, celestial.moonIntensity * moonFade);
+            globals._HB_MoonColor = new Vector4(moon.r, moon.g, moon.b, celestial.moonIntensity * moonFade * clear);
             globals._HB_MoonDisc = PackDisc(celestial.moonSize, 0.2f);
-            globals._HB_MoonGlow = PackGlow(celestial.moonGlow, 0f, 1f);
+            globals._HB_MoonGlow = PackGlow(celestial.moonGlow, 0f, clear);
 
             var amount = celestial.stars;
             var fade = 1f - Mathf.Clamp01(Mathf.InverseLerp(-0.2f, 0.15f, elevation));
@@ -295,7 +303,7 @@ namespace HiddenBull.UrpStyle
             var light = StyleKeyLight.Linear(StyleKeyLight.OverElevation(gradient, lifted)) * reach;
             var away = StyleKeyLight.Linear(StyleKeyLight.OverElevation(gradient, lifted - spread * 0.35f)) * reach;
             var direction = lifted >= 0f ? sunDirection : -sunDirection;
-            var wind = clouds.wind * 0.004f;
+            var wind = (profile.atmosphere != null ? profile.atmosphere.overcast.cloudDrift : Vector2.zero) * 0.004f;
             var tint = StyleKeyLight.Linear(clouds.tint);
 
             globals._HB_CloudParams = new Vector4(StyleKeyLight.Coverage(profile), clouds.scale * 0.03f,
@@ -311,24 +319,85 @@ namespace HiddenBull.UrpStyle
             globals._HB_CloudTint = new Vector4(tint.r, tint.g, tint.b, clouds.tintShade);
         }
 
-        static void PackFog(HBStyleAtmosphereSettings atmosphere, HBStyleAtmosphereQuality quality,
-                            float sunVisibility, ref StyleFrameGlobals globals)
+        static void PackFog(HBStyleAtmosphereProfile atmosphere, HBStyleAtmosphereQuality quality,
+                            float sunVisibility, float overcast, ref StyleFrameGlobals globals)
         {
-            if (quality.level == HBStyleQualityLevel.Off)
+            if (atmosphere == null || StyleEnvironment.baking || quality.level == HBStyleQualityLevel.Off)
                 return;
 
             var level = quality.current;
-            var fogStart = Mathf.Max(atmosphere.fogStart, 0f);
-            var horizonStart = Mathf.Max(atmosphere.horizonStart, 0f);
+            var weather = StyleEnvironment.weather;
+            var w = HBStyleAtmosphereProfile.Weights(weather.x, weather.y);
+            var clear = atmosphere.clear;
+            var rain = atmosphere.rain;
+            var snow = atmosphere.snow;
+            var shared = atmosphere.fog;
 
-            globals._HB_Fog = new Vector4(Density(fogStart, atmosphere.fogEnd), atmosphere.fogHeightFalloff,
-                                          atmosphere.baseHeight, atmosphere.fogMaxOpacity);
-            globals._HB_FogScatter = new Vector4(level.sunInscatter ? atmosphere.sunScattering * sunVisibility : 0f,
-                                                 fogStart, atmosphere.layerSoftness, 0f);
-            globals._HB_Horizon = new Vector4(Density(horizonStart, atmosphere.horizonEnd),
-                                              atmosphere.horizonHeightFalloff, horizonStart,
-                                              level.horizonLayers ? atmosphere.horizonLayers : 0f);
-            globals._HB_FogPaint = new Vector4(atmosphere.fogPaint, atmosphere.silhouette, 0f, 0f);
+            var density = Mix3(w, Density(clear), Density(rain), Density(snow))
+                          * (1f - shared.windClear * Mathf.Clamp01(weather.z));
+            var start = Mix3(w, Mathf.Max(clear.start, 0f), Mathf.Max(rain.start, 0f), Mathf.Max(snow.start, 0f));
+            var scattering = Mix3(w, clear.sunScattering, rain.sunScattering, snow.sunScattering);
+            var clumps = Mix3(w, clear.clumps, rain.clumps, snow.clumps);
+            var clumpSize = Mix3(w, clear.clumpSize, rain.clumpSize, snow.clumpSize);
+            var fadeRate = Mix3(w, FadeRate(clear), FadeRate(rain), FadeRate(snow));
+
+            globals._HB_Fog = new Vector4(density, fadeRate, Mix3(w, clear.layerTop, rain.layerTop, snow.layerTop),
+                                          Mix3(w, clear.maxOpacity, rain.maxOpacity, snow.maxOpacity));
+            globals._HB_FogScatter = new Vector4(level.sunInscatter ? scattering * sunVisibility : 0f, start,
+                                                 atmosphere.overcast.fogGrey * overcast, 0f);
+            globals._HB_FogPaint = new Vector4(shared.fogPaint, shared.silhouette,
+                                               Mix3(w, AirDensity(clear), AirDensity(rain), AirDensity(snow)),
+                                               Mix3(w, clear.layerCover, rain.layerCover, snow.layerCover));
+
+            var drift = FogDrift();
+
+            globals._HB_FogClumps = new Vector4(level.clumps ? clumps : 0f, 1f / Mathf.Max(clumpSize, 1f), drift.x,
+                                                drift.y);
+        }
+
+        static void PackOvercast(HBStyleAtmosphereProfile atmosphere, float overcast, ref StyleFrameGlobals globals)
+        {
+            var settings = atmosphere != null ? atmosphere.overcast : null;
+
+            var bakedToSky = settings != null ? settings.bakedToSky * overcast : 0f;
+            var skyGrey = settings != null ? settings.skyGrey * overcast : 0f;
+
+            globals._HB_Overcast = new Vector4(overcast, overcast, bakedToSky, skyGrey);
+        }
+
+        static float AirDensity(HBStyleFogState state)
+        {
+            var haze = Mathf.Clamp01(state.airHaze) * AirHazeCeiling;
+
+            return -Mathf.Log(1f - haze) * AirHorizonRise / AirHeight;
+        }
+
+        static float FadeRate(HBStyleFogState state)
+        {
+            return state.fadeHeight > 0.01f ? 1f / state.fadeHeight : 0f;
+        }
+
+        static float Mix3(Vector3 weights, float clear, float rain, float snow)
+        {
+            return clear * weights.x + rain * weights.y + snow * weights.z;
+        }
+
+        static float Density(HBStyleFogState state)
+        {
+            return Density(Mathf.Max(state.start, 0f), state.end);
+        }
+
+        static Vector2 FogDrift()
+        {
+            var now = StyleEnvironment.clock;
+            var step = double.IsNegativeInfinity(s_FogClock) ? 0f : Mathf.Clamp((float)(now - s_FogClock), 0f, 0.25f);
+            var heading = StyleEnvironment.windHeading * Mathf.Deg2Rad;
+            var speed = FogDriftSpeed + StyleEnvironment.weather.z * FogWindDrift;
+
+            s_FogClock = now;
+            s_FogDrift += new Vector2(Mathf.Sin(heading), Mathf.Cos(heading)) * (speed * step);
+
+            return s_FogDrift;
         }
 
         static float Density(float start, float end)

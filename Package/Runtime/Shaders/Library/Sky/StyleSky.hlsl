@@ -32,6 +32,7 @@
 #define HB_SKY_SUNSET_DELAY  0.35h
 #define HB_SKY_BODY_MASK     0.005h
 #define HB_SKY_GLOW_MASK     0.15h
+#define HB_OVERCAST_SKY_DARKEN 0.75h
 
 half HB_SunFacing(half3 direction)
 {
@@ -54,7 +55,10 @@ half3 HB_SkySample(half3 direction, half up)
     half3 toward = HB_SampleSkyLut(up, HB_SKY_ROW, HB_LUT_SKY);
     half3 away = HB_SampleSkyLut(up, HB_SKY_AWAY_ROW, HB_LUT_SKY);
 
-    return lerp(away, toward, HB_SunFacing(direction)) * half(HB_SKY_INTENSITY);
+    half3 sky = lerp(away, toward, HB_SunFacing(direction)) * half(HB_SKY_INTENSITY);
+    half grey = dot(sky, half3(0.2126h, 0.7152h, 0.0722h)) * HB_OVERCAST_SKY_DARKEN;
+
+    return lerp(sky, grey.xxx, half(HB_OVERCAST_SKY));
 }
 
 float HB_SkyBrushTurns(float scale)
