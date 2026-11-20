@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -16,6 +17,10 @@ namespace HiddenBull.UrpStyle.Editor
         const string DilationPath = "settings.dilationSettings.enableDilation";
         const string DilationDistancePath = "settings.dilationSettings.dilationDistance";
         const float NearPlane = 1f;
+        const string LightingTabType =
+            "UnityEngine.Rendering.ProbeVolumeLightingTab, Unity.RenderPipelines.Core.Editor";
+        const BindingFlags Hidden = BindingFlags.NonPublic | BindingFlags.Instance;
+        const BindingFlags HiddenStatic = BindingFlags.NonPublic | BindingFlags.Static;
 
         static class Styles
         {
@@ -330,8 +335,8 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (set == null)
             {
-                EditorGUILayout.HelpBox("The open scenes have no baking set. Add one in the Lighting window under " +
-                                        "Adaptive Probe Volumes.", MessageType.Info);
+                EditorGUILayout.HelpBox("The scene has no probe baking set yet. Use Fix in Checks to create one.",
+                                        MessageType.Info);
                 return;
             }
 
@@ -482,8 +487,9 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (probeVolumes)
             {
-                m_Checks.Add(new Check("Open scenes have a probe baking set (Lighting window)", set != null,
-                                       Severity.Required, null));
+                m_Checks.Add(new Check("Scene has a saved probe baking set",
+                                       set != null && EditorUtility.IsPersistent(set), Severity.Required,
+                                       CanSaveBakingSet() ? SaveBakingSet : null));
                 m_Checks.Add(new Check("Probe Dilation is on (no dark contour lines on the ground)",
                                        set != null && HasDilation(set), Severity.Required,
                                        set != null ? () => EnableDilation(set) : null));
@@ -513,7 +519,75 @@ namespace HiddenBull.UrpStyle.Editor
 
         static ProbeVolumeBakingSet BakingSet()
         {
-            return ProbeReferenceVolume.instance.currentBakingSet;
+            var find = typeof(ProbeVolumeBakingSet).GetMethod("GetBakingSetForScene", HiddenStatic, null,
+                                                              new[] { typeof(Scene) }, null);
+            var set = find?.Invoke(null, new object[] { SceneManager.GetActiveScene() }) as ProbeVolumeBakingSet;
+
+            return set != null ? set : ProbeReferenceVolume.instance.currentBakingSet;
+        }
+
+        static bool CanSaveBakingSet()
+        {
+            return !string.IsNullOrEmpty(SceneManager.GetActiveScene().path);
+        }
+
+        static void SaveBakingSet()
+        {
+            if (!SaveLightingTabSet())
+                CreateBakingSet();
+        }
+
+        static bool SaveLightingTabSet()
+        {
+            var type = Type.GetType(LightingTabType);
+            var tab = type?.GetField("instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            var temporary = type?.GetField("m_TempBakingSet", Hidden);
+            var active = type?.GetProperty("activeSet", Hidden);
+            var save = type?.GetMethod("SaveTempBakingSetIfNeeded", Hidden, null, Type.EmptyTypes, null);
+
+            if (tab == null || temporary == null || active == null || save == null || !(bool)temporary.GetValue(tab))
+                return false;
+
+            if (active.GetValue(tab) is not ProbeVolumeBakingSet set || set == null || EditorUtility.IsPersistent(set))
+                return false;
+
+            save.Invoke(tab, null);
+
+            return EditorUtility.IsPersistent(set);
+        }
+
+        static void CreateBakingSet()
+        {
+            var scene = SceneManager.GetActiveScene();
+            var type = typeof(ProbeVolumeBakingSet);
+            var folder = type.GetMethod("GetDirectory", HiddenStatic, null, new[] { typeof(string), typeof(string) },
+                                        null);
+            var defaults = type.GetMethod("SetDefaults", Hidden, null, Type.EmptyTypes, null);
+            var addScene = type.GetMethod("AddScene", Hidden);
+            var single = type.GetField("singleSceneMode", Hidden);
+            var sync = type.GetMethod("SyncBakingSets", HiddenStatic, null, Type.EmptyTypes, null);
+
+            if (folder == null || defaults == null || addScene == null || single == null || sync == null)
+            {
+                Debug.LogWarning("HB Style: this URP version cannot create a probe baking set from the Bake Panel. " +
+                                 "Create one in the Lighting window under Adaptive Probe Volumes.");
+                return;
+            }
+
+            var set = CreateInstance<ProbeVolumeBakingSet>();
+
+            set.name = scene.name + " Baking Set";
+            defaults.Invoke(set, null);
+            single.SetValue(set, true);
+            addScene.Invoke(set, new object[] { AssetDatabase.AssetPathToGUID(scene.path), null });
+
+            var directory = (string)folder.Invoke(null, new object[] { scene.path, scene.name });
+            var path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(directory, set.name + ".asset")
+                                                                 .Replace('\\', '/'));
+
+            AssetDatabase.CreateAsset(set, path);
+            AssetDatabase.SaveAssets();
+            sync.Invoke(null, null);
         }
 
         static bool HasDilation(ProbeVolumeBakingSet set)
