@@ -45,6 +45,26 @@ HBStyleEnvironment.BlendTo(stormProfile, seconds: 10f);
 | `profile`, `profileBlend`, `controller` | The target profile, blend progress, and the controller |
 | `weatherChanged`, `profileChanged` | Events |
 
+## Textures from code
+
+Lit, Transparent, Foliage and Foliage Body skip a map slot that has no texture. The material Inspector turns the
+slot on when you assign a texture, but `Material.SetTexture` from code does not, so the texture stays unused.
+`HBStyleMaterial` sets the texture and turns the slot on or off with it:
+
+```csharp
+HBStyleMaterial.SetTexture(renderer.material, "_BumpMap", normalMap);
+```
+
+| Member | |
+|---|---|
+| `SetTexture(material, name, texture)` | Sets the texture; `null` turns the slot off |
+| `Refresh(material)` | Matches every slot to the textures already set, after changes made another way |
+
+It covers Base Map, Normal Map, Mask Map and the Translucency Map. A build only keeps the slots that some material
+in the project uses: if no material asset has a normal map on that shader, a normal map set from code shows in the
+editor but not in the build. Keep one material asset with the map assigned to be safe. Shader Graph materials are
+not covered.
+
 ## Liquid queries
 
 `HBStyleLiquid` answers where the surface of any liquid is, terrain water and pools alike, including waves.
