@@ -102,6 +102,8 @@ namespace HiddenBull.UrpStyle.Editor
             var normals = new List<Vector3>(row * row);
             var coords = new List<Vector2>(row * row);
             var corners = new List<int>(cells * cells * 6);
+            var holes = heights.holesResolution;
+            var solid = holes > 0 ? heights.GetHoles(0, 0, holes, holes) : null;
 
             for (var z = 0; z < row; z++)
             {
@@ -121,6 +123,9 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 for (var x = 0; x < cells; x++)
                 {
+                    if (solid != null && Holed(solid, x, z, cells))
+                        continue;
+
                     var first = z * row + x;
 
                     corners.Add(first);
@@ -132,8 +137,29 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
-            Emit(terrain.name + " Ground", shader, s_Ground, Color.black, ReceiveGI.LightProbes, true, points,
-                 normals, coords, corners);
+            if (corners.Count > 0)
+                Emit(terrain.name + " Ground", shader, s_Ground, Color.black, ReceiveGI.LightProbes, true, points,
+                     normals, coords, corners);
+        }
+
+        static bool Holed(bool[,] solid, int x, int z, int cells)
+        {
+            var size = solid.GetLength(0);
+            var x0 = x * size / cells;
+            var z0 = z * size / cells;
+            var x1 = Mathf.Clamp(((x + 1) * size + cells - 1) / cells, x0 + 1, size);
+            var z1 = Mathf.Clamp(((z + 1) * size + cells - 1) / cells, z0 + 1, size);
+
+            for (var row = z0; row < z1; row++)
+            {
+                for (var column = x0; column < x1; column++)
+                {
+                    if (!solid[row, column])
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         static void Add(HBStyleTerrain terrain, Shader shader)

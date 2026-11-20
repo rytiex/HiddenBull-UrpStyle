@@ -1,6 +1,6 @@
 {
     "name": "com.hiddenbull.urpstyle",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "displayName": "HiddenBull URP Style",
     "description": "Painterly look for URP: sky, fog, weather, terrain, grass, plants, liquids and glass.",
     "unity": "6000.0",
