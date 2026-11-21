@@ -176,6 +176,16 @@ namespace HiddenBull.UrpStyle
             return Color.Lerp(m_Ground[lower], m_Ground[upper], scaled - lower);
         }
 
+        internal Color Ambient(float blend, float up)
+        {
+            var scaled = Mathf.Clamp01(blend) * (Rows - 1);
+            var lower = Mathf.FloorToInt(scaled);
+            var upper = Mathf.Min(lower + 1, Rows - 1);
+            var column = Mathf.RoundToInt(Mathf.Clamp01(up * 0.5f + 0.5f) * (Width - 1));
+
+            return Color.Lerp(m_Ambient[lower * Width + column], m_Ambient[upper * Width + column], scaled - lower);
+        }
+
         static void Lerp(Color[] current, Color[] target, float weight)
         {
             for (var i = 0; i < current.Length; i++)

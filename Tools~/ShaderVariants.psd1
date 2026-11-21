@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2797
+            Slots = 2798
             Reads = 60
         }
         @{
@@ -169,7 +169,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER')
-            Slots = 1842
+            Slots = 1843
             Reads = 30
         }
         @{
@@ -180,7 +180,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER_MOVING')
-            Slots = 1882
+            Slots = 1883
             Reads = 36
         }
         @{
@@ -320,7 +320,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK')
-            Slots = 2502
+            Slots = 2503
             Reads = 60
         }
         @{
@@ -591,7 +591,7 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @()
-            Slots = 1148
+            Slots = 1152
             Reads = 16
         }
         @{
@@ -722,7 +722,7 @@
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
                         '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2178
+            Slots = 2181
             Reads = 51
         }
         @{
@@ -895,7 +895,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2541
+            Slots = 2542
             Reads = 60
         }
         @{
@@ -1347,7 +1347,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4856
+            Slots = 4857
             Reads = 200
         }
         @{
@@ -1397,7 +1397,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3773
+            Slots = 3775
             Reads = 151
         }
         @{

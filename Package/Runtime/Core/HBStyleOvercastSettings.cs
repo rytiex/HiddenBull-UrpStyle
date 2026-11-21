@@ -20,7 +20,8 @@ namespace HiddenBull.UrpStyle
 
         [SerializeField]
         [Range(0f, 1f)]
-        [Tooltip("How far a full overcast drains the colour out of the sky and darkens it (0 to 1).")]
+        [Tooltip("How far a full overcast drains the colour out of the sky (0 to 1). The sky, clouds and fog also " +
+                 "darken on their own by as much light as the scene loses with the sun.")]
         float m_SkyGrey = 0.6f;
 
         [SerializeField]

@@ -61,8 +61,10 @@ screen. The sky, glass, liquids and falling rain apply the same fog themselves.
 
 Rain and snow close the sky. **Cloud Response** on the Overcast tab sets how far: at 1 steady rain brings the sky
 to full overcast. Under an overcast sky the sun's light fades away and its shadows go with it, while rooms and
-shade stay dark, so no light leaks indoors. **Sky Grey** and **Fog Grey** drain the colour from the sky and fog;
-**Baked To Sky** decides how far baked light gives way to the grey sky.
+shade stay dark, so no light leaks indoors. The sky, the clouds and the fog darken by as much light as the scene
+loses with the sun, so they stay as bright next to the ground as in clear weather; at night nothing changes.
+**Sky Grey** and **Fog Grey** drain the colour from the sky and fog; **Baked To Sky** decides how far baked light
+gives way to the grey sky, and the sky darkens less when it does.
 
 ## Rain and snow
 

@@ -10,6 +10,7 @@ namespace HiddenBull.UrpStyle
         internal const string BufferName = "HBStyleFrame";
 
         const float OvercastAmbientLift = 0.75f;
+        const float OvercastDimFloor = 0.05f;
         const float CloudElevationLift = 0.09f;
         const float FogDriftSpeed = 0.4f;
         const float FogWindDrift = 6f;
@@ -85,6 +86,7 @@ namespace HiddenBull.UrpStyle
             var spread = sky.sunsetFocus * 4f * blend * (1f - blend);
             var away = Mathf.Clamp01(blend + spread * 0.45f);
             var overcast = StyleKeyLight.Overcast(profile);
+            var dim = OvercastDim(profile, lut, elevation, blend, overcast);
             var night = Mathf.Sin(sky.nightElevation * Mathf.Deg2Rad);
             var afterglow = Mathf.Clamp01(Mathf.InverseLerp(night, 0f, elevation));
 
@@ -105,9 +107,9 @@ namespace HiddenBull.UrpStyle
             globals._HB_SunDirection = new Vector4(sunDirection.x, sunDirection.y, sunDirection.z, 1f);
 
             PackCelestial(profile, elevation, blend, afterglow, overcast, ref globals);
-            PackClouds(profile, sunDirection, elevation, spread, ref globals);
+            PackClouds(profile, sunDirection, elevation, spread, dim, ref globals);
             PackFog(profile.atmosphere, quality.atmosphere, afterglow * (1f - overcast), overcast, ref globals);
-            PackOvercast(profile.atmosphere, overcast, ref globals);
+            PackOvercast(profile.atmosphere, overcast, dim, ref globals);
 
             globals._HB_Debug = new Vector4((int)StyleDebug.view, 0f, 0f, 0f);
 
@@ -283,7 +285,7 @@ namespace HiddenBull.UrpStyle
         }
 
         static void PackClouds(HBStyleEnvironmentProfile profile, Vector3 sunDirection, float elevation, float spread,
-                               ref StyleFrameGlobals globals)
+                               float dim, ref StyleFrameGlobals globals)
         {
             var clouds = profile.clouds;
 
@@ -297,7 +299,7 @@ namespace HiddenBull.UrpStyle
 
             var sky = profile.sky;
             var lifted = elevation + CloudElevationLift;
-            var reach = sky.skyLightIntensity * StyleKeyLight.Handoff(lifted);
+            var reach = sky.skyLightIntensity * StyleKeyLight.Handoff(lifted) * dim;
             var gradient = StyleKeyLight.SkyLight(sky);
 
             var light = StyleKeyLight.Linear(StyleKeyLight.OverElevation(gradient, lifted)) * reach;
@@ -355,7 +357,37 @@ namespace HiddenBull.UrpStyle
                                                 drift.y);
         }
 
-        static void PackOvercast(HBStyleAtmosphereProfile atmosphere, float overcast, ref StyleFrameGlobals globals)
+        static float OvercastDim(HBStyleEnvironmentProfile profile, StyleSkyLut lut, float elevation, float blend,
+                                 float overcast)
+        {
+            if (overcast <= 0f || lut == null)
+                return 1f;
+
+            var sky = profile.sky;
+            var colour = StyleKeyLight.Linear(StyleKeyLight.OverElevation(StyleKeyLight.SkyLight(sky), elevation));
+            var sun = Luminance(colour) * sky.skyLightIntensity * StyleKeyLight.Handoff(elevation)
+                      * StyleKeyLight.Share(sky, elevation) * Mathf.Abs(elevation);
+            var ambient = Luminance(lut.Ambient(blend, 1f)) * sky.ambientIntensity;
+            var clear = ambient + sun;
+
+            if (clear <= 1e-5f)
+                return 1f;
+
+            var atmosphere = profile.atmosphere;
+            var toSky = atmosphere != null ? atmosphere.overcast.bakedToSky * overcast : 0f;
+            var lift = OvercastAmbientLift * overcast * (ProbeLightingBaked() ? toSky : 1f);
+            var kept = ambient * (1f + lift) + sun * (1f - overcast);
+
+            return Mathf.Clamp(kept / clear, OvercastDimFloor, 1f);
+        }
+
+        static float Luminance(Color colour)
+        {
+            return colour.r * 0.2126f + colour.g * 0.7152f + colour.b * 0.0722f;
+        }
+
+        static void PackOvercast(HBStyleAtmosphereProfile atmosphere, float overcast, float dim,
+                                 ref StyleFrameGlobals globals)
         {
             var settings = atmosphere != null ? atmosphere.overcast : null;
 
@@ -363,7 +395,7 @@ namespace HiddenBull.UrpStyle
             var skyGrey = settings != null ? settings.skyGrey * overcast : 0f;
             var unlifted = Mathf.Lerp(1f / (1f + overcast * OvercastAmbientLift), 1f, bakedToSky);
 
-            globals._HB_Overcast = new Vector4(overcast, unlifted, bakedToSky, skyGrey);
+            globals._HB_Overcast = new Vector4(dim, unlifted, bakedToSky, skyGrey);
         }
 
         static float AirDensity(HBStyleFogState state)

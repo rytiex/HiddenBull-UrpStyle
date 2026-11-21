@@ -264,7 +264,9 @@ half3 HB_FogColourPainted(half3 direction, half4 atlas, half paint)
 
     colour = lerp(colour, half3(_HB_SunColor.rgb) * tone, HB_FogSunShare(direction));
 
-    return lerp(colour, dot(colour, half3(0.2126h, 0.7152h, 0.0722h)).xxx, half(HB_FOG_OVERCAST_GREY));
+    colour = lerp(colour, dot(colour, half3(0.2126h, 0.7152h, 0.0722h)).xxx, half(HB_FOG_OVERCAST_GREY));
+
+    return colour * half(HB_OVERCAST_DIM);
 }
 
 half3 HB_FogColour(half3 direction)

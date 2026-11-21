@@ -53,6 +53,7 @@ CBUFFER_END
 #define HB_OVERCAST_UNLIFT _HB_Overcast.y
 #define HB_OVERCAST_BAKED _HB_Overcast.z
 #define HB_OVERCAST_SKY _HB_Overcast.w
+#define HB_OVERCAST_DIM _HB_Overcast.x
 
 #define HB_SURFACE_WET _HB_WeatherSurface.x
 #define HB_SURFACE_SNOW _HB_WeatherSurface.y
