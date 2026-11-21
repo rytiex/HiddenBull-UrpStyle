@@ -2129,6 +2129,56 @@
             Reads = 0
         }
         @{
+            Name = 'Texture Studio Mask Luma'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaskStudio.compute'
+            Entry = 'Luma'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Mask BlurX'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaskStudio.compute'
+            Entry = 'BlurX'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Mask BlurY'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaskStudio.compute'
+            Entry = 'BlurY'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Mask Build'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaskStudio.compute'
+            Entry = 'Build'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Texture Studio Mask Show'
+            Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleMaskStudio.compute'
+            Entry = 'Show'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Texture Studio Liquid ClearMask'
             Include = 'Packages/com.hiddenbull.urpstyle/Editor/TextureStudio/StyleLiquidStudio.compute'
             Entry = 'ClearMask'

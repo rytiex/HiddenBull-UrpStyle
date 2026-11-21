@@ -50,8 +50,11 @@ namespace HiddenBull.UrpStyle.Editor
             var liquid = m_Pages != null && m_Pages.Length > 4 && m_Pages[4] is StyleLiquidPage keptLiquid
                 ? keptLiquid
                 : new StyleLiquidPage();
+            var mask = m_Pages != null && m_Pages.Length > 5 && m_Pages[5] is StyleMaskPage keptMask
+                ? keptMask
+                : new StyleMaskPage();
 
-            m_Pages = new StyleStudioPage[] { material, grass, brush, cloud, liquid };
+            m_Pages = new StyleStudioPage[] { material, grass, brush, cloud, liquid, mask };
 
             foreach (var page in m_Pages)
                 page.host = this;

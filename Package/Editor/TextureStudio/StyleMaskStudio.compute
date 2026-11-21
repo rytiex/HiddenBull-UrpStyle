@@ -1,0 +1,197 @@
+#pragma kernel Luma
+#pragma kernel BlurX
+#pragma kernel BlurY
+#pragma kernel Build
+#pragma kernel Show
+
+#define HB_MASK_TAPS 128
+#define HB_MASK_TURNS 8
+#define HB_MASK_TAU 6.2831853
+
+Texture2D<float4> _Albedo;
+Texture2D<float4> _Normal;
+Texture2D<float4> _Source0;
+Texture2D<float4> _Source1;
+Texture2D<float4> _Source2;
+Texture2D<float4> _Source3;
+Texture2D<float> _LumaIn;
+Texture2D<float> _BlurIn;
+Texture2D<float4> _MaskIn;
+RWTexture2D<float> _Luma;
+RWTexture2D<float> _BlurOut;
+RWTexture2D<float4> _Mask;
+RWTexture2D<float4> _Display;
+SamplerState sampler_linear_repeat;
+
+float4 _Size;
+float4 _Estimate;
+float4 _Smooth;
+float4 _Modes[4];
+float4 _Picks[4];
+float4 _Show;
+
+float3 HB_MaskGamma(float3 value)
+{
+    value = max(value, 0.0);
+    return value <= 0.0031308 ? value * 12.92 : 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+}
+
+bool HB_MaskOutside(uint2 id)
+{
+    return any(float2(id) >= _Size.x);
+}
+
+float2 HB_MaskUV(uint2 id)
+{
+    return (float2(id) + 0.5) * _Size.y;
+}
+
+float4 HB_MaskSample(Texture2D<float4> map, float2 uv)
+{
+    float width;
+    float height;
+    float levels;
+
+    map.GetDimensions(0, width, height, levels);
+
+    float lod = clamp(log2(max(width, height) * _Size.y), 0.0, max(levels - 1.0, 0.0));
+
+    return map.SampleLevel(sampler_linear_repeat, uv, lod);
+}
+
+float2 HB_MaskTilt(float4 packed)
+{
+    return float2(packed.a * packed.r, packed.g) * 2.0 - 1.0;
+}
+
+float HB_MaskOcclusion(float2 uv, float height)
+{
+    float strength = _Estimate.y;
+    float occlusion = saturate(1.0 - (0.5 - height) * 2.0 * strength);
+
+    if (_Size.w < 0.5)
+        return occlusion;
+
+    float cavity = 0.0;
+
+    [loop]
+    for (int ring = 1; ring <= 2; ring++)
+    {
+        [loop]
+        for (int turn = 0; turn < HB_MASK_TURNS; turn++)
+        {
+            float angle = (turn + ring * 0.5) * (HB_MASK_TAU / HB_MASK_TURNS);
+            float2 direction = float2(cos(angle), sin(angle));
+            float2 tilt = HB_MaskTilt(HB_MaskSample(_Normal, uv + direction * _Estimate.z * ring * 0.5));
+
+            cavity += dot(tilt, -direction);
+        }
+    }
+
+    cavity /= HB_MASK_TURNS * 2.0;
+    return occlusion * saturate(1.0 - cavity * 4.0 * strength);
+}
+
+float HB_MaskChannel(int index, Texture2D<float4> map, float2 uv, float estimate)
+{
+    float4 mode = _Modes[index];
+
+    if (mode.x < 0.5)
+        return mode.w;
+
+    if (mode.x > 1.5)
+        return estimate;
+
+    float4 colour = HB_MaskSample(map, uv);
+
+    if (mode.y > 0.5)
+        colour.rgb = HB_MaskGamma(colour.rgb);
+
+    float value = saturate(dot(colour, _Picks[index]));
+
+    return mode.z > 0.5 ? 1.0 - value : value;
+}
+
+[numthreads(8, 8, 1)]
+void Luma(uint3 id : SV_DispatchThreadID)
+{
+    if (HB_MaskOutside(id.xy))
+        return;
+
+    float3 colour = HB_MaskSample(_Albedo, HB_MaskUV(id.xy)).rgb;
+
+    if (_Smooth.z > 0.5)
+        colour = HB_MaskGamma(colour);
+
+    _Luma[id.xy] = dot(colour, float3(0.2126, 0.7152, 0.0722));
+}
+
+float HB_MaskBlur(uint2 id, int2 step)
+{
+    int size = (int)_Size.x;
+    int radius = min((int)_Size.z, HB_MASK_TAPS);
+    float sigma = max(radius * 0.5, 0.5);
+    float total = 0.0;
+    float weight = 0.0;
+
+    [loop]
+    for (int offset = -radius; offset <= radius; offset++)
+    {
+        uint2 texel = (uint2)((int2)id + step * offset + size * 2) % (uint)size;
+        float tap = exp(-(offset * offset) / (2.0 * sigma * sigma));
+
+        total += _BlurIn[texel] * tap;
+        weight += tap;
+    }
+
+    return total / weight;
+}
+
+[numthreads(8, 8, 1)]
+void BlurX(uint3 id : SV_DispatchThreadID)
+{
+    if (HB_MaskOutside(id.xy))
+        return;
+
+    _BlurOut[id.xy] = HB_MaskBlur(id.xy, int2(1, 0));
+}
+
+[numthreads(8, 8, 1)]
+void BlurY(uint3 id : SV_DispatchThreadID)
+{
+    if (HB_MaskOutside(id.xy))
+        return;
+
+    _BlurOut[id.xy] = HB_MaskBlur(id.xy, int2(0, 1));
+}
+
+[numthreads(8, 8, 1)]
+void Build(uint3 id : SV_DispatchThreadID)
+{
+    if (HB_MaskOutside(id.xy))
+        return;
+
+    float2 uv = HB_MaskUV(id.xy);
+    float height = saturate(0.5 + (_LumaIn[id.xy] - _BlurIn[id.xy]) * _Estimate.x);
+    float occlusion = HB_MaskOcclusion(uv, height);
+    float smoothness = lerp(_Smooth.x, _Smooth.y, height);
+    float4 mask;
+
+    mask.r = HB_MaskChannel(0, _Source0, uv, 0.0);
+    mask.g = HB_MaskChannel(1, _Source1, uv, occlusion);
+    mask.b = HB_MaskChannel(2, _Source2, uv, height);
+    mask.a = HB_MaskChannel(3, _Source3, uv, smoothness);
+
+    _Mask[id.xy] = mask;
+}
+
+[numthreads(8, 8, 1)]
+void Show(uint3 id : SV_DispatchThreadID)
+{
+    if (HB_MaskOutside(id.xy))
+        return;
+
+    float value = dot(_MaskIn[id.xy], _Show);
+
+    _Display[id.xy] = float4(value, value, value, 1.0);
+}

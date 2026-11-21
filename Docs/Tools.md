@@ -14,6 +14,7 @@ is named `TEX_Words_Like_This`; liquid layers are saved as `LIQ_Name.asset`. Und
 | Brush | The brush atlas: Oil, Gouache, Dry Brush, Hatching or Watercolour strokes. |
 | Cloud | The cloud atlas: Cumulus, Stratus, Cirrus, Altocumulus. |
 | Liquid | A whole liquid layer: its look, plus a stack of layers (Waves, Flow, Cells, Rocks, ...) that bake its mask and normal maps. Starts from Water, Acid and Lava presets. |
+| Mask | A mask map (R metallic, G occlusion, B height, A smoothness) from textures you already have. Each channel is a constant, a channel of another texture (Invert turns roughness into smoothness) or **Auto**: height, occlusion and smoothness estimated from the albedo, and the normal map if given. |
 
 Use **Export** in the toolbar to choose the name, resolution and folder, then **Save**.
 
