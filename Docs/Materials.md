@@ -45,7 +45,7 @@ moves, **Rest Pose** for skinned characters, so the strokes stay on the body whi
 |---|---|---|
 | Static | Things that never move | Full wetness, puddle spots, running water, snow blanket. Shelters what is under it. |
 | Moving | Vehicles, characters, anything that moves | Beaded drops and flakes. Never shelters anything. |
-| None | Interiors, UI-like objects | Untouched by weather |
+| None | Interiors, UI-like objects | Untouched by weather. Never shelters anything. |
 
 A building that players put up and tear down is Static; a vehicle is Moving. To make a Moving object wet and dry
 over time as it goes in and out of cover, add **HB Style Weather Body** to its root (see

@@ -8,6 +8,12 @@
 TEXTURE2D_ARRAY(_HB_Shelter);
 TEXTURE2D(_HB_ShelterAge);
 
+#if defined(_HB_WEATHER_MOVING)
+TEXTURE2D(_HB_ShelterMoving);
+
+float _HB_ShelterSplit;
+#endif
+
 float4 _HB_ShelterArea[HB_SHELTER_CASCADES];
 float4 _HB_ShelterState;
 
@@ -25,6 +31,8 @@ float4 _HB_ShelterState;
 #define HB_SHELTER_LIQUID_BIAS   -0.45
 #define HB_SHELTER_LIQUID_SOFT   0.3
 #define HB_SHELTER_SHORE_SUNK    0.1
+#define HB_SHELTER_SHORE_DEEP    1.5
+#define HB_SHELTER_SHORE_DEEP_SOFT 0.5
 
 struct HBShelterSpot
 {
@@ -86,7 +94,17 @@ half HB_ShelterBlock(half4 values, half2 weightX, half2 weightZ)
 // One Gather returns four texels in the order x (0, 1), y (1, 1), z (1, 0), w (0, 0).
 half4 HB_ShelterCovered(float3 uv, float y)
 {
+#if defined(_HB_WEATHER_MOVING)
+    float4 roof;
+
+    UNITY_BRANCH
+    if (_HB_ShelterSplit > 0.5 && uv.z < 0.5)
+        roof = _HB_ShelterMoving.GatherRed(sampler_PointClamp, uv.xy);
+    else
+        roof = _HB_Shelter.GatherRed(sampler_PointClamp, uv);
+#else
     float4 roof = _HB_Shelter.GatherRed(sampler_PointClamp, uv);
+#endif
 
     return half4(roof > HB_SHELTER_NONE ? saturate((roof - y - HB_SHELTER_BIAS) / HB_SHELTER_RANGE) : 0.0);
 }
@@ -143,8 +161,10 @@ half HB_ShelterCoverAt(HBShelterSpot spot, float y)
 
 half2 HB_ShelterShore(float2 state, float y)
 {
-    return half2(saturate(HB_SHELTER_SHORE_TOP - (y - state.y) * HB_SHELTER_SHORE_FADE),
-                 saturate(1.0 + (y - state.x) / HB_SHELTER_SHORE_SUNK));
+    float deep = saturate((state.x - y - HB_SHELTER_SHORE_DEEP) / HB_SHELTER_SHORE_DEEP_SOFT);
+
+    return half2(saturate(HB_SHELTER_SHORE_TOP - (y - state.y) * HB_SHELTER_SHORE_FADE) * (1.0 - deep),
+                 max(saturate(1.0 + (y - state.x) / HB_SHELTER_SHORE_SUNK), deep));
 }
 
 half HB_ShelterOpenAt(HBShelterSpot spot, float y)

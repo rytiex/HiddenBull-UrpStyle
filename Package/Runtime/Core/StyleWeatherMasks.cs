@@ -22,6 +22,7 @@ namespace HiddenBull.UrpStyle
             internal Vector2 turn;
             internal float rise;
             internal bool blocking;
+            internal float affects;
             internal bool gradual;
             internal float clearTime;
             internal float coverTime;
@@ -34,6 +35,7 @@ namespace HiddenBull.UrpStyle
         static readonly Vector4[] s_PickedBoxes = new Vector4[Limit];
         static readonly float[] s_Distances = new float[Limit];
         static readonly bool[] s_Blocking = new bool[Limit];
+        static readonly float[] s_Affects = new float[Limit];
 
         static double s_LastClock = double.NegativeInfinity;
 
@@ -126,6 +128,7 @@ namespace HiddenBull.UrpStyle
                 dome.radius = new Vector2(half.x, half.z).magnitude;
             }
             dome.blocking = mask.blockPrecipitation;
+            dome.affects = (float)mask.affects;
             dome.gradual = mask.transition == HBStyleWeatherMaskTransition.Gradual;
             dome.clearTime = mask.clearTime;
             dome.coverTime = mask.coverTime;
@@ -180,7 +183,8 @@ namespace HiddenBull.UrpStyle
             }
         }
 
-        internal static int Collect(Vector2 centre, float reach, Vector4[] masks, Vector4[] boxes, out int blocking)
+        internal static int Collect(Vector2 centre, float reach, Vector4[] masks, Vector4[] boxes, float[] affects,
+                                    out int blocking, out bool split)
         {
             Tick();
 
@@ -235,8 +239,10 @@ namespace HiddenBull.UrpStyle
 
                 s_Distances[slot] = away;
                 s_Blocking[slot] = dome.blocking;
+                s_Affects[slot] = dome.affects;
             }
 
+            split = false;
             blocking = 0;
 
             for (var i = 0; i < picked; i++)
@@ -244,6 +250,7 @@ namespace HiddenBull.UrpStyle
                 if (!s_Blocking[i])
                     continue;
 
+                affects[blocking] = s_Affects[i];
                 boxes[blocking] = s_PickedBoxes[i];
                 masks[blocking++] = s_Picked[i];
             }
@@ -255,9 +262,13 @@ namespace HiddenBull.UrpStyle
                 if (s_Blocking[i])
                     continue;
 
+                affects[next] = s_Affects[i];
                 boxes[next] = s_PickedBoxes[i];
                 masks[next++] = s_Picked[i];
             }
+
+            for (var i = 0; i < picked; i++)
+                split |= s_Affects[i] > 0f;
 
             return picked;
         }

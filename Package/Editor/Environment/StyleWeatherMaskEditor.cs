@@ -10,6 +10,7 @@ namespace HiddenBull.UrpStyle.Editor
         SerializedProperty m_Radius;
         SerializedProperty m_Size;
         SerializedProperty m_BlockPrecipitation;
+        SerializedProperty m_Affects;
         SerializedProperty m_Transition;
         SerializedProperty m_ClearTime;
         SerializedProperty m_CoverTime;
@@ -20,6 +21,7 @@ namespace HiddenBull.UrpStyle.Editor
             m_Radius = serializedObject.FindProperty("m_Radius");
             m_Size = serializedObject.FindProperty("m_Size");
             m_BlockPrecipitation = serializedObject.FindProperty("m_BlockPrecipitation");
+            m_Affects = serializedObject.FindProperty("m_Affects");
             m_Transition = serializedObject.FindProperty("m_Transition");
             m_ClearTime = serializedObject.FindProperty("m_ClearTime");
             m_CoverTime = serializedObject.FindProperty("m_CoverTime");
@@ -38,6 +40,7 @@ namespace HiddenBull.UrpStyle.Editor
             if (m_Shape.hasMultipleDifferentValues || box)
                 EditorGUILayout.PropertyField(m_Size);
 
+            EditorGUILayout.PropertyField(m_Affects);
             EditorGUILayout.PropertyField(m_BlockPrecipitation);
             EditorGUILayout.PropertyField(m_Transition);
 

@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2775
+            Slots = 2794
             Reads = 60
         }
         @{
@@ -844,7 +844,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2545
+            Slots = 2549
             Reads = 60
         }
         @{
@@ -895,7 +895,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2534
+            Slots = 2538
             Reads = 60
         }
         @{
@@ -1160,6 +1160,36 @@
             Reads = 0
         }
         @{
+            Name = 'Shelter Underside vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
+            Entry = 'HB_UndersideVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Shelter Top vertex'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
+            Entry = 'HB_ShelterTopVertex'
+            Stage = 'vs'
+            Urp = 'Minimal'
+            Defines = @('HB_SHELTER_TOP')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Shelter Top fragment'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl'
+            Entry = 'HB_ShelterTopFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_SHELTER_TOP')
+            Slots = 0
+            Reads = 0
+        }
+        @{
             Name = 'Precipitation Rain vertex'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/PrecipitationPass.hlsl'
             Entry = 'HB_RainVertex'
@@ -1317,7 +1347,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4822
+            Slots = 4826
             Reads = 200
         }
         @{
@@ -1437,6 +1467,16 @@
             Stage = 'vs'
             Urp = 'Minimal'
             Defines = @()
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Liquid Height fragment (pool)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/LiquidSurfacePass.hlsl'
+            Entry = 'HB_LiquidHeightFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_LIQUID_POOL')
             Slots = 0
             Reads = 0
         }

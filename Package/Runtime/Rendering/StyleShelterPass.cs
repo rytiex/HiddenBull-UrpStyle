@@ -31,6 +31,7 @@ namespace HiddenBull.UrpStyle
         const float ShoreSoftest = 0.3f;
         const int MaxReach = 12;
         const int FootprintPass = 1;
+        const int TopPass = 2;
         const string LevelIdsPass = "LiquidRoofIds";
         const string LevelPass = "LiquidRoofLevel";
 
@@ -45,6 +46,8 @@ namespace HiddenBull.UrpStyle
             internal RTHandle drops;
             internal RTHandle coverState;
             internal RTHandle coverNext;
+            internal RTHandle moving;
+            internal bool split;
             internal int resolution;
             internal double lastUsed;
             internal bool coverKept;
@@ -75,6 +78,8 @@ namespace HiddenBull.UrpStyle
                 drops?.Release();
                 coverState?.Release();
                 coverNext?.Release();
+                moving?.Release();
+                moving = null;
             }
         }
 
@@ -83,6 +88,7 @@ namespace HiddenBull.UrpStyle
             internal RTHandle map;
             internal RTHandle drops;
             internal RTHandle age;
+            internal RTHandle moving;
             internal Vector4[] areas;
             internal Vector4 state;
         }
@@ -143,6 +149,7 @@ namespace HiddenBull.UrpStyle
         {
             internal Vector4[] areas;
             internal Vector4 state;
+            internal float split;
         }
 
         class UnpackData
@@ -189,6 +196,8 @@ namespace HiddenBull.UrpStyle
             internal Vector4 count;
             internal Vector4[] masks;
             internal Vector4[] boxes;
+            internal Vector4[] kinds;
+            internal TextureHandle moving;
             internal int groups;
         }
 
@@ -197,6 +206,7 @@ namespace HiddenBull.UrpStyle
             internal ComputeShader compute;
             internal int kernel;
             internal TextureHandle map;
+            internal TextureHandle moving;
             internal TextureHandle target;
             internal int targetId;
             internal Vector4 height;
@@ -238,6 +248,11 @@ namespace HiddenBull.UrpStyle
         static readonly int s_PreviewId = Shader.PropertyToID("_HB_ShelterPreview");
         static readonly int s_HeightsId = Shader.PropertyToID("_HB_ShelterHeights");
         static readonly int s_PreviewAreaId = Shader.PropertyToID("_HB_ShelterPreviewArea");
+        static readonly int s_MovingId = Shader.PropertyToID("_HB_ShelterMoving");
+        static readonly int s_MovingTargetId = Shader.PropertyToID("_HB_ShelterMovingTarget");
+        static readonly int s_MovingMapId = Shader.PropertyToID("_HB_ShelterMovingMap");
+        static readonly int s_SplitId = Shader.PropertyToID("_HB_ShelterSplit");
+        static readonly int s_MaskKindsId = Shader.PropertyToID("_HB_ShelterMaskKinds");
         static readonly int s_DrawAreaId = Shader.PropertyToID("_HB_ShelterDrawArea");
         static readonly int s_CutIdsId = Shader.PropertyToID("_HB_LiquidCutIds");
         static readonly int s_CutMaskId = Shader.PropertyToID("_HB_LiquidCutMask");
@@ -250,6 +265,7 @@ namespace HiddenBull.UrpStyle
 
         static readonly Vector4[] s_Masks = new Vector4[StyleWeatherMasks.Limit];
         static readonly Vector4[] s_MaskBoxes = new Vector4[StyleWeatherMasks.Limit];
+        static readonly float[] s_MaskAffects = new float[StyleWeatherMasks.Limit];
         static readonly Vector4[] s_NoAreas = NoAreas();
 
         static Texture2DArray s_Empty;
@@ -275,6 +291,7 @@ namespace HiddenBull.UrpStyle
         int m_FinishFarKernel = -1;
         int m_Resolution = 512;
         RTHandle m_Preview;
+        RTHandle m_NoMoving;
 
         internal StyleShelterPass()
         {
@@ -293,6 +310,10 @@ namespace HiddenBull.UrpStyle
         internal static int areaId => s_AreaId;
 
         internal static int stateId => s_StateId;
+
+        internal static int movingId => s_MovingId;
+
+        internal static int splitId => s_SplitId;
 
         internal static Vector4[] noAreas => s_NoAreas;
 
@@ -341,6 +362,7 @@ namespace HiddenBull.UrpStyle
             binding.map = map.packed;
             binding.drops = map.drops;
             binding.age = map.coverState;
+            binding.moving = map.split ? map.moving : null;
             binding.areas = map.areas;
             binding.state = State(map.resolution);
             return true;
@@ -505,6 +527,7 @@ namespace HiddenBull.UrpStyle
                 data.areas ??= new Vector4[Cascades];
                 Array.Copy(map.areas, data.areas, Cascades);
                 data.state = State(resolution);
+                data.split = map.split ? 1f : 0f;
 
                 builder.UseTexture(packed, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(packed, s_MapId);
@@ -512,12 +535,22 @@ namespace HiddenBull.UrpStyle
                 builder.SetGlobalTextureAfterPass(drops, s_DropsId);
                 builder.UseTexture(age, AccessFlags.Read);
                 builder.SetGlobalTextureAfterPass(age, s_AgeId);
+
+                if (map.split)
+                {
+                    var moving = renderGraph.ImportTexture(map.moving);
+
+                    builder.UseTexture(moving, AccessFlags.Read);
+                    builder.SetGlobalTextureAfterPass(moving, s_MovingId);
+                }
+
                 builder.AllowPassCulling(false);
                 builder.AllowGlobalStateModification(true);
                 builder.SetRenderFunc(static (BindData d, UnsafeGraphContext context) =>
                 {
                     context.cmd.SetGlobalVectorArray(s_AreaId, d.areas);
                     context.cmd.SetGlobalVector(s_StateId, d.state);
+                    context.cmd.SetGlobalFloat(s_SplitId, d.split);
                 });
             }
 
@@ -537,8 +570,11 @@ namespace HiddenBull.UrpStyle
             {
                 var centre = map.centres[0];
 
+                var moving = renderGraph.ImportTexture(map.split ? map.moving : NoMoving());
+
                 RecordRead(renderGraph, "HB Style Shelter Heights", m_HeightsKernel, s_HeightsId,
-                           StyleWeatherBodies.Target(resolution), packed, resolution, Vector4.zero);
+                           StyleWeatherBodies.Target(resolution), packed, resolution,
+                           new Vector4(map.split ? 1f : 0f, 0f, 0f, 0f), moving);
                 StyleWeatherBodies.Written(new Vector4(centre.x, centre.z, Extent, resolution), camera);
             }
         }
@@ -663,13 +699,19 @@ namespace HiddenBull.UrpStyle
             data.cell = new Vector4(centre.x, centre.z, Extent, 0f);
             data.step = new Vector4(shift.x, shift.y, Mathf.Min(rate / settings.uncoverTime, 1f), 0f);
             data.groups = (resolution + 7) / 8;
-            FillMasks(data, centre, Extent);
+            map.split = FillMasks(data, centre, Extent);
+
+            if (map.split && map.moving == null)
+                map.moving = Field(resolution, GraphicsFormat.R32_SFloat, "_HB_ShelterMoving");
+
+            data.moving = renderGraph.ImportTexture(map.split ? map.moving : NoMoving());
 
             builder.UseTexture(data.raw, AccessFlags.Read);
             builder.UseTexture(data.from, AccessFlags.Read);
             builder.UseTexture(data.state, AccessFlags.Write);
             builder.UseTexture(packed, AccessFlags.Write);
             builder.UseTexture(drops, AccessFlags.Write);
+            builder.UseTexture(data.moving, AccessFlags.Write);
             builder.AllowPassCulling(false);
             builder.SetRenderFunc(static (FinishData d, ComputeGraphContext context) => Finish(d, context.cmd));
 
@@ -680,16 +722,25 @@ namespace HiddenBull.UrpStyle
             return data.state;
         }
 
-        static void FillMasks(FinishData data, Vector3 centre, float extent)
+        static bool FillMasks(FinishData data, Vector3 centre, float extent)
         {
             var count = StyleWeatherMasks.Collect(new Vector2(centre.x, centre.z), extent * 0.5f, s_Masks,
-                                                  s_MaskBoxes, out var blocking);
+                                                  s_MaskBoxes, s_MaskAffects, out var blocking, out var split);
 
             data.masks ??= new Vector4[StyleWeatherMasks.Limit];
             data.boxes ??= new Vector4[StyleWeatherMasks.Limit];
+            data.kinds ??= new Vector4[StyleWeatherMasks.Limit / 4];
             Array.Copy(s_MaskBoxes, data.boxes, StyleWeatherMasks.Limit);
-            data.count = new Vector4(count, blocking, 0f, 0f);
+            data.count = new Vector4(count, blocking, split ? 1f : 0f, 0f);
             Array.Copy(s_Masks, data.masks, StyleWeatherMasks.Limit);
+
+            for (var i = 0; i < data.kinds.Length; i++)
+            {
+                data.kinds[i] = new Vector4(s_MaskAffects[i * 4], s_MaskAffects[i * 4 + 1], s_MaskAffects[i * 4 + 2],
+                                            s_MaskAffects[i * 4 + 3]);
+            }
+
+            return split;
         }
 
         static void Finish(FinishData d, ComputeCommandBuffer cmd)
@@ -702,6 +753,7 @@ namespace HiddenBull.UrpStyle
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverFromId, d.from);
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_CoverStateId, d.state);
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_DropsTargetId, d.drops);
+                cmd.SetComputeTextureParam(d.compute, d.kernel, s_MovingTargetId, d.moving);
                 cmd.SetComputeVectorParam(d.compute, s_CoverStepId, d.step);
             }
 
@@ -710,6 +762,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeVectorParam(d.compute, s_MaskCountId, d.count);
             cmd.SetComputeVectorArrayParam(d.compute, s_MasksId, d.masks);
             cmd.SetComputeVectorArrayParam(d.compute, s_MaskBoxesId, d.boxes);
+            cmd.SetComputeVectorArrayParam(d.compute, s_MaskKindsId, d.kinds);
             cmd.DispatchCompute(d.compute, d.kernel, d.groups, d.groups, 1);
         }
 
@@ -795,7 +848,7 @@ namespace HiddenBull.UrpStyle
         }
 
         void RecordRead(RenderGraph renderGraph, string name, int kernel, int targetId, RTHandle output,
-                        TextureHandle packed, int resolution, Vector4 area)
+                        TextureHandle packed, int resolution, Vector4 area, TextureHandle moving = default)
         {
             var target = renderGraph.ImportTexture(output);
 
@@ -804,6 +857,7 @@ namespace HiddenBull.UrpStyle
             data.compute = m_Compute;
             data.kernel = kernel;
             data.map = packed;
+            data.moving = moving;
             data.target = target;
             data.targetId = targetId;
             data.height = new Vector4(0f, 0f, resolution, 0f);
@@ -811,6 +865,10 @@ namespace HiddenBull.UrpStyle
             data.groups = (resolution + 7) / 8;
 
             builder.UseTexture(packed, AccessFlags.Read);
+
+            if (moving.IsValid())
+                builder.UseTexture(moving, AccessFlags.Read);
+
             builder.UseTexture(target, AccessFlags.Write);
             builder.AllowPassCulling(false);
             builder.SetRenderFunc(static (ReadData d, ComputeGraphContext context) =>
@@ -818,6 +876,10 @@ namespace HiddenBull.UrpStyle
                 var cmd = context.cmd;
 
                 cmd.SetComputeTextureParam(d.compute, d.kernel, s_PackedId, d.map);
+
+                if (d.moving.IsValid())
+                    cmd.SetComputeTextureParam(d.compute, d.kernel, s_MovingMapId, d.moving);
+
                 cmd.SetComputeTextureParam(d.compute, d.kernel, d.targetId, d.target);
                 cmd.SetComputeVectorParam(d.compute, s_HeightId, d.height);
                 cmd.SetComputeVectorParam(d.compute, s_PreviewAreaId, d.area);
@@ -1104,6 +1166,12 @@ namespace HiddenBull.UrpStyle
                                                                cameraData, frameData.Get<UniversalLightData>(),
                                                                SortingCriteria.CommonOpaque);
 
+            if (m_UndersideShader != null)
+            {
+                drawing.overrideShader = m_UndersideShader;
+                drawing.overrideShaderPassIndex = TopPass;
+            }
+
             var tags = new NativeArray<ShaderTagId>(1, Allocator.Temp);
             tags[0] = ShaderTagId.none;
 
@@ -1213,6 +1281,11 @@ namespace HiddenBull.UrpStyle
             return m_Preview;
         }
 
+        RTHandle NoMoving()
+        {
+            return m_NoMoving ??= Field(1, GraphicsFormat.R32_SFloat, "HB Style Shelter No Moving");
+        }
+
         static int Kernel(ComputeShader compute, string name)
         {
             return compute != null && compute.HasKernel(name) ? compute.FindKernel(name) : -1;
@@ -1246,6 +1319,8 @@ namespace HiddenBull.UrpStyle
             m_Preview?.Release();
             m_Preview = null;
             StyleDebug.shelterPreview = null;
+            m_NoMoving?.Release();
+            m_NoMoving = null;
         }
     }
 }

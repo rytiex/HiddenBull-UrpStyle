@@ -37,6 +37,7 @@ Shader "HB URP Style/Foliage Body"
         [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0
         [Enum(Front, 2, Back, 1, Both, 0)] _Cull("Render Face", Float) = 2.0
         [HideInInspector] _QueueOffset("Queue Offset", Float) = 0.0
+        [HideInInspector] _ShelterCaster("Shelter Caster", Float) = 1.0
     }
 
     SubShader

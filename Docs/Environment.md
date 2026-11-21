@@ -89,13 +89,14 @@ the Surfaces tab spreads covers slightly outward to keep the strip just inside a
 When a roof is removed, the ground under it gets wet and snowy gradually, as if it had just started to fall
 there. This suits games where players build and tear down houses.
 
-Only Static surfaces shelter. Moving surfaces and the terrain itself never do.
+Only Static HB surfaces and Foliage shelter. None and Moving surfaces, materials from other shaders and the
+terrain itself never do.
 
 ### Weather on objects
 
 | Component | Use it for |
 |---|---|
-| HB Style Weather Mask | An area that rain and snow should not reach without a roof: a campfire, a tent, the inside of a vehicle. Sphere is a dome; Box is a flat roof that follows the object. Can grow and shrink over time. |
+| HB Style Weather Mask | An area that rain and snow should not reach without a roof: a campfire, a tent, the inside of a vehicle. Sphere is a dome; Box is a flat roof that follows the object. **Affects** picks Static surfaces, Moving surfaces or both. Can grow and shrink over time. |
 | HB Style Weather Body | A Moving object that should wet and dry over time as it goes in and out of cover: a player, a vehicle. Add it to the root; it covers every renderer below it. |
 
 Without a Weather Body, a Moving surface follows the cover of the spot it is in at once.

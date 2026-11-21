@@ -21,6 +21,8 @@ Texture2D<float2> _HB_ShelterCoverFrom;
 RWTexture2D<float2> _HB_ShelterCoverState;
 RWTexture2DArray<float4> _HB_ShelterMapTarget;
 RWTexture2D<float> _HB_ShelterDropsTarget;
+RWTexture2D<float> _HB_ShelterMovingTarget;
+Texture2D<float> _HB_ShelterMovingMap;
 Texture2DArray<float4> _HB_ShelterMap;
 RWTexture2D<float4> _HB_ShelterPreview;
 RWTexture2D<float2> _HB_ShelterHeights;
@@ -33,6 +35,7 @@ float4 _HB_ShelterDilate;
 float4 _HB_ShelterMasks[HB_MASK_LIMIT];
 float4 _HB_ShelterMaskBoxes[HB_MASK_LIMIT];
 float4 _HB_ShelterMaskCount;
+float4 _HB_ShelterMaskKinds[HB_MASK_LIMIT / 4];
 float4 _HB_ShelterCoverStep;
 
 #define HB_HEIGHT_SCALE   _HB_ShelterHeight.x
@@ -48,9 +51,11 @@ float4 _HB_ShelterCoverStep;
 #define HB_PREVIEW_SLICE   _HB_ShelterPreviewArea.x
 #define HB_PREVIEW_CHANNEL _HB_ShelterPreviewArea.y
 #define HB_PREVIEW_EYE     _HB_ShelterPreviewArea.z
+#define HB_HEIGHTS_SPLIT   (_HB_ShelterPreviewArea.x > 0.5)
 #define HB_REACH          ((int)_HB_ShelterDilate.x)
 #define HB_MASK_COUNT     ((int)_HB_ShelterMaskCount.x)
 #define HB_MASK_BLOCKING  ((int)_HB_ShelterMaskCount.y)
+#define HB_MASK_SPLIT     (_HB_ShelterMaskCount.z > 0.5)
 #define HB_COVER_SHIFT    ((int2)_HB_ShelterCoverStep.xy)
 #define HB_COVER_STEP     _HB_ShelterCoverStep.z
 
@@ -65,6 +70,9 @@ float4 _HB_ShelterCoverStep;
 #define HB_WASH_REACH     2.5
 #define HB_WASH_RINGS     3
 #define HB_WASH_SPOKES    8
+#define HB_MASK_LIFT      0.7
+#define HB_MASK_STATIC_ONLY 0.5
+#define HB_MASK_MOVING_ONLY 1.5
 
 float2 HB_CellWorld(int2 texel, int size)
 {
@@ -179,9 +187,9 @@ void DilateZ(uint3 id : SV_DispatchThreadID)
     _HB_ShelterRawTarget[texel] = float4(highest, raw.gba);
 }
 
-float2 HB_Domes(float2 world, float top)
+float3 HB_Domes(float2 world, float top)
 {
-    float2 heights = float2(top, top);
+    float3 heights = float3(top, top, top);
 
     for (int i = 0; i < HB_MASK_LIMIT; i++)
     {
@@ -210,7 +218,13 @@ float2 HB_Domes(float2 world, float top)
             dome += sqrt(reach);
         }
 
-        heights.x = max(heights.x, dome);
+        float kind = _HB_ShelterMaskKinds[i >> 2][i & 3];
+
+        if (kind < HB_MASK_MOVING_ONLY)
+            heights.x = max(heights.x, dome + HB_MASK_LIFT);
+
+        if (kind < HB_MASK_STATIC_ONLY || kind > HB_MASK_MOVING_ONLY)
+            heights.z = max(heights.z, dome + HB_MASK_LIFT);
 
         if (i < HB_MASK_BLOCKING)
             heights.y = max(heights.y, dome);
@@ -229,7 +243,7 @@ void Finish(uint3 id : SV_DispatchThreadID)
         return;
 
     float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
-    float2 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
+    float3 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
 
     int2 from = texel + HB_COVER_SHIFT;
     float2 state = float2(1.0, raw.r);
@@ -248,6 +262,10 @@ void Finish(uint3 id : SV_DispatchThreadID)
 
     _HB_ShelterCoverState[texel] = float2(age, raw.r);
     _HB_ShelterMapTarget[uint3(id.xy, 0)] = float4(domes.x, raw.g, raw.b, raw.a);
+
+    if (HB_MASK_SPLIT)
+        _HB_ShelterMovingTarget[texel] = domes.z;
+
     _HB_ShelterDropsTarget[texel] = max(domes.y, raw.b);
 }
 
@@ -261,7 +279,7 @@ void FinishFar(uint3 id : SV_DispatchThreadID)
         return;
 
     float4 raw = _HB_ShelterRaw.Load(int3(texel, 0));
-    float2 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
+    float3 domes = HB_Domes(HB_CellWorld(texel, size), raw.r);
 
     _HB_ShelterMapTarget[uint3(id.xy, (uint)HB_SLICE)] = float4(domes.x, raw.g, raw.b, raw.a);
 }
@@ -274,7 +292,12 @@ void Heights(uint3 id : SV_DispatchThreadID)
     if (any((int2)id.xy >= size))
         return;
 
-    _HB_ShelterHeights[id.xy] = _HB_ShelterMap.Load(int4(id.xy, 0, 0)).rg;
+    float2 heights = _HB_ShelterMap.Load(int4(id.xy, 0, 0)).rg;
+
+    if (HB_HEIGHTS_SPLIT)
+        heights.x = _HB_ShelterMovingMap.Load(int3(id.xy, 0));
+
+    _HB_ShelterHeights[id.xy] = heights;
 }
 
 [numthreads(8, 8, 1)]

@@ -1724,6 +1724,11 @@ float HB_LiquidHeightFragment(HBLiquidVaryings input) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
+#if defined(HB_LIQUID_POOL)
+    if (GetCameraPositionWS().y < HB_POOL_BOTTOM)
+        discard;
+#endif
+
     HBWaterLevel water = HB_LiquidWaterAt(input.rest.xy);
 
     if (!water.wet)

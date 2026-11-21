@@ -14,6 +14,13 @@ namespace HiddenBull.UrpStyle
         Box
     }
 
+    public enum HBStyleWeatherMaskAffects
+    {
+        Both,
+        Static,
+        Moving
+    }
+
     [ExecuteAlways]
     [AddComponentMenu("HiddenBull/HB Style/Weather/HB Style Weather Mask")]
     public sealed class HBStyleWeatherMask : MonoBehaviour
@@ -40,6 +47,11 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Also stops falling rain and snow at the dome. Turn it off to keep them falling while the " +
                  "surfaces under the dome stay dry, onto a camp fire for instance.")]
         bool m_BlockPrecipitation = true;
+
+        [SerializeField]
+        [Tooltip("Which surfaces the mask keeps dry: Static surfaces such as buildings and ground, Moving surfaces " +
+                 "such as vehicles and characters, or both. Falling rain and snow follow Block Precipitation.")]
+        HBStyleWeatherMaskAffects m_Affects = HBStyleWeatherMaskAffects.Both;
 
         [SerializeField]
         [Tooltip("Instant: the area is dry the moment the mask turns on and covered the moment it turns off, " +
@@ -94,6 +106,12 @@ namespace HiddenBull.UrpStyle
         {
             get => m_BlockPrecipitation;
             set => m_BlockPrecipitation = value;
+        }
+
+        public HBStyleWeatherMaskAffects affects
+        {
+            get => m_Affects;
+            set => m_Affects = value;
         }
 
         public HBStyleWeatherMaskTransition transition

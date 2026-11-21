@@ -42,6 +42,26 @@ Shader "Hidden/HB URP Style/Shelter Underside"
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "Top"
+
+            ZWrite On
+            ZTest LEqual
+            Cull Off
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma target 3.5
+
+            #pragma vertex HB_ShelterTopVertex
+            #pragma fragment HB_ShelterTopFragment
+
+            #define HB_SHELTER_TOP
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Weather/ShelterUndersidePass.hlsl"
+            ENDHLSL
+        }
     }
 
     Fallback Off

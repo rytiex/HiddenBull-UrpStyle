@@ -3,10 +3,58 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-#define HB_SHELTER_MOVING   1.5
+#define HB_SHELTER_STATIC   1.0
 #define HB_FACING_DOWN      -0.1h
 
 float _ReceiveWeather;
+float _ShelterCaster;
+
+bool HB_ShelterCaster()
+{
+    return abs(_ReceiveWeather - HB_SHELTER_STATIC) < 0.5 || _ShelterCaster > 0.5;
+}
+
+#ifdef HB_SHELTER_TOP
+
+TEXTURE2D(_BaseMap);
+SAMPLER(sampler_BaseMap);
+
+float4 _BaseMap_ST;
+half4 _BaseColor;
+half _Cutoff;
+float _AlphaClipEnabled;
+
+struct HBShelterTopAttributes
+{
+    float4 positionOS : POSITION;
+    float2 texcoord   : TEXCOORD0;
+};
+
+struct HBShelterTopVaryings
+{
+    float4 positionCS : SV_POSITION;
+    float2 uv         : TEXCOORD0;
+};
+
+HBShelterTopVaryings HB_ShelterTopVertex(HBShelterTopAttributes input)
+{
+    HBShelterTopVaryings output;
+    output.positionCS = HB_ShelterCaster() ? TransformObjectToHClip(input.positionOS.xyz) : float4(0.0, 0.0, 0.0, 0.0);
+    output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
+
+    return output;
+}
+
+half4 HB_ShelterTopFragment(HBShelterTopVaryings input) : SV_Target
+{
+    UNITY_BRANCH
+    if (_AlphaClipEnabled > 0.5)
+        clip(SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).a * _BaseColor.a - _Cutoff);
+
+    return 0.0h;
+}
+
+#endif
 
 struct HBUndersideAttributes
 {
@@ -26,7 +74,7 @@ HBUndersideVaryings HB_UndersideVertex(HBUndersideAttributes input)
     output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
     output.facing = half(TransformObjectToWorldNormal(input.normalOS).y);
 
-    if (_ReceiveWeather > HB_SHELTER_MOVING)
+    if (!HB_ShelterCaster())
         output.positionCS = float4(0.0, 0.0, 0.0, 0.0);
 
     return output;

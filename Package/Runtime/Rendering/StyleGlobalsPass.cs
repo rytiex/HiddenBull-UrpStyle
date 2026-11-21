@@ -40,6 +40,7 @@ namespace HiddenBull.UrpStyle
             public Texture fogNoise;
             public bool resetShelter;
             public bool bindShelter;
+            public float shelterSplit;
             public Vector4[] shelterAreas;
             public Vector4 shelterState;
             public Texture noShelter;
@@ -125,6 +126,7 @@ namespace HiddenBull.UrpStyle
             passData.skyLut = resolved.skyLut;
             passData.fogNoise = m_FogNoise != null ? m_FogNoise : (m_FogNoise = StyleFogNoise.Create());
             passData.bindShelter = false;
+            passData.shelterSplit = 0f;
             passData.overlayShadow = kind == StyleCameraKind.Overlay
                 ? m_OverlayShadowNear * m_OverlayShadowNear
                 : 0f;
@@ -150,6 +152,8 @@ namespace HiddenBull.UrpStyle
                 Bind(renderGraph, builder, shelter.map, StyleShelterPass.mapId);
                 Bind(renderGraph, builder, shelter.drops, StyleShelterPass.dropsId);
                 Bind(renderGraph, builder, shelter.age, StyleShelterPass.ageId);
+                Bind(renderGraph, builder, shelter.moving, StyleShelterPass.movingId);
+                passData.shelterSplit = shelter.moving != null ? 1f : 0f;
                 Array.Copy(shelter.areas, passData.shelterAreas, StyleShelterPass.Cascades);
                 passData.shelterState = shelter.state;
                 passData.bindShelter = true;
@@ -175,12 +179,14 @@ namespace HiddenBull.UrpStyle
                 {
                     context.cmd.SetGlobalVectorArray(StyleShelterPass.areaId, data.shelterAreas);
                     context.cmd.SetGlobalVector(StyleShelterPass.stateId, data.shelterState);
+                    context.cmd.SetGlobalFloat(StyleShelterPass.splitId, data.shelterSplit);
                 }
                 else if (data.resetShelter)
                 {
                     context.cmd.SetGlobalTexture(StyleShelterPass.mapId, data.noShelter);
                     context.cmd.SetGlobalTexture(StyleShelterPass.ageId, Texture2D.whiteTexture);
                     context.cmd.SetGlobalVector(StyleShelterPass.stateId, Vector4.zero);
+                    context.cmd.SetGlobalFloat(StyleShelterPass.splitId, 0f);
                 }
             });
         }
