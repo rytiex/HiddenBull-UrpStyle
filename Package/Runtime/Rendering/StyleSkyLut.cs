@@ -25,7 +25,7 @@ namespace HiddenBull.UrpStyle
 
         HBStyleEnvironmentProfile m_Profile;
         int m_Version = -1;
-        HBStyleAtmosphereProfile m_FogProfile;
+        HBStyleAtmosphereSettings m_FogProfile;
         int m_FogVersion = -1;
         Vector3 m_FogWeights = -Vector3.one;
         int m_Bakes;
@@ -70,7 +70,7 @@ namespace HiddenBull.UrpStyle
             var fog = profile.atmosphere;
             var fogVersion = fog != null ? fog.version : 0;
             var weather = StyleEnvironment.weather;
-            var weights = Quantise(HBStyleAtmosphereProfile.Weights(weather.x, weather.y));
+            var weights = Quantise(HBStyleAtmosphereSettings.Weights(weather.x, weather.y));
             var changed = false;
 
             if (profile != m_Profile || profile.version != m_Version)

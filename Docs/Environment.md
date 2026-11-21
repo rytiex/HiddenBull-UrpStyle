@@ -1,9 +1,9 @@
 # Environment
 
-The scene's sky, light, fog and weather come from two profiles and one component:
+The scene's sky, light, fog and weather come from one profile and one component:
 
-- the **Environment Profile** holds the look of the sky and the light;
-- the **Atmosphere Profile** (in the Environment Profile's slot) holds the fog and how rain and snow look;
+- the **Environment Profile** holds the look of the sky and the light on its **Environment** side, and the fog
+  and how rain and snow look on its **Atmosphere** side;
 - the **HB Style Environment Controller** on the sun holds the scene's time of day and weather.
 
 Every setting has a tooltip; this page explains how the parts work together.
@@ -37,10 +37,10 @@ atlas comes from the Brush page of the same window.
 
 ## Fog
 
-The Atmosphere Profile has three fog states, **Clear**, **Rain** and **Snow**, each a full set of fog settings.
-The scene's fog blends between them by the controller's Rain and Snow, so a storm can bring in thick, grey,
-close fog and clear weather can stay open. **Shared** holds what does not change with the weather: the painted
-look of the fog and how much the wind clears it.
+The Fog tab of the Atmosphere side has three fog states, **Clear**, **Rain** and **Snow**, each a full set of fog
+settings. The scene's fog blends between them by the controller's Rain and Snow, so a storm can bring in thick,
+grey, close fog and clear weather can stay open. **Painting** and **Wind** hold what does not change with the
+weather: the painted look of the fog and how much the wind clears it.
 
 Each state has four groups:
 

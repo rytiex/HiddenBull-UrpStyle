@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.Rendering;
 using UnityEngine;
 
 namespace HiddenBull.UrpStyle.Editor
@@ -93,41 +94,59 @@ namespace HiddenBull.UrpStyle.Editor
             StyleSectionHeader.End(expanded);
         }
 
-        protected void DrawPages(StyleProfilePage[] pages, string[] names)
+        protected void DrawCardPages(StyleProfilePage[] pages, string[] names, string key)
         {
-            var key = TabPrefix + target.GetType().Name;
-            var page = pages[DrawTabs(names, key)];
+            var page = pages[DrawCardTabs(names, key)];
 
-            if (page.pages != null)
-            {
-                EditorGUILayout.Space(2f);
-                page = page.pages[DrawTabs(page.names, key + "." + page.title)];
-            }
+            DrawCards(page.entries, page.title, key);
+        }
+
+        protected int DrawCardTabs(string[] names, string key)
+        {
+            var index = DrawTabs(names, TabPrefix + target.GetType().Name + "." + key);
 
             EditorGUILayout.Space(4f);
+            return index;
+        }
 
-            using (new EditorGUILayout.HorizontalScope())
+        protected void DrawCards(string[] entries, string title, string key)
+        {
+            var index = 0;
+            var prefix = target.GetType().Name + "." + key + ".";
+
+            while (index < entries.Length)
             {
-                EditorGUILayout.LabelField(page.title, EditorStyles.boldLabel);
+                var name = title;
 
-                if (GUILayout.Button("Reset", EditorStyles.miniButton, GUILayout.Width(52f)))
-                    ResetPage(page);
-            }
-
-            foreach (var entry in page.entries)
-            {
-                if (entry[0] == '#')
+                if (entries[index][0] == '#')
                 {
-                    EditorGUILayout.Space(2f);
-                    EditorGUILayout.LabelField(entry.Substring(1), EditorStyles.miniBoldLabel);
-                    continue;
+                    name = entries[index].Substring(1);
+                    index++;
                 }
 
-                var property = serializedObject.FindProperty(entry);
+                var group = new List<string>();
 
-                if (property != null)
-                    EditorGUILayout.PropertyField(property, true);
+                while (index < entries.Length && entries[index][0] != '#')
+                    group.Add(entries[index++]);
+
+                var fields = group.ToArray();
+                var open = StyleSectionHeader.Draw(new GUIContent(name), prefix + name, () => ResetEntries(fields));
+
+                if (open)
+                {
+                    foreach (var field in fields)
+                    {
+                        var property = serializedObject.FindProperty(field);
+
+                        if (property != null)
+                            EditorGUILayout.PropertyField(property, true);
+                    }
+                }
+
+                StyleSectionHeader.End(open);
             }
+
+            CoreEditorUtils.DrawSplitter();
         }
 
         static int DrawTabs(string[] names, string key)
@@ -146,7 +165,7 @@ namespace HiddenBull.UrpStyle.Editor
             return next;
         }
 
-        void ResetPage(StyleProfilePage page)
+        void ResetEntries(string[] entries)
         {
             var defaults = CreateInstance(target.GetType());
 
@@ -156,7 +175,7 @@ namespace HiddenBull.UrpStyle.Editor
 
                 serializedObject.Update();
 
-                foreach (var entry in page.entries)
+                foreach (var entry in entries)
                 {
                     if (entry[0] == '#')
                         continue;
@@ -199,7 +218,12 @@ namespace HiddenBull.UrpStyle.Editor
     [CanEditMultipleObjects]
     sealed class StyleEnvironmentProfileEditor : StyleProfileEditor
     {
-        static readonly StyleProfilePage[] s_Pages =
+        const string SideKey = "HiddenBull.UrpStyle.EnvironmentSide";
+        const string WeatherKey = "HiddenBull.UrpStyle.EnvironmentFogWeather";
+        const string Atmosphere = "m_Atmosphere";
+        const float SideHeight = 28f;
+
+        static readonly StyleProfilePage[] s_Environment =
         {
             new StyleProfilePage("Sky", StyleProfilePage.Fields("m_Sky",
                 "#Sky", "m_DaySky", "m_DuskSky", "m_NightSky", "m_SkyIntensity", "m_SunsetFocus",
@@ -224,63 +248,55 @@ namespace HiddenBull.UrpStyle.Editor
                 "#Depth", "m_Steps", "m_StepSpacing", "m_StepShading", "m_StepTaper",
                 "#Light", "m_SilverLining", "m_SunThrough", "m_Powder")),
             new StyleProfilePage("Brush", StyleProfilePage.Fields("m_Brush",
-                "m_Atlas", "m_WorldSizePerTile", "m_FadeStart", "m_FadeEnd", "m_Randomize", "m_GrowWithDistance"))
+                "#Brush", "m_Atlas", "m_WorldSizePerTile", "m_FadeStart", "m_FadeEnd", "m_Randomize",
+                "m_GrowWithDistance"))
         };
 
-        static readonly string[] s_Names = StyleProfilePage.Names(s_Pages);
-
-        public override void OnInspectorGUI()
+        static readonly StyleProfilePage[] s_Atmosphere =
         {
-            serializedObject.Update();
-
-            var atmosphere = serializedObject.FindProperty("m_AtmosphereProfile");
-
-            EditorGUILayout.PropertyField(atmosphere);
-
-            if (!atmosphere.hasMultipleDifferentValues && atmosphere.objectReferenceValue == null)
-                EditorGUILayout.HelpBox("No Atmosphere Profile: there is no fog, and rain and snow do not " +
-                                        "close the sky.", MessageType.Info);
-
-            EditorGUILayout.Space(4f);
-            DrawPages(s_Pages, s_Names);
-
-            serializedObject.ApplyModifiedProperties();
-        }
-    }
-
-    [CustomEditor(typeof(HBStyleAtmosphereProfile))]
-    [CanEditMultipleObjects]
-    sealed class StyleAtmosphereProfileEditor : StyleProfileEditor
-    {
-        static readonly StyleProfilePage[] s_Pages =
-        {
-            new StyleProfilePage("Fog", new[]
-            {
-                new StyleProfilePage("Clear", State("m_Clear")),
-                new StyleProfilePage("Rain", State("m_Rain")),
-                new StyleProfilePage("Snow", State("m_Snow")),
-                new StyleProfilePage("Shared", StyleProfilePage.Fields("m_Fog",
-                    "#Painting", "m_FogPaint", "m_Silhouette",
-                    "#Wind", "m_WindClear"))
-            }),
-            new StyleProfilePage("Overcast", StyleProfilePage.Fields("m_Overcast",
+            new StyleProfilePage("Fog", new string[0]),
+            new StyleProfilePage("Overcast", StyleProfilePage.Fields(Atmosphere + ".m_Overcast",
                 "#Clouds", "m_CloudResponse", "m_CloudDrift",
                 "#Look", "m_SkyGrey", "m_FogGrey", "m_BakedToSky")),
-            new StyleProfilePage("Precipitation", StyleProfilePage.Fields("m_Weather",
+            new StyleProfilePage("Precipitation", StyleProfilePage.Fields(Atmosphere + ".m_Weather",
                 "#Rain", "m_RainColor", "m_RainOpacity", "m_RainWidth",
                 "#Snow", "m_SnowSize", "m_SnowOpacity")),
-            new StyleProfilePage("Surfaces", StyleProfilePage.Fields("m_Weather",
+            new StyleProfilePage("Surfaces", StyleProfilePage.Fields(Atmosphere + ".m_Weather",
                 "#Timing", "m_Speed", "m_Instant", "m_WetTime", "m_DryTime", "m_SettleTime", "m_MeltTime",
                 "m_UncoverTime",
                 "#Roofs", "m_RoofMargin",
                 "#Shores", "m_ShoreReach", "m_ShoreDarkening"))
         };
 
-        static readonly string[] s_Names = StyleProfilePage.Names(s_Pages);
+        static readonly string[][] s_FogStates = { State("m_Clear"), State("m_Rain"), State("m_Snow") };
+
+        static readonly string[] s_FogShared = StyleProfilePage.Fields(Atmosphere + ".m_Fog",
+            "#Painting (All Weather)", "m_FogPaint", "m_Silhouette",
+            "#Wind (All Weather)", "m_WindClear");
+
+        static readonly string[] s_EnvironmentNames = StyleProfilePage.Names(s_Environment);
+        static readonly string[] s_AtmosphereNames = StyleProfilePage.Names(s_Atmosphere);
+
+        static readonly GUIContent[] s_Weathers =
+        {
+            new GUIContent("Clear", "The fog with no rain or snow."),
+            new GUIContent("Rain", "The fog at full rain. Light rain blends between Clear and this."),
+            new GUIContent("Snow", "The fog at full snow. Light snow blends between Clear and this.")
+        };
+
+        static readonly GUIContent s_Enabled = new GUIContent("Enabled",
+            "Turns the atmosphere on: fog, rain and snow closing the sky, and the rain, snow and wet surface looks " +
+            "set here. Off means no fog and default weather looks.");
+
+        static readonly GUIContent s_Convert = new GUIContent("Convert Now",
+            "Copies the old Atmosphere Profile's settings into this profile and stops using that asset.");
+
+        static GUIContent[] s_Sides;
+        static GUIStyle s_SideStyle;
 
         static string[] State(string root)
         {
-            return StyleProfilePage.Fields(root,
+            return StyleProfilePage.Fields(Atmosphere + "." + root,
                 "#Distance", "m_Start", "m_End", "m_MaxOpacity",
                 "#Layer", "m_LayerTop", "m_FadeHeight", "m_LayerCover", "m_AirHaze",
                 "#Colour", "m_DayFog", "m_DuskFog", "m_NightFog", "m_SunScattering",
@@ -291,9 +307,132 @@ namespace HiddenBull.UrpStyle.Editor
         {
             serializedObject.Update();
 
-            DrawPages(s_Pages, s_Names);
+            DrawLegacy();
+
+            var side = DrawSides();
+
+            EditorGUILayout.Space(6f);
+
+            if (side == 0)
+                DrawCardPages(s_Environment, s_EnvironmentNames, "Environment");
+            else
+                DrawAtmosphere();
 
             serializedObject.ApplyModifiedProperties();
+        }
+
+        static int DrawSides()
+        {
+            if (s_Sides == null)
+            {
+                var prefix = EditorGUIUtility.isProSkin ? "d_" : "";
+
+                s_Sides = new[]
+                {
+                    new GUIContent(" Environment", EditorGUIUtility.FindTexture(prefix + "DirectionalLight Icon"),
+                                   "Sky, light, sun and moon, night sky, clouds and brush."),
+                    new GUIContent(" Atmosphere", EditorGUIUtility.FindTexture(prefix + "WindZone Icon"),
+                                   "Fog, overcast, falling rain and snow, and wet and snowy surfaces.")
+                };
+
+                s_SideStyle = new GUIStyle(EditorStyles.miniButton)
+                {
+                    fixedHeight = SideHeight,
+                    fontSize = 12,
+                    fontStyle = FontStyle.Bold
+                };
+            }
+
+            var selected = Mathf.Clamp(SessionState.GetInt(SideKey, 0), 0, s_Sides.Length - 1);
+            var next = GUILayout.Toolbar(selected, s_Sides, s_SideStyle, GUILayout.Height(SideHeight));
+
+            if (next != selected)
+            {
+                SessionState.SetInt(SideKey, next);
+                GUI.FocusControl(null);
+            }
+
+            return next;
+        }
+
+        void DrawAtmosphere()
+        {
+            var enabled = serializedObject.FindProperty(Atmosphere + ".m_Enabled");
+
+            EditorGUILayout.PropertyField(enabled, s_Enabled);
+
+            var off = !enabled.hasMultipleDifferentValues && !enabled.boolValue;
+
+            if (off)
+                EditorGUILayout.HelpBox("The atmosphere is off: there is no fog, and rain and snow do not close " +
+                                        "the sky.", MessageType.Info);
+
+            EditorGUILayout.Space(4f);
+
+            using (new EditorGUI.DisabledScope(off))
+            {
+                var page = DrawCardTabs(s_AtmosphereNames, "Atmosphere");
+
+                if (page == 0)
+                    DrawFog();
+                else
+                    DrawCards(s_Atmosphere[page].entries, s_Atmosphere[page].title, "Atmosphere");
+            }
+        }
+
+        void DrawFog()
+        {
+            var selected = Mathf.Clamp(SessionState.GetInt(WeatherKey, 0), 0, s_Weathers.Length - 1);
+            var next = GUILayout.Toolbar(selected, s_Weathers, EditorStyles.miniButton);
+
+            if (next != selected)
+            {
+                SessionState.SetInt(WeatherKey, next);
+                GUI.FocusControl(null);
+            }
+
+            EditorGUILayout.Space(4f);
+            DrawCards(s_FogStates[next], "Fog", "Atmosphere.Fog");
+            DrawCards(s_FogShared, "Fog", "Atmosphere.Fog");
+        }
+
+        void DrawLegacy()
+        {
+            var legacy = false;
+
+            foreach (var item in targets)
+                legacy |= item is HBStyleEnvironmentProfile profile && profile.legacyAtmosphere;
+
+            if (!legacy)
+                return;
+
+            EditorGUILayout.HelpBox("This profile still reads an old Atmosphere Profile asset. Its settings are " +
+                                    "copied into this profile when the project can write it.", MessageType.Info);
+
+            if (!GUILayout.Button(s_Convert))
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+
+            foreach (var item in targets)
+            {
+                if (item is HBStyleEnvironmentProfile profile)
+                    StyleEnvironmentProfiles.Move(profile);
+            }
+
+            serializedObject.Update();
+        }
+    }
+
+    [CustomEditor(typeof(HBStyleAtmosphereProfile))]
+    sealed class StyleAtmosphereProfileEditor : UnityEditor.Editor
+    {
+        public override void OnInspectorGUI()
+        {
+            EditorGUILayout.HelpBox("Atmosphere settings now live in the Environment Profile, on its Atmosphere " +
+                                    "side. Environment Profiles that used this asset copy its settings when the " +
+                                    "project opens; after that this asset is no longer used and can be deleted.",
+                                    MessageType.Info);
         }
     }
 

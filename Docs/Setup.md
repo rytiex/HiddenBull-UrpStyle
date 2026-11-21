@@ -28,12 +28,14 @@ Create profiles from *Create → HiddenBull → URP Style → Profiles*.
 
 | Profile | Holds |
 |---|---|
-| Environment | Sky, light, sun and moon, night sky, clouds, brush. Has a slot for an Atmosphere Profile. |
-| Atmosphere | Fog for clear, rainy and snowy weather, overcast, falling rain and snow, wet and snowy surfaces. |
+| Environment | Environment side: sky, light, sun and moon, night sky, clouds, brush. Atmosphere side: fog for clear, rainy and snowy weather, overcast, falling rain and snow, wet and snowy surfaces. |
 | Quality | The level of each module: shadows, fog, weather, grass, terrain, glass, reflections. |
 
-An Environment Profile without an Atmosphere Profile has no fog, and rain and snow do not close the sky.
-Profile inspectors are split into tabs; every tab has a **Reset** button that puts back the default values.
+The Environment Profile inspector has two sides, **Environment** and **Atmosphere**, each split into tabs of
+folding groups; the menu on a group's header puts back its default values. With **Enabled** off on the Atmosphere
+side there is no fog, and rain and snow do not close the sky. Profiles made with an older version, which had a
+separate Atmosphere Profile asset, take its settings over the first time the project opens; the old asset can
+then be deleted.
 
 ## Environment Controller
 
@@ -47,7 +49,7 @@ Environment*). It is the one place where the scene's time and weather live:
   Light Snow, Blizzard, Sleet) set these values.
 
 Outside Play mode the weather applies at once. In Play mode surfaces wet, dry, gather snow and melt over the
-times set in the Atmosphere Profile.
+times set on the Atmosphere side of the Environment Profile.
 
 Set the scene's skybox to a material with the **HB URP Style/Sky** shader.
 

@@ -321,7 +321,7 @@ namespace HiddenBull.UrpStyle
             globals._HB_CloudTint = new Vector4(tint.r, tint.g, tint.b, clouds.tintShade);
         }
 
-        static void PackFog(HBStyleAtmosphereProfile atmosphere, HBStyleAtmosphereQuality quality,
+        static void PackFog(HBStyleAtmosphereSettings atmosphere, HBStyleAtmosphereQuality quality,
                             float sunVisibility, float overcast, ref StyleFrameGlobals globals)
         {
             if (atmosphere == null || StyleEnvironment.baking || quality.level == HBStyleQualityLevel.Off)
@@ -329,7 +329,7 @@ namespace HiddenBull.UrpStyle
 
             var level = quality.current;
             var weather = StyleEnvironment.weather;
-            var w = HBStyleAtmosphereProfile.Weights(weather.x, weather.y);
+            var w = HBStyleAtmosphereSettings.Weights(weather.x, weather.y);
             var clear = atmosphere.clear;
             var rain = atmosphere.rain;
             var snow = atmosphere.snow;
@@ -386,7 +386,7 @@ namespace HiddenBull.UrpStyle
             return colour.r * 0.2126f + colour.g * 0.7152f + colour.b * 0.0722f;
         }
 
-        static void PackOvercast(HBStyleAtmosphereProfile atmosphere, float overcast, float dim,
+        static void PackOvercast(HBStyleAtmosphereSettings atmosphere, float overcast, float dim,
                                  ref StyleFrameGlobals globals)
         {
             var settings = atmosphere != null ? atmosphere.overcast : null;
