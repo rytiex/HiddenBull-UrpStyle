@@ -110,6 +110,19 @@ float HB_Wash(int2 drawn, int size, float crest)
     return crest;
 }
 
+float HB_LiquidEdge(int2 drawn, int size)
+{
+    float level = HB_NONE;
+
+    for (int z = -1; z <= 1; z++)
+    {
+        for (int x = -1; x <= 1; x++)
+            level = max(level, _HB_ShelterLiquid.Load(int3(clamp(drawn + int2(x, z), 0, size - 1), 0)).x);
+    }
+
+    return level;
+}
+
 [numthreads(8, 8, 1)]
 void Unpack(uint3 id : SV_DispatchThreadID)
 {
@@ -130,6 +143,8 @@ void Unpack(uint3 id : SV_DispatchThreadID)
 
     if (liquid.x > HB_NONE_ABOVE)
         touch = liquid.x + HB_Wash(drawn.xy, size, liquid.y);
+    else if (HB_CELL_LIQUID)
+        liquid.x = HB_LiquidEdge(drawn.xy, size);
 
     _HB_ShelterRawTarget[texel] = float4(top > lowest + HB_EMPTY_MARGIN ? top : HB_NONE,
                                          HB_CELL_UNDER && under < nearest - HB_UNDER_EMPTY ? under : HB_NONE,

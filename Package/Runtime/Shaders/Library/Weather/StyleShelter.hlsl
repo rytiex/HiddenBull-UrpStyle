@@ -134,6 +134,8 @@ float2 HB_ShelterStateAt(HBShelterSpot spot)
     if (spot.edge > 0.0)
         state = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_Shelter, sampler_LinearClamp, spot.uv.xy, spot.uv.z, 0).ba;
 
+    state.x = state.y > HB_SHELTER_NONE ? state.x : HB_SHELTER_NONE * 10.0;
+
     return state;
 }
 

@@ -88,7 +88,8 @@ namespace HiddenBull.UrpStyle
                 var owner = new GameObject(prefab.name)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
-                    layer = piece.source.gameObject.layer
+                    layer = piece.source.gameObject.layer,
+                    tag = piece.source.gameObject.tag
                 };
 
                 owner.SetActive(false);

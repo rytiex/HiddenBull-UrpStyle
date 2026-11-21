@@ -81,7 +81,8 @@ distance. Each plant asset sets three distances (for a 60° field of view; zoomi
 Plants hidden behind hills and buildings are skipped, but they still cast shadows.
 
 **Colliders**: if the plant's prefab has Box, Sphere, Capsule or Mesh colliders, each painted plant gets copies in
-Play mode, with an **HB Style Plant Body** component that names the plant. Leave colliders off small plants and
+Play mode, with an **HB Style Plant Body** component that names the plant. Each copy takes the layer and tag of the
+GameObject that holds that collider in the prefab. Leave colliders off small plants and
 prefer Capsule over Mesh. **Harvest** removes one plant at runtime; see [Scripting](Scripting.md#harvesting-plants).
 
 ## Liquids

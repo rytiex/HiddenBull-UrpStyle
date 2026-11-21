@@ -199,6 +199,7 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_CAUSTIC_FADE   0.25
 #define HB_LIQUID_CAUSTIC_LEAST  0.5
 #define HB_LIQUID_MAP_SAME       1e-3
+#define HB_LIQUID_ABOVE_SURE     0.5
 #define HB_UNDER_EMPTY           -5000.0
 #define HB_LIQUID_FAR_FROM       150.0
 #define HB_LIQUID_FAR_RANGE      450.0
@@ -1413,7 +1414,7 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
 
     float3 nearWS = ComputeWorldSpacePosition(GetNormalizedScreenSpaceUV(input.positionCS), UNITY_NEAR_CLIP_VALUE,
                                               UNITY_MATRIX_I_VP);
-    bool front = nearWS.y >= HB_LiquidEyeLevel(nearWS.xz);
+    bool front = nearWS.y >= HB_LiquidEyeLevel(nearWS.xz) || nearWS.y > input.positionWS.y + HB_LIQUID_ABOVE_SURE;
 
     HBLiquidWaveShape shape = (HBLiquidWaveShape)0;
     shape.amount = input.wave.y;
