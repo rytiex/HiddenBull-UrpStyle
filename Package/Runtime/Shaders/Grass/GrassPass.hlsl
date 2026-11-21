@@ -15,6 +15,7 @@
 TEXTURE2D_ARRAY(_HB_LayerMask);
 SAMPLER(sampler_HB_LayerMask);
 float4 _HB_LayerSurface[16];
+float4 _HB_LayerSources[16];
 #endif
 
 StructuredBuffer<uint3> _HB_GrassBlades;
@@ -499,6 +500,8 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     float4 layerSurface = _HB_LayerSurface[input.data.x];
     half4 mask = half4(SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerMask, float2(0.5, 0.5),
                                                   input.data.x, HB_GRASS_MASK_MIP));
+
+    mask = _HB_LayerSources[input.data.x].z > 0.5 ? mask : half4(1.0h, 1.0h, 0.5h, 1.0h);
 
     SurfaceData surfaceData = (SurfaceData)0;
     surfaceData.albedo = albedo;

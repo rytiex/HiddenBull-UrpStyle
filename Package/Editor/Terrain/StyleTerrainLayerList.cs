@@ -141,6 +141,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             m_List.index = m_Layers.arraySize > 0 ? m_Selected : -1;
             m_List.DoLayoutList();
+            StyleTerrainLayerCheck.Draw(data);
 
             StyleTerrainGUI.Header("Selected Layer", StyleTerrainLayerList.Tint(m_Selected));
             DrawDetails();

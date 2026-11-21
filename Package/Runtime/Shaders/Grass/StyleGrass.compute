@@ -240,8 +240,11 @@ void Place(uint3 id : SV_DispatchThreadID)
                 float mip = log2(max(foot * max(st.x, st.y) * float(texels), 1.0));
                 float2 spot = shifted * st.xy + st.zw;
                 float3 base = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, spot, ids[pick],
-                                                         mip).rgb
-                            * _HB_LayerLook[ids[pick]].rgb;
+                                                         mip).rgb;
+
+                base = _HB_LayerSources[ids[pick]].x > 0.5 ? base
+                                                           : float3(HB_TERRAIN_FILL, HB_TERRAIN_FILL, HB_TERRAIN_FILL);
+                base *= _HB_LayerLook[ids[pick]].rgb;
 
                 ground += HB_TerrainVary(half3(base), xz, ids[pick]) * shares[pick];
             }

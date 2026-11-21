@@ -106,9 +106,9 @@ namespace HiddenBull.UrpStyle.Editor
             var fine = Mathf.Max(data.controlResolution, LeastResolution);
             var coarse = Mathf.Max(data.controlResolution / 2, LeastResolution);
 
-            Remove(data.waterLevel);
-            Remove(data.waterMix);
-            Remove(data.waterFlow);
+            StyleTerrainMaps.Discard(data.waterLevel);
+            StyleTerrainMaps.Discard(data.waterMix);
+            StyleTerrainMaps.Discard(data.waterFlow);
 
             var level = Create(LevelName, fine, TextureFormat.RG32);
             var mix = Create(MixName, coarse, TextureFormat.RGBA32);
@@ -124,9 +124,6 @@ namespace HiddenBull.UrpStyle.Editor
             flow.SetPixelData(new ushort[coarse * coarse * Stride], 0);
             flow.Apply(false, false);
 
-            AssetDatabase.AddObjectToAsset(level, data);
-            AssetDatabase.AddObjectToAsset(mix, data);
-            AssetDatabase.AddObjectToAsset(flow, data);
             data.SetWater(level, mix, flow, HBStyleTerrainData.WaterFormat);
             EditorUtility.SetDirty(data);
             return true;
@@ -140,15 +137,6 @@ namespace HiddenBull.UrpStyle.Editor
                 wrapMode = TextureWrapMode.Clamp,
                 filterMode = FilterMode.Bilinear
             };
-        }
-
-        static void Remove(Texture2D texture)
-        {
-            if (texture == null)
-                return;
-
-            AssetDatabase.RemoveObjectFromAsset(texture);
-            Object.DestroyImmediate(texture, true);
         }
 
         internal static Object[] Recorded(HBStyleTerrainData data)

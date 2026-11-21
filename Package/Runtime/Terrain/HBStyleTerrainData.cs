@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HiddenBull.UrpStyle
 {
@@ -16,6 +17,8 @@ namespace HiddenBull.UrpStyle
 
         static readonly HBStyleTerrainLayerRule[] s_NoLayers = new HBStyleTerrainLayerRule[0];
 
+        static readonly Vector4[] s_AllSources = AllSources();
+
         [SerializeField]
         [Tooltip("The ground layers and their rules. One set can serve many terrains; copy it to vary it.")]
         HBStyleTerrainLayerSet m_LayerSet;
@@ -26,7 +29,9 @@ namespace HiddenBull.UrpStyle
         int m_ControlResolution = 2048;
 
         [SerializeField]
-        [Tooltip("Size every layer texture is resampled to for the terrain shader.")]
+        [Tooltip("Size the layer textures are used at. Square layer textures at least this big, with mipmaps and " +
+                 "one compression format per map, are copied straight to the GPU; others are resampled and take " +
+                 "about four times the memory.")]
         int m_TextureResolution = 1024;
 
         [SerializeField]
@@ -159,6 +164,55 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         int m_WaterVersion;
 
+#if UNITY_EDITOR
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_HandMap = new StyleTerrainMap();
+#endif
+
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_ControlMap = new StyleTerrainMap();
+
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_GrassMap = new StyleTerrainMap();
+
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_LevelMap = new StyleTerrainMap();
+
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_MixMap = new StyleTerrainMap();
+
+        [SerializeField]
+        [HideInInspector]
+        StyleTerrainMap m_FlowMap = new StyleTerrainMap();
+
+#if UNITY_EDITOR
+        [System.NonSerialized]
+        Texture2DArray m_HandLive;
+#endif
+
+        [System.NonSerialized]
+        Texture2DArray m_ControlLive;
+
+        [System.NonSerialized]
+        Texture2D m_GrassLive;
+
+        [System.NonSerialized]
+        Texture2D m_LevelLive;
+
+        [System.NonSerialized]
+        Texture2D m_MixLive;
+
+        [System.NonSerialized]
+        Texture2D m_FlowLive;
+
+        [System.NonSerialized]
+        StyleTerrainLayerArrays m_Arrays;
+
         [System.NonSerialized]
         RectInt m_WaterShown;
 
@@ -206,11 +260,11 @@ namespace HiddenBull.UrpStyle
 
         public int seaSlot => Mathf.Clamp(m_SeaSlot, 0, Mathf.Max(liquidCount - 1, 0));
 
-        internal Texture2D waterLevel => m_WaterLevel;
+        internal Texture2D waterLevel => Live(ref m_LevelLive, m_LevelMap, m_WaterLevel);
 
-        internal Texture2D waterMix => m_WaterMix;
+        internal Texture2D waterMix => Live(ref m_MixLive, m_MixMap, m_WaterMix);
 
-        internal Texture2D waterFlow => m_WaterFlow;
+        internal Texture2D waterFlow => Live(ref m_FlowLive, m_FlowMap, m_WaterFlow);
 
         internal int waterFormat => m_WaterFormat;
 
@@ -223,9 +277,10 @@ namespace HiddenBull.UrpStyle
 
         internal void SetWater(Texture2D level, Texture2D mix, Texture2D flow, int format)
         {
-            m_WaterLevel = level;
-            m_WaterMix = mix;
-            m_WaterFlow = flow;
+            m_LevelLive = Keep(level);
+            m_MixLive = Keep(mix);
+            m_FlowLive = Keep(flow);
+            WaterTouched();
             m_WaterFormat = format;
             m_WaterVersion++;
         }
@@ -233,11 +288,13 @@ namespace HiddenBull.UrpStyle
         internal void WaterEdited()
         {
             m_WaterVersion++;
+            WaterTouched();
         }
 
         internal void WaterShown(RectInt area)
         {
             m_WaterStamp++;
+            WaterTouched();
 
             if (m_WaterShownAny)
             {
@@ -258,6 +315,7 @@ namespace HiddenBull.UrpStyle
         internal void FlowEdited()
         {
             m_WaterStamp++;
+            WaterTouched();
         }
 
         internal bool TakeWaterShown(out RectInt area)
@@ -350,17 +408,36 @@ namespace HiddenBull.UrpStyle
 
         internal int layerCount => m_LayerSet != null ? m_LayerSet.count : 0;
 
-        internal Texture2DArray control => m_Control;
+        internal Texture2DArray control => Live(ref m_ControlLive, m_ControlMap, m_Control);
 
         internal int controlLayers => m_BakedLayers != null ? m_BakedLayers.Length : 0;
 
-        internal Texture2DArray albedoArray => m_Albedo;
+        internal Texture albedoArray => m_Albedo != null ? m_Albedo : m_Arrays?.albedo;
 
-        internal Texture2DArray normalArray => m_Normal;
+        internal Texture normalArray => m_Normal != null ? m_Normal : m_Arrays?.normal;
 
-        internal Texture2DArray maskArray => m_Mask;
+        internal Texture maskArray => m_Mask != null ? m_Mask : m_Arrays?.mask;
 
+        internal int layerDepth => m_Albedo != null ? m_Albedo.depth : m_Arrays != null ? m_Arrays.depth : 0;
+
+        internal Vector4[] layerSources => m_Albedo != null || m_Arrays == null ? s_AllSources : m_Arrays.sources;
+
+        internal StyleTerrainLayerArrays layerArrays => m_Arrays;
+
+        internal void PrepareLayers(HBStyleTerrainLayer[] layers, int count, Shader slice)
+        {
+            if (m_Albedo != null)
+                return;
+
+            m_Arrays ??= new StyleTerrainLayerArrays();
+            m_Arrays.Refresh(layers, count, m_TextureResolution, slice);
+        }
+
+        #if UNITY_EDITOR
+        internal Texture2DArray hand => Live(ref m_HandLive, m_HandMap, m_Hand);
+#else
         internal Texture2DArray hand => m_Hand;
+#endif
 
         internal int handChannels => m_HandLayers != null ? m_HandLayers.Length : 0;
 
@@ -368,13 +445,15 @@ namespace HiddenBull.UrpStyle
 
         internal int handVersion => m_HandVersion;
 
-        internal Texture2D grass => m_Grass;
+        internal Texture2D grass => Live(ref m_GrassLive, m_GrassMap, m_Grass);
 
         internal int grassVersion => m_GrassVersion;
 
         internal int controlVersion => m_ControlVersion;
 
         internal Texture2DArray flowerArray => m_FlowerArray;
+
+        internal int flowerCount => m_FlowerTextures != null ? m_FlowerTextures.Length : 0;
 
         internal string grassSignature => m_GrassSignature;
 
@@ -429,8 +508,7 @@ namespace HiddenBull.UrpStyle
             set => m_BakeSignature = value;
         }
 
-        internal bool painted => m_Control != null && controlLayers > 0 && m_Albedo != null && m_Normal != null &&
-                                 m_Mask != null && m_Albedo.depth >= controlLayers;
+        internal bool painted => m_Control != null && controlLayers > 0;
 
         internal HBStyleTerrainLayer Layer(int index)
         {
@@ -439,7 +517,18 @@ namespace HiddenBull.UrpStyle
 
         internal void SetControl(Texture2DArray control, HBStyleTerrainLayer[] layers)
         {
-            m_Control = control;
+            if (control == null)
+            {
+                Release(ref m_ControlLive);
+                m_ControlMap.Clear();
+                m_Control = null;
+            }
+            else
+            {
+                m_ControlLive = Keep(control);
+                Touched(m_ControlMap);
+            }
+
             m_BakedLayers = layers;
             m_ControlVersion++;
         }
@@ -451,7 +540,12 @@ namespace HiddenBull.UrpStyle
 
         internal void SetHand(Texture2DArray hand, HBStyleTerrainLayer[] layers)
         {
+#if UNITY_EDITOR
+            m_HandLive = Keep(hand);
+            Touched(m_HandMap);
+#else
             m_Hand = hand;
+#endif
             m_HandLayers = layers;
             m_HandVersion++;
         }
@@ -459,11 +553,15 @@ namespace HiddenBull.UrpStyle
         internal void HandEdited()
         {
             m_HandVersion++;
+#if UNITY_EDITOR
+            Touched(m_HandMap);
+#endif
         }
 
         internal void SetGrass(Texture2D grass)
         {
-            m_Grass = grass;
+            m_GrassLive = Keep(grass);
+            Touched(m_GrassMap);
             m_GrassVersion++;
         }
 
@@ -471,6 +569,7 @@ namespace HiddenBull.UrpStyle
         {
             m_GrassMarks[grassPaint % GrassMarks] = area;
             grassPaint++;
+            Touched(m_GrassMap);
         }
 
         internal bool GrassTouched(int seen, Vector4 area)
@@ -497,6 +596,7 @@ namespace HiddenBull.UrpStyle
         internal void GrassEdited()
         {
             m_GrassVersion++;
+            Touched(m_GrassMap);
         }
 
         internal void SetTextures(Texture2DArray albedo, Texture2DArray normal, Texture2DArray mask, string signature)
@@ -506,6 +606,175 @@ namespace HiddenBull.UrpStyle
             m_Mask = mask;
             m_TextureSignature = signature;
         }
+
+        static T Live<T>(ref T live, StyleTerrainMap map, T legacy) where T : Texture
+        {
+            if (live == null && map != null && !map.empty)
+                live = map.Unpack() as T;
+
+            return live != null ? live : legacy;
+        }
+
+        static Vector4[] AllSources()
+        {
+            var sources = new Vector4[MaxLayers];
+
+            for (var index = 0; index < sources.Length; index++)
+                sources[index] = Vector4.one;
+
+            return sources;
+        }
+
+        static T Keep<T>(T texture) where T : Texture
+        {
+            if (texture != null)
+                texture.hideFlags |= HideFlags.DontUnloadUnusedAsset;
+
+            return texture;
+        }
+
+        void WaterTouched()
+        {
+            Touched(m_LevelMap);
+            Touched(m_MixMap);
+            Touched(m_FlowMap);
+        }
+
+        void Touched(StyleTerrainMap map)
+        {
+            if (map != null)
+                map.stale = true;
+
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        void OnDisable()
+        {
+#if UNITY_EDITOR
+            PackMaps(false);
+            Release(ref m_HandLive);
+#endif
+            Release(ref m_ControlLive);
+            Release(ref m_GrassLive);
+            Release(ref m_LevelLive);
+            Release(ref m_MixLive);
+            Release(ref m_FlowLive);
+            m_Arrays?.Release();
+        }
+
+        static void Release<T>(ref T texture) where T : Texture
+        {
+#if UNITY_EDITOR
+            if (texture != null && !UnityEditor.EditorUtility.IsPersistent(texture))
+#else
+            if (texture != null)
+#endif
+                CoreUtils.Destroy(texture);
+
+            texture = null;
+        }
+
+#if UNITY_EDITOR
+        internal bool legacyMaps => m_Hand != null || m_Control != null || m_Grass != null || m_WaterLevel != null ||
+                                    m_WaterMix != null || m_WaterFlow != null || m_Albedo != null ||
+                                    m_Normal != null || m_Mask != null;
+
+        internal bool HoldsLegacy(Texture texture)
+        {
+            return texture == m_Hand || texture == m_Control || texture == m_Grass || texture == m_WaterLevel ||
+                   texture == m_WaterMix || texture == m_WaterFlow || texture == m_Albedo || texture == m_Normal ||
+                   texture == m_Mask;
+        }
+
+        internal bool PackMaps(bool all)
+        {
+            var packed = Pack(m_HandMap, m_HandLive, all);
+
+            packed |= Pack(m_ControlMap, m_ControlLive, all);
+
+            packed |= Pack(m_GrassMap, m_GrassLive, all);
+            packed |= Pack(m_LevelMap, m_LevelLive, all);
+            packed |= Pack(m_MixMap, m_MixLive, all);
+            packed |= Pack(m_FlowMap, m_FlowLive, all);
+            return packed;
+        }
+
+        internal void MapsTouched()
+        {
+            Stale(m_HandMap, m_HandLive);
+            Stale(m_ControlMap, m_ControlLive);
+            Stale(m_GrassMap, m_GrassLive);
+            Stale(m_LevelMap, m_LevelLive);
+            Stale(m_MixMap, m_MixLive);
+            Stale(m_FlowMap, m_FlowLive);
+        }
+
+        internal void MoveLegacyMaps(List<Texture> moved, List<string> failed)
+        {
+            m_Hand = Move(m_HandMap, m_Hand, moved, failed);
+            m_Control = Move(m_ControlMap, m_Control, moved, failed);
+            m_ControlVersion++;
+            m_Grass = Move(m_GrassMap, m_Grass, moved, failed);
+            m_WaterLevel = Move(m_LevelMap, m_WaterLevel, moved, failed);
+            m_WaterMix = Move(m_MixMap, m_WaterMix, moved, failed);
+            m_WaterFlow = Move(m_FlowMap, m_WaterFlow, moved, failed);
+            m_Albedo = Drop(m_Albedo, moved);
+            m_Normal = Drop(m_Normal, moved);
+            m_Mask = Drop(m_Mask, moved);
+            m_GrassVersion++;
+            m_WaterVersion++;
+        }
+
+        static T Move<T>(StyleTerrainMap map, T legacy, List<Texture> moved, List<string> failed) where T : Texture
+        {
+            if (legacy == null)
+                return null;
+
+            try
+            {
+                map.Pack(legacy);
+
+                if (map.Matches(legacy))
+                {
+                    moved.Add(legacy);
+                    return null;
+                }
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+
+            map.Clear();
+            failed.Add(legacy.name);
+            return legacy;
+        }
+
+        static Texture2DArray Drop(Texture2DArray copy, List<Texture> dropped)
+        {
+            if (copy != null)
+                dropped.Add(copy);
+
+            return null;
+        }
+
+        static bool Pack(StyleTerrainMap map, Texture live, bool all)
+        {
+            if (map == null || live == null || !(all || map.stale))
+                return false;
+
+            map.Pack(live);
+            return true;
+        }
+
+        static void Stale(StyleTerrainMap map, Texture live)
+        {
+            if (map != null && live != null)
+                map.stale = true;
+        }
+#endif
 
         internal void Assign(TerrainData terrain)
         {

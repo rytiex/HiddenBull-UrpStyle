@@ -18,7 +18,7 @@ namespace HiddenBull.UrpStyle.Editor
         const int AlbedoPass = 0;
         const int NormalPass = 1;
         const int MaskPass = 2;
-        const string SliceShader = "Packages/com.hiddenbull.urpstyle/Editor/Terrain/StyleTerrainLayerSlice.shader";
+        const string SliceShader = StyleTerrainLayerArrays.ShaderPath;
 
         static readonly Vector3 s_Origin = new Vector3(5000f, 0f, 5000f);
         static readonly int s_SourceId = Shader.PropertyToID("_Source");

@@ -32,12 +32,29 @@ half HB_TerrainMaskHeight(float2 layerUV, int layer)
     weights = pow(saturate(weights), HB_TERRAIN_HEX_SHARPNESS);
     weights /= max(weights.x + weights.y + weights.z, HB_EPSILON);
 
-    float height = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo,
-                                              layerUV + HB_TerrainHexOffset(vertex1), layer, 0).b * weights.x
-                 + SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo,
-                                              layerUV + HB_TerrainHexOffset(vertex2), layer, 0).b * weights.y
-                 + SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo,
-                                              layerUV + HB_TerrainHexOffset(vertex3), layer, 0).b * weights.z;
+    float2 uv1 = layerUV + HB_TerrainHexOffset(vertex1);
+    float2 uv2 = layerUV + HB_TerrainHexOffset(vertex2);
+    float2 uv3 = layerUV + HB_TerrainHexOffset(vertex3);
+    float height = HB_TERRAIN_FILL;
+
+    UNITY_BRANCH
+    if (_HB_LayerSources[layer].z > 0.5)
+    {
+        height = SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv1, layer, 0).b * weights.x
+               + SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv2, layer, 0).b * weights.y
+               + SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv3, layer, 0).b * weights.z;
+    }
+    else if (_HB_LayerSources[layer].x > 0.5)
+    {
+        half3 albedo = half3(SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, uv1, layer, 0).rgb)
+                         * half(weights.x)
+                     + half3(SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, uv2, layer, 0).rgb)
+                         * half(weights.y)
+                     + half3(SAMPLE_TEXTURE2D_ARRAY_LOD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, uv3, layer, 0).rgb)
+                         * half(weights.z);
+
+        height = HB_TerrainLuma(albedo);
+    }
 
     return half(height);
 }

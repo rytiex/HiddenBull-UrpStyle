@@ -145,13 +145,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             hand.Apply(false, false);
 
-            if (old != null)
-            {
-                AssetDatabase.RemoveObjectFromAsset(old);
-                Object.DestroyImmediate(old, true);
-            }
-
-            AssetDatabase.AddObjectToAsset(hand, data);
+            StyleTerrainMaps.Discard(old);
             return hand;
         }
 

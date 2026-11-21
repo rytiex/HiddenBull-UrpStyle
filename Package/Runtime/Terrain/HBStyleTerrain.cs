@@ -37,6 +37,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayersId = Shader.PropertyToID("_HB_TerrainLayers");
         static readonly int s_LayerSTId = Shader.PropertyToID("_HB_LayerST");
         static readonly int s_LayerLookId = Shader.PropertyToID("_HB_LayerLook");
+        static readonly int s_LayerSourcesId = Shader.PropertyToID("_HB_LayerSources");
         static readonly int s_LayerSurfaceId = Shader.PropertyToID("_HB_LayerSurface");
         static readonly int s_LayerWetGlossId = Shader.PropertyToID("_HB_LayerWetGloss");
         static readonly int s_GrassTrailId = Shader.PropertyToID("_HB_GrassTrail");
@@ -96,6 +97,10 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         ComputeShader m_WaveCompute;
 
+        [SerializeField]
+        [HideInInspector]
+        Shader m_SliceShader;
+
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly List<StyleTerrainNode> m_Nodes = new List<StyleTerrainNode>();
         readonly List<Matrix4x4> m_Full = new List<Matrix4x4>();
@@ -110,6 +115,7 @@ namespace HiddenBull.UrpStyle
         readonly Vector4[] m_Ranges = new Vector4[StyleTerrainTree.MaxLevels];
         readonly Vector4[] m_LayerST = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerLook = new Vector4[HBStyleTerrainData.MaxLayers];
+        readonly HBStyleTerrainLayer[] m_LayerList = new HBStyleTerrainLayer[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerSurface = new Vector4[HBStyleTerrainData.MaxLayers];
         readonly float[] m_LayerWetGloss = new float[HBStyleTerrainData.MaxLayers];
         readonly Vector4[] m_LayerGrass = new Vector4[HBStyleTerrainData.MaxLayers];
@@ -194,6 +200,8 @@ namespace HiddenBull.UrpStyle
         internal Vector4[] layerST => m_LayerST;
 
         internal Vector4[] layerLook => m_LayerLook;
+
+        internal Vector4[] layerSources => m_Data != null ? m_Data.layerSources : null;
 
         internal Vector4[] layerSurface => m_LayerSurface;
 
@@ -422,6 +430,9 @@ namespace HiddenBull.UrpStyle
 
             if (m_WaveCompute == null)
                 m_WaveCompute = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(StyleLiquidWaves.ComputePath);
+
+            if (m_SliceShader == null)
+                m_SliceShader = UnityEditor.AssetDatabase.LoadAssetAtPath<Shader>(StyleTerrainLayerArrays.ShaderPath);
         }
 
         void OnValidate()
@@ -686,9 +697,16 @@ namespace HiddenBull.UrpStyle
                 layers = preview.Length;
             }
 
+            var listed = Mathf.Min(layers, m_LayerList.Length);
+
+            for (var index = 0; index < m_LayerList.Length; index++)
+                m_LayerList[index] = index >= listed ? null : preview != null ? preview[index] : m_Data.Layer(index);
+
+            m_Data.PrepareLayers(m_LayerList, listed, m_SliceShader);
+
             var albedo = m_Data.albedoArray;
             var painted = control != null && layers > 0 && albedo != null && m_Data.normalArray != null &&
-                          m_Data.maskArray != null && albedo.depth >= layers;
+                          m_Data.maskArray != null && m_Data.layerDepth >= layers;
 
             if (!painted)
                 layers = 0;
@@ -754,6 +772,7 @@ namespace HiddenBull.UrpStyle
 
             block.SetVectorArray(s_LayerSTId, m_LayerST);
             block.SetVectorArray(s_LayerLookId, m_LayerLook);
+            block.SetVectorArray(s_LayerSourcesId, m_Data.layerSources);
             block.SetVectorArray(s_LayerSurfaceId, m_LayerSurface);
             block.SetFloatArray(s_LayerWetGlossId, m_LayerWetGloss);
             block.SetVectorArray(s_LayerGrassId, m_LayerGrass);

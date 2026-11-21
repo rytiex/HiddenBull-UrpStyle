@@ -37,13 +37,7 @@ namespace HiddenBull.UrpStyle.Editor
             grass.SetPixelData(new byte[resolution * resolution * Channels], 0);
             grass.Apply(false, false);
 
-            if (old != null)
-            {
-                AssetDatabase.RemoveObjectFromAsset(old);
-                Object.DestroyImmediate(old, true);
-            }
-
-            AssetDatabase.AddObjectToAsset(grass, data);
+            StyleTerrainMaps.Discard(old);
             data.SetGrass(grass);
             EditorUtility.SetDirty(data);
             return grass;

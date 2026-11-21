@@ -50,7 +50,7 @@ namespace HiddenBull.UrpStyle.Editor
             if (water)
             {
                 StyleTerrainWater.Rescale(data, size.y / range);
-                EditorUtility.SetDirty(data.waterLevel);
+                data.WaterEdited();
             }
 
             transform.position -= Vector3.up * depth;

@@ -1347,7 +1347,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4829
+            Slots = 4856
             Reads = 200
         }
         @{
@@ -1695,6 +1695,16 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @('HB_GRASS_FORWARD', 'HB_STYLE_DEBUG')
+            Slots = 0
+            Reads = 0
+        }
+        @{
+            Name = 'Grass Place'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Grass/StyleGrass.compute'
+            Entry = 'Place'
+            Stage = 'cs'
+            Urp = 'Minimal'
+            Defines = @()
             Slots = 0
             Reads = 0
         }

@@ -30,6 +30,7 @@ float4 _HB_TerrainRanges[12];
 float4 _HB_TerrainLayers;
 float4 _HB_LayerST[16];
 float4 _HB_LayerLook[16];
+float4 _HB_LayerSources[16];
 float4 _HB_LayerSurface[16];
 float _HB_LayerWetGloss[16];
 float4 _HB_LayerVary[16];
@@ -43,6 +44,7 @@ float4 _HB_TerrainBrush;
 float4 _HB_TerrainStyle;
 float4 _HB_TerrainVariation;
 
+#define HB_TERRAIN_FILL             0.214h
 #define HB_TERRAIN_BRUSH_SIZE       _HB_TerrainBrush.x
 #define HB_TERRAIN_BRUSH_PAINT      _HB_TerrainBrush.y
 #define HB_TERRAIN_TONE_STROKES     _HB_TerrainBrush.z
@@ -170,6 +172,11 @@ void HB_TerrainHexGrid(float2 uv, out float3 weights, out float2 vertex1, out fl
     vertex3 = base + float2(1.0 - side, side);
 }
 
+half HB_TerrainLuma(half3 colour)
+{
+    return dot(colour, half3(0.299h, 0.587h, 0.114h));
+}
+
 void HB_TerrainHexSample(float2 uv, int layer, float2 uvDx, float2 uvDy, out half4 albedo, out half4 normal,
                          out half4 mask)
 {
@@ -196,6 +203,12 @@ void HB_TerrainHexSample(float2 uv, int layer, float2 uvDx, float2 uvDy, out hal
     mask = half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv1, layer, uvDx, uvDy)) * w.x
          + half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv2, layer, uvDx, uvDy)) * w.y
          + half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerMask, sampler_HB_LayerAlbedo, uv3, layer, uvDx, uvDy)) * w.z;
+
+    half3 sources = half3(_HB_LayerSources[layer].xyz);
+
+    albedo = sources.x > 0.5h ? albedo : half4(HB_TERRAIN_FILL, HB_TERRAIN_FILL, HB_TERRAIN_FILL, 1.0h);
+    normal = sources.y > 0.5h ? normal : half4(0.5h, 0.5h, 1.0h, 1.0h);
+    mask = sources.z > 0.5h ? mask : half4(1.0h, 1.0h, saturate(HB_TerrainLuma(albedo.rgb)), 1.0h);
 }
 
 half3 HB_TerrainVary(half3 colour, float2 xzWS, int layer)
@@ -285,7 +298,7 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift)
     {
         float4 look = _HB_LayerLook[ids[layer]];
         float4 settings = _HB_LayerSurface[ids[layer]];
-        half2 tilt = (normal[layer].xy * 2.0h - 1.0h) * half(look.w);
+        half2 tilt = (half2(normal[layer].a * normal[layer].r, normal[layer].g) * 2.0h - 1.0h) * half(look.w);
         half3 normalTS = half3(tilt, sqrt(saturate(1.0h - dot(tilt, tilt))));
 
         UNITY_BRANCH

@@ -73,6 +73,10 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 var data = terrain != null ? terrain.data : null;
 
+                if (data != null && data.terrainData != null && EditorUtility.IsPersistent(data) &&
+                    data.grassSignature != StyleTerrainArrays.GrassSignature(data))
+                    StyleTerrainArrays.BuildGrass(data);
+
                 if (data == null || s_Pending.Contains(data) ||
                     StyleTerrainBakeService.State(data) != StyleTerrainBakeState.NeedsBake)
                     continue;

@@ -166,6 +166,7 @@ namespace HiddenBull.UrpStyle.Editor
 
                 if (control == null || control.width != resolution || control.depth != slices)
                 {
+                    StyleTerrainMaps.Discard(control);
                     Remove(data, ControlName);
 
                     control = new Texture2DArray(resolution, resolution, slices, TextureFormat.RGBA32, false, true)
@@ -174,8 +175,6 @@ namespace HiddenBull.UrpStyle.Editor
                         wrapMode = TextureWrapMode.Clamp,
                         filterMode = FilterMode.Bilinear
                     };
-
-                    AssetDatabase.AddObjectToAsset(control, data);
                 }
 
                 for (var slice = 0; slice < slices; slice++)

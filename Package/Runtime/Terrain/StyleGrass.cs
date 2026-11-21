@@ -89,6 +89,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_LayersId = Shader.PropertyToID("_HB_TerrainLayers");
         static readonly int s_LayerSTId = Shader.PropertyToID("_HB_LayerST");
         static readonly int s_LayerLookId = Shader.PropertyToID("_HB_LayerLook");
+        static readonly int s_LayerSourcesId = Shader.PropertyToID("_HB_LayerSources");
         static readonly int s_GrassMapId = Shader.PropertyToID("_HB_GrassMap");
         static readonly int s_StyleId = Shader.PropertyToID("_HB_GrassStyle");
         static readonly int s_AmbientId = Shader.PropertyToID("_HB_GrassAmbient");
@@ -547,6 +548,7 @@ namespace HiddenBull.UrpStyle
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerFlowerId, terrain.layerFlower);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerSTId, terrain.layerST);
             cmd.SetComputeVectorArrayParam(m_Compute, s_LayerLookId, terrain.layerLook);
+            cmd.SetComputeVectorArrayParam(m_Compute, s_LayerSourcesId, terrain.layerSources);
             cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_JobsId, view.jobs);
             cmd.SetComputeBufferParam(m_Compute, m_PlaceKernel, s_BladesOutId, view.blades);
             BindClears(cmd, view, jobs);
@@ -624,6 +626,7 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_StyleId, style);
             block.SetVector(s_AmbientId, terrain.grassAmbient);
             block.SetVectorArray(s_LayerSurfaceId, terrain.layerSurface);
+            block.SetVectorArray(s_LayerSourcesId, terrain.layerSources);
             block.SetTexture(s_MaskId, terrain.data.maskArray != null ? (Texture)terrain.data.maskArray
                                                                    : terrain.emptyArray);
             block.SetFloat(s_ReceiveWeatherId, MovingWeather);

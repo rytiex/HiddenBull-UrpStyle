@@ -16,6 +16,15 @@ terrain.
   The Terrain quality level sets how fast.
 - Collisions use a regular Unity Terrain Collider, which the component fills.
 - The terrain takes no baked light: it gets realtime shadows and the style's ambient.
+- The baked layer map, hand painting, grass painting and liquid maps are kept losslessly compressed in the data
+  asset and unpacked when it loads. Hand painting stays in the Editor; it never goes into a build. Older data
+  assets are converted the first time the project opens.
+- Layer textures are not copied into the data asset: when the terrain loads, they are copied straight into GPU
+  arrays. That needs, per map (albedo, normal, mask), square textures at least the Texture Resolution in size, with
+  mipmaps, without mipmap streaming and with one compression format; normal and mask maps need sRGB off. The
+  Layers tab warns about textures that do not fit and **Match Import Settings** fixes the import settings. Textures
+  that do not fit still work, resampled at about four times the memory. A layer without a normal or mask map gets
+  a flat normal and a mask made from its albedo.
 
 The inspector has five tabs:
 
