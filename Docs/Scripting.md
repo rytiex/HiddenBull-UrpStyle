@@ -97,7 +97,18 @@ with the server's values so floating objects match on every machine; `Unsync()` 
 | `TryGetHeight(position, out height)` | Ground height under the point |
 | `TryGetNormal(position, out normal)` | Ground normal |
 | `GetLayerAt(position)` | The strongest ground layer, for footstep sounds or effects |
-| `GetLayersAt(position, layers, weights)` | Every layer at the point with its weight |
+| `GetLayersAt(position, layers, weights)` | Up to three strongest layers at the point with their weights (0–1); returns how many it found |
+
+The layer queries read the baked layer map, so hand painting counts once the terrain is baked. They return `null`
+or `0` outside the terrain or before the first bake. Compare the result with your **HB Style Terrain Layer**
+assets; a footstep or impact lookup is one call:
+
+```csharp
+var terrain = hit.collider.GetComponentInParent<HBStyleTerrain>();
+var layer = terrain != null ? terrain.GetLayerAt(hit.point) : null;
+```
+
+Each call reads four pixels and allocates nothing; reuse the `layers` and `weights` arrays.
 
 ## Harvesting plants
 

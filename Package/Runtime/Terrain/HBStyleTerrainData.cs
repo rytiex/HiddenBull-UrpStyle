@@ -508,7 +508,7 @@ namespace HiddenBull.UrpStyle
             set => m_BakeSignature = value;
         }
 
-        internal bool painted => m_Control != null && controlLayers > 0;
+        internal bool painted => controlLayers > 0 && control != null;
 
         internal HBStyleTerrainLayer Layer(int index)
         {
