@@ -20,9 +20,14 @@ namespace HiddenBull.UrpStyle.Editor
             if (data.layerCount == 0)
                 return data.controlLayers > 0 ? StyleTerrainBakeState.NeedsBake : StyleTerrainBakeState.NoLayers;
 
-            var baked = data.control != null && data.bakeSignature == StyleTerrainBaker.Signature(data);
+            var baked = data.control != null && Same(data.bakeSignature, StyleTerrainBaker.Signature(data));
 
             return baked ? StyleTerrainBakeState.UpToDate : StyleTerrainBakeState.NeedsBake;
+        }
+
+        static bool Same(string baked, string current)
+        {
+            return baked == current || baked != null && baked.Replace(',', '.') == current.Replace(',', '.');
         }
 
         internal static string Key(HBStyleTerrainData data)

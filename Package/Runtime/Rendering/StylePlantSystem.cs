@@ -440,7 +440,8 @@ namespace HiddenBull.UrpStyle
             if (!ready || s_Order.Count == 0)
                 return;
 
-            if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection)
+            if (camera.cameraType == CameraType.Preview || camera.cameraType == CameraType.Reflection ||
+                StyleCameraPolicy.Filtered(camera))
                 return;
 
 #if UNITY_EDITOR

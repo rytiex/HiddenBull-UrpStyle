@@ -221,6 +221,9 @@ namespace HiddenBull.UrpStyle
                 UnityEditor.SceneManagement.EditorSceneManager.IsPreviewScene(camera.scene))
                 return;
 
+            if (StyleCameraPolicy.Filtered(camera, gameObject))
+                return;
+
             if (m_Shader == null || m_WaveCompute == null)
                 LoadShaders();
 #else

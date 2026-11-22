@@ -201,7 +201,9 @@ namespace HiddenBull.UrpStyle
             var kind = StyleCameraPolicy.Classify(cameraData.cameraType, cameraData.renderType);
 
             m_PrecipitationPass.Setup(m_PrecipitationShader, quality.precipitation);
-            var baseCamera = kind == StyleCameraKind.Base;
+            var filtered = StyleCameraPolicy.Filtered(cameraData.camera);
+            var preview = StyleCameraPolicy.Preview(cameraData.camera);
+            var baseCamera = kind == StyleCameraKind.Base && !filtered;
 
             m_TransparencyPass.Setup(baseCamera ? m_PrecipitationPass : null, quality.transparency,
                                      quality.reflections, baseCamera ? m_ReflectionHistoryPass : null,
@@ -211,11 +213,14 @@ namespace HiddenBull.UrpStyle
             renderer.EnqueuePass(m_ReflectionHistoryPass.binder);
             m_TransparentShadowPass.Setup(quality.transparency);
 
-            if (kind == StyleCameraKind.Base)
+            if (baseCamera && !preview)
                 renderer.EnqueuePass(m_UnderwaterHeightPass);
 
             renderer.EnqueuePass(m_TransparencyPass);
             renderer.EnqueuePass(m_TransparentShadowPass);
+
+            if (filtered)
+                return;
 
             if (kind == StyleCameraKind.Overlay ||
                 kind == StyleCameraKind.Base && StyleOverlayShadowPass.Feeds(cameraData.camera))
@@ -270,9 +275,12 @@ namespace HiddenBull.UrpStyle
             m_SkyMapPass.Setup(m_SkyMapShader, quality.reflections.skyMapSize);
             renderer.EnqueuePass(m_SkyMapPass);
 
-            m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, m_UnderwaterHeightPass, false,
-                                   quality.transparency.level);
-            renderer.EnqueuePass(m_UnderwaterPass);
+            if (!preview)
+            {
+                m_UnderwaterPass.Setup(m_UnderwaterShader, m_TransparencyPass, m_UnderwaterHeightPass, false,
+                                       quality.transparency.level);
+                renderer.EnqueuePass(m_UnderwaterPass);
+            }
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
 

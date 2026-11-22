@@ -41,16 +41,17 @@ namespace HiddenBull.UrpStyle.Editor
             var text = new StringBuilder();
 
             text.Append(data.version).Append(':').Append(data.controlResolution).Append(':').Append(data.layerCount);
-            text.Append(":").Append(data.sunk);
+            text.Append(":").Append(System.FormattableString.Invariant($"{data.sunk}"));
 
             for (var index = 0; index < data.layerCount; index++)
             {
                 var rule = data.layers[index];
 
-                text.Append('|').Append(rule.automatic).Append(rule.slope).Append(rule.slopeSoftness)
-                    .Append(rule.height).Append(rule.heightSoftness).Append(rule.opacity).Append(rule.breakup)
-                    .Append(rule.breakupSize).Append(':')
-                    .Append(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(rule.layer)));
+                text.Append('|')
+                    .Append(System.FormattableString.Invariant(
+                        $"{rule.automatic}{rule.slope}{rule.slopeSoftness}{rule.height}{rule.heightSoftness}"))
+                    .Append(System.FormattableString.Invariant($"{rule.opacity}{rule.breakup}{rule.breakupSize}"))
+                    .Append(':').Append(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(rule.layer)));
             }
 
             if (data.hand != null)

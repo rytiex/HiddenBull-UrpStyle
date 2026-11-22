@@ -506,7 +506,7 @@ namespace HiddenBull.UrpStyle
 
         void Draw(ScriptableRenderContext context, Camera camera)
         {
-            if (!Watches(camera))
+            if (!Watches(camera) || StyleCameraPolicy.Filtered(camera, gameObject))
                 return;
 
 #if UNITY_EDITOR

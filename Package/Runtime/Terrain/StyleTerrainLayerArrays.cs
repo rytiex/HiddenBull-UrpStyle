@@ -140,8 +140,8 @@ namespace HiddenBull.UrpStyle
                          Shader slice)
         {
             var format = GraphicsFormat.None;
-            var limit = QualitySettings.globalTextureMipmapLimit;
-            var fits = (SystemInfo.copyTextureSupport & CopyTextureSupport.DifferentTypes) != 0 && limit <= 0;
+            var limit = Limit(resolution);
+            var fits = (SystemInfo.copyTextureSupport & CopyTextureSupport.DifferentTypes) != 0;
             var any = false;
 
             for (var index = 0; index < count; index++)
@@ -153,7 +153,7 @@ namespace HiddenBull.UrpStyle
 
                 any = true;
 
-                if (Problem(source, resolution, map) != null)
+                if (Problem(source, resolution, map) != null || Top(source, resolution, limit) < 0)
                     fits = false;
                 else if (format == GraphicsFormat.None)
                     format = source.graphicsFormat;
@@ -165,20 +165,31 @@ namespace HiddenBull.UrpStyle
                 return Empty(count, map);
 
             if (fits)
-                return Copy(layers, count, resolution, map, format);
+                return Copy(layers, count, resolution, limit, map, format);
 
             if (slice == null)
                 return Empty(count, map);
 
             m_Slow[(int)map] = true;
-            return Render(layers, count, Mathf.Max(resolution >> Mathf.Max(limit, 0), 1), map, slice);
+            return Render(layers, count, Mathf.Max(resolution >> limit, 1), map, slice);
         }
 
-        Texture Copy(HBStyleTerrainLayer[] layers, int count, int resolution, StyleTerrainLayerMap map,
+        static int Limit(int resolution)
+        {
+            return Mathf.Clamp(QualitySettings.globalTextureMipmapLimit, 0, Mathf.Max(Mips(resolution) - 3, 0));
+        }
+
+        static int Top(Texture2D source, int resolution, int limit)
+        {
+            return Offset(source, resolution) + limit - source.activeMipmapLimit;
+        }
+
+        Texture Copy(HBStyleTerrainLayer[] layers, int count, int resolution, int limit, StyleTerrainLayerMap map,
                      GraphicsFormat format)
         {
-            var mips = Mips(resolution);
-            var array = new Texture2DArray(resolution, resolution, count, format, TextureCreationFlags.MipChain, mips)
+            var size = Mathf.Max(resolution >> limit, 1);
+            var mips = Mips(size);
+            var array = new Texture2DArray(size, size, count, format, TextureCreationFlags.MipChain, mips)
             {
                 name = s_Names[(int)map],
                 wrapMode = TextureWrapMode.Repeat,
@@ -196,7 +207,7 @@ namespace HiddenBull.UrpStyle
                 if (source == null)
                     continue;
 
-                var offset = Offset(source, resolution);
+                var offset = Top(source, resolution, limit);
 
                 for (var mip = 0; mip < mips; mip++)
                     Graphics.CopyTexture(source, 0, offset + mip, array, index, mip);
