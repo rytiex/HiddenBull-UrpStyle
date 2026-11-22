@@ -205,7 +205,7 @@ namespace HiddenBull.UrpStyle
             var preview = StyleCameraPolicy.Preview(cameraData.camera);
             var baseCamera = kind == StyleCameraKind.Base && !filtered;
 
-            m_TransparencyPass.Setup(baseCamera ? m_PrecipitationPass : null, quality.transparency,
+            m_TransparencyPass.Setup(baseCamera && !preview ? m_PrecipitationPass : null, quality.transparency,
                                      quality.reflections, baseCamera ? m_ReflectionHistoryPass : null,
                                      m_RefractionBlurShader, m_LiquidCutShader);
             m_ReflectionHistoryPass.Setup(quality.reflections, m_ReflectDepthShader);

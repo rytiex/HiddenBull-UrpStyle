@@ -208,9 +208,20 @@ namespace HiddenBull.UrpStyle
                     continue;
 
                 var offset = Top(source, resolution, limit);
+                var shift = source.activeMipmapLimit;
 
                 for (var mip = 0; mip < mips; mip++)
-                    Graphics.CopyTexture(source, 0, offset + mip, array, index, mip);
+                {
+                    if (shift == 0)
+                    {
+                        Graphics.CopyTexture(source, 0, offset + mip, array, index, mip);
+                        continue;
+                    }
+
+                    var width = Mathf.Max(size >> mip, 1) << shift;
+
+                    Graphics.CopyTexture(source, 0, offset + mip, 0, 0, width, width, array, index, mip, 0, 0);
+                }
 
                 m_Sources[index][(int)map] = 1f;
             }
