@@ -246,10 +246,7 @@ namespace HiddenBull.UrpStyle.Editor
             new StyleProfilePage("Clouds", StyleProfilePage.Fields("m_Clouds",
                 "#Shape", "m_Atlas", "m_Coverage", "m_Tint", "m_TintShade", "m_Scale", "m_Softness",
                 "#Depth", "m_Steps", "m_StepSpacing", "m_StepShading", "m_StepTaper",
-                "#Light", "m_SilverLining", "m_SunThrough", "m_Powder")),
-            new StyleProfilePage("Brush", StyleProfilePage.Fields("m_Brush",
-                "#Brush", "m_Atlas", "m_WorldSizePerTile", "m_FadeStart", "m_FadeEnd", "m_Randomize",
-                "m_GrowWithDistance"))
+                "#Light", "m_SilverLining", "m_SunThrough", "m_Powder"))
         };
 
         static readonly StyleProfilePage[] s_Atmosphere =
@@ -268,7 +265,12 @@ namespace HiddenBull.UrpStyle.Editor
                 "#Shores", "m_ShoreReach", "m_ShoreDarkening"))
         };
 
-        static readonly string[][] s_FogStates = { State("m_Clear"), State("m_Rain"), State("m_Snow") };
+        static readonly string[] s_FogRoots = { "m_Clear", "m_Rain", "m_Snow" };
+
+        static readonly string[][] s_FogStates = { State(s_FogRoots[0]), State(s_FogRoots[1]), State(s_FogRoots[2]) };
+
+        const string CopyTip = "Copy another weather's Distance, Layer, Colour and Patches into the weather " +
+                               "shown. Undo brings the old values back.";
 
         static readonly string[] s_FogShared = StyleProfilePage.Fields(Atmosphere + ".m_Fog",
             "#Painting (All Weather)", "m_FogPaint", "m_Silhouette",
@@ -330,7 +332,7 @@ namespace HiddenBull.UrpStyle.Editor
                 s_Sides = new[]
                 {
                     new GUIContent(" Environment", EditorGUIUtility.FindTexture(prefix + "DirectionalLight Icon"),
-                                   "Sky, light, sun and moon, night sky, clouds and brush."),
+                                   "Sky, light, sun and moon, night sky and clouds."),
                     new GUIContent(" Atmosphere", EditorGUIUtility.FindTexture(prefix + "WindZone Icon"),
                                    "Fog, overcast, falling rain and snow, and wet and snowy surfaces.")
                 };
@@ -383,7 +385,13 @@ namespace HiddenBull.UrpStyle.Editor
         void DrawFog()
         {
             var selected = Mathf.Clamp(SessionState.GetInt(WeatherKey, 0), 0, s_Weathers.Length - 1);
-            var next = GUILayout.Toolbar(selected, s_Weathers, EditorStyles.miniButton);
+            int next;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                next = GUILayout.Toolbar(selected, s_Weathers, EditorStyles.miniButton);
+                DrawFogCopy(next);
+            }
 
             if (next != selected)
             {
@@ -394,6 +402,50 @@ namespace HiddenBull.UrpStyle.Editor
             EditorGUILayout.Space(4f);
             DrawCards(s_FogStates[next], "Fog", "Atmosphere.Fog");
             DrawCards(s_FogShared, "Fog", "Atmosphere.Fog");
+        }
+
+        void DrawFogCopy(int selected)
+        {
+            var icon = new GUIContent(CoreEditorStyles.contextMenuIcon.image, CopyTip);
+
+            if (!GUILayout.Button(icon, CoreEditorStyles.contextMenuStyle, GUILayout.Width(16f)))
+                return;
+
+            var menu = new GenericMenu();
+
+            for (var i = 0; i < s_Weathers.Length; i++)
+            {
+                var from = i;
+                var label = new GUIContent("Copy From " + s_Weathers[i].text);
+
+                if (i == selected)
+                    menu.AddDisabledItem(label);
+                else
+                    menu.AddItem(label, false, () => CopyFog(from, selected));
+            }
+
+            menu.ShowAsContext();
+        }
+
+        void CopyFog(int from, int to)
+        {
+            serializedObject.ApplyModifiedProperties();
+
+            foreach (var item in targets)
+            {
+                var data = new SerializedObject(item);
+                var source = data.FindProperty(Atmosphere + "." + s_FogRoots[from]);
+                var target = data.FindProperty(Atmosphere + "." + s_FogRoots[to]);
+
+                if (source == null || target == null)
+                    continue;
+
+                target.boxedValue = source.boxedValue;
+                data.ApplyModifiedProperties();
+            }
+
+            serializedObject.Update();
+            GUI.FocusControl(null);
         }
 
         void DrawLegacy()

@@ -36,7 +36,7 @@ the reference. Every section turned on is the worst case; a material only pays f
 | Plant billboard | 2363 | 137 |
 | Terrain | 4814 | 175 |
 | Grass | 850 | 19 |
-| Liquid surface | 3767 | 149 |
+| Liquid surface | 3778 | 149 |
 | Transparent, alpha | 2176 | 49 |
 | Transparent, tinted or refractive | 2381 | 78 |
 | Particle, lit | 1339 | 35 |

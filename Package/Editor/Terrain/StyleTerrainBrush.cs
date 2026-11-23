@@ -42,6 +42,7 @@ namespace HiddenBull.UrpStyle.Editor
         static float s_Target;
         static int s_Channel = -1;
         static bool s_Shift;
+        static bool s_Only;
         static double s_Stamped;
         static int s_Group;
         static int s_Version = -1;
@@ -279,6 +280,7 @@ namespace HiddenBull.UrpStyle.Editor
                         : height;
                     s_Last = point;
                     s_Shift = current.shift;
+                    s_Only = OnlyKind(current);
                     Stamp(data, point, s_Shift);
                     EditorApplication.update -= Hold;
                     EditorApplication.update += Hold;
@@ -287,6 +289,7 @@ namespace HiddenBull.UrpStyle.Editor
 
                 case EventType.MouseDrag when s_Stroking:
                     s_Shift = current.shift;
+                    s_Only = OnlyKind(current);
 
                     if (hit && tool == StyleTerrainBrushTool.Ramp)
                     {
@@ -526,12 +529,12 @@ namespace HiddenBull.UrpStyle.Editor
                     if (plantSingle)
                     {
                         StyleTerrainPlanter.Single(data, plantType, point - s_Terrain.transform.position, size * 0.5f,
-                                                   shift);
+                                                   shift, s_Only);
                         return;
                     }
 
                     StyleTerrainPlanter.Stamp(data, plantType, point - s_Terrain.transform.position, size * 0.5f,
-                                              hardness, shift, StyleTerrainShapes.current);
+                                              hardness, shift, s_Only, StyleTerrainShapes.current);
                     return;
             }
 
@@ -813,7 +816,8 @@ namespace HiddenBull.UrpStyle.Editor
                     break;
 
                 case StyleTerrainBrushTool.PlantPaint:
-                    StyleTerrainGUI.SceneLabel(point, PlantName(data), PlantAction(shift), colour);
+                    StyleTerrainGUI.SceneLabel(point, PlantName(data), PlantAction(shift, OnlyKind(Event.current)),
+                                               colour);
                     break;
 
                 default:
@@ -822,12 +826,17 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
-        static string PlantAction(bool shift)
+        static bool OnlyKind(Event current)
+        {
+            return current != null && current.shift && (current.control || current.command);
+        }
+
+        static string PlantAction(bool shift, bool only)
         {
             if (plantSingle)
-                return shift ? "Erase the nearest" : "Place one here";
+                return shift ? (only ? "Erase the nearest of this kind" : "Erase the nearest") : "Place one here";
 
-            return shift ? "Erase" : "Paint";
+            return shift ? (only ? "Erase this kind" : "Erase all kinds") : "Paint";
         }
 
         static string PlantName(HBStyleTerrainData data)

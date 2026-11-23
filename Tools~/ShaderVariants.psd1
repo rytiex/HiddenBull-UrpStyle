@@ -1397,7 +1397,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3775
+            Slots = 3778
             Reads = 151
         }
         @{

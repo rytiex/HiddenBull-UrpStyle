@@ -74,6 +74,7 @@ float4 _HB_LiquidRanges[12];
 #define HB_LIQUID_FOAM_VEIL      0.6h
 #define HB_LIQUID_FOAM_GLOW      0.45h
 #define HB_LIQUID_FOAM_MOST      0.85h
+#define HB_LIQUID_FOAM_HOLLOW    0.6h
 #define HB_LIQUID_FOAM_TURN      0.3
 #define HB_LIQUID_FOAM_SPEED     0.025
 #define HB_LIQUID_FOAM_TIGHT     0.57
@@ -1636,7 +1637,7 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
 
     half3 spotLight = skyLight + sunLight * saturate(dot(normalWS, sunDirection) * 0.5h + 0.5h) + extraFoam
                     + look.tone * glow;
-    half3 spotColour = look.foamTone * spotLight;
+    half3 spotColour = look.foamTone * (spotLight - skyLight * (HB_LIQUID_FOAM_HOLLOW * foam.grain));
     half fade = water.fade;
     half molten = 1.0h - crust;
     half cover = foam.cover * fade * molten;

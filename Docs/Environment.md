@@ -30,17 +30,17 @@ The controller writes the Light's colour and intensity, so baked and realtime li
 | Sun & Moon | Discs, glow and rays |
 | Night Sky | Stars and aurora |
 | Clouds | The cloud atlas, coverage and cloud lighting |
-| Brush | The brush atlas and stroke size shared by every shader of the package |
 
 Clouds need a **cloud atlas**; make one in the [Texture Studio](Tools.md#texture-studio) (Cloud page). The brush
-atlas comes from the Brush page of the same window.
+atlas is shared by every scene, so it lives on the HB Style feature; see [Setup](Setup.md).
 
 ## Fog
 
 The Fog tab of the Atmosphere side has three fog states, **Clear**, **Rain** and **Snow**, each a full set of fog
 settings. The scene's fog blends between them by the controller's Rain and Snow, so a storm can bring in thick,
 grey, close fog and clear weather can stay open. **Painting** and **Wind** hold what does not change with the
-weather: the painted look of the fog and how much the wind clears it.
+weather: the painted look of the fog and how much the wind clears it. The **⋮** menu beside the weather buttons
+copies another state into the one shown, so a new state can start from an existing one.
 
 Each state has four groups:
 

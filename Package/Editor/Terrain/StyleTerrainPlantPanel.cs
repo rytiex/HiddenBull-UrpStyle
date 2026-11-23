@@ -20,7 +20,8 @@ namespace HiddenBull.UrpStyle.Editor
 
         static readonly GUIContent s_SingleLabel = new GUIContent("Single Click",
             "Each click places one plant exactly where you click, ignoring Density and Min Distance. Dragging adds " +
-            "nothing. Shift + click erases the nearest one inside the brush.");
+            "nothing. Shift + click erases the nearest plant inside the brush; Ctrl + Shift + click erases the " +
+            "nearest of this kind only.");
 
         static readonly GUIContent s_DensityLabel = new GUIContent("Density",
             "Share of the free spots this plant fills. 1 packs it as tight as Min Distance allows.");
@@ -98,7 +99,7 @@ namespace HiddenBull.UrpStyle.Editor
             var active = Active(index);
             var content = new GUIContent(StyleTerrainGUI.Caption(s_Names, index),
                                          (type.prefab != null ? type.prefab.name : "Missing prefab") +
-                                         "\nPaint this plant; Shift erases it.");
+                                         "\nPaint this plant. Shift erases every kind; Ctrl + Shift only this one.");
 
             if (StyleTerrainGUI.Tile(rect, active, StyleTerrainGUI.plantTint, content))
             {

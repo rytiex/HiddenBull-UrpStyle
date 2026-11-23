@@ -55,6 +55,16 @@ namespace HiddenBull.UrpStyle
 
         public bool growWithDistance => m_GrowWithDistance;
 
+        internal void CopyFrom(HBStyleBrushSettings other)
+        {
+            m_Atlas = other.m_Atlas;
+            m_WorldSizePerTile = other.m_WorldSizePerTile;
+            m_FadeStart = other.m_FadeStart;
+            m_FadeEnd = other.m_FadeEnd;
+            m_Randomize = other.m_Randomize;
+            m_GrowWithDistance = other.m_GrowWithDistance;
+        }
+
         internal Vector4 Pack()
         {
             var reach = m_GrowWithDistance ? MaxGrowth : 1f;

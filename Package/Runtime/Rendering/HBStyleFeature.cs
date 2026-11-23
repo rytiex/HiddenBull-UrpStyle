@@ -20,6 +20,15 @@ namespace HiddenBull.UrpStyle
         float m_OverlayShadowNear = 2f;
 
         [SerializeField]
+        [Tooltip("Brush atlas, world scale and stroke variation shared by every HB Style shader, in every scene " +
+                 "and environment profile.")]
+        HBStyleBrushSettings m_Brush = new HBStyleBrushSettings();
+
+        [SerializeField]
+        [HideInInspector]
+        bool m_BrushMoved;
+
+        [SerializeField]
         [HideInInspector]
         ComputeShader m_ShelterCompute;
 
@@ -101,6 +110,8 @@ namespace HiddenBull.UrpStyle
             set => m_Quality = value;
         }
 
+        public HBStyleBrushSettings brush => m_Brush;
+
         internal StyleCameraStates cameras => m_Cameras;
 
         internal static HBStyleQualityProfile authoredQuality
@@ -179,6 +190,7 @@ namespace HiddenBull.UrpStyle
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
             m_LiquidVariants = Load(m_LiquidVariants, StyleTerrainLiquid.VariantsPath);
 
+            MoveBrush();
             ForceDepthPriming();
 #endif
         }
@@ -189,7 +201,7 @@ namespace HiddenBull.UrpStyle
             var quality = activeQuality;
             var shadows = quality.shadows;
 
-            m_GlobalsPass.Setup(quality, m_Cameras, m_ShelterPass, m_OverlayShadowNear);
+            m_GlobalsPass.Setup(quality, m_Brush, m_Cameras, m_ShelterPass, m_OverlayShadowNear);
             StyleTerrains.quality = quality.terrain;
             StyleTerrains.grassQuality = quality.grass;
             StyleTerrains.shelter = m_ShelterPass;
@@ -307,6 +319,46 @@ namespace HiddenBull.UrpStyle
                 UnityEditor.EditorUtility.SetDirty(this);
 
             return loaded;
+        }
+
+        void MoveBrush()
+        {
+            if (m_BrushMoved)
+                return;
+
+            UnityEditor.EditorApplication.delayCall -= MoveBrushNow;
+            UnityEditor.EditorApplication.delayCall += MoveBrushNow;
+        }
+
+        void MoveBrushNow()
+        {
+            if (this == null || m_BrushMoved)
+                return;
+
+            HBStyleBrushSettings found = null;
+
+            foreach (var guid in UnityEditor.AssetDatabase.FindAssets("t:" + nameof(HBStyleEnvironmentProfile)))
+            {
+                var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                var profile = UnityEditor.AssetDatabase.LoadAssetAtPath<HBStyleEnvironmentProfile>(path);
+
+                if (profile == null)
+                    continue;
+
+                found ??= profile.legacyBrush;
+
+                if (profile.legacyBrush.atlas == null)
+                    continue;
+
+                found = profile.legacyBrush;
+                break;
+            }
+
+            if (found != null)
+                m_Brush.CopyFrom(found);
+
+            m_BrushMoved = true;
+            UnityEditor.EditorUtility.SetDirty(this);
         }
 
         bool m_PrimingPending;

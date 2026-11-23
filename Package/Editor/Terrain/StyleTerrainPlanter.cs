@@ -109,7 +109,7 @@ namespace HiddenBull.UrpStyle.Editor
         }
 
         internal static void Stamp(HBStyleTerrainData data, int type, Vector3 local, float radius, float hardness,
-                                   bool shift, StyleTerrainShape shape)
+                                   bool shift, bool only, StyleTerrainShape shape)
         {
             var plants = data.plants;
 
@@ -117,12 +117,13 @@ namespace HiddenBull.UrpStyle.Editor
                 return;
 
             if (shift)
-                Erase(plants, type, local, radius, hardness, shape);
+                Erase(plants, only ? type : -1, local, radius, hardness, shape);
             else
                 Paint(data, plants, type, local, radius, hardness, shape);
         }
 
-        internal static void Single(HBStyleTerrainData data, int type, Vector3 local, float radius, bool shift)
+        internal static void Single(HBStyleTerrainData data, int type, Vector3 local, float radius, bool shift,
+                                    bool only)
         {
             var plants = data.plants;
 
@@ -131,7 +132,7 @@ namespace HiddenBull.UrpStyle.Editor
 
             if (shift)
             {
-                EraseNearest(plants, type, local, radius);
+                EraseNearest(plants, only ? type : -1, local, radius);
                 return;
             }
 
@@ -154,7 +155,7 @@ namespace HiddenBull.UrpStyle.Editor
             {
                 var record = records[slot];
 
-                if (record.type != type)
+                if (type >= 0 && record.type != type)
                     continue;
 
                 var dx = record.position.x - local.x;
@@ -240,7 +241,7 @@ namespace HiddenBull.UrpStyle.Editor
                 var x = record.position.x - local.x;
                 var z = record.position.z - local.z;
 
-                if (record.type == type && Mathf.Abs(x) <= extent && Mathf.Abs(z) <= extent &&
+                if ((type < 0 || record.type == type) && Mathf.Abs(x) <= extent && Mathf.Abs(z) <= extent &&
                     StyleTerrainStamp.Weight(shape, x, z, radius, hardness) > 0f)
                     continue;
 

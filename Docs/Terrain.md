@@ -76,7 +76,8 @@ grows. It sways in the wind, gets wet and snowy with the ground, and is never dr
 
 Any prefab with **HB Style Plant** on its root (see [Materials](Materials.md#foliage-and-foliage-body)) can be
 painted on the terrain from **Paint Plants**: choose density, spacing, size range and rotation per plant, click
-to place a single one, Shift to erase. Moving the ground with Sculpt moves the plants with it.
+to place a single one. Shift erases every kind of plant under the brush; Ctrl + Shift erases only the
+selected kind. Moving the ground with Sculpt moves the plants with it.
 
 Plants are drawn on the GPU: the real mesh up close, a baked billboard further away, nothing past the cull
 distance. Each plant asset sets three distances (for a 60° field of view; zooming in pushes them out):

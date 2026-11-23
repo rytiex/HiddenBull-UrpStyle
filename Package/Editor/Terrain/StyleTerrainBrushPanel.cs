@@ -71,10 +71,11 @@ namespace HiddenBull.UrpStyle.Editor
             new string[0],
             new string[0],
             new string[0],
-            new[] { "Shift", "erase" },
+            new[] { "Shift", "erase all kinds" },
             new[] { "Drag", "start to end" }
         };
 
+        static readonly string[] s_EraseKind = { "Ctrl Shift", "erase this kind" };
         static readonly string[] s_Sizing = { "[  ]", "brush size" };
         static readonly string[] s_Forcing = { "-  =", "strength" };
         static readonly string[] s_Stopping = { "Esc", "put away" };
@@ -171,7 +172,8 @@ namespace HiddenBull.UrpStyle.Editor
             var forced = tool != StyleTerrainBrushTool.Holes && tool != StyleTerrainBrushTool.PlantPaint &&
                          tool != StyleTerrainBrushTool.Ramp;
 
-            StyleTerrainGUI.Guide(tint, title, s_Help[index], tool, s_Hints[index], s_Sizing,
+            StyleTerrainGUI.Guide(tint, title, s_Help[index], tool, s_Hints[index],
+                                  tool == StyleTerrainBrushTool.PlantPaint ? s_EraseKind : null, s_Sizing,
                                   forced ? s_Forcing : null, s_Stopping);
         }
 

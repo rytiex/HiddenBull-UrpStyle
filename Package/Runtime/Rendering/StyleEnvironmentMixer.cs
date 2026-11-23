@@ -50,17 +50,17 @@ namespace HiddenBull.UrpStyle
         }
 
         internal StyleMixResult Resolve(StyleProfileMix mix, StyleSkyLut mixLut, HBStyleQualityProfile quality,
-                                        int cascades)
+                                        HBStyleBrushSettings brush, int cascades)
         {
-            var result = new StyleMixResult();
+            var result = new StyleMixResult { brushAtlas = brush.atlas };
             var target = mix.target;
             var targetLut = Lut(target);
 
             if (mix.single || mixLut == null)
             {
                 result.globals = StyleFrameGlobals.Resolve(target, targetLut, quality, cascades);
+                StyleFrameGlobals.PackBrush(brush, quality.shadows, cascades, ref result.globals);
                 result.skyLut = targetLut.texture;
-                result.brushAtlas = target.brush.atlas;
                 result.cloudAtlas = target.clouds.atlas;
                 return result;
             }
@@ -77,7 +77,7 @@ namespace HiddenBull.UrpStyle
             }
 
             result.globals = StyleFrameGlobals.Resolve(start, startLut, quality, cascades);
-            result.brushAtlas = start.brush.atlas;
+            StyleFrameGlobals.PackBrush(brush, quality.shadows, cascades, ref result.globals);
             result.cloudAtlas = start.clouds.atlas;
 
             if (mix.blend < 1f)
@@ -101,12 +101,6 @@ namespace HiddenBull.UrpStyle
             var other = StyleFrameGlobals.Resolve(profile, lut, quality, cascades);
 
             StyleFrameGlobals.Mix(ref result.globals, other, weight, sections);
-
-            if ((sections & HBStyleProfileSections.Brush) != 0 && weight >= 0.5f)
-            {
-                result.brushAtlas = profile.brush.atlas;
-                result.globals._HB_Brush.w = result.brushAtlas != null ? 1f : 0f;
-            }
 
             if ((sections & HBStyleProfileSections.Clouds) != 0)
             {

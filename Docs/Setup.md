@@ -15,12 +15,15 @@ globals, fog, shelter from rain and snow, grass and plants, glass, liquids, refl
 sets Depth Priming to Forced on its renderer. Without it the shaders still draw, but fog, weather, grass, plants
 and liquids are missing.
 
-The feature has two settings:
+The feature has three settings:
 
 - **Quality**: an HB Style Quality Profile with the level of each module. Leave it empty to use the defaults.
   Levels are explained in [Performance](Performance.md); a game can change them at runtime, see
   [Scripting](Scripting.md#quality-at-runtime).
 - **Overlay Shadow Near**: for first-person hands or weapons drawn by an overlay camera.
+- **Brush**: the brush atlas, the world size of one tile, the stroke fade distances and the break-up, shared by
+  every HB Style shader in every scene. Make the atlas in the [Texture Studio](Tools.md#texture-studio) (Brush
+  page). Older Environment Profiles keep their brush hidden; the feature copies it once.
 
 ## Profiles
 
@@ -28,7 +31,7 @@ Create profiles from *Create → HiddenBull → URP Style → Profiles*.
 
 | Profile | Holds |
 |---|---|
-| Environment | Environment side: sky, light, sun and moon, night sky, clouds, brush. Atmosphere side: fog for clear, rainy and snowy weather, overcast, falling rain and snow, wet and snowy surfaces. |
+| Environment | Environment side: sky, light, sun and moon, night sky, clouds. Atmosphere side: fog for clear, rainy and snowy weather, overcast, falling rain and snow, wet and snowy surfaces. |
 | Quality | The level of each module: shadows, fog, weather, grass, terrain, glass, reflections. |
 
 The Environment Profile inspector has two sides, **Environment** and **Atmosphere**, each split into tabs of

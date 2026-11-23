@@ -100,7 +100,10 @@ namespace HiddenBull.UrpStyle
 
             PackWeather(profile.weather, quality.weather, ref globals);
 
-            PackBrush(profile.brush, quality.shadows, cascades, ref globals);
+            var level = quality.shadows.current;
+
+            globals._HB_ShadowFilter = new Vector4(level.softness, quality.shadows.contact,
+                                                   Mathf.Clamp(level.taps, 1, 16), HBStyleShadowQuality.ContactReach);
 
             globals._HB_Sky = new Vector4(sky.skyIntensity, sky.sunsetFocus, sky.skyBrush, sky.skyBrushSmoothness);
             globals._HB_SkyBrush = new Vector4(sky.skyBrushScale, sky.skyPaint, StyleSkyLut.RowCoordinate(away), blend);
@@ -120,13 +123,6 @@ namespace HiddenBull.UrpStyle
                                  HBStyleProfileSections sections)
         {
             var half = t >= 0.5f;
-
-            if ((sections & HBStyleProfileSections.Brush) != 0)
-            {
-                current._HB_Brush = L(current._HB_Brush, other._HB_Brush, t);
-                current._HB_BrushVariation = L(current._HB_BrushVariation, other._HB_BrushVariation, t);
-                current._HB_ShadowBrush = L(current._HB_ShadowBrush, other._HB_ShadowBrush, t);
-            }
 
             if ((sections & HBStyleProfileSections.Sky) != 0)
             {
@@ -226,16 +222,13 @@ namespace HiddenBull.UrpStyle
                                                     weather.snowOpacity);
         }
 
-        static void PackBrush(HBStyleBrushSettings brush, HBStyleShadowQuality shadows, int cascades,
-                              ref StyleFrameGlobals globals)
+        internal static void PackBrush(HBStyleBrushSettings brush, HBStyleShadowQuality shadows, int cascades,
+                                       ref StyleFrameGlobals globals)
         {
-            var level = shadows.current;
             var tile = StyleShadowSettings.AtlasTile(cascades);
 
             globals._HB_Brush = brush.Pack();
             globals._HB_BrushVariation = brush.PackVariation();
-            globals._HB_ShadowFilter = new Vector4(level.softness, shadows.contact, Mathf.Clamp(level.taps, 1, 16),
-                                                   HBStyleShadowQuality.ContactReach);
             globals._HB_ShadowBrush = new Vector4(brush.atlas != null ? shadows.edgeBrush : 0f,
                                                   1f / Mathf.Max(0.05f, shadows.edgeBrushSize), tile.x, tile.y);
         }

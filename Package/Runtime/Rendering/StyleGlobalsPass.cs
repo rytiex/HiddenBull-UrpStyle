@@ -24,6 +24,7 @@ namespace HiddenBull.UrpStyle
         readonly StyleSkyLut m_SharedMixLut = new StyleSkyLut();
 
         HBStyleQualityProfile m_Quality;
+        HBStyleBrushSettings m_Brush;
         StyleCameraStates m_Cameras;
         StyleShelterPass m_Shelter;
         GraphicsBuffer m_Bodies;
@@ -56,9 +57,10 @@ namespace HiddenBull.UrpStyle
             profilingSampler = new ProfilingSampler("HB Style Globals");
         }
 
-        internal void Setup(HBStyleQualityProfile quality, StyleCameraStates cameras, StyleShelterPass shelter,
-                            float overlayShadowNear)
+        internal void Setup(HBStyleQualityProfile quality, HBStyleBrushSettings brush, StyleCameraStates cameras,
+                            StyleShelterPass shelter, float overlayShadowNear)
         {
+            m_Brush = brush;
             m_OverlayShadowNear = overlayShadowNear;
             m_Quality = quality;
             m_Cameras = cameras;
@@ -92,7 +94,7 @@ namespace HiddenBull.UrpStyle
                 mix.Evaluate(state != null ? state.camera.transform.position : (Vector3?)null);
                 m_Mixer.Prune();
 
-                resolved = m_Mixer.Resolve(mix, mixLut, m_Quality, cascades);
+                resolved = m_Mixer.Resolve(mix, mixLut, m_Quality, m_Brush, cascades);
 #if UNITY_EDITOR
             }
             finally

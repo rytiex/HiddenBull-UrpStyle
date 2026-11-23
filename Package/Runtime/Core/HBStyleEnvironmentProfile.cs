@@ -8,7 +8,7 @@ namespace HiddenBull.UrpStyle
     public sealed class HBStyleEnvironmentProfile : ScriptableObject
     {
         [SerializeField]
-        [Tooltip("Global brush atlas, world scale and stroke variation shared by every HB Style shader.")]
+        [HideInInspector]
         HBStyleBrushSettings m_Brush = new HBStyleBrushSettings();
 
         [SerializeField]
@@ -37,7 +37,7 @@ namespace HiddenBull.UrpStyle
         [NonSerialized]
         int m_Version;
 
-        public HBStyleBrushSettings brush => m_Brush;
+        internal HBStyleBrushSettings legacyBrush => m_Brush;
 
         public HBStyleSkySettings sky => m_Sky;
 

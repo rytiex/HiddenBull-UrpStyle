@@ -36,8 +36,8 @@ namespace HiddenBull.UrpStyle
 
         public HBStyleProfileSections sections
         {
-            get => m_Sections;
-            set => m_Sections = value;
+            get => m_Sections & HBStyleProfileSections.All;
+            set => m_Sections = value & HBStyleProfileSections.All;
         }
 
         public Vector3 size
@@ -91,6 +91,7 @@ namespace HiddenBull.UrpStyle
         void OnValidate()
         {
             m_BlendDistance = Mathf.Max(0f, m_BlendDistance);
+            m_Sections &= HBStyleProfileSections.All;
             StyleEnvironmentZones.Sort();
         }
 

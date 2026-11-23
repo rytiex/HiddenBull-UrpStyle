@@ -150,6 +150,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_ShadowFarId = Shader.PropertyToID("_HB_PlantShadowFar");
         static readonly int s_ShadeId = Shader.PropertyToID("_HB_PlantShade");
         static readonly int s_LocalId = Shader.PropertyToID("_HB_PlantLocal");
+        static readonly int s_ShelterCasterId = Shader.PropertyToID("_ShelterCaster");
         static readonly int s_LocalInverseId = Shader.PropertyToID("_HB_PlantLocalInverse");
         static readonly int s_BoundsCenterId = Shader.PropertyToID("_HB_PlantBoundsCenter");
         static readonly int s_BoundsExtentId = Shader.PropertyToID("_HB_PlantBoundsExtent");
@@ -1186,6 +1187,7 @@ namespace HiddenBull.UrpStyle
             block.SetBuffer(s_InstancesId, group.instanceBuffer);
             block.SetBuffer(s_ProbesId, group.probeBuffer);
             block.SetBuffer(s_VisibleId, visible);
+            block.SetFloat(s_ShelterCasterId, 0f);
 
             var parameters = new RenderParams(material)
             {
