@@ -49,6 +49,7 @@ Shows what the renderer sees. Pick a **View** to replace the scene's colours wit
 | Shadows | Cascades, filter values, blockers, search radius, unfiltered, attenuation, transparent tint |
 | Weather | Shelter, wetness, snow, precipitation, moving bodies, gust |
 | Atmosphere | Fog amount |
+| Lighting | Ambient occlusion |
 | Terrain | Layers, albedo, curvature, detail rings |
 | Grass | Cells, density |
 | Foliage | Canopy, sway |

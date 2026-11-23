@@ -34,7 +34,8 @@ namespace HiddenBull.UrpStyle
         [InspectorName("Liquid/Underwater")] LiquidUnderwater = 27,
         [InspectorName("Liquid/Trails")] LiquidTrails = 28,
         [InspectorName("Terrain/Albedo")] TerrainAlbedo = 30,
-        [InspectorName("Terrain/Layer Detail")] TerrainLayerDetail = 31
+        [InspectorName("Terrain/Layer Detail")] TerrainLayerDetail = 31,
+        [InspectorName("Lighting/Ambient Occlusion")] AmbientOcclusion = 32
     }
 
     static class StyleDebug

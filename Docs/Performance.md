@@ -15,8 +15,10 @@ values can be edited in the profile; the table says what the levels change.
 | Terrain | Low – Ultra | How fast terrain detail drops with distance and how far layers are drawn in full |
 | Grass | Off – Ultra | How far grass reaches, how thick it grows, how many triangles a blade has |
 | Anti Aliasing | Off – Ultra | How carefully edges and pixel-sized details are smoothed |
-| Transparency | Low – Ultra | Refraction resolution, coloured glass shadows, simple light on Low |
+| Transparency | Low – Ultra | Refraction resolution, coloured glass shadows (High and Ultra), simple light on Low |
 | Reflections | Off – Ultra | Screen-space reflection steps; Off mirrors only the sky |
+| Bloom | Off – Ultra | How wide the glow reaches and whether small bright points are steadied; Off turns it off |
+| Ambient Occlusion | Off – Ultra | Directions and samples searched per pixel; Low and Medium work at half resolution |
 
 To turn the weather off, set Rain and Snow to 0; nothing of it is drawn then.
 

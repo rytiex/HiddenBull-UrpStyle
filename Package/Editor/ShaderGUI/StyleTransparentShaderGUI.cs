@@ -51,7 +51,7 @@ namespace HiddenBull.UrpStyle.Editor
         const int Refractive = 4;
         const string TintPass = "HBStyleTransparentTint";
         const string RefractivePass = "HBStyleTransparentRefractive";
-        const string ShadowPass = "ShadowCaster";
+        const string ShadowPass = "HBStyleTintShadow";
 
         MaterialProperty m_BlendMode;
         MaterialProperty m_Refraction;

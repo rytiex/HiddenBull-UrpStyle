@@ -57,11 +57,12 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Tooltip("Settings used when the level is Medium.")]
         HBStyleTransparencyLevel m_Medium =
-            new HBStyleTransparencyLevel(0.5f, HBStyleGlassShadowResolution.Quarter, false);
+            new HBStyleTransparencyLevel(0.5f, HBStyleGlassShadowResolution.Off, false);
 
         [SerializeField]
         [Tooltip("Settings used when the level is High.")]
-        HBStyleTransparencyLevel m_High = new HBStyleTransparencyLevel(0.75f, HBStyleGlassShadowResolution.Half, false);
+        HBStyleTransparencyLevel m_High =
+            new HBStyleTransparencyLevel(0.75f, HBStyleGlassShadowResolution.Quarter, false);
 
         [SerializeField]
         [Tooltip("Settings used when the level is Ultra.")]

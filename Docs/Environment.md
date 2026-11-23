@@ -33,7 +33,6 @@ The controller writes the Light's colour and intensity, so baked and realtime li
 
 Clouds need a **cloud atlas**; make one in the [Texture Studio](Tools.md#texture-studio) (Cloud page). The brush
 atlas is shared by every scene, so it lives on the HB Style feature; see [Setup](Setup.md).
-
 ## Fog
 
 The Fog tab of the Atmosphere side has three fog states, **Clear**, **Rain** and **Snow**, each a full set of fog

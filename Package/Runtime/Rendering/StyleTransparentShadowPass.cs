@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RendererUtils;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
@@ -10,6 +12,11 @@ namespace HiddenBull.UrpStyle
     sealed class StyleTransparentShadowPass : ScriptableRenderPass, IDisposable
     {
         const int MaxCascades = 4;
+        const float CasterMargin = 50f;
+
+        static readonly ShaderTagId s_TintTag = new ShaderTagId("HBStyleTintShadow");
+        static readonly Matrix4x4 s_FlipZ = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
+        static readonly Quaternion s_Down = Quaternion.LookRotation(Vector3.down, Vector3.forward);
 
         static readonly int s_TintMapId = Shader.PropertyToID("_HB_ShadowTintMap");
         static readonly int s_TintActiveId = Shader.PropertyToID("_HB_ShadowTintActive");
@@ -29,10 +36,12 @@ namespace HiddenBull.UrpStyle
             internal Vector4 direction;
             internal Vector4 position;
             internal Matrix4x4 view;
+            internal Rect full;
             internal Matrix4x4 projection;
         }
 
         readonly ShadowSliceData[] m_Slices = new ShadowSliceData[MaxCascades];
+        readonly Dictionary<Camera, CullingResults> m_Casters = new Dictionary<Camera, CullingResults>();
 
         HBStyleTransparencyLevel m_Level;
 
@@ -42,6 +51,52 @@ namespace HiddenBull.UrpStyle
         {
             renderPassEvent = RenderPassEvent.AfterRenderingShadows;
             profilingSampler = new ProfilingSampler("HB Style Transparent Shadows");
+
+            RenderPipelineManager.beginCameraRendering += Prepare;
+        }
+
+        void Prepare(ScriptableRenderContext context, Camera camera)
+        {
+            m_Casters.Remove(camera);
+
+            if (m_Level.glassShadowResolution == HBStyleGlassShadowResolution.Off)
+                return;
+
+            if (camera.cameraType != CameraType.Game && camera.cameraType != CameraType.SceneView)
+                return;
+
+            var asset = UniversalRenderPipeline.asset;
+
+            if (asset == null || asset.shadowDistance <= 0f || !camera.TryGetCullingParameters(out var parameters))
+                return;
+
+            var reach = asset.shadowDistance + CasterMargin;
+            var centre = camera.transform.position;
+            var view = s_FlipZ * Matrix4x4.TRS(centre + Vector3.up * reach, s_Down, Vector3.one).inverse;
+            var projection = Matrix4x4.Ortho(-reach, reach, -reach, reach, 0f, reach * 2f);
+
+            parameters.cullingMatrix = projection * view;
+            parameters.cullingPlaneCount = 6;
+            parameters.SetCullingPlane(0, new Plane(Vector3.right, reach - centre.x));
+            parameters.SetCullingPlane(1, new Plane(Vector3.left, reach + centre.x));
+            parameters.SetCullingPlane(2, new Plane(Vector3.up, reach - centre.y));
+            parameters.SetCullingPlane(3, new Plane(Vector3.down, reach + centre.y));
+            parameters.SetCullingPlane(4, new Plane(Vector3.forward, reach - centre.z));
+            parameters.SetCullingPlane(5, new Plane(Vector3.back, reach + centre.z));
+            parameters.origin = centre;
+            parameters.isOrthographic = true;
+            parameters.cullingOptions = CullingOptions.None;
+            parameters.shadowDistance = 0f;
+
+            var culling = context.Cull(ref parameters);
+            var casters = context.CreateRendererList(new RendererListDesc(s_TintTag, culling, camera)
+            {
+                renderQueueRange = RenderQueueRange.all,
+                sortingCriteria = SortingCriteria.None
+            });
+
+            if (context.QueryRendererListStatus(casters) != RendererListStatus.kRendererListEmpty)
+                m_Casters[camera] = culling;
         }
 
         internal void Setup(HBStyleTransparencyQuality quality)
@@ -76,6 +131,9 @@ namespace HiddenBull.UrpStyle
             if (CoreUtils.IsSceneLightingDisabled(camera))
                 return;
 #endif
+
+            if (!m_Casters.Remove(camera, out var casterCulling))
+                return;
 
             var visibleLight = lightData.visibleLights[index];
             var light = visibleLight.light;
@@ -122,12 +180,12 @@ namespace HiddenBull.UrpStyle
             using var builder = renderGraph.AddRasterRenderPass<PassData>("HB Style Transparent Shadows", out var data,
                                                                          profilingSampler);
 
-            var settings = new ShadowDrawingSettings(cullResults, index)
-            {
-                useRenderingLayerMaskTest = UniversalRenderPipeline.asset.useRenderingLayers
-            };
+            var sorting = new SortingSettings(camera) { criteria = SortingCriteria.None };
+            var drawing = new DrawingSettings(s_TintTag, sorting);
+            var filtering = new FilteringSettings(RenderQueueRange.all);
 
             data.count = count;
+            data.full = new Rect(0f, 0f, width, height);
             data.direction = -visibleLight.localToWorldMatrix.GetColumn(2);
             data.position = visibleLight.localToWorldMatrix.GetColumn(3);
             data.view = cameraData.GetViewMatrix();
@@ -136,9 +194,9 @@ namespace HiddenBull.UrpStyle
             for (var i = 0; i < count; i++)
             {
                 var slice = m_Slices[i];
+                var list = new RendererListParams(casterCulling, drawing, filtering);
 
-                settings.splitIndex = i;
-                data.lists[i] = renderGraph.CreateShadowRendererList(ref settings);
+                data.lists[i] = renderGraph.CreateRendererList(list);
                 data.biases[i] = ShadowUtils.GetShadowBias(ref visibleLight, index, shadowData, slice.projectionMatrix,
                                                            slice.resolution);
                 data.slices[i] = slice;
@@ -178,6 +236,7 @@ namespace HiddenBull.UrpStyle
                 }
 
                 cmd.DisableScissorRect();
+                cmd.SetViewport(d.full);
                 cmd.SetViewProjectionMatrices(d.view, d.projection);
                 cmd.SetGlobalMatrixArray(s_TintTransformsId, d.transforms);
                 cmd.SetGlobalFloat(s_TintCasterId, 0f);
@@ -187,6 +246,8 @@ namespace HiddenBull.UrpStyle
 
         public void Dispose()
         {
+            RenderPipelineManager.beginCameraRendering -= Prepare;
+            m_Casters.Clear();
             Shader.SetGlobalFloat(s_TintActiveId, 0f);
             Shader.SetGlobalFloat(s_TintCasterId, 0f);
         }

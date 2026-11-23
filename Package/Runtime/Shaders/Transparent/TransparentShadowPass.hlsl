@@ -13,10 +13,12 @@
 
 #define HB_SHADOW_TINT_SCATTER  0.5
 #define HB_SHADOW_TINT_FLOOR    1e-4
+#define HB_SHADOW_TINT_ADDITIVE 2.0
 
 float4 HB_ShadowTintFragment(HBDepthVaryings input, FRONT_FACE_TYPE frontFace : FRONT_FACE_SEMANTIC) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
+    clip(abs(_BlendMode - HB_SHADOW_TINT_ADDITIVE) - 0.5);
 
     half4 base = HB_SampleSurfaceBase(HB_DepthSurface(input, IS_FRONT_VFACE(frontFace, true, false)));
 

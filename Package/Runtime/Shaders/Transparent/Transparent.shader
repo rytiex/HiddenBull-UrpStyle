@@ -227,10 +227,10 @@ Shader "HB URP Style/Transparent"
 
         Pass
         {
-            Name "ShadowCaster"
+            Name "TintShadow"
             Tags
             {
-                "LightMode" = "ShadowCaster"
+                "LightMode" = "HBStyleTintShadow"
             }
 
             ZWrite Off

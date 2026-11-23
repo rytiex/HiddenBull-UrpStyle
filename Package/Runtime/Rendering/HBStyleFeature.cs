@@ -25,6 +25,16 @@ namespace HiddenBull.UrpStyle
         HBStyleBrushSettings m_Brush = new HBStyleBrushSettings();
 
         [SerializeField]
+        [Tooltip("Glow around bright areas such as sunlit windows, the sky and lamps, shared by every scene. The " +
+                 "Bloom quality level sets how wide it reaches.")]
+        HBStyleBloomSettings m_Bloom = new HBStyleBloomSettings();
+
+        [SerializeField]
+        [Tooltip("Soft shading in corners, creases and under objects, shared by every scene. The Ambient " +
+                 "Occlusion quality level sets how carefully it is searched.")]
+        HBStyleAmbientOcclusionSettings m_AmbientOcclusion = new HBStyleAmbientOcclusionSettings();
+
+        [SerializeField]
         [HideInInspector]
         bool m_BrushMoved;
 
@@ -55,6 +65,14 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [HideInInspector]
         Shader m_AntiAliasingShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Shader m_BloomShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Shader m_AmbientOcclusionShader;
 
         [SerializeField]
         [HideInInspector]
@@ -91,6 +109,8 @@ namespace HiddenBull.UrpStyle
         StyleAtmospherePass m_AtmospherePass;
         StylePrecipitationPass m_PrecipitationPass;
         StyleAntiAliasingPass m_AntiAliasingPass;
+        StyleBloomPass m_BloomPass;
+        StyleAmbientOcclusionPass m_AmbientOcclusionPass;
         StyleTransparencyPass m_TransparencyPass;
         StyleTransparentShadowPass m_TransparentShadowPass;
         StyleOverlayShadowPass m_OverlayShadowPass;
@@ -111,6 +131,10 @@ namespace HiddenBull.UrpStyle
         }
 
         public HBStyleBrushSettings brush => m_Brush;
+
+        public HBStyleBloomSettings bloom => m_Bloom;
+
+        public HBStyleAmbientOcclusionSettings ambientOcclusion => m_AmbientOcclusion;
 
         internal StyleCameraStates cameras => m_Cameras;
 
@@ -164,6 +188,8 @@ namespace HiddenBull.UrpStyle
             m_AtmospherePass = new StyleAtmospherePass();
             m_PrecipitationPass = new StylePrecipitationPass();
             m_AntiAliasingPass = new StyleAntiAliasingPass();
+            m_BloomPass = new StyleBloomPass();
+            m_AmbientOcclusionPass = new StyleAmbientOcclusionPass();
             m_TransparencyPass = new StyleTransparencyPass();
             m_TransparentShadowPass = new StyleTransparentShadowPass();
             m_OverlayShadowPass = new StyleOverlayShadowPass();
@@ -182,6 +208,8 @@ namespace HiddenBull.UrpStyle
             m_PrecipitationShader = Load(m_PrecipitationShader, StylePrecipitationPass.ShaderPath);
             m_AtmosphereShader = Load(m_AtmosphereShader, StyleAtmospherePass.ShaderPath);
             m_AntiAliasingShader = Load(m_AntiAliasingShader, StyleAntiAliasingPass.ShaderPath);
+            m_BloomShader = Load(m_BloomShader, StyleBloomPass.ShaderPath);
+            m_AmbientOcclusionShader = Load(m_AmbientOcclusionShader, StyleAmbientOcclusionPass.ShaderPath);
             m_RefractionBlurShader = Load(m_RefractionBlurShader, StyleTransparencyPass.BlurShaderPath);
             m_LiquidCutShader = Load(m_LiquidCutShader, StyleTransparencyPass.CutShaderPath);
             m_UnderwaterShader = Load(m_UnderwaterShader, StyleUnderwaterPass.ShaderPath);
@@ -286,6 +314,18 @@ namespace HiddenBull.UrpStyle
 
             m_AtmospherePass.Setup(m_AtmosphereShader, quality.atmosphere);
             renderer.EnqueuePass(m_AtmospherePass);
+
+            if (StyleAmbientOcclusionPass.Wanted(quality.ambientOcclusion, m_AmbientOcclusion, cameraData.camera))
+            {
+                m_AmbientOcclusionPass.Setup(m_AmbientOcclusionShader, quality.ambientOcclusion, m_AmbientOcclusion);
+                m_AmbientOcclusionPass.Enqueue(renderer);
+            }
+
+            if (StyleBloomPass.Wanted(quality.bloom, m_Bloom))
+            {
+                m_BloomPass.Setup(m_BloomShader, quality.bloom, m_Bloom);
+                renderer.EnqueuePass(m_BloomPass);
+            }
 
             renderer.EnqueuePass(m_ReflectionHistoryPass);
 
@@ -412,6 +452,12 @@ namespace HiddenBull.UrpStyle
 
             m_AntiAliasingPass?.Dispose();
             m_AntiAliasingPass = null;
+
+            m_BloomPass?.Dispose();
+            m_BloomPass = null;
+
+            m_AmbientOcclusionPass?.Dispose();
+            m_AmbientOcclusionPass = null;
 
             m_TransparencyPass?.Dispose();
             m_TransparencyPass = null;

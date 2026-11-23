@@ -15,7 +15,7 @@ globals, fog, shelter from rain and snow, grass and plants, glass, liquids, refl
 sets Depth Priming to Forced on its renderer. Without it the shaders still draw, but fog, weather, grass, plants
 and liquids are missing.
 
-The feature has three settings:
+The feature has five settings:
 
 - **Quality**: an HB Style Quality Profile with the level of each module. Leave it empty to use the defaults.
   Levels are explained in [Performance](Performance.md); a game can change them at runtime, see
@@ -24,6 +24,14 @@ The feature has three settings:
 - **Brush**: the brush atlas, the world size of one tile, the stroke fade distances and the break-up, shared by
   every HB Style shader in every scene. Make the atlas in the [Texture Studio](Tools.md#texture-studio) (Brush
   page). Older Environment Profiles keep their brush hidden; the feature copies it once.
+- **Bloom**: a wide, soft glow around bright areas such as sunlit windows, the sky and lamps, the same in every
+  scene. The glow keeps the colour of what shines; **Tint** only warms or cools all of it. It works best with HDR
+  on the URP asset; without HDR only near-white pixels glow. The Bloom quality level sets how wide it reaches.
+- **Ambient Occlusion**: soft shading in corners, creases and under objects, the same in every scene. **Radius**
+  is how far in metres a surface looks for what blocks its ambient light; far from the camera the reach grows so
+  distant buildings keep their shading. **Direct Lighting** lets it darken sunlight and lamps too. It shades HB Lit,
+  Foliage and Terrain surfaces (not grass or glass). Remove URP's own Screen Space Ambient Occlusion feature from
+  the renderer; both write the same texture. **Lighting → Ambient Occlusion** in the debug window shows it alone.
 
 ## Profiles
 

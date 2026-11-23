@@ -655,6 +655,86 @@
             Reads = 40
         }
         @{
+            Name = 'Bloom Prefilter'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl'
+            Entry = 'HB_BloomPrefilter'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 40
+            Reads = 4
+        }
+        @{
+            Name = 'Bloom Prefilter (stable)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl'
+            Entry = 'HB_BloomPrefilter'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('HB_BLOOM_STABLE')
+            Slots = 120
+            Reads = 20
+        }
+        @{
+            Name = 'Bloom Down'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl'
+            Entry = 'HB_BloomDown'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 25
+            Reads = 5
+        }
+        @{
+            Name = 'Bloom Up'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl'
+            Entry = 'HB_BloomUp'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 40
+            Reads = 10
+        }
+        @{
+            Name = 'Bloom Composite'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl'
+            Entry = 'HB_BloomComposite'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 40
+            Reads = 9
+        }
+        @{
+            Name = 'Ambient Occlusion Horizon'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AmbientOcclusion/AmbientOcclusionPass.hlsl'
+            Entry = 'HB_AOHorizon'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 210
+            Reads = 4
+        }
+        @{
+            Name = 'Ambient Occlusion Blur'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AmbientOcclusion/AmbientOcclusionPass.hlsl'
+            Entry = 'HB_AOBlur'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 60
+            Reads = 10
+        }
+        @{
+            Name = 'Ambient Occlusion Debug'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AmbientOcclusion/AmbientOcclusionPass.hlsl'
+            Entry = 'HB_AODebug'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 5
+            Reads = 1
+        }
+        @{
             Name = 'Transparent Tint (brush)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Transparent/TransparentPass.hlsl'
             Entry = 'HB_TransparentTintFragment'

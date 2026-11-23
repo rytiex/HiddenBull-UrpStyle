@@ -70,7 +70,9 @@ Foliage always takes weather as Static.
 | Tinted | Coloured glass: filters what is behind it by colour |
 | Refractive | Thick glass, ice, water: bends and blurs what is behind it |
 
-Tinted and Refractive glass can cast **coloured shadows**. Rain is drawn correctly in front of and behind glass.
+Tinted and Refractive glass can cast **coloured shadows** on High and Ultra transparency quality. Only glass is
+drawn for them, and nothing at all when no glass is near; the renderer's Cast Shadows setting does not turn them off.
+Rain is drawn correctly in front of and behind glass.
 All transparents are drawn back to front, one surface at a time.
 
 ## Particle

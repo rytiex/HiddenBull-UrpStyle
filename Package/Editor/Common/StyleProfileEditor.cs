@@ -511,6 +511,8 @@ namespace HiddenBull.UrpStyle.Editor
             DrawSection("m_AntiAliasing", "Anti Aliasing", s_Levels);
             DrawSection("m_Transparency", "Transparency", s_Levels);
             DrawSection("m_Reflections", "Screen Space Reflections", s_Levels);
+            DrawSection("m_Bloom", "Bloom", s_Levels);
+            DrawSection("m_AmbientOcclusion", "Ambient Occlusion", s_Levels);
 
             serializedObject.ApplyModifiedProperties();
         }

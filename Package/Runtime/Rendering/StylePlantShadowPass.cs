@@ -29,6 +29,7 @@ namespace HiddenBull.UrpStyle
             internal Vector4 direction;
             internal Vector4 position;
             internal Matrix4x4 view;
+            internal Rect full;
             internal Matrix4x4 projection;
         }
 
@@ -106,6 +107,8 @@ namespace HiddenBull.UrpStyle
                 draw.position = visibleLight.localToWorldMatrix.GetColumn(3);
                 draw.view = cameraData.GetViewMatrix();
                 draw.projection = cameraData.GetProjectionMatrix();
+                var size = renderGraph.GetTextureDesc(shadowmap);
+                draw.full = new Rect(0f, 0f, size.width, size.height);
 
                 for (var i = 0; i < count; i++)
                 {
@@ -139,6 +142,7 @@ namespace HiddenBull.UrpStyle
             }
 
             cmd.SetGlobalDepthBias(0f, 0f);
+            cmd.SetViewport(d.full);
             cmd.SetViewProjectionMatrices(d.view, d.projection);
         }
     }
