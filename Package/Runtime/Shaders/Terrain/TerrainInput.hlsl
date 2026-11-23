@@ -181,16 +181,19 @@ half HB_TerrainLuma(half3 colour)
     return dot(colour, half3(0.299h, 0.587h, 0.114h));
 }
 
-void HB_TerrainHexSample(float2 uv, int layer, float2 uvDx, float2 uvDy, bool normals, out half4 albedo,
-                         out half4 normal, out half4 mask)
+struct HBTerrainHex
+{
+    float2 uv1;
+    float2 uv2;
+    float2 uv3;
+    half3 weights;
+};
+
+HBTerrainHex HB_TerrainHex(float2 uv)
 {
     float3 weights;
     float2 vertex1, vertex2, vertex3;
     HB_TerrainHexGrid(uv, weights, vertex1, vertex2, vertex3);
-
-    float2 uv1 = uv + HB_TerrainHexOffset(vertex1);
-    float2 uv2 = uv + HB_TerrainHexOffset(vertex2);
-    float2 uv3 = uv + HB_TerrainHexOffset(vertex3);
 
     weights /= max(max(max(weights.x, weights.y), weights.z), HB_EPSILON);
     weights = pow(saturate(weights), HB_TERRAIN_HEX_SHARPNESS);
@@ -198,41 +201,32 @@ void HB_TerrainHexSample(float2 uv, int layer, float2 uvDx, float2 uvDy, bool no
     weights = weights > HB_TERRAIN_HEX_SKIP ? weights : 0.0;
     weights /= max(weights.x + weights.y + weights.z, HB_EPSILON);
 
-    float2 uvs[3] = { uv1, uv2, uv3 };
+    HBTerrainHex hex;
+    hex.uv1 = uv + HB_TerrainHexOffset(vertex1);
+    hex.uv2 = uv + HB_TerrainHexOffset(vertex2);
+    hex.uv3 = uv + HB_TerrainHexOffset(vertex3);
+    hex.weights = half3(weights);
+    return hex;
+}
 
-    albedo = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    normal = half4(0.0h, 0.0h, 0.0h, 0.0h);
-    mask = half4(0.0h, 0.0h, 0.0h, 0.0h);
+half4 HB_TerrainHexRead(TEXTURE2D_ARRAY_PARAM(map, sampler_map), HBTerrainHex hex, int layer, float2 uvDx,
+                        float2 uvDy)
+{
+    half4 result = half4(0.0h, 0.0h, 0.0h, 0.0h);
 
-    UNITY_LOOP
-    for (int tap = 0; tap < 3; tap++)
-    {
-        half w = half(weights[tap]);
+    UNITY_BRANCH
+    if (hex.weights.x > 0.0h)
+        result += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(map, sampler_map, hex.uv1, layer, uvDx, uvDy)) * hex.weights.x;
 
-        UNITY_BRANCH
-        if (w > 0.0h)
-        {
-            float2 tapUV = uvs[tap];
+    UNITY_BRANCH
+    if (hex.weights.y > 0.0h)
+        result += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(map, sampler_map, hex.uv2, layer, uvDx, uvDy)) * hex.weights.y;
 
-            albedo += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerAlbedo, sampler_HB_LayerAlbedo, tapUV, layer, uvDx,
-                                                        uvDy)) * w;
-            mask += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerMask, sampler_HB_LayerAlbedo, tapUV, layer, uvDx,
-                                                      uvDy)) * w;
+    UNITY_BRANCH
+    if (hex.weights.z > 0.0h)
+        result += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(map, sampler_map, hex.uv3, layer, uvDx, uvDy)) * hex.weights.z;
 
-            UNITY_BRANCH
-            if (normals)
-                normal += half4(SAMPLE_TEXTURE2D_ARRAY_GRAD(_HB_LayerNormal, sampler_HB_LayerAlbedo, tapUV, layer,
-                                                            uvDx, uvDy)) * w;
-        }
-    }
-
-    normal = normals ? normal : half4(0.5h, 0.5h, 1.0h, 1.0h);
-
-    half3 sources = half3(_HB_LayerSources[layer].xyz);
-
-    albedo = sources.x > 0.5h ? albedo : half4(HB_TERRAIN_FILL, HB_TERRAIN_FILL, HB_TERRAIN_FILL, 1.0h);
-    normal = sources.y > 0.5h ? normal : half4(0.5h, 0.5h, 1.0h, 1.0h);
-    mask = sources.z > 0.5h ? mask : half4(1.0h, 1.0h, saturate(HB_TerrainLuma(albedo.rgb)), 1.0h);
+    return result;
 }
 
 half3 HB_TerrainVary(half3 colour, float2 xzWS, int layer)
@@ -276,27 +270,43 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift, half de
     HB_TerrainPicks(uv, best, ids);
     best.z *= detail;
 
-    half4 albedo[3];
-    half4 normal[3];
     half4 mask[3];
     half3 key;
 
     UNITY_UNROLL
     for (int pick = 0; pick < 3; pick++)
     {
-        float4 st = _HB_LayerST[ids[pick]];
-        float2 layerUV = local * st.xy + st.zw;
-        float2 uvDx = positionDx * st.xy;
-        float2 uvDy = positionDy * st.xy;
+        int id = ids[pick];
 
-        albedo[pick] = half4(0.0h, 0.0h, 0.0h, 0.0h);
-        normal[pick] = half4(0.5h, 0.5h, 1.0h, 1.0h);
         mask[pick] = half4(0.0h, 1.0h, 0.0h, 0.0h);
 
         UNITY_BRANCH
         if (best[pick] > 0.0h)
-            HB_TerrainHexSample(layerUV, ids[pick], uvDx, uvDy, detail > 0.0h, albedo[pick], normal[pick],
-                                mask[pick]);
+        {
+            float4 st = _HB_LayerST[id];
+            HBTerrainHex hex = HB_TerrainHex(local * st.xy + st.zw);
+            float2 uvDx = positionDx * st.xy;
+            float2 uvDy = positionDy * st.xy;
+            half3 sources = half3(_HB_LayerSources[id].xyz);
+
+            UNITY_BRANCH
+            if (sources.z > 0.5h)
+            {
+                mask[pick] = HB_TerrainHexRead(TEXTURE2D_ARRAY_ARGS(_HB_LayerMask, sampler_HB_LayerAlbedo), hex, id,
+                                               uvDx, uvDy);
+            }
+            else
+            {
+                half3 colour = half3(HB_TERRAIN_FILL, HB_TERRAIN_FILL, HB_TERRAIN_FILL);
+
+                UNITY_BRANCH
+                if (sources.x > 0.5h)
+                    colour = HB_TerrainHexRead(TEXTURE2D_ARRAY_ARGS(_HB_LayerAlbedo, sampler_HB_LayerAlbedo), hex, id,
+                                               uvDx, uvDy).rgb;
+
+                mask[pick] = half4(1.0h, 1.0h, saturate(HB_TerrainLuma(colour)), 1.0h);
+            }
+        }
 
         key[pick] = best[pick] > 0.0h ? best[pick] + (mask[pick].b - 0.5h) * HB_TERRAIN_EDGE_HEIGHT : -1.0h;
     }
@@ -322,31 +332,56 @@ HBTerrainSurface HB_TerrainLayerSurface(float3 positionWS, float2 shift, half de
     UNITY_UNROLL
     for (int layer = 0; layer < 3; layer++)
     {
-        float4 look = _HB_LayerLook[ids[layer]];
-        float4 settings = _HB_LayerSurface[ids[layer]];
-        half2 tilt = (half2(normal[layer].a * normal[layer].r, normal[layer].g) * 2.0h - 1.0h)
-                   * (half(look.w) * detail);
-        half3 normalTS = half3(tilt, sqrt(saturate(1.0h - dot(tilt, tilt))));
+        int id = ids[layer];
+        half share = blend[layer];
 
         UNITY_BRANCH
-        if (blend[layer] > 0.0h)
-            surface.albedo += HB_TerrainVary(albedo[layer].rgb * half3(look.rgb), positionWS.xz, ids[layer])
-                            * blend[layer];
+        if (share > 0.0h)
+        {
+            float4 st = _HB_LayerST[id];
+            float4 look = _HB_LayerLook[id];
+            HBTerrainHex hex = HB_TerrainHex(local * st.xy + st.zw);
+            float2 uvDx = positionDx * st.xy;
+            float2 uvDy = positionDy * st.xy;
+            half3 sources = half3(_HB_LayerSources[id].xyz);
+            half3 colour = half3(HB_TERRAIN_FILL, HB_TERRAIN_FILL, HB_TERRAIN_FILL);
+            half3 normalTS = half3(0.0h, 0.0h, 1.0h);
 
-        surface.normalTS += normalTS * blend[layer];
-        surface.smoothness += mask[layer].a * half(settings.x) * blend[layer];
-        surface.metallic += mask[layer].r * half(settings.y) * blend[layer];
-        surface.occlusion += mask[layer].g * blend[layer];
-        surface.wetness += half(settings.z) * blend[layer];
-        surface.wetGloss += half(_HB_LayerWetGloss[ids[layer]]) * blend[layer];
-        surface.snowCover += half(settings.w) * blend[layer];
-        surface.height += mask[layer].b * blend[layer];
+            UNITY_BRANCH
+            if (sources.x > 0.5h)
+                colour = HB_TerrainHexRead(TEXTURE2D_ARRAY_ARGS(_HB_LayerAlbedo, sampler_HB_LayerAlbedo), hex, id,
+                                           uvDx, uvDy).rgb;
 
-        half grows = saturate(half(_HB_LayerGrass[ids[layer]].x)) * blend[layer];
+            surface.albedo += HB_TerrainVary(colour * half3(look.rgb), positionWS.xz, id) * share;
+
+            UNITY_BRANCH
+            if (detail > 0.0h && sources.y > 0.5h)
+            {
+                half4 normal = HB_TerrainHexRead(TEXTURE2D_ARRAY_ARGS(_HB_LayerNormal, sampler_HB_LayerAlbedo), hex,
+                                                 id, uvDx, uvDy);
+                half2 tilt = (half2(normal.a * normal.r, normal.g) * 2.0h - 1.0h) * (half(look.w) * detail);
+
+                normalTS = half3(tilt, sqrt(saturate(1.0h - dot(tilt, tilt))));
+            }
+
+            surface.normalTS += normalTS * share;
+        }
+
+        float4 settings = _HB_LayerSurface[id];
+
+        surface.smoothness += mask[layer].a * half(settings.x) * share;
+        surface.metallic += mask[layer].r * half(settings.y) * share;
+        surface.occlusion += mask[layer].g * share;
+        surface.wetness += half(settings.z) * share;
+        surface.wetGloss += half(_HB_LayerWetGloss[id]) * share;
+        surface.snowCover += half(settings.w) * share;
+        surface.height += mask[layer].b * share;
+
+        half grows = saturate(half(_HB_LayerGrass[id].x)) * share;
 
         surface.meadow += grows;
-        surface.vary += half(_HB_LayerGrassEdge[ids[layer]].y) * grows;
-        surface.tip += half4(_HB_LayerGrassTip[ids[layer]]) * grows;
+        surface.vary += half(_HB_LayerGrassEdge[id].y) * grows;
+        surface.tip += half4(_HB_LayerGrassTip[id]) * grows;
     }
 
     surface.normalTS = normalize(surface.normalTS);

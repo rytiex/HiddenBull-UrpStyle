@@ -34,7 +34,7 @@ the reference. Every section turned on is the worst case; a material only pays f
 | Shader Graph, HB Base with maps and brush | 2230 | 122 |
 | Foliage, every section | 3590 | 140 |
 | Plant billboard | 2363 | 137 |
-| Terrain | 4474 | 148 |
+| Terrain | 4814 | 175 |
 | Grass | 850 | 19 |
 | Liquid surface | 3767 | 149 |
 | Transparent, alpha | 2176 | 49 |
