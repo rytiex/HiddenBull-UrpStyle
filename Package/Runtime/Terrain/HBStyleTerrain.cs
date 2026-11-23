@@ -23,6 +23,7 @@ namespace HiddenBull.UrpStyle
         const int ShadowChunk = 4;
         const float ShadowBoundsMargin = 1f;
         const float GrassFarStart = 0.5f;
+        const float LayerDetailFade = 0.25f;
 
         static readonly int s_HeightmapId = Shader.PropertyToID("_HB_TerrainHeightmap");
         static readonly int s_HolesId = Shader.PropertyToID("_HB_TerrainHoles");
@@ -46,6 +47,7 @@ namespace HiddenBull.UrpStyle
         static readonly int s_VariationId = Shader.PropertyToID("_HB_TerrainVariation");
         static readonly int s_GrassMapId = Shader.PropertyToID("_HB_GrassMap");
         static readonly int s_GrassFarId = Shader.PropertyToID("_HB_TerrainGrassFar");
+        static readonly int s_DetailId = Shader.PropertyToID("_HB_TerrainDetail");
         static readonly int s_LayerGrassTipId = Shader.PropertyToID("_HB_LayerGrassTip");
         static readonly int s_DiffuseWrapId = Shader.PropertyToID("_DiffuseWrap");
         static readonly int s_DiffuseSoftnessId = Shader.PropertyToID("_DiffuseSoftness");
@@ -219,6 +221,14 @@ namespace HiddenBull.UrpStyle
             : Vector4.zero;
 
         internal Texture grassMap => m_Data.grass != null ? m_Data.grass : UnpaintedGrass();
+
+        Vector4 LayerDetail()
+        {
+            var end = Mathf.Max(StyleTerrains.QualityOf(this).current.layerDetail, HBStyleTerrainLevel.MinLayerDetail);
+            var fade = end * LayerDetailFade;
+
+            return new Vector4(end - fade, 1f / fade, 0f, 0f);
+        }
 
         Vector4 GrassFar()
         {
@@ -639,6 +649,7 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_StyleId, m_Data.look.style);
             block.SetVector(s_VariationId, m_Data.look.variation);
             block.SetVector(s_GrassFarId, GrassFar());
+            block.SetVector(s_DetailId, LayerDetail());
             block.SetTexture(s_GrassTrailId, m_Trail.Map(camera));
             BindLayers(block, camera);
             BindWater(block);

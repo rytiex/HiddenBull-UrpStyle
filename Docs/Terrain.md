@@ -103,7 +103,8 @@ which starts from Water, Acid and Lava presets.
 
 **Connected liquid** lives on the terrain: open the **Liquids** tab, add up to four layers, and paint.
 
-- **Sea**: one level all around and beyond the terrain.
+- **Sea**: one level all around and beyond the terrain. Turn off **Sea Beyond Terrain** on maps where the far
+  water is never seen; the liquid then ends at the terrain's edges and costs less.
 - **Level brushes**: Raise, Set Height, Smooth, **Lake** (click a hollow to fill it, or draw a circle or square
   lake), **Ramp** for rivers, **No Liquid** for dry spots.
 - **Flow brushes**: Flow, Smooth Flow, Auto Flow (downhill), Whirlpool.

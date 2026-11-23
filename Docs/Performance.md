@@ -12,7 +12,7 @@ values can be edited in the profile; the table says what the levels change.
 | Atmosphere | Off – Ultra | Sun colour in the fog and drifting fog patches; Off turns fog off |
 | Weather | Low – Ultra | Size of the shelter map and how far small rain and snow details reach |
 | Precipitation | Off – Ultra | How many drops and flakes fall, and the far layer |
-| Terrain | Low – Ultra | How fast terrain detail drops with distance |
+| Terrain | Low – Ultra | How fast terrain detail drops with distance and how far layers are drawn in full |
 | Grass | Off – Ultra | How far grass reaches, how thick it grows, how many triangles a blade has |
 | Anti Aliasing | Off – Ultra | How carefully edges and pixel-sized details are smoothed |
 | Transparency | Low – Ultra | Refraction resolution, coloured glass shadows, simple light on Low |
@@ -34,7 +34,7 @@ the reference. Every section turned on is the worst case; a material only pays f
 | Shader Graph, HB Base with maps and brush | 2230 | 122 |
 | Foliage, every section | 3590 | 140 |
 | Plant billboard | 2363 | 137 |
-| Terrain | 4392 | 166 |
+| Terrain | 4474 | 148 |
 | Grass | 850 | 19 |
 | Liquid surface | 3767 | 149 |
 | Transparent, alpha | 2176 | 49 |

@@ -57,6 +57,7 @@ namespace HiddenBull.UrpStyle
         int m_BuiltWater = -1;
         float m_BuiltSea = float.NaN;
         float m_BuiltRange = float.NaN;
+        bool m_BuiltBeyond;
         float m_Low;
         float m_High;
         float m_Leaf;
@@ -100,7 +101,12 @@ namespace HiddenBull.UrpStyle
             block.SetVectorArray(s_RangesId, m_Ranges);
             m_Tree.Select(local.x, local.y, local.z, planes, far, m_Nodes);
             Fill(origin, m_Full, m_Quarters);
-            Sea(origin, local, planes, far, data.seaLevel, out var seaBounds);
+            var seaBounds = default(Bounds);
+
+            if (data.seaBeyond)
+                Sea(origin, local, planes, far, data.seaLevel, out seaBounds);
+            else
+                m_Sea.Clear();
 
             var parameters = new RenderParams(m_Material)
             {
@@ -163,7 +169,7 @@ namespace HiddenBull.UrpStyle
             var span = leaves * m_Leaf;
             var sea = data.seaLevel;
 
-            if (min.x < 0f || min.z < 0f || max.x > span || max.z > span)
+            if (data.seaBeyond && (min.x < 0f || min.z < 0f || max.x > span || max.z > span))
             {
                 if (min.y <= sea + WaveMargin && max.y >= sea - WaveMargin)
                     return true;
@@ -232,7 +238,8 @@ namespace HiddenBull.UrpStyle
                 return false;
 
             if (!m_Built || m_BuiltData != data || m_BuiltLevel != level || m_BuiltWater != data.waterVersion ||
-                m_BuiltSea != data.seaLevel || m_BuiltRange != size.y || m_LeafMin.Length != leaves * leaves)
+                m_BuiltSea != data.seaLevel || m_BuiltRange != size.y || m_BuiltBeyond != data.seaBeyond ||
+                m_LeafMin.Length != leaves * leaves)
             {
                 data.TakeWaterShown(out _);
                 data.TakeHolesEdited(out _);
@@ -257,6 +264,7 @@ namespace HiddenBull.UrpStyle
                 m_BuiltWater = data.waterVersion;
                 m_BuiltSea = data.seaLevel;
                 m_BuiltRange = size.y;
+                m_BuiltBeyond = data.seaBeyond;
                 m_BuiltHoles = HolesCount(data);
                 return m_Built;
             }
@@ -457,8 +465,9 @@ namespace HiddenBull.UrpStyle
                 m_High = Mathf.Max(m_High, m_LeafMax[i]);
             }
 
-            return m_Tree.Build(m_LeafMin, m_LeafMax, data.patches, leaf, StyleTerrainTree.MaxLevels, data.seaLevel,
-                               WaveMargin);
+            var extra = data.seaBeyond ? StyleTerrainTree.MaxLevels : 0;
+
+            return m_Tree.Build(m_LeafMin, m_LeafMax, data.patches, leaf, extra, data.seaLevel, WaveMargin);
         }
 
         void Fill(Vector3 origin, List<Matrix4x4> full, List<Matrix4x4> quarters)

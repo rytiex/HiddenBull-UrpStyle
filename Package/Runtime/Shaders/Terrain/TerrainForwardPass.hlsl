@@ -24,6 +24,9 @@
 #define HB_DEBUG_TERRAIN_CURVATURE  14
 #define HB_DEBUG_GRASS_DENSITY      15
 #define HB_DEBUG_TERRAIN_ALBEDO     30
+#define HB_DEBUG_TERRAIN_DETAIL     31
+#define HB_TERRAIN_DETAIL_FULL      half3(0.25h, 0.85h, 0.3h)
+#define HB_TERRAIN_DETAIL_FAR       half3(0.9h, 0.3h, 0.2h)
 #define HB_GRASS_DEBUG_BARE         half3(0.18h, 0.18h, 0.18h)
 #define HB_GRASS_DEBUG_SHORT        half3(0.9h, 0.85h, 0.2h)
 #define HB_GRASS_DEBUG_TALL         half3(0.05h, 0.5h, 0.4h)
@@ -203,6 +206,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     surfaceData.normalTS = half3(0.0h, 0.0h, 1.0h);
 
     int strongest = -1;
+    half detail = 1.0h;
     half wetness = 1.0h;
     half wetGloss = 1.0h;
     half snowCover = 1.0h;
@@ -211,8 +215,10 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
     UNITY_BRANCH
     if (HB_TERRAIN_PAINTED > 0.5)
     {
+        float gap = distance(input.positionWS, HB_TERRAIN_CAMERA.xyz);
+        detail = half(1.0 - saturate((gap - HB_TERRAIN_DETAIL_START) * HB_TERRAIN_DETAIL_FADE));
         HBTerrainSurface layers = HB_TerrainLayerSurface(input.positionWS,
-                                                         strokeOffset.xz * HB_TERRAIN_BRUSH_PAINT);
+                                                         strokeOffset.xz * HB_TERRAIN_BRUSH_PAINT, detail);
 
         surfaceData.albedo = HB_TerrainDistantGrass(layers, input.positionWS, footprint);
         surfaceData.occlusion = layers.occlusion;
@@ -307,6 +313,10 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 
     if (HB_DEBUG_VIEW == HB_DEBUG_SNOW)
         colour.rgb = half3(weather.snow, weather.snow, weather.snow);
+
+    if (HB_DEBUG_VIEW == HB_DEBUG_TERRAIN_DETAIL)
+        colour.rgb = pow(lerp(HB_TERRAIN_DETAIL_FAR, HB_TERRAIN_DETAIL_FULL, detail), 2.2h)
+                   * saturate(normalWS.y * 0.5h + 0.5h);
 
     if (HB_DEBUG_VIEW == HB_DEBUG_TERRAIN_CURVATURE)
         colour.rgb = half3(saturate(-bend), 0.5h - abs(bend) * 0.5h, saturate(bend)) + 0.25h;

@@ -1347,7 +1347,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 4857
+            Slots = 4902
             Reads = 200
         }
         @{

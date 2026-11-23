@@ -145,6 +145,11 @@ namespace HiddenBull.UrpStyle
         int m_SeaSlot;
 
         [SerializeField]
+        [Tooltip("Draws the sea past the terrain's edges out to the camera's far plane. Turn it off on maps where " +
+                 "that far water is never seen; the liquid then ends at the terrain's edges.")]
+        bool m_SeaBeyond = true;
+
+        [SerializeField]
         [HideInInspector]
         Texture2D m_WaterLevel;
 
@@ -258,7 +263,13 @@ namespace HiddenBull.UrpStyle
 
         public bool liquidOn => m_LiquidOn && liquidCount > 0;
 
-        public int seaSlot => Mathf.Clamp(m_SeaSlot, 0, Mathf.Max(liquidCount - 1, 0));
+        public bool seaBeyond
+        {
+            get => m_SeaBeyond;
+            set => m_SeaBeyond = value;
+        }
+
+        public int seaSlot =>Mathf.Clamp(m_SeaSlot, 0, Mathf.Max(liquidCount - 1, 0));
 
         internal Texture2D waterLevel => Live(ref m_LevelLive, m_LevelMap, m_WaterLevel);
 

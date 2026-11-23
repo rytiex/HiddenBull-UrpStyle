@@ -500,7 +500,7 @@ namespace HiddenBull.UrpStyle
 
             mix[data.seaSlot] += rest;
             water.level = source.origin.y + data.seaLevel + offset;
-            water.wet = !inside || !cut;
+            water.wet = inside ? !cut : data.seaBeyond;
             water.mix = mix;
             return water;
         }

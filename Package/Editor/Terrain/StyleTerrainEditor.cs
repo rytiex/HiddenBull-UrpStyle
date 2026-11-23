@@ -46,6 +46,10 @@ namespace HiddenBull.UrpStyle.Editor
             "Turns the liquid of this terrain on. Off, nothing about the liquid is drawn, moved or edited; what was " +
             "sculpted and painted is kept.");
 
+        static readonly GUIContent s_SeaBeyondLabel = new GUIContent("Sea Beyond Terrain",
+            "Draws the sea past the terrain's edges out to the camera's far plane. Turn it off on maps where that " +
+            "far water is never seen; the liquid then ends at the terrain's edges.");
+
         static readonly GUIContent s_NewSetLabel = new GUIContent("New",
             "Creates an empty layer set next to the terrain data and uses it.");
 
@@ -255,6 +259,7 @@ namespace HiddenBull.UrpStyle.Editor
             using (new EditorGUI.DisabledScope(!on.boolValue))
             {
                 EditorGUILayout.PropertyField(m_DataObject.FindProperty("m_SeaLevel"));
+                EditorGUILayout.PropertyField(m_DataObject.FindProperty("m_SeaBeyond"), s_SeaBeyondLabel);
 
                 using (new EditorGUI.DisabledScope(count == 0))
                 {
