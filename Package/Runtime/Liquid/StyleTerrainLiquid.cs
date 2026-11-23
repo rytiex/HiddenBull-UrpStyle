@@ -10,6 +10,9 @@ namespace HiddenBull.UrpStyle
         internal const string ShaderPath =
             "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/TerrainLiquid.shader";
 
+        internal const string VariantsPath =
+            "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/TerrainLiquidVariants.mat";
+
         const int BatchSize = 1023;
         const int Slots = HBStyleTerrainData.LiquidSlots;
         const int SeaRings = 6;

@@ -71,6 +71,10 @@ namespace HiddenBull.UrpStyle
         [HideInInspector]
         Material m_TerrainVariants;
 
+        [SerializeField]
+        [HideInInspector]
+        Material m_LiquidVariants;
+
         StyleCameraStates m_Cameras;
         StyleGlobalsPass m_GlobalsPass;
         StyleShelterPass m_ShelterPass;
@@ -173,6 +177,7 @@ namespace HiddenBull.UrpStyle
             m_ReflectDepthShader = Load(m_ReflectDepthShader, StyleReflectionHistoryPass.DepthShaderPath);
             m_SkyMapShader = Load(m_SkyMapShader, StyleSkyMapPass.ShaderPath);
             m_TerrainVariants = Load(m_TerrainVariants, HBStyleTerrain.VariantsPath);
+            m_LiquidVariants = Load(m_LiquidVariants, StyleTerrainLiquid.VariantsPath);
 
             ForceDepthPriming();
 #endif
