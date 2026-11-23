@@ -18,6 +18,8 @@
 #define HB_SHADOW_MAX_CONTACT  4.5
 #define HB_SHADOW_MAX_TAPS     16.0
 #define HB_SHADOW_GOLDEN       2.39996323
+#define HB_SHADOW_CASCADE_BAND 0.2
+#define HB_SHADOW_REACH_BAND   3.0
 
 #define HB_DEBUG_SHADOW_ATTENUATION 1
 #define HB_DEBUG_SHADOW_UNFILTERED  2
@@ -115,24 +117,55 @@ half HB_RawMainLightShadow(float4 shadowCoord)
     return MainLightRealtimeShadow(shadowCoord, params, GetMainLightShadowSamplingData());
 }
 
-void HB_ShadowScale(float3 positionWS, out float perMetre, out float depthPerMetre)
+int HB_ShadowCascade(float3 positionWS)
 {
 #if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
-    float4x4 toShadow = _MainLightWorldToShadow[(int)ComputeCascadeIndex(positionWS)];
+    return min((int)ComputeCascadeIndex(positionWS), MAX_SHADOW_CASCADES - 1);
 #else
-    float4x4 toShadow = _MainLightWorldToShadow[0];
+    return 0;
 #endif
+}
+
+half HB_CascadeBlend(float3 positionWS, int cascade)
+{
+#if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
+    float4 radii = _CascadeShadowSplitSphereRadii;
+    float4 here = cascade == 0 ? _CascadeShadowSplitSpheres0
+                : cascade == 1 ? _CascadeShadowSplitSpheres1
+                : _CascadeShadowSplitSpheres2;
+    float4 next = cascade == 0 ? _CascadeShadowSplitSpheres1
+                : cascade == 1 ? _CascadeShadowSplitSpheres2
+                : _CascadeShadowSplitSpheres3;
+    float hereRadius = cascade == 0 ? radii.x : cascade == 1 ? radii.y : radii.z;
+    float nextRadius = cascade == 0 ? radii.y : cascade == 1 ? radii.z : radii.w;
+    float3 fromHere = positionWS - here.xyz;
+    float3 fromNext = positionWS - next.xyz;
+
+    if (cascade >= MAX_SHADOW_CASCADES - 1 || nextRadius <= 0.0 || dot(fromNext, fromNext) >= nextRadius)
+        return 0.0h;
+
+    float edge = sqrt(dot(fromHere, fromHere) / max(hereRadius, 1e-6));
+
+    return half(saturate((edge - (1.0 - HB_SHADOW_CASCADE_BAND)) / HB_SHADOW_CASCADE_BAND));
+#else
+    return 0.0h;
+#endif
+}
+
+void HB_ShadowScale(int cascade, out float perMetre, out float depthPerMetre)
+{
+    float4x4 toShadow = _MainLightWorldToShadow[cascade];
 
     perMetre = length(float3(toShadow._m00, toShadow._m01, toShadow._m02));
     depthPerMetre = max(length(float3(toShadow._m20, toShadow._m21, toShadow._m22)), 1e-6);
 }
 
-half HB_ContactShadow(float4 shadowCoord, float3 positionWS, float2 screenUV, inout HBShadowProbe probe)
+half HB_ContactShadow(float4 shadowCoord, int cascade, float2 screenUV, inout HBShadowProbe probe)
 {
     float softness = HB_SHADOW_SOFTNESS;
 
     float perMetre, depthPerMetre;
-    HB_ShadowScale(positionWS, perMetre, depthPerMetre);
+    HB_ShadowScale(cascade, perMetre, depthPerMetre);
 
     float count = HB_SHADOW_TAPS;
     float rotation = InterleavedGradientNoise(screenUV * _ScreenSize.xy, 0) * TWO_PI;
@@ -241,29 +274,53 @@ half3 HB_TransparentShadowTint(float3 shadowPositionWS, float3 positionWS)
     return tint;
 }
 
-half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask, float2 screenUV,
-                        out HBShadowProbe probe)
+half HB_MainLightShadow(float4 shadowCoord, float3 shadowPositionWS, float3 positionWS, half4 shadowMask,
+                        float2 screenUV, out HBShadowProbe probe)
 {
     probe = HB_NoShadowProbe();
 
     half realtime = 1.0h;
 
 #ifdef HB_MAIN_LIGHT_SHADOW_MAP
-    bool contact = HB_SHADOW_SOFTNESS > 0.0 && _MainLightShadowmapSize.z >= 2.0
-                && distance(positionWS, GetCameraPositionWS()) <= HB_SHADOW_REACH
-                && !HB_SIMPLE_LIGHTING;
+    bool filtered = HB_SHADOW_SOFTNESS > 0.0 && _MainLightShadowmapSize.z >= 2.0 && !HB_SIMPLE_LIGHTING;
 
     #if defined(HB_STYLE_DEBUG)
-    contact = contact && HB_DEBUG_VIEW != HB_DEBUG_SHADOW_UNFILTERED;
+    filtered = filtered && HB_DEBUG_VIEW != HB_DEBUG_SHADOW_UNFILTERED;
     #endif
 
+    half contact = filtered
+        ? half(saturate((HB_SHADOW_REACH - distance(positionWS, GetCameraPositionWS())) / HB_SHADOW_REACH_BAND))
+        : 0.0h;
+
+    int cascade = HB_ShadowCascade(shadowPositionWS);
+    half blend = _MainLightShadowmapSize.z >= 2.0 ? HB_CascadeBlend(shadowPositionWS, cascade) : 0.0h;
+    int taps = blend > 0.0h ? 2 : 1;
+
     UNITY_BRANCH
-    if (BEYOND_SHADOW_FAR(shadowCoord))
-        realtime = 1.0h;
-    else if (contact)
-        realtime = HB_ContactShadow(shadowCoord, positionWS, screenUV, probe);
-    else
-        realtime = HB_RawMainLightShadow(shadowCoord);
+    if (!BEYOND_SHADOW_FAR(shadowCoord))
+    {
+        realtime = 0.0h;
+
+        UNITY_LOOP
+        for (int tap = 0; tap < taps; tap++)
+        {
+            int index = cascade + tap;
+            float4 coord = tap == 0
+                ? shadowCoord
+                : float4(mul(_MainLightWorldToShadow[index], float4(shadowPositionWS, 1.0)).xyz, 1.0);
+            half shadow = 1.0h;
+
+            UNITY_BRANCH
+            if (contact < 1.0h)
+                shadow = HB_RawMainLightShadow(coord);
+
+            UNITY_BRANCH
+            if (contact > 0.0h)
+                shadow = lerp(shadow, HB_ContactShadow(coord, index, screenUV, probe), contact);
+
+            realtime += shadow * (tap == 0 ? 1.0h - blend : blend);
+        }
+    }
 #elif defined(MAIN_LIGHT_CALCULATE_SHADOWS)
     realtime = MainLightRealtimeShadow(shadowCoord);
 #endif
@@ -271,7 +328,7 @@ half HB_MainLightShadow(float4 shadowCoord, float3 positionWS, half4 shadowMask,
 #if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
     realtime = LerpWhiteTo(realtime, GetMainLightShadowParams().x);
 
-    half fade = GetMainLightShadowFade(positionWS);
+    half fade = _MainLightShadowmapSize.z < 2.0 ? 1.0h : GetMainLightShadowFade(positionWS);
 #else
     half fade = 1.0h;
 #endif

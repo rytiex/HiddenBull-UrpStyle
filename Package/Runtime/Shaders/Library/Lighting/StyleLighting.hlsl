@@ -115,7 +115,11 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
         surfaceData.albedo *= saturate(1.0h + min(brush.coverage, 0.0h) * style.brushAlbedo);
     }
 
+#if defined(HB_INPUT_SHADOWMASK)
+    half4 shadowMask = inputData.shadowMask;
+#else
     half4 shadowMask = CalculateShadowMask(inputData);
+#endif
     AmbientOcclusionFactor aoFactor = CreateAmbientOcclusionFactor(inputData, surfaceData);
     uint meshRenderingLayers = GetMeshRenderingLayer();
 
@@ -145,8 +149,8 @@ half4 HB_StyleLit(InputData inputData, SurfaceData surfaceData, HBStyleData styl
     half3 shadowTint = HB_TransparentShadowTint(shadowPosition, inputData.positionWS);
 
     HBShadowProbe probe;
-    mainLight.shadowAttenuation = HB_MainLightShadow(inputData.shadowCoord, inputData.positionWS, shadowMask,
-                                                     inputData.normalizedScreenSpaceUV, probe);
+    mainLight.shadowAttenuation = HB_MainLightShadow(inputData.shadowCoord, shadowPosition, inputData.positionWS,
+                                                     shadowMask, inputData.normalizedScreenSpaceUV, probe);
 
 #if defined(HB_STYLE_DEBUG)
     half3 debugColour;

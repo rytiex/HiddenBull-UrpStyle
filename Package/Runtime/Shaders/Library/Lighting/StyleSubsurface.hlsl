@@ -64,7 +64,7 @@ half HB_SubsurfaceThin(Light light, float3 positionWS)
     if (sun && !BEYOND_SHADOW_FAR(coord) && _MainLightShadowmapSize.z >= 2.0)
     {
         float perMetre, depthPerMetre;
-        HB_ShadowScale(positionWS, perMetre, depthPerMetre);
+        HB_ShadowScale(HB_ShadowCascade(positionWS), perMetre, depthPerMetre);
 
         float entry = SAMPLE_TEXTURE2D_LOD(_MainLightShadowmapTexture, sampler_LinearClamp, coord.xy, 0).r;
 

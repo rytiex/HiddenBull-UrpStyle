@@ -16,6 +16,7 @@ CBUFFER_END
 
 TEXTURE2D(_HB_TerrainHeightmap);
 TEXTURE2D(_HB_TerrainHoles);
+TEXTURE2D(_HB_TerrainShadowMask);
 
 TEXTURE2D_ARRAY(_HB_TerrainControl);
 TEXTURE2D_ARRAY(_HB_LayerAlbedo);
@@ -25,6 +26,7 @@ TEXTURE2D_ARRAY(_HB_LayerMask);
 
 float4 _HB_TerrainSize;
 float4 _HB_TerrainOrigin;
+float4 _HB_TerrainShadowMaskST;
 float4 _HB_TerrainCamera;
 float4 _HB_TerrainRanges[12];
 float4 _HB_TerrainLayers;
@@ -443,6 +445,18 @@ float3 HB_TerrainShape(float2 xzWS, float footprint, out float curvature)
     curvature = (left + right + down + up - 4.0 * centre) / (step * step);
 
     return normalize(float3((left - right) / (2.0 * step), 1.0, (down - up) / (2.0 * step)));
+}
+
+half4 HB_TerrainShadowMask(float3 positionWS)
+{
+#if defined(SHADOWS_SHADOWMASK)
+    float2 uv = HB_TerrainLocal(positionWS.xz) / HB_TERRAIN_SIZE.xz;
+
+    return SAMPLE_TEXTURE2D_LOD(_HB_TerrainShadowMask, sampler_LinearClamp,
+                                uv * _HB_TerrainShadowMaskST.xy + _HB_TerrainShadowMaskST.zw, 0);
+#else
+    return half4(1.0h, 1.0h, 1.0h, 1.0h);
+#endif
 }
 
 void HB_TerrainClipHoles(float3 positionWS)

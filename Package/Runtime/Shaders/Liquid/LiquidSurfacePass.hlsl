@@ -1524,8 +1524,8 @@ half4 HB_LiquidFragment(HBLiquidVaryings input) : SV_Target
     HBShadowProbe probe;
 
     Light mainLight = GetMainLight();
-    mainLight.shadowAttenuation = HB_MainLightShadow(shadowCoord, input.positionWS, half4(1.0h, 1.0h, 1.0h, 1.0h),
-                                                     screenUV, probe);
+    mainLight.shadowAttenuation = HB_MainLightShadow(shadowCoord, input.positionWS, input.positionWS,
+                                                     half4(1.0h, 1.0h, 1.0h, 1.0h), screenUV, probe);
 
     half3 sunDirection = half3(_MainLightPosition.xyz);
     half3 sunLight = half3(mainLight.color) * mainLight.shadowAttenuation;

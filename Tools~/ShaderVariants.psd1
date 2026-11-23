@@ -42,7 +42,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 705
+            Slots = 745
             Reads = 15
         }
         @{
@@ -64,7 +64,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2735
+            Slots = 2775
             Reads = 60
         }
         @{
@@ -77,7 +77,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER', '_ALPHATEST_ON')
-            Slots = 2735
+            Slots = 2775
             Reads = 60
         }
         @{
@@ -89,7 +89,7 @@
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH', '_HB_BRUSH_MASK', '_HB_SPECULAR',
                         '_HB_RIM', '_HB_SUBSURFACE', '_HB_EMISSION', '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2735
+            Slots = 2775
             Reads = 60
         }
         @{
@@ -102,7 +102,7 @@
             Defines = @('_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_TRIPLANAR', '_HB_BRUSH', '_HB_BRUSH_ANCHOR',
                         '_HB_BRUSH_MASK', '_HB_SPECULAR', '_HB_RIM', '_HB_SUBSURFACE', '_HB_CLOTH', '_HB_EMISSION',
                         '_HB_WEATHER_MOVING', '_ALPHATEST_ON')
-            Slots = 2798
+            Slots = 2840
             Reads = 60
         }
         @{
@@ -113,7 +113,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @()
-            Slots = 634
+            Slots = 675
             Reads = 15
         }
         @{
@@ -124,7 +124,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 658
+            Slots = 695
             Reads = 19
         }
         @{
@@ -135,7 +135,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_BRUSH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_BRUSH_MASK')
-            Slots = 1184
+            Slots = 1220
             Reads = 21
         }
         @{
@@ -146,7 +146,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 818
+            Slots = 855
             Reads = 28
         }
         @{
@@ -158,7 +158,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_BRUSH', 'PROBE_TRIPLANAR', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP',
                         '_HB_BRUSH_MASK')
-            Slots = 1370
+            Slots = 1410
             Reads = 33
         }
         @{
@@ -169,7 +169,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER')
-            Slots = 1843
+            Slots = 1880
             Reads = 30
         }
         @{
@@ -180,7 +180,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_WEATHER_MOVING')
-            Slots = 1883
+            Slots = 1920
             Reads = 36
         }
         @{
@@ -203,7 +203,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_SKIN',
                         '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP', '_HB_THICKNESS_MAP')
-            Slots = 902
+            Slots = 940
             Reads = 27
         }
         @{
@@ -215,7 +215,7 @@
             Urp = 'Full'
             Defines = @('PROBE_MAPS', 'PROBE_SPECULAR', 'PROBE_RIM', 'PROBE_CLOTH',
                         '_HB_CLOTH', '_HB_BASE_MAP', '_HB_NORMAL_MAP', '_HB_MASK_MAP')
-            Slots = 878
+            Slots = 915
             Reads = 26
         }
         @{
@@ -227,7 +227,7 @@
             Urp = 'Minimal'
             Defines = @('PROBE_VOLUMES_L1', '_MAIN_LIGHT_SHADOWS_CASCADE', '_SHADOWS_SOFT',
                         '_CLUSTER_LIGHT_LOOP')
-            Slots = 25
+            Slots = 60
             Reads = 0
         }
         @{
@@ -320,7 +320,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK')
-            Slots = 2503
+            Slots = 2545
             Reads = 60
         }
         @{
@@ -451,7 +451,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK')
-            Slots = 2500
+            Slots = 2535
             Reads = 60
         }
         @{
@@ -722,7 +722,7 @@
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BASE_MAP', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BRUSH',
                         '_HB_SPECULAR', '_HB_RIM', '_HB_EMISSION')
-            Slots = 2181
+            Slots = 2220
             Reads = 51
         }
         @{
@@ -732,7 +732,7 @@
             Stage = 'ps'
             Urp = 'Transparent'
             Defines = @('HB_TRANSPARENT', '_HB_BRUSH', '_HB_SPECULAR', '_HB_TINTED')
-            Slots = 2383
+            Slots = 2420
             Reads = 78
         }
         @{
@@ -844,7 +844,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2552
+            Slots = 2595
             Reads = 60
         }
         @{
@@ -895,7 +895,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('HB_PLANT_BODY', '_NORMALMAP', '_HB_MASK_MAP', '_HB_BASE_MAP', '_ALPHATEST_ON', '_HB_BRUSH', '_HB_BRUSH_MASK', 'PROCEDURAL_INSTANCING_ON', 'UNITY_INSTANCING_PROCEDURAL_FUNC=HB_PlantInstancingSetup')
-            Slots = 2542
+            Slots = 2580
             Reads = 60
         }
         @{
@@ -1347,8 +1347,8 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('PROBE_VOLUMES_L1')
-            Slots = 5242
-            Reads = 200
+            Slots = 5300
+            Reads = 202
         }
         @{
             Name = 'Terrain vertex'
@@ -1397,7 +1397,7 @@
             Stage = 'ps'
             Urp = 'Full'
             Defines = @('_ADDITIONAL_LIGHTS')
-            Slots = 3778
+            Slots = 3840
             Reads = 151
         }
         @{

@@ -48,6 +48,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_ReachId = Shader.PropertyToID("_HB_GrassReach");
         static readonly int s_CameraId = Shader.PropertyToID("_HB_GrassCamera");
         static readonly int s_RootsId = Shader.PropertyToID("_HB_GrassRoots");
+        static readonly int s_ShadowMaskId = Shader.PropertyToID("_HB_TerrainShadowMask");
+        static readonly int s_ShadowMaskSTId = Shader.PropertyToID("_HB_GrassShadowMaskST");
         static readonly int s_PlanesId = Shader.PropertyToID("_HB_GrassPlanes");
         static readonly int s_BladesId = Shader.PropertyToID("_HB_GrassBlades");
         static readonly int s_BladesOutId = Shader.PropertyToID("_HB_GrassBladesOut");
@@ -623,6 +625,8 @@ namespace HiddenBull.UrpStyle
             block.SetVector(s_ReachId, reach);
             block.SetVector(s_CameraId, camera);
             block.SetVector(s_RootsId, Roots(terrain));
+            block.SetTexture(s_ShadowMaskId, terrain.bakedShadowMask);
+            block.SetVector(s_ShadowMaskSTId, terrain.BakedShadowMaskWorldST());
             block.SetVector(s_StyleId, style);
             block.SetVector(s_AmbientId, terrain.grassAmbient);
             block.SetVectorArray(s_LayerSurfaceId, terrain.layerSurface);

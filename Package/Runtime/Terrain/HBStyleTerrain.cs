@@ -64,6 +64,8 @@ namespace HiddenBull.UrpStyle
         static readonly int s_WaterSeaId = Shader.PropertyToID("_HB_WaterSea");
         static readonly int s_WaterTintId = Shader.PropertyToID("_HB_WaterTint");
         static readonly int s_WaterFlowId = Shader.PropertyToID("_HB_WaterFlow");
+        static readonly int s_ShadowMaskId = Shader.PropertyToID("_HB_TerrainShadowMask");
+        static readonly int s_ShadowMaskSTId = Shader.PropertyToID("_HB_TerrainShadowMaskST");
 
         static Texture2D s_FlatWater;
 
@@ -102,6 +104,14 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [HideInInspector]
         Shader m_SliceShader;
+
+        [SerializeField]
+        [HideInInspector]
+        Texture2D m_BakedShadowMask;
+
+        [SerializeField]
+        [HideInInspector]
+        Vector4 m_BakedShadowMaskST = new Vector4(1f, 1f, 0f, 0f);
 
         readonly StyleTerrainTree m_Tree = new StyleTerrainTree();
         readonly List<StyleTerrainNode> m_Nodes = new List<StyleTerrainNode>();
@@ -146,9 +156,33 @@ namespace HiddenBull.UrpStyle
 
 #if UNITY_EDITOR
         internal Camera onlyCamera { get; set; }
+
+        internal void SetBakedShadowMask(Texture2D mask, Vector4 scaleOffset)
+        {
+            if (m_BakedShadowMask == mask && m_BakedShadowMaskST == scaleOffset)
+                return;
+
+            m_BakedShadowMask = mask;
+            m_BakedShadowMaskST = scaleOffset;
+            UnityEditor.EditorUtility.SetDirty(this);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        }
 #endif
 
         internal static IReadOnlyList<HBStyleTerrain> active => s_Active;
+
+        internal Texture bakedShadowMask => m_BakedShadowMask != null ? m_BakedShadowMask : Texture2D.whiteTexture;
+
+        internal Vector4 BakedShadowMaskWorldST()
+        {
+            var size = m_Data != null ? m_Data.size : Vector3.one;
+            var scaleX = m_BakedShadowMaskST.x / Mathf.Max(size.x, 1e-3f);
+            var scaleZ = m_BakedShadowMaskST.y / Mathf.Max(size.z, 1e-3f);
+            var origin = transform.position;
+
+            return new Vector4(scaleX, scaleZ, m_BakedShadowMaskST.z - origin.x * scaleX,
+                               m_BakedShadowMaskST.w - origin.z * scaleZ);
+        }
 
         internal bool LiquidTouches(Bounds volume)
         {
@@ -638,6 +672,8 @@ namespace HiddenBull.UrpStyle
 
             block.SetTexture(s_HeightmapId, terrain.heightmapTexture);
             block.SetTexture(s_HolesId, holes != null ? holes : Texture2D.whiteTexture);
+            block.SetTexture(s_ShadowMaskId, m_BakedShadowMask != null ? m_BakedShadowMask : Texture2D.whiteTexture);
+            block.SetVector(s_ShadowMaskSTId, m_BakedShadowMaskST);
             block.SetVector(s_SizeId, new Vector4(size.x, size.y, size.z, m_Data.resolution));
             block.SetVector(s_OriginId, new Vector4(origin.x, origin.y, origin.z, m_Tree.leafSize));
             var viewer = StyleDebug.Viewer(camera);

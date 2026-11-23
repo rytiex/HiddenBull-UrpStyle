@@ -57,6 +57,7 @@ namespace HiddenBull.UrpStyle.Editor
 
         static void Finished()
         {
+            StyleLiquidBakeLight.Capture(true);
             StyleLiquidBakeLight.Clear();
             StyleBakeLightmaps.QueueStrip();
         }
@@ -88,7 +89,10 @@ namespace HiddenBull.UrpStyle.Editor
             StyleBakeEnvironment.Watch(probing || Lightmapping.isRunning || s_Rerun);
 
             if (!s_Rerun && StyleLiquidBakeLight.built && !probing && !Lightmapping.isRunning)
+            {
+                StyleLiquidBakeLight.Capture(false);
                 StyleLiquidBakeLight.Clear();
+            }
         }
     }
 }

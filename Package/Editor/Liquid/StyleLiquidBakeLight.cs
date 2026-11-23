@@ -15,6 +15,7 @@ namespace HiddenBull.UrpStyle.Editor
         const int GroundMost = 1024;
         const float Boost = 1f;
         const float LightmapScale = 0.1f;
+        const float GroundTexelsPerMetre = 2f;
         const int Slots = HBStyleTerrainData.LiquidSlots;
 
         static readonly int s_EmissionId = Shader.PropertyToID("_EmissionColor");
@@ -26,6 +27,8 @@ namespace HiddenBull.UrpStyle.Editor
         static readonly List<Vector2>[] s_Coords = Lists<Vector2>();
         static readonly List<int>[] s_Corners = Lists<int>();
         static readonly HBStyleLiquidLayer[] s_Layers = new HBStyleLiquidLayer[Slots];
+        static readonly Dictionary<MeshRenderer, HBStyleTerrain> s_Grounds =
+            new Dictionary<MeshRenderer, HBStyleTerrain>();
 
         static GameObject s_Root;
 
@@ -67,8 +70,27 @@ namespace HiddenBull.UrpStyle.Editor
             }
         }
 
+        internal static void Capture(bool complete)
+        {
+            var lightmaps = LightmapSettings.lightmaps;
+
+            foreach (var pair in s_Grounds)
+            {
+                if (pair.Key == null || pair.Value == null)
+                    continue;
+
+                var index = pair.Key.lightmapIndex;
+                var mask = index >= 0 && index < lightmaps.Length ? lightmaps[index].shadowMask : null;
+
+                if (mask != null || complete)
+                    pair.Value.SetBakedShadowMask(mask, pair.Key.lightmapScaleOffset);
+            }
+        }
+
         internal static void Clear()
         {
+            s_Grounds.Clear();
+
             if (s_Root == null)
                 s_Root = GameObject.Find(RootName);
 
@@ -137,9 +159,24 @@ namespace HiddenBull.UrpStyle.Editor
                 }
             }
 
-            if (corners.Count > 0)
-                Emit(terrain.name + " Ground", shader, s_Ground, Color.black, ReceiveGI.LightProbes, true, points,
-                     normals, coords, corners);
+            if (corners.Count == 0)
+                return;
+
+            var ground = Emit(terrain.name + " Ground", shader, s_Ground, Color.black, ReceiveGI.Lightmaps, true,
+                              points, normals, coords, corners);
+
+            ground.scaleInLightmap = GroundScale(Mathf.Max(size.x, size.z));
+            s_Grounds[ground] = terrain;
+        }
+
+        static float GroundScale(float size)
+        {
+            if (!Lightmapping.TryGetLightingSettings(out var settings) || settings.lightmapResolution <= 0f)
+                return LightmapScale;
+
+            var texels = Mathf.Min(size * GroundTexelsPerMetre, settings.lightmapMaxSize);
+
+            return texels / (Mathf.Max(size, 1f) * settings.lightmapResolution);
         }
 
         static bool Holed(bool[,] solid, int x, int z, int cells)
@@ -276,7 +313,7 @@ namespace HiddenBull.UrpStyle.Editor
             return colour / top * (layer.glow * Boost);
         }
 
-        static void Emit(string name, Shader shader, Color albedo, Color emission, ReceiveGI receive,
+        static MeshRenderer Emit(string name, Shader shader, Color albedo, Color emission, ReceiveGI receive,
                          bool ground, List<Vector3> points, List<Vector3> normals, List<Vector2> coords,
                          List<int> corners)
         {
@@ -323,11 +360,13 @@ namespace HiddenBull.UrpStyle.Editor
 
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ground ? ShadowCastingMode.TwoSided : ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            renderer.receiveShadows = ground;
             renderer.receiveGI = receive;
             renderer.scaleInLightmap = LightmapScale;
 
             GameObjectUtility.SetStaticEditorFlags(proxy, StaticEditorFlags.ContributeGI);
+
+            return renderer;
         }
     }
 }

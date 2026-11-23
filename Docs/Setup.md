@@ -74,7 +74,8 @@ Things worth knowing:
   looks right in any weather.
 - Set the sun's **Shadow Near Plane** to 1 or more; lower values can leak shadow on very large faces.
 - Turn on **Dilation** in the probe baking set; without it dark contour lines appear on the ground.
-- The HB Style Terrain takes no baked light: it gets realtime shadows and the style's ambient.
+- The HB Style Terrain takes baked shadows but no baked light: each Bake gives it a shadowmask at 2 texels per
+  metre (up to Max Lightmap Size), so static shadows reach it beyond the shadow distance and with shadows off.
 
 ## Cameras
 

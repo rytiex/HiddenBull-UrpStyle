@@ -4,6 +4,7 @@
 #define HB_WEATHER
 #define HB_DECAL_SURFACE
 #define _HB_SPECULAR
+#define HB_INPUT_SHADOWMASK
 
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainInput.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Terrain/TerrainGrass.hlsl"
@@ -277,7 +278,7 @@ half4 HB_TerrainForwardFragment(HBTerrainVaryings input) : SV_Target
 #else
     inputData.bakedGI = SampleSH(normalWS);
 #endif
-    inputData.shadowMask = half4(1.0h, 1.0h, 1.0h, 1.0h);
+    inputData.shadowMask = HB_TerrainShadowMask(input.positionWS);
 
     half4 colour = HB_StyleLit(inputData, surfaceData, style, brush, true, wet * wetGloss);
 

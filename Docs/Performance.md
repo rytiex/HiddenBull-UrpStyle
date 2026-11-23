@@ -8,7 +8,7 @@ values can be edited in the profile; the table says what the levels change.
 
 | Module | Levels | What the level changes |
 |---|---|---|
-| Shadows | Off – Ultra | Distance, cascades, resolution and softness of the sun's shadows |
+| Shadows | Off – Ultra | Distance, cascades (blended at their edges), resolution and softness of the sun's shadows |
 | Atmosphere | Off – Ultra | Sun colour in the fog and drifting fog patches; Off turns fog off |
 | Weather | Low – Ultra | Size of the shelter map and how far small rain and snow details reach |
 | Precipitation | Off – Ultra | How many drops and flakes fall, and the far layer |
@@ -59,7 +59,8 @@ the reference. Every section turned on is the worst case; a material only pays f
 ## Limitations
 
 - **Rendering**: Forward+ and Render Graph only. No MSAA (use the package's anti aliasing), no WebGL, no mobile.
-- **Lighting**: built for Mixed lighting with Shadowmask. The HB Style Terrain takes no baked light.
+- **Lighting**: built for Mixed lighting with Shadowmask. The HB Style Terrain takes baked shadows (one
+  shadowmask chart of up to Max Lightmap Size) but no baked light.
 - **Terrain**: one square terrain up to 4 × 4 km, no tiles or streaming. Caves and overhangs are separate meshes
   through terrain holes.
 - **Plants**: no middle detail level between the mesh and the billboard. A LOD Group on a plant draws every LOD.

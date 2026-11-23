@@ -136,8 +136,23 @@ struct HBGrassVaryings
     float3 ground     : TEXCOORD3;
     float2 gust       : TEXCOORD4;
     nointerpolation uint2 data : TEXCOORD5;
-    float2 weather    : TEXCOORD6;
+    float3 weather    : TEXCOORD6;
 };
+
+TEXTURE2D(_HB_TerrainShadowMask);
+float4 _HB_GrassShadowMaskST;
+
+half HB_GrassBakedShadow(float3 rootWS)
+{
+#if defined(HB_GRASS_FORWARD)
+    half4 mask = half4(SAMPLE_TEXTURE2D_LOD(_HB_TerrainShadowMask, sampler_LinearClamp,
+                                            rootWS.xz * _HB_GrassShadowMaskST.xy + _HB_GrassShadowMaskST.zw, 0));
+
+    return 1.0h + dot(mask - 1.0h, half4(_MainLightOcclusionProbes));
+#else
+    return 1.0h;
+#endif
+}
 
 #if defined(_HB_GRASS_FLOWERS)
 
@@ -196,7 +211,7 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
     output.uv = float4(uv, 1.0, gap);
-    output.weather = float2(motion.wet, motion.snow);
+    output.weather = float3(motion.wet, motion.snow, HB_GrassBakedShadow(blade.root));
     output.normalWS = blade.normal;
     output.ground = blade.ground;
     output.gust = float2(motion.press, motion.streak);
@@ -267,7 +282,7 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
     output.uv = float4(corner.x, tone, corner.y, gap);
-    output.weather = float2(motion.wet, motion.snow);
+    output.weather = float3(motion.wet, motion.snow, HB_GrassBakedShadow(blade.root));
     output.normalWS = blade.normal;
     output.ground = blade.ground;
     output.gust = float2(motion.press, motion.streak);
@@ -375,7 +390,7 @@ HBGrassVaryings HB_GrassVertex(uint vertexID : SV_VertexID, uint instanceID : SV
     output.positionWS = positionWS;
     output.positionCS = TransformWorldToHClip(positionWS);
     output.uv = float4(edge, tone, rise, gap);
-    output.weather = float2(motion.wet, motion.snow);
+    output.weather = float3(motion.wet, motion.snow, HB_GrassBakedShadow(blade.root));
     output.normalWS = blade.normal;
     output.ground = blade.ground;
     output.gust = float2(motion.press, motion.streak);
@@ -396,14 +411,15 @@ half4 HB_GrassTuft(HBGrassVaryings input, out half cover)
 
 #if defined(HB_GRASS_FORWARD)
 
-half HB_GrassShadow(float3 positionWS)
+half HB_GrassShadow(float3 positionWS, half baked)
 {
-    half shadow = 1.0h;
+    half shadow = baked;
 
 #if defined(_MAIN_LIGHT_SHADOWS_SCREEN)
-    shadow = MainLightRealtimeShadow(ComputeScreenPos(TransformWorldToHClip(positionWS)));
+    shadow = min(MainLightRealtimeShadow(ComputeScreenPos(TransformWorldToHClip(positionWS))), baked);
 #elif defined(_MAIN_LIGHT_SHADOWS) || defined(_MAIN_LIGHT_SHADOWS_CASCADE)
     float4 shadowCoord = TransformWorldToShadowCoord(positionWS);
+    shadow = 1.0h;
 
     UNITY_BRANCH
     if (!BEYOND_SHADOW_FAR(shadowCoord))
@@ -413,7 +429,7 @@ half HB_GrassShadow(float3 positionWS)
         shadow = LerpWhiteTo(shadow, GetMainLightShadowParams().x);
     }
 
-    shadow = lerp(shadow, 1.0h, GetMainLightShadowFade(positionWS));
+    shadow = lerp(shadow, baked, _MainLightShadowmapSize.z < 2.0 ? 1.0h : GetMainLightShadowFade(positionWS));
 #endif
 
     return shadow;
@@ -524,7 +540,7 @@ half4 HB_GrassFragment(HBGrassVaryings input) : SV_Target
     half wrap = half(HB_GRASS_STYLE_WRAP);
     half inverseWrap = rcp(1.0h + wrap);
     half lambert = saturate((dot(normalWS, half3(_MainLightPosition.xyz)) + wrap) * inverseWrap);
-    half sunlit = HB_GrassShadow(input.positionWS);
+    half sunlit = HB_GrassShadow(input.positionWS, half(input.weather.z));
     half tone = HB_ToneBands(lambert * sunlit, wrap * inverseWrap, half(HB_GRASS_STYLE_HALF_TONE),
                              half(HB_GRASS_STYLE_SOFTNESS));
     half3 direct = half3(_MainLightColor.rgb) * tone

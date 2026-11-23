@@ -15,7 +15,9 @@ terrain.
 - Near the camera the terrain is drawn at full detail, so it matches its collider; detail drops with distance.
   The Terrain quality level sets how fast.
 - Collisions use a regular Unity Terrain Collider, which the component fills.
-- The terrain takes no baked light: it gets realtime shadows and the style's ambient.
+- The terrain takes baked shadows but no baked light: each lighting Bake gives it a shadowmask at 2 texels per
+  metre (up to Max Lightmap Size); grass, cards and flowers read it at their root. Rebake after moving static
+  objects or the sun.
 - The baked layer map, hand painting, grass painting and liquid maps are kept losslessly compressed in the data
   asset and unpacked when it loads. Hand painting stays in the Editor; it never goes into a build. Older data
   assets are converted the first time the project opens.
