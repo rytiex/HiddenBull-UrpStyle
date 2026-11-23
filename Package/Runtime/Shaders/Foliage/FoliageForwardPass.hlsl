@@ -4,6 +4,7 @@
 #define HB_WEATHER
 #define HB_DECAL_SURFACE
 
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Foliage/FoliageInput.hlsl"
 
