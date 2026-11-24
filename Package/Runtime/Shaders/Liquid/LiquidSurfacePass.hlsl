@@ -995,9 +995,11 @@ half HB_LiquidFloorShadow(float3 floorWS)
 {
 #if defined(MAIN_LIGHT_CALCULATE_SHADOWS)
     half4 crisp = GetMainLightShadowParams();
+    float4 coord = TransformWorldToShadowCoord(floorWS);
 
     crisp.y = SOFT_SHADOW_QUALITY_OFF;
-    return MainLightRealtimeShadow(TransformWorldToShadowCoord(floorWS), crisp, GetMainLightShadowSamplingData());
+    coord.w = 1.0;
+    return MainLightRealtimeShadow(coord, crisp, GetMainLightShadowSamplingData());
 #else
     return 1.0h;
 #endif

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.9
+
+- No more "floating point division by zero" shader warning in the Underwater and liquid passes.
+
 ## 1.1.8
 
 - Lens flare: a sun flare (glow, rays, ghosts and halo) that fades behind objects, clouds and the horizon and is off

@@ -1649,6 +1649,16 @@
             Reads = 30
         }
         @{
+            Name = 'Underwater (main light shadows)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
+            Entry = 'HB_UnderFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_MAIN_LIGHT_SHADOWS')
+            Slots = 770
+            Reads = 30
+        }
+        @{
             Name = 'Underwater Overlay'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Liquid/UnderwaterPass.hlsl'
             Entry = 'HB_UnderOverlayFragment'
