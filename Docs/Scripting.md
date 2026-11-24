@@ -4,8 +4,9 @@ Everything is in the `HiddenBull.UrpStyle` namespace.
 
 ## Quality at runtime
 
-`HBStyleRenderSettings` holds one level per module. The game decides the levels (for example from its own
-graphics menu) and saves them itself; the package does not store them.
+`HBStyleRenderSettings` holds one level per module, plus `lensFlare`, an on/off switch for the lens flare. The
+game decides the levels (for example from its own graphics menu) and saves them itself; the package does not store
+them.
 
 ```csharp
 var settings = HBStyleRenderSettings.Get();

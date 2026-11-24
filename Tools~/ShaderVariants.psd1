@@ -46,6 +46,14 @@
             Reads = 15
         }
         @{
+            Name = 'Lit Forward (single cascade)'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitForwardPass.hlsl'
+            Entry = 'HB_LitFragment'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @('_MAIN_LIGHT_SHADOWS', '_CLUSTER_LIGHT_LOOP')
+        }
+        @{
             Name = 'Lit Forward (brush)'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Lit/LitForwardPass.hlsl'
             Entry = 'HB_LitFragment'
@@ -705,6 +713,36 @@
             Reads = 9
         }
         @{
+            Name = 'Lens Flare'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlarePass.hlsl'
+            Entry = 'HB_LensFlare'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 230
+            Reads = 8
+        }
+        @{
+            Name = 'Lens Flare Sun'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlareSun.hlsl'
+            Entry = 'HB_FlareSunVisibility'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 320
+            Reads = 27
+        }
+        @{
+            Name = 'Lens Flare Debug'
+            Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlareSun.hlsl'
+            Entry = 'HB_FlareSunDebug'
+            Stage = 'ps'
+            Urp = 'Minimal'
+            Defines = @()
+            Slots = 45
+            Reads = 3
+        }
+        @{
             Name = 'Ambient Occlusion Horizon'
             Include = 'Packages/com.hiddenbull.urpstyle/Runtime/Shaders/AmbientOcclusion/AmbientOcclusionPass.hlsl'
             Entry = 'HB_AOHorizon'
@@ -721,7 +759,7 @@
             Stage = 'ps'
             Urp = 'Minimal'
             Defines = @()
-            Slots = 60
+            Slots = 80
             Reads = 10
         }
         @{

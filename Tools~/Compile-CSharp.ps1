@@ -8,11 +8,14 @@ $refs = @()
 $refs += Get-ChildItem (Join-Path $UnityData 'Managed\UnityEngine\*.dll') | ForEach-Object FullName
 $refs += Join-Path $UnityData 'NetStandard\ref\2.1.0\netstandard.dll'
 $refs += Join-Path $UnityData 'NetStandard\compat\2.1.0\shims\netfx\mscorlib.dll'
-$refs += Get-ChildItem (Join-Path $Sandbox 'Library\ScriptAssemblies\*.dll') |
-         Where-Object { $_.Name -notlike 'HiddenBull.*' -and $_.Name -notlike 'Assembly-CSharp*' } |
-         ForEach-Object FullName
+$scripts = Get-ChildItem (Join-Path $Sandbox 'Library\ScriptAssemblies\*.dll')
 
 $failed = $false
+
+function Get-AsmdefRefs([string]$Asmdef) {
+    $names = (Get-Content -Raw $Asmdef | ConvertFrom-Json).references
+    $scripts | Where-Object { $names -contains $_.BaseName } | ForEach-Object FullName
+}
 
 function Build([string]$Leaf, [string]$Name, [string]$Defines, [string]$Source, [string[]]$Extra) {
     $target = Join-Path $dir $Leaf
@@ -21,7 +24,7 @@ function Build([string]$Leaf, [string]$Name, [string]$Defines, [string]$Source, 
     $rsp = @('-target:library', '-unsafe+', '-langversion:9.0', '-nostdlib+', '-nologo', "-define:$Defines",
              '-nowarn:0169,0649,0282,1701,1702', '-preferreduilang:en-US',
              ('-out:"' + (Join-Path $target "$Name.dll") + '"'))
-    $rsp += ($refs + $Extra) | ForEach-Object { "-r:`"$_`"" }
+    $rsp += ($refs + (Get-AsmdefRefs (Join-Path $Source "$Name.asmdef")) + $Extra) | ForEach-Object { "-r:`"$_`"" }
     $rsp += Get-ChildItem -Recurse (Join-Path $Source '*.cs') | ForEach-Object { "`"$($_.FullName)`"" }
 
     $file = Join-Path $target "$Name.rsp"

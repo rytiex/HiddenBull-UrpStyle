@@ -40,6 +40,24 @@ Bake and Cancel buttons.
 - **Use Mipmap Limits** off (the default) removes the lightmaps' mipmaps after every bake. This keeps distant
   lightmapped surfaces from bleeding into each other.
 
+## Optimize Variants
+
+Shortens player builds. Unity compiles every material once with and once without each shader keyword the
+project keeps, so one keyword nothing uses can double the shader variants and the build time.
+
+| Tab | What it does |
+|---|---|
+| Checks | Scans the build scenes and the project's prefabs and lists keywords that nothing uses: LOD Cross Fade, Light Cookies and BatchRendererGroup variants. **Fix** turns the setting off |
+| Variants | How many variants each shader compiled in the last build and which keywords multiply them |
+
+- The counts are taken during every player build. A build that reuses the shaders of an earlier build keeps
+  the last counts; choose **Clean Build** to count again. Already compiled variants stay cached, so a Clean
+  Build after a full build is fast.
+- Cookies assigned from scripts at runtime are not seen by the scan.
+- Variants for Subtractive lighting and for the full Shadowmask mode are left out of every build
+  automatically while no Lighting Settings asset bakes Subtractive and no quality level uses Shadowmask Mode
+  Shadowmask. The style uses Distance Shadowmask, which never needs them.
+
 ## Debug window
 
 Shows what the renderer sees. Pick a **View** to replace the scene's colours with one quantity:

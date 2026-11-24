@@ -77,6 +77,54 @@ Shader "Hidden/HB URP Style/Bloom"
             #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/BloomPass.hlsl"
             ENDHLSL
         }
+
+        Pass
+        {
+            Name "Lens Flare"
+
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_BloomVertex
+            #pragma fragment HB_LensFlare
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlarePass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Lens Flare Sun"
+
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_FlareSunVertex
+            #pragma fragment HB_FlareSunVisibility
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlareSun.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Name "Lens Flare Debug"
+
+            Blend Off
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma vertex HB_FlareSunVertex
+            #pragma fragment HB_FlareSunDebug
+
+            #include "Packages/com.hiddenbull.urpstyle/Runtime/Shaders/Bloom/LensFlareSun.hlsl"
+            ENDHLSL
+        }
     }
 
     Fallback Off

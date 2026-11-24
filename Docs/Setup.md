@@ -15,7 +15,7 @@ globals, fog, shelter from rain and snow, grass and plants, glass, liquids, refl
 sets Depth Priming to Forced on its renderer. Without it the shaders still draw, but fog, weather, grass, plants
 and liquids are missing.
 
-The feature has five settings:
+The feature has six settings:
 
 - **Quality**: an HB Style Quality Profile with the level of each module. Leave it empty to use the defaults.
   Levels are explained in [Performance](Performance.md); a game can change them at runtime, see
@@ -27,6 +27,13 @@ The feature has five settings:
 - **Bloom**: a wide, soft glow around bright areas such as sunlit windows, the sky and lamps, the same in every
   scene. The glow keeps the colour of what shines; **Tint** only warms or cools all of it. It works best with HDR
   on the URP asset; without HDR only near-white pixels glow. The Bloom quality level sets how wide it reaches.
+- **Lens Flare**: two parts that turn on and off apart. **Sun Intensity** draws a glow, thin rays, ghosts and a
+  halo from the sun while it is on screen; it fades as the sun goes behind objects, clouds or the horizon, is off
+  underwater and takes the sun's colour. **Light Intensity** adds faint ghosts from small bright lights such as
+  lamps and headlights; large bright areas never flare, and **Light Threshold** keeps water glints and dim lamps
+  out. It follows the Bloom quality level (Off turns it off too) and works with Bloom Intensity at 0.
+  **Lighting → Lens Flare Sun** in the debug window shows the sky the sun is tested against (grey), where the sun
+  is (red ring) and how visible it is (bar).
 - **Ambient Occlusion**: soft shading in corners, creases and under objects, the same in every scene. **Radius**
   is how far in metres a surface looks for what blocks its ambient light; far from the camera the reach grows so
   distant buildings keep their shading. **Direct Lighting** lets it darken sunlight and lamps too. It shades HB Lit,

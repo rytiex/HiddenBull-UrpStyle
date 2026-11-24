@@ -17,6 +17,8 @@ namespace HiddenBull.UrpStyle
 
         readonly ConstantBuffer<StyleFrameGlobals> m_Buffer = new ConstantBuffer<StyleFrameGlobals>();
         readonly StyleEnvironmentMixer m_Mixer = new StyleEnvironmentMixer();
+
+        internal Vector3 sunDirection { get; private set; }
         readonly StyleProfileMix m_SharedMix = new StyleProfileMix();
 #if UNITY_EDITOR
         readonly StyleProfileMix m_PreviewMix = new StyleProfileMix();
@@ -123,6 +125,7 @@ namespace HiddenBull.UrpStyle
 
             passData.buffer = m_Buffer;
             passData.globals = resolved.globals;
+            sunDirection = resolved.globals._HB_SunDirection;
             passData.brushAtlas = resolved.brushAtlas != null ? resolved.brushAtlas : Texture2D.grayTexture;
             passData.cloudAtlas = resolved.cloudAtlas != null ? resolved.cloudAtlas : Texture2D.blackTexture;
             passData.skyLut = resolved.skyLut;

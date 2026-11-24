@@ -9,7 +9,7 @@ namespace HiddenBull.UrpStyle
         [SerializeField]
         [Range(0f, 2f)]
         [Tooltip("How strongly bright areas glow. 0 turns bloom off.")]
-        float m_Intensity = 0.35f;
+        float m_Intensity = 1f;
 
         [SerializeField]
         [Range(0f, 4f)]

@@ -301,7 +301,11 @@ half HB_MainLightShadow(float4 shadowCoord, float3 shadowPositionWS, float3 posi
     {
         realtime = 0.0h;
 
+#if defined(_MAIN_LIGHT_SHADOWS_CASCADE)
         UNITY_LOOP
+#else
+        UNITY_UNROLL
+#endif
         for (int tap = 0; tap < taps; tap++)
         {
             int index = cascade + tap;

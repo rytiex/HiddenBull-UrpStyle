@@ -39,6 +39,9 @@ namespace HiddenBull.UrpStyle
         [Tooltip("Ambient occlusion level. Off turns the soft corner shading off.")]
         public HBStyleQualityLevel ambientOcclusion;
 
+        [Tooltip("Lens flare from the sun and small bright lights. It also needs Bloom above Off.")]
+        public bool lensFlare;
+
         static HBStyleRenderSettings s_Current;
         static bool s_Active;
 
@@ -47,6 +50,8 @@ namespace HiddenBull.UrpStyle
         public static bool isSet => s_Active;
 
         internal static ref readonly HBStyleRenderSettings current => ref s_Current;
+
+        internal static bool lensFlareOn => !s_Active || s_Current.lensFlare;
 
         public static HBStyleRenderSettings authored => From(HBStyleFeature.authoredQuality);
 
@@ -90,7 +95,8 @@ namespace HiddenBull.UrpStyle
                     transparency = new HBStyleTransparencyQuality().authoredLevel,
                     reflections = new HBStyleReflectionQuality().authoredLevel,
                     bloom = new HBStyleBloomQuality().authoredLevel,
-                    ambientOcclusion = new HBStyleAmbientOcclusionQuality().authoredLevel
+                    ambientOcclusion = new HBStyleAmbientOcclusionQuality().authoredLevel,
+                    lensFlare = true
                 };
             }
 
@@ -106,7 +112,8 @@ namespace HiddenBull.UrpStyle
                 transparency = profile.transparency.authoredLevel,
                 reflections = profile.reflections.authoredLevel,
                 bloom = profile.bloom.authoredLevel,
-                ambientOcclusion = profile.ambientOcclusion.authoredLevel
+                ambientOcclusion = profile.ambientOcclusion.authoredLevel,
+                lensFlare = true
             };
         }
 
@@ -116,7 +123,7 @@ namespace HiddenBull.UrpStyle
                    precipitation == other.precipitation && terrain == other.terrain && grass == other.grass &&
                    antiAliasing == other.antiAliasing && transparency == other.transparency &&
                    reflections == other.reflections && bloom == other.bloom &&
-                   ambientOcclusion == other.ambientOcclusion;
+                   ambientOcclusion == other.ambientOcclusion && lensFlare == other.lensFlare;
         }
 
         public override bool Equals(object obj)
@@ -128,7 +135,8 @@ namespace HiddenBull.UrpStyle
         {
             var hash = HashCode.Combine(shadows, atmosphere, weather, precipitation, terrain);
 
-            return HashCode.Combine(hash, grass, antiAliasing, transparency, reflections, bloom, ambientOcclusion);
+            return HashCode.Combine(hash, grass, antiAliasing, transparency, reflections, bloom, ambientOcclusion,
+                                lensFlare);
         }
 
         public static bool operator ==(HBStyleRenderSettings left, HBStyleRenderSettings right)

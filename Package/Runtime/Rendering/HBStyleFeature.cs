@@ -30,6 +30,12 @@ namespace HiddenBull.UrpStyle
         HBStyleBloomSettings m_Bloom = new HBStyleBloomSettings();
 
         [SerializeField]
+        [Tooltip("Ghosts and a halo mirrored through the middle of the screen from the sun and other very bright " +
+                 "lights, shared by every scene. It follows the Bloom quality level and works with Bloom Intensity " +
+                 "at 0.")]
+        HBStyleLensFlareSettings m_LensFlare = new HBStyleLensFlareSettings();
+
+        [SerializeField]
         [Tooltip("Soft shading in corners, creases and under objects, shared by every scene. The Ambient " +
                  "Occlusion quality level sets how carefully it is searched.")]
         HBStyleAmbientOcclusionSettings m_AmbientOcclusion = new HBStyleAmbientOcclusionSettings();
@@ -133,6 +139,8 @@ namespace HiddenBull.UrpStyle
         public HBStyleBrushSettings brush => m_Brush;
 
         public HBStyleBloomSettings bloom => m_Bloom;
+
+        public HBStyleLensFlareSettings lensFlare => m_LensFlare;
 
         public HBStyleAmbientOcclusionSettings ambientOcclusion => m_AmbientOcclusion;
 
@@ -321,9 +329,9 @@ namespace HiddenBull.UrpStyle
                 m_AmbientOcclusionPass.Enqueue(renderer);
             }
 
-            if (StyleBloomPass.Wanted(quality.bloom, m_Bloom))
+            if (StyleBloomPass.Wanted(quality.bloom, m_Bloom, m_LensFlare))
             {
-                m_BloomPass.Setup(m_BloomShader, quality.bloom, m_Bloom);
+                m_BloomPass.Setup(m_BloomShader, quality.bloom, m_Bloom, m_LensFlare, m_GlobalsPass);
                 renderer.EnqueuePass(m_BloomPass);
             }
 

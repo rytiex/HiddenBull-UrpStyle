@@ -17,7 +17,7 @@ values can be edited in the profile; the table says what the levels change.
 | Anti Aliasing | Off – Ultra | How carefully edges and pixel-sized details are smoothed |
 | Transparency | Low – Ultra | Refraction resolution, coloured glass shadows (High and Ultra), simple light on Low |
 | Reflections | Off – Ultra | Screen-space reflection steps; Off mirrors only the sky |
-| Bloom | Off – Ultra | How wide the glow reaches and whether small bright points are steadied; Off turns it off |
+| Bloom | Off – Ultra | How wide the glow reaches and whether small bright points are steadied; Off turns bloom and lens flare off |
 | Ambient Occlusion | Off – Ultra | Directions and samples searched per pixel; Low and Medium work at half resolution |
 
 To turn the weather off, set Rain and Snow to 0; nothing of it is drawn then.
@@ -61,8 +61,9 @@ the reference. Every section turned on is the worst case; a material only pays f
 ## Limitations
 
 - **Rendering**: Forward+ and Render Graph only. No MSAA (use the package's anti aliasing), no WebGL, no mobile.
-- **Lighting**: built for Mixed lighting with Shadowmask. The HB Style Terrain takes baked shadows (one
-  shadowmask chart of up to Max Lightmap Size) but no baked light.
+- **Lighting**: built for Mixed lighting with Shadowmask. Subtractive lighting is not supported; its shader
+  variants are left out of builds. The HB Style Terrain takes baked shadows (one shadowmask chart of up to Max
+  Lightmap Size) but no baked light.
 - **Terrain**: one square terrain up to 4 × 4 km, no tiles or streaming. Caves and overhangs are separate meshes
   through terrain holes.
 - **Plants**: no middle detail level between the mesh and the billboard. A LOD Group on a plant draws every LOD.

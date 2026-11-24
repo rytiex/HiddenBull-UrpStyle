@@ -154,11 +154,11 @@ namespace HiddenBull.UrpStyle
             var final = Create(renderGraph, width, height, format, "HB Style AO");
 
             Draw(renderGraph, TextureHandle.nullHandle, depth, normals, horizon, HorizonPass, parameters, steps, aoSize,
-                 Vector4.zero);
+                 new Vector4(0f, 0f, width, height));
             Draw(renderGraph, horizon, depth, TextureHandle.nullHandle, across, BlurPass, parameters, steps, aoSize,
-                 new Vector4(aoSize.z, 0f, 0f, 0f));
+                 new Vector4(aoSize.z, 0f, width, height));
             Draw(renderGraph, across, depth, TextureHandle.nullHandle, final, BlurPass, parameters, steps, fullSize,
-                 new Vector4(0f, aoSize.w, 0f, 0f));
+                 new Vector4(0f, aoSize.w, width, height));
 
             frameData.GetOrCreate<FrameData>().texture = final;
 

@@ -20,6 +20,7 @@ float4 _HB_AOBlur;
 #define HB_AO_MIN_PIXELS  _HB_AOSteps.w
 #define HB_AO_FALLOFF     0.615
 #define HB_AO_SKY         0.9999
+#define HB_AO_SCREEN      _HB_AOBlur.zw
 
 static const float s_HB_AOBayer[16] =
 {
@@ -34,12 +35,14 @@ float4 HB_AOVertex(uint vertexID : SV_VertexID) : SV_POSITION
     return GetFullScreenTriangleVertexPosition(vertexID);
 }
 
+uint2 HB_AOPixel(float2 uv)
+{
+    return (uint2)min(saturate(uv) * HB_AO_SCREEN, HB_AO_SCREEN - 1.0);
+}
+
 float HB_AORawDepth(float2 uv)
 {
-    float2 screen = UnityStereoTransformScreenSpaceTex(uv);
-    float2 scaled = ClampAndScaleUVForBilinear(screen, _CameraDepthTexture_TexelSize.xy);
-
-    return SAMPLE_TEXTURE2D_X_LOD(_CameraDepthTexture, sampler_PointClamp, scaled, 0).r;
+    return LoadSceneDepth(HB_AOPixel(uv));
 }
 
 float HB_AOEyeDepth(float2 uv)
@@ -74,7 +77,7 @@ float4 HB_AOHorizon(float4 positionCS : SV_POSITION) : SV_Target
     float3 rayX = (HB_AORelative(uv + float2(_HB_AOSize.z, 0.0), raw) - position) / depth;
     float3 rayY = (HB_AORelative(uv + float2(0.0, _HB_AOSize.w), raw) - position) / depth;
     float3 view = normalize(-position);
-    float3 normal = normalize(SampleSceneNormals(uv));
+    float3 normal = normalize(LoadSceneNormals(HB_AOPixel(uv)));
 
     float radius = max(HB_AO_RADIUS, depth * HB_AO_MIN_PIXELS / HB_AO_PROJECTION);
     float radiusPixels = min(radius * HB_AO_PROJECTION / depth, HB_AO_MAX_PIXELS);
