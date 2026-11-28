@@ -68,7 +68,6 @@ namespace HiddenBull.UrpStyle
         static readonly int s_AirId = Shader.PropertyToID("_HB_GrassAir");
         static readonly int s_ClockId = Shader.PropertyToID("_HB_GrassClock");
         static readonly int s_TrailId = Shader.PropertyToID("_HB_GrassTrail");
-        static readonly int s_TimeId = Shader.PropertyToID("_Time");
         static readonly int s_FlowerHeadsId = Shader.PropertyToID("_HB_FlowerHeads");
         static readonly int s_LayerFlowerId = Shader.PropertyToID("_HB_LayerFlower");
         static readonly int s_ListId = Shader.PropertyToID("_HB_GrassList");
@@ -356,7 +355,7 @@ namespace HiddenBull.UrpStyle
                 cmd.SetComputeVectorParam(m_Compute, s_CameraId, cameraData);
                 cmd.SetComputeVectorParam(m_Compute, s_RootsId, Roots(terrain));
                 cmd.SetComputeVectorArrayParam(m_Compute, s_PlanesId, m_PlaneData);
-                cmd.SetComputeVectorParam(m_Compute, s_ClockId, new Vector4(Shader.GetGlobalVector(s_TimeId).y, 0f));
+                cmd.SetComputeVectorParam(m_Compute, s_ClockId, new Vector4((float)StyleEnvironment.clock, 0f));
                 cmd.SetComputeVectorParam(m_Compute, s_AirId, Air());
                 cmd.SetComputeVectorArrayParam(m_Compute, s_LayerSurfaceId, terrain.layerSurface);
                 Shelter(cmd, camera);

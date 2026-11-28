@@ -160,7 +160,6 @@ namespace HiddenBull.UrpStyle
         static readonly int s_SunId = Shader.PropertyToID("_HB_PlantSun");
         static readonly int s_ViewId = Shader.PropertyToID("_HB_PlantView");
         static readonly int s_AirId = Shader.PropertyToID("_HB_PlantAir");
-        static readonly int s_TimeId = Shader.PropertyToID("_Time");
         static readonly int s_ReceiveWeatherId = Shader.PropertyToID("_ReceiveWeather");
         static readonly int s_ExtentId = Shader.PropertyToID("_HB_PlantExtent");
         static readonly int s_CascadesId = Shader.PropertyToID("_HB_PlantCascades");
@@ -470,7 +469,7 @@ namespace HiddenBull.UrpStyle
             s_View = new Vector4(Zoom(viewer), StyleShelterPass.Extent * 0.5f, 0f, 0f);
             s_Sun = new Vector4(travel.x, travel.y, travel.z, sun != null ? shadowDistance : 0f);
             s_Air = new Vector4(StyleEnvironment.weather.z, StyleEnvironment.windHeading * Mathf.Deg2Rad,
-                                Shader.GetGlobalVector(s_TimeId).y, 0f);
+                                (float)StyleEnvironment.clock, 0f);
 
             s_Commands.SetComputeVectorArrayParam(s_Compute, s_PlanesId, s_PlaneVectors);
             s_Commands.SetComputeVectorParam(s_Compute, s_ViewId, s_View);
