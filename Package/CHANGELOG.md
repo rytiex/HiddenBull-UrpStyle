@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- Subsurface skin: the light that shines through thin skin is measured from four shadow-map texels and blended,
+  so backlit edges no longer show blocky steps.
+
 ## 1.1.9
 
 - No more "floating point division by zero" shader warning in the Underwater and liquid passes.

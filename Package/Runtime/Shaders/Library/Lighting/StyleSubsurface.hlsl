@@ -49,6 +49,29 @@ half3 HB_ClothWeave(half3 normalWS, float3 positionWS, float2 uv, half strength,
                                     * (reach * strength * HB_CLOTH_WEAVE_TILT * fade)));
 }
 
+#if defined(HB_MAIN_LIGHT_SHADOW_MAP)
+half HB_SubsurfaceThinTexels(float2 uv, float depth, float depthPerMetre)
+{
+    float2 texel = uv * _MainLightShadowmapSize.zw - 0.5;
+    float2 corner = floor(texel);
+    float2 weight = texel - corner;
+    float4 entry = GATHER_RED_TEXTURE2D(_MainLightShadowmapTexture, sampler_PointClamp,
+                                        (corner + 1.0) * _MainLightShadowmapSize.xy);
+
+#if UNITY_REVERSED_Z
+    float4 travelled = (entry - depth) / depthPerMetre;
+#else
+    float4 travelled = (depth - entry) / depthPerMetre;
+#endif
+
+    float4 thin = exp(-max(travelled, 0.0) / HB_SKIN_THICKNESS_REACH);
+    float top = lerp(thin.w, thin.z, weight.x);
+    float bottom = lerp(thin.x, thin.y, weight.x);
+
+    return half(lerp(top, bottom, weight.y));
+}
+#endif
+
 half HB_SubsurfaceThin(Light light, float3 positionWS)
 {
 #if defined(_HB_THICKNESS_MAP)
@@ -66,15 +89,12 @@ half HB_SubsurfaceThin(Light light, float3 positionWS)
         float perMetre, depthPerMetre;
         HB_ShadowScale(HB_ShadowCascade(positionWS), perMetre, depthPerMetre);
 
-        float entry = SAMPLE_TEXTURE2D_LOD(_MainLightShadowmapTexture, sampler_LinearClamp, coord.xy, 0).r;
+        float2 spread = _MainLightShadowmapSize.xy * 0.5;
 
-    #if UNITY_REVERSED_Z
-        float travelled = (entry - coord.z) / depthPerMetre;
-    #else
-        float travelled = (coord.z - entry) / depthPerMetre;
-    #endif
-
-        thin = half(exp(-max(travelled, 0.0) / HB_SKIN_THICKNESS_REACH));
+        thin = (HB_SubsurfaceThinTexels(coord.xy + float2(-spread.x, -spread.y), coord.z, depthPerMetre)
+              + HB_SubsurfaceThinTexels(coord.xy + float2(spread.x, -spread.y), coord.z, depthPerMetre)
+              + HB_SubsurfaceThinTexels(coord.xy + float2(-spread.x, spread.y), coord.z, depthPerMetre)
+              + HB_SubsurfaceThinTexels(coord.xy + float2(spread.x, spread.y), coord.z, depthPerMetre)) * 0.25h;
     }
 
     return thin;
